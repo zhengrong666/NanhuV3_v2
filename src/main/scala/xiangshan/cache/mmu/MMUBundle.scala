@@ -25,7 +25,8 @@ import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.fu.util.HasCSRConst
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.tilelink._
-import xiangshan.backend.fu.{PMPReqBundle, PMPConfig}
+import xiangshan.backend.fu.{PMPConfig, PMPReqBundle}
+import xs.utils.Code
 
 
 abstract class TlbBundle(implicit p: Parameters) extends XSBundle with HasTlbConst

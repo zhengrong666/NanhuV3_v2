@@ -26,10 +26,11 @@ import xiangshan.cache.{HasDCacheParameters, MemoryOpConstants}
 import utils._
 import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp}
 import freechips.rocketchip.tilelink._
-import huancun.mbist.MBISTPipeline
-import huancun.{PreferCacheKey, PreferCacheField}
+import xs.utils.mbist.MBISTPipeline
+import huancun.{PreferCacheField, PreferCacheKey}
 import xiangshan.backend.fu.{PMP, PMPChecker, PMPReqBundle, PMPRespBundle}
 import xiangshan.backend.fu.util.HasCSRConst
+import xs.utils.{DataHoldBypass, DelayN, TimeOutAssert}
 
 class PTW(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyModule with HasPtwConst {
 

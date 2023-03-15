@@ -22,6 +22,7 @@ import chisel3.util._
 import utils._
 import xiangshan._
 import xiangshan.backend.issue.AgeDetector
+import xs.utils.SelectOne
 
 class InputBuffer(numEntries: Int, enableBypass: Boolean)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle() {

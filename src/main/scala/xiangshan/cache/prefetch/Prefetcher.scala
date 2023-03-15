@@ -18,10 +18,7 @@ package xiangshan.cache.prefetch
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.util._
 import xiangshan._
-import xiangshan.cache._
-import utils._
 
 trait HasPrefetchParameters extends HasXSParameter {
   val bopParams = p(BOPParamsKey)

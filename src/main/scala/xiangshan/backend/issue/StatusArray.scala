@@ -22,7 +22,8 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import xiangshan.backend.rob.RobPtr
-import xiangshan.mem.{SqPtr, MemWaitUpdateReq}
+import xiangshan.mem.{MemWaitUpdateReq, SqPtr}
+import xs.utils.ParallelMux
 
 class StatusArrayUpdateIO(params: RSParams)(implicit p: Parameters) extends Bundle {
   val enable = Input(Bool())

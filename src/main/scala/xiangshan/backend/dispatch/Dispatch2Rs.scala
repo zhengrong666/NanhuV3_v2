@@ -25,6 +25,7 @@ import utils._
 import xiangshan.backend.exu.ExuConfig
 import xiangshan.backend.rename.BusyTableReadIO
 import xiangshan.mem.LsqEnqIO
+import xs.utils.{PipelineNext, SelectOne}
 
 class Dispatch2Rs(val configs: Seq[Seq[ExuConfig]])(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val numIn = dpParams.IntDqDeqWidth

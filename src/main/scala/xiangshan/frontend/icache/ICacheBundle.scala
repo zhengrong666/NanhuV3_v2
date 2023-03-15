@@ -20,8 +20,6 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.tilelink.{ClientMetadata, TLPermissions}
-import xiangshan._
-import utils._
 
 class ICacheReadBundle(implicit p: Parameters) extends ICacheBundle
 {

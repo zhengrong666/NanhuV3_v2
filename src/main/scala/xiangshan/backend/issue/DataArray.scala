@@ -23,6 +23,7 @@ import xiangshan._
 import utils._
 import xiangshan.backend.decode.{ImmUnion, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.exu.ExuConfig
+import xs.utils.{AsyncRawDataModuleTemplate, SignExt}
 
 class DataArrayReadIO(numEntries: Int, numSrc: Int, dataBits: Int)(implicit p: Parameters) extends XSBundle {
   val addr = Input(UInt(numEntries.W))

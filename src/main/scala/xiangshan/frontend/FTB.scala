@@ -18,17 +18,13 @@ package xiangshan.frontend
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.stage.{ChiselGeneratorAnnotation, ChiselStage}
 import chisel3.util._
 import xiangshan._
 import utils._
-import chisel3.experimental.chiselName
-import huancun.mbist.MBISTPipeline
-import huancun.utils.SRAMTemplate
-
-import scala.math.min
+import xs.utils._
+import xs.utils.mbist.MBISTPipeline
+import xs.utils.sram.SRAMTemplate
 import scala.{Tuple2 => &}
-import os.copy
 
 
 trait FTBParams extends HasXSParameter with HasBPUConst {

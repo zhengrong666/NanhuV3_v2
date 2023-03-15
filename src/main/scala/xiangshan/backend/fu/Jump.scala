@@ -24,6 +24,7 @@ import utils._
 import xiangshan.backend._
 import xiangshan.backend.decode.ImmUnion
 import xiangshan.backend.decode.isa._
+import xs.utils.{ParallelMux, SignExt}
 
 trait HasRedirectOut { this: XSModule =>
   val redirectOutValid = IO(Output(Bool()))

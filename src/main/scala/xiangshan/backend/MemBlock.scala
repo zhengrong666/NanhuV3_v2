@@ -22,8 +22,8 @@ import chisel3.util._
 import freechips.rocketchip.diplomacy.{BundleBridgeSource, LazyModule, LazyModuleImp}
 import freechips.rocketchip.tile.HasFPUParameters
 import huancun.PrefetchRecv
-import huancun.mbist.MBISTPipeline
-import huancun.utils.{RegNextN, ValidIODelay}
+import xs.utils.mbist.MBISTPipeline
+import xs.utils.{DelayN, ParallelPriorityMux, RegNextN, RegNextWithEnable, ValidIODelay}
 import utils._
 import xiangshan._
 import xiangshan.backend.exu.StdExeUnit

@@ -21,6 +21,7 @@ import chisel3._
 import chisel3.util._
 import chisel3.ExcitingUtils
 import utils._
+import xs.utils._
 import xiangshan._
 import xiangshan.backend.fu.fpu.FPU
 import xiangshan.backend.rob.RobLsqIO

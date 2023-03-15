@@ -3,12 +3,13 @@ package xiangshan.mem.prefetch
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import huancun.mbist.MBISTPipeline
+import xs.utils.mbist.MBISTPipeline
 import xiangshan._
 import utils._
+import xs.utils._
 import xiangshan.cache.HasDCacheParameters
 import xiangshan.cache.mmu._
-import huancun.utils.SRAMTemplate
+import xs.utils.sram.SRAMTemplate
 
 case class SMSParams
 (

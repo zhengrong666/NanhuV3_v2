@@ -25,6 +25,7 @@ import utils._
 import xiangshan._
 import xiangshan.backend.exu.ExuConfig
 import xiangshan.frontend.FtqPtr
+import xs.utils.{GTimer, ParallelPriorityMux, SignExt, SyncDataModuleTemplate, ParallelOperation}
 
 class RobPtr(implicit p: Parameters) extends CircularQueuePtr[RobPtr](
   p => p(XSCoreParamsKey).RobSize

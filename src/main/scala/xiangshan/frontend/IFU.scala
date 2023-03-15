@@ -24,7 +24,7 @@ import xiangshan._
 import xiangshan.cache.mmu._
 import xiangshan.frontend.icache._
 import utils._
-import xiangshan.backend.fu.{PMPReqBundle, PMPRespBundle}
+import xs.utils._
 
 trait HasInstrMMIOConst extends HasXSParameter with HasIFUConst{
   def mmioBusWidth = 64

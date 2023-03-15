@@ -22,7 +22,7 @@ import chisel3.experimental.chiselName
 import xiangshan._
 import xiangshan.frontend.icache._
 import utils._
-import scala.math._
+import xs.utils._
 import scala.{Tuple2 => &}
 
 @chiselName

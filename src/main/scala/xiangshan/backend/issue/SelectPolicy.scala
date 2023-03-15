@@ -21,6 +21,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import utils._
+import xs.utils.{ParallelMux, SelectOne}
 
 class SelectPolicy(params: RSParams)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle {

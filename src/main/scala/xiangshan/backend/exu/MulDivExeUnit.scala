@@ -22,6 +22,7 @@ import chisel3.util._
 import utils._
 import xiangshan._
 import xiangshan.backend.fu._
+import xs.utils._
 
 class MulDivExeUnit(implicit p: Parameters) extends ExeUnit(MulDivExeUnitCfg) {
 

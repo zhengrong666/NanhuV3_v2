@@ -21,7 +21,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.cache.mmu.{HasTlbConst}
 import utils._
-import huancun.utils.SRAMTemplate
+import xs.utils.sram.SRAMTemplate
 
 case object BOPParamsKey extends Field[BOPParameters]
 

@@ -21,10 +21,8 @@ import chisel3._
 import chisel3.util._
 import chisel3.internal.naming.chiselName
 import xiangshan._
-import xiangshan.cache.{HasDCacheParameters, MemoryOpConstants}
 import utils._
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-import freechips.rocketchip.tilelink._
+import xs.utils._
 import xiangshan.backend.fu.{PMPReqBundle, PMPRespBundle}
 
 /** Page Table Walk is divided into two parts

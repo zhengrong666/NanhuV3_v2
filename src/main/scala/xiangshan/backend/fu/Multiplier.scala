@@ -22,6 +22,7 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import xiangshan.backend.fu.util.{C22, C32, C53}
+import xs.utils.SignExt
 
 class MulDivCtrl extends Bundle{
   val sign = Bool()

@@ -19,10 +19,9 @@ package xiangshan.cache.prefetch
 import chipsalliance.rocketchip.config.{Parameters, Field}
 import chisel3._
 import chisel3.util._
-import xiangshan._
-import xiangshan.cache._
 import xiangshan.cache.mmu.{HasTlbConst}
 import utils._
+import xs.utils._
 
 case object StreamParamsKey extends Field[StreamPrefetchParameters]
 

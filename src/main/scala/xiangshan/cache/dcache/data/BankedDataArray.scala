@@ -19,9 +19,9 @@ package xiangshan.cache
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import huancun.mbist.MBISTPipeline
+import xs.utils.mbist.MBISTPipeline
 import utils.{XSDebug, XSPerfAccumulate}
-import huancun.utils.SRAMTemplate
+import xs.utils.sram.SRAMTemplate
 
 class L1BankedDataReadReq(implicit p: Parameters) extends DCacheBundle
 {

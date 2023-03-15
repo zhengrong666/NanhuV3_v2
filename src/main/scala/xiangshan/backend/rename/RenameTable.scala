@@ -19,8 +19,9 @@ package xiangshan.backend.rename
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import utils.{ParallelPriorityMux, XSError}
+import utils.XSError
 import xiangshan._
+import xs.utils.ParallelPriorityMux
 
 class RatReadPort(implicit p: Parameters) extends XSBundle {
   val hold = Input(Bool())

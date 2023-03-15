@@ -24,24 +24,18 @@ import xiangshan.backend.decode.{ImmUnion, XDecode}
 import xiangshan.mem.{LqPtr, SqPtr}
 import xiangshan.frontend.PreDecodeInfo
 import xiangshan.frontend.HasBPUParameter
-import xiangshan.frontend.{AllFoldedHistories, CircularGlobalHistory, GlobalHistory, ShiftingGlobalHistory}
+import xiangshan.frontend.AllFoldedHistories
 import xiangshan.frontend.RASEntry
 import xiangshan.frontend.BPUCtrl
 import xiangshan.frontend.FtqPtr
 import xiangshan.frontend.CGHPtr
-import xiangshan.frontend.FtqRead
 import xiangshan.frontend.FtqToCtrlIO
-import utils._
-
-import scala.math.max
-import Chisel.experimental.chiselName
 import chipsalliance.rocketchip.config.Parameters
 import chisel3.util.BitPat.bitPatToUInt
 import xiangshan.backend.exu.ExuConfig
-import xiangshan.backend.fu.PMPEntry
 import xiangshan.frontend.Ftq_Redirect_SRAMEntry
-import xiangshan.frontend.AllFoldedHistories
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
+import xs.utils.DataChanged
 
 class ValidUndirectioned[T <: Data](gen: T) extends Bundle {
   val valid = Bool()

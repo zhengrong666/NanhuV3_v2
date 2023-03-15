@@ -19,7 +19,6 @@ package xiangshan.frontend.icache
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import freechips.rocketchip.diplomacy.IdRange
 import freechips.rocketchip.tilelink.ClientStates._
 import freechips.rocketchip.tilelink.TLPermissions._
 import freechips.rocketchip.tilelink._
@@ -27,6 +26,7 @@ import xiangshan._
 import huancun.{AliasKey, DirtyKey}
 import xiangshan.cache._
 import utils._
+import xs.utils._
 import difftest._
 
 

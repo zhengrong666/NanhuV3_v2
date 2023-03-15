@@ -24,6 +24,7 @@ import xiangshan.cache.{HasDCacheParameters, MemoryOpConstants}
 import utils._
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import freechips.rocketchip.tilelink._
+import xs.utils.ParallelPriorityMux
 
 case class TLBParameters
 (

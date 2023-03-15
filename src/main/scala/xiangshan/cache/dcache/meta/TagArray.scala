@@ -19,8 +19,8 @@ package xiangshan.cache
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import huancun.mbist.MBISTPipeline
-import huancun.utils.SRAMTemplate
+import xs.utils.mbist.MBISTPipeline
+import xs.utils.sram.SRAMTemplate
 import xiangshan.cache.CacheInstrucion._
 
 class TagReadReq(implicit p: Parameters) extends DCacheBundle {

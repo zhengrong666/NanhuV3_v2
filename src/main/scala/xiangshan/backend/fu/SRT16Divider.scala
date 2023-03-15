@@ -23,7 +23,7 @@ package xiangshan.backend.fu
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import utils._
+import xs.utils._
 import xiangshan._
 import xiangshan.backend.fu.util.CSA3_2
 

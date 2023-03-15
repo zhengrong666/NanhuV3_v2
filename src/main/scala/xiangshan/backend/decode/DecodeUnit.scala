@@ -19,7 +19,7 @@ package xiangshan.backend.decode
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import freechips.rocketchip.rocket.Instructions
+import xs.utils.{SignExt, ZeroExt, LookupTree}
 import freechips.rocketchip.util.uintToBitPat
 import utils._
 import xiangshan.ExceptionNO.illegalInstr

@@ -23,7 +23,7 @@ import freechips.rocketchip.tilelink._
 import utils._
 import xiangshan.cache.mmu._
 import xiangshan.frontend._
-import xiangshan.backend.fu.{PMPReqBundle, PMPRespBundle}
+import xs.utils._
 import huancun.{PreferCacheKey}
 
 

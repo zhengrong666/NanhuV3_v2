@@ -32,6 +32,7 @@ import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.ExceptionNO._
 import xiangshan.backend.exu.ExuConfig
 import xiangshan.mem.{LsqEnqCtrl, LsqEnqIO}
+import xs.utils.{DelayN, GTimer, PipelineConnect, PipelineNext, RegNextWithEnable, SignExt, SyncDataModuleTemplate, XORFold}
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   def numRedirect = exuParameters.JmpCnt + exuParameters.AluCnt

@@ -21,7 +21,7 @@ import chisel3._
 import chisel3.util._
 import freechips.rocketchip.tilelink.{ClientMetadata, TLClientParameters, TLEdgeOut}
 import utils.XSDebug
-import huancun.utils.SRAMTemplate
+import xs.utils.sram.SRAMTemplate
 import xiangshan.L1CacheErrorInfo
 
 // basic building blocks for L1 DCache

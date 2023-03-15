@@ -20,10 +20,11 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import utils._
+import xs.utils._
 import xiangshan._
 import xiangshan.cache._
-import xiangshan.cache.{DCacheWordIO, DCacheLineIO, MemoryOpConstants}
-import xiangshan.backend.rob.{RobLsqIO, RobPtr}
+import xiangshan.cache.MemoryOpConstants
+import xiangshan.backend.rob.RobLsqIO
 import difftest._
 import device.RAMHelper
 

@@ -22,11 +22,12 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.internal.naming.chiselName
 import chisel3.util._
-import utils.MaskedRegMap.WritableMask
+import xs.utils.MaskedRegMap.WritableMask
 import xiangshan._
 import xiangshan.backend.fu.util.HasCSRConst
 import utils._
 import xiangshan.cache.mmu.{TlbCmd, TlbExceptionBundle}
+import xs.utils.{MaskedRegMap, OneHot, ParallelPriorityMux}
 
 trait PMPConst extends HasPMParameters {
   val PMPOffBits = 2 // minimal 4bytes

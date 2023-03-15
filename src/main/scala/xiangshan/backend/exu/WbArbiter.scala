@@ -25,6 +25,7 @@ import utils._
 import xiangshan._
 import xiangshan.ExceptionNO._
 import xiangshan.backend.HasExuWbHelper
+import xs.utils.{PipelineConnect, PipelineNext, RegNextWithEnable}
 
 class ExuWbArbiter(n: Int, hasFastUopOut: Boolean, fastVec: Seq[Boolean])(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle() {

@@ -18,11 +18,10 @@ package xiangshan.frontend
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.util._
 import chisel3.experimental.chiselName
-import huancun.mbist.MBISTPipeline
-import xiangshan._
+import xs.utils.mbist.MBISTPipeline
 import utils._
+import xs.utils._
 
 @chiselName
 class Composer(parentName:String = "Unknown")(implicit p: Parameters) extends BasePredictor with HasBPUConst with HasPerfEvents {

@@ -23,6 +23,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import utils._
 import xiangshan._
 import xiangshan.backend.exu._
+import xs.utils.RegNextWithEnable
 
 class ExuBlock(
   val configs: Seq[(ExuConfig, Int, Seq[ExuConfig], Seq[ExuConfig])],

@@ -17,27 +17,18 @@
 package top
 
 import chisel3._
-import chisel3.util._
 import xiangshan._
 import utils._
 import system._
-import device._
 import chisel3.stage.ChiselGeneratorAnnotation
 import chipsalliance.rocketchip.config._
-import device.{AXI4Plic, DebugModule, TLTimer}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
-import freechips.rocketchip.amba.axi4._
-import freechips.rocketchip.devices.tilelink._
-import freechips.rocketchip.interrupts._
 import freechips.rocketchip.jtag.JTAGIO
-import freechips.rocketchip.tile.{BusErrorUnit, BusErrorUnitParams, XLen}
-import freechips.rocketchip.tilelink
-import freechips.rocketchip.util.{ElaborationArtefacts, HasRocketChipStageUtils, UIntToOH1}
-import huancun.debug.TLLogger
+import freechips.rocketchip.util.{ElaborationArtefacts, HasRocketChipStageUtils}
 import huancun.{HCCacheParamsKey, HuanCun}
-import huancun.utils.{ResetGen, SRAMTemplate, DFTResetSignals}
-import freechips.rocketchip.devices.debug.{DebugIO, ResetCtrlIO}
+import xs.utils.{ResetGen, DFTResetSignals}
+import xs.utils.sram.BroadCastBundle
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
   with BindingScope
@@ -199,7 +190,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     }
 
     val mbistBroadCastToTile = if(core_with_l2.head.moduleInstance.dft.isDefined) {
-      val res = Some(Wire(new huancun.utils.BroadCastBundle))
+      val res = Some(Wire(new BroadCastBundle))
       core_with_l2.foreach(_.moduleInstance.dft.get := res.get)
       res
     } else {
@@ -207,7 +198,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     }
     val mbistBroadCastToL3 = if(l3cacheOpt.isDefined) {
       if(l3cacheOpt.get.module.dft.isDefined){
-        val res = Some(Wire(new huancun.utils.BroadCastBundle))
+        val res = Some(Wire(new BroadCastBundle))
         l3cacheOpt.get.module.dft.get := res.get
         res
       } else {
@@ -217,7 +208,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       None
     }
     val dft = if(mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined){
-      Some(IO(new huancun.utils.BroadCastBundle))
+      Some(IO(new BroadCastBundle))
     } else {
       None
     }

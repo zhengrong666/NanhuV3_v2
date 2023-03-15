@@ -21,9 +21,10 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import utils._
+import xs.utils._
 import chisel3.experimental.chiselName
-import huancun.mbist.MBISTPipeline
-import huancun.utils.SRAMTemplate
+import xs.utils.mbist.MBISTPipeline
+import xs.utils.sram.SRAMTemplate
 
 import scala.math.min
 import scala.{Tuple2 => &}

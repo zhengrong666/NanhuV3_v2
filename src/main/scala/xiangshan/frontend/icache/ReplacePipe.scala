@@ -19,7 +19,7 @@ package xiangshan.frontend.icache
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import freechips.rocketchip.tilelink.{ClientMetadata, ClientStates, TLPermissions}
+import freechips.rocketchip.tilelink.TLPermissions
 import xiangshan._
 import utils._
 

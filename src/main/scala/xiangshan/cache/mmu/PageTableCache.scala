@@ -20,10 +20,11 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import chisel3.internal.naming.chiselName
-import huancun.mbist.MBISTPipeline
+import xs.utils.mbist.MBISTPipeline
 import xiangshan._
 import utils._
-import huancun.utils.SRAMTemplate
+import xs.utils._
+import xs.utils.sram.SRAMTemplate
 
 /* ptw cache caches the page table of all the three layers
  * ptw cache resp at next cycle
@@ -667,7 +668,7 @@ class PtwCache(parentName:String = "Unknown")(implicit p: Parameters) extends XS
     in.ready := !in.valid || out.ready
     out.valid := in.valid
     out.bits := in.bits
-    out.bits.bypassed.zip(in.bits.bypassed).zipWithIndex.map{ case (b, i) =>
+    out.bits.bypassed.zip(in.bits.bypassed).zipWithIndex.foreach{ case (b, i) =>
       val bypassed_reg = Reg(Bool())
       val bypassed_wire = refill_bypass(in.bits.req_info.vpn, i) && io.refill.valid
       when (inFire) { bypassed_reg := bypassed_wire }

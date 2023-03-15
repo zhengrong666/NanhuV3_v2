@@ -20,7 +20,7 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import utils.XSDebug
-import huancun.utils.SRAMTemplate
+import xs.utils.sram.SRAMTemplate
 
 class DuplicatedDataArray(implicit p: Parameters) extends AbstractDataArray {
   val singlePort = true

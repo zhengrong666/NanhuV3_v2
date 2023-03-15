@@ -16,14 +16,9 @@
 
 package xiangshan.mem
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3.experimental.{DataMirror, requireIsChiselType}
 import chisel3._
 import chisel3.util._
-import xiangshan._
-import utils._
-import xiangshan.cache._
-import difftest._
 
 class DatamoduleResultBufferIO[T <: Data](gen: T) extends Bundle
 {

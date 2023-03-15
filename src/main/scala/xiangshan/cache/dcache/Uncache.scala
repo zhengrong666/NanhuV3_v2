@@ -18,11 +18,11 @@ package xiangshan.cache
 
 import chisel3._
 import chisel3.util._
-import utils.{HasTLDump, PriorityMuxWithFlag, XSDebug}
+import utils.{HasTLDump, XSDebug}
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp, TransferSizes}
 import freechips.rocketchip.tilelink.{TLArbiter, TLBundleA, TLBundleD, TLClientNode, TLEdgeOut, TLMasterParameters, TLMasterPortParameters}
-import xiangshan.{MicroOp, Redirect}
+import xs.utils.PriorityMuxWithFlag
 
 // One miss entry deals with one mmio request
 class MMIOEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule

@@ -22,9 +22,6 @@ import chisel3.util._
 import utils._
 import xiangshan._
 import xiangshan.cache._
-import xiangshan.cache.{DCacheWordIO, DCacheLineIO, MemoryOpConstants}
-import xiangshan.mem._
-import xiangshan.backend.rob.RobPtr
 
 class LQDataEntryWoPaddr(implicit p: Parameters) extends XSBundle {
   val mask = UInt(8.W)

@@ -20,11 +20,9 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.internal.naming.chiselName
 import chisel3.util._
-import freechips.rocketchip.util.SRAMAnnotation
 import xiangshan._
 import utils._
-import xiangshan.backend.fu.{PMPChecker, PMPReqBundle}
-import xiangshan.backend.rob.RobPtr
+import xs.utils._
 import xiangshan.backend.fu.util.HasCSRConst
 
 

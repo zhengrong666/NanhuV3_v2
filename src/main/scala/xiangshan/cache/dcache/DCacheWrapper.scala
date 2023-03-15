@@ -26,10 +26,11 @@ import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp, Trans
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util.{BundleFieldBase, UIntToOH1}
 import device.RAMHelper
-import huancun.mbist.MBISTPipeline
+import xs.utils._
 import huancun.{AliasField, AliasKey, DirtyField, PreferCacheField, PrefetchField}
 import huancun.utils.FastArbiter
 import mem.AddPipelineReg
+import xs.utils.mbist.MBISTPipeline
 
 import scala.math.max
 

@@ -21,10 +21,8 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan._
-import utils._
-import xiangshan.backend.rob.RobPtr
 import xiangshan.cache._
-import xiangshan.backend.fu.FenceToSbuffer
+import xs.utils.LookupTree
 
 object genWmask {
   def apply(addr: UInt, sizeEncode: UInt): UInt = {
