@@ -116,6 +116,9 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	time -o $(@D)/time.log mill -i XiangShan.test.runMain $(SIMTOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
 		$(SIM_ARGS)
+ifeq ($(RELEASE),1)
+	mv $(BUILD_DIR)/$(TOP).v $(BUILD_DIR)/$(SIM_TOP).v
+endif
 ifeq ($(MFC),1)
 	time -a -o $(@D)/time.log firtool --disable-all-randomization --disable-annotation-unknown \
 	--annotation-file=$(BUILD_DIR)/$(SIM_TOP).anno.json --format=fir \
