@@ -21,6 +21,7 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import xiangshan.cache.mmu.CAMTemplate
+import xs.utils.CircularQueuePtr
 
 class WrBypass[T <: Data](gen: T, val numEntries: Int, val idxWidth: Int,
   val numWays: Int = 1, val tagWidth: Int = 0)(implicit p: Parameters) extends XSModule {

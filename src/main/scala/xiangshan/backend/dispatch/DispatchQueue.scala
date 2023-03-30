@@ -22,7 +22,7 @@ import chisel3.util._
 import utils._
 import xiangshan._
 import xiangshan.backend.rob.RobPtr
-import xs.utils.{CircularShift, ParallelPriorityMux, SyncDataModuleTemplate, UIntToMask}
+import xs.utils._
 
 class DispatchQueueIO(enqnum: Int, deqnum: Int)(implicit p: Parameters) extends XSBundle {
   val enq = new Bundle {

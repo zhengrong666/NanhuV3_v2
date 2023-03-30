@@ -29,7 +29,7 @@ import xiangshan.mem.{MemWaitUpdateReq, SqPtr}
 
 import scala.math.max
 import chisel3.ExcitingUtils
-import xs.utils.{GTimer, GetEvenBits, GetOddBits, ParallelMux, PipelineConnect, RegNextWithEnable}
+import xs.utils._
 
 case class RSParams
 (
