@@ -165,6 +165,8 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   // This inst will flush all the pipe when it is the oldest inst in ROB,
   // then replay from this inst itself
   val replayInst = Bool()
+  val isVector = Bool()
+  val isVtype = Bool()
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
