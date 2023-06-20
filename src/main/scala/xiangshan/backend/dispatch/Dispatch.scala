@@ -31,10 +31,7 @@ case class DispatchParameters
 (
   IntDqSize: Int,
   FpDqSize: Int,
-  LsDqSize: Int,
-  IntDqDeqWidth: Int,
-  FpDqDeqWidth: Int,
-  LsDqDeqWidth: Int
+  LsDqSize: Int
 )
 
 // read rob and enqueue
@@ -83,7 +80,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val isFp     = VecInit(io.fromRename.map(req => FuType.isFpExu (req.bits.ctrl.fuType)))
   val isMem    = VecInit(io.fromRename.map(req => FuType.isMemExu(req.bits.ctrl.fuType)))
   val isLs     = VecInit(io.fromRename.map(req => FuType.isLoadStore(req.bits.ctrl.fuType)))
-  val isStore  = VecInit(io.fromRename.map(req => FuType.isStoreExu(req.bits.ctrl.fuType)))
+  val isStore  = VecInit(io.fromRename.map(req => FuType.isStore(req.bits.ctrl.fuType)))
   val isAMO    = VecInit(io.fromRename.map(req => FuType.isAMO(req.bits.ctrl.fuType)))
   val isBlockBackward = VecInit(io.fromRename.map(_.bits.ctrl.blockBackward))
   val isNoSpecExec    = VecInit(io.fromRename.map(_.bits.ctrl.noSpecExec))
@@ -213,12 +210,12 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
 
     io.toFpDq.needAlloc(i)  := io.fromRename(i).valid && isFp(i)
     io.toFpDq.req(i).valid  := io.fromRename(i).valid && isFp(i) &&
-                               canEnterDpq && io.toIntDq.canAccept && io.toLsDq.canAccept
+                               canEnterDpq && io.toLsDq.canAccept && io.toIntDq.canAccept
     io.toFpDq.req(i).bits   := updatedUop(i)
 
     io.toLsDq.needAlloc(i)  := io.fromRename(i).valid && isMem(i)
     io.toLsDq.req(i).valid  := io.fromRename(i).valid && isMem(i) &&
-                               canEnterDpq && io.toIntDq.canAccept && io.toFpDq.canAccept
+                               canEnterDpq && io.toFpDq.canAccept && io.toIntDq.canAccept
     io.toLsDq.req(i).bits   := updatedUop(i)
 
     XSDebug(io.toIntDq.req(i).valid, p"pc 0x${Hexadecimal(io.toIntDq.req(i).bits.cf.pc)} int index $i\n")
@@ -244,7 +241,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
     io.allocPregs(i).isFp  := io.fromRename(i).valid && io.fromRename(i).bits.ctrl.fpWen
     io.allocPregs(i).preg  := io.fromRename(i).bits.pdest
   }
-  val renameFireCnt = PopCount(io.recv)
+  val renameFireCnt = PopCount(io.recv.zip(io.fromRename).map({case(a, b) => a && b.valid}))
   val enqFireCnt = PopCount(io.toIntDq.req.map(_.valid && io.toIntDq.canAccept)) +
     PopCount(io.toFpDq.req.map(_.valid && io.toFpDq.canAccept)) +
     PopCount(io.toLsDq.req.map(_.valid && io.toLsDq.canAccept))

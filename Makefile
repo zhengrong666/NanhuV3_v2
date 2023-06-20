@@ -18,7 +18,7 @@ TOP = XSTop
 SIM_TOP   = SimTop
 FPGATOP = top.TopMain
 BUILD_DIR ?= ./build
-TOP_V = $(BUILD_DIR)/$(TOP).v
+TOP_V = $(BUILD_DIR)/$(TOP).sv
 SCALA_FILE = $(shell find ./src/main/scala -name '*.scala')
 TEST_FILE = $(shell find ./src/test/scala -name '*.scala')
 MEM_GEN = ./scripts/vlsi_mem_gen
@@ -45,6 +45,7 @@ endif
 RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
 # RUN_OPTS += +no-diff
 RUN_OPTS += -fgp=num_threads:4,num_fsdb_threads:4
+RUN_OPTS += -assert finish_maxfail=30 -assert global_finish_maxfail=10000
 # co-simulation with DRAMsim3
 ifeq ($(WITH_DRAMSIM3),1)
 ifndef DRAMSIM3_HOME
@@ -66,8 +67,8 @@ ifeq ($(MFC),1)
 RELEASE_ARGS += -X none -E chirrtl --output-file $(TOP).chirrtl.fir
 DEBUG_ARGS += -X none -E chirrtl --output-file $(SIM_TOP).chirrtl.fir
 else
-RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --output-file $(TOP).v
-DEBUG_ARGS += --emission-options disableRegisterRandomization -E verilog --output-file $(SIM_TOP).v
+RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(TOP)
+DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(SIM_TOP)
 endif
 
 ifeq ($(RELEASE),1)
@@ -85,12 +86,12 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	time -o $(@D)/time.log mill -i XiangShan.runMain $(FPGATOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(RELEASE_ARGS)
+		$(RELEASE_ARGS) | tee build/make.log
 ifeq ($(MFC),1)
 	time -a -o $(@D)/time.log firtool --disable-all-randomization --disable-annotation-unknown \
 	--annotation-file=$(BUILD_DIR)/$(TOP).anno.json --format=fir \
 	--lowering-options=noAlwaysComb,disallowExpressionInliningInPorts,explicitBitcast \
-	--verilog --dedup -o $(TOP_V) $(BUILD_DIR)/$(TOP).chirrtl.fir
+	--verilog --dedup -o $(TOP_V) $(BUILD_DIR)/$(TOP).chirrtl.fir | tee build/make.log
 endif
 	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@ > $(BUILD_DIR)/tmp.v
@@ -108,22 +109,22 @@ endif
 
 verilog: $(TOP_V)
 
-SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).v
+SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).sv
 $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	mkdir -p $(@D)
 	@echo "\n[mill] Generating Verilog files..." > $(@D)/time.log
 	@date -R | tee -a $(@D)/time.log
 	time -o $(@D)/time.log mill -i XiangShan.test.runMain $(SIMTOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(SIM_ARGS)
+		$(SIM_ARGS) | tee build/make.log
 ifeq ($(RELEASE),1)
-	mv $(BUILD_DIR)/$(TOP).v $(BUILD_DIR)/$(SIM_TOP).v
+	mv $(BUILD_DIR)/$(TOP).v $(BUILD_DIR)/$(SIM_TOP_V)
 endif
 ifeq ($(MFC),1)
 	time -a -o $(@D)/time.log firtool --disable-all-randomization --disable-annotation-unknown \
 	--annotation-file=$(BUILD_DIR)/$(SIM_TOP).anno.json --format=fir \
 	--lowering-options=noAlwaysComb,disallowExpressionInliningInPorts,explicitBitcast \
-	--verilog --dedup -o $(SIM_TOP_V) $(BUILD_DIR)/$(SIM_TOP).chirrtl.fir
+	--verilog --dedup -o $(SIM_TOP_V) $(BUILD_DIR)/$(SIM_TOP).chirrtl.fir | tee build/make.log
 
 	sed '/\/\/ ----- 8< ----- .*----- 8< -----/,$d' $(SIM_TOP_V) > res.v
 	rm $(SIM_TOP_V)
@@ -136,11 +137,12 @@ endif
 	@cat .__head__ .__diff__ $@ > .__out__
 	@mv .__out__ $@
 	@rm .__head__ .__diff__
-	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $(SIM_TOP_V)
+	python3 scripts/assertion_alter.py -o $(SIM_TOP_V) $(SIM_TOP_V)
 
 FILELIST := $(ABS_WORK_DIR)/build/cpu_flist.f
 sim-verilog: $(SIM_TOP_V)
 	find $(ABS_WORK_DIR)/build -name "*.v" > $(FILELIST)
+	find $(ABS_WORK_DIR)/build -name "*.sv" >> $(FILELIST)
 
 clean:
 	$(MAKE) -C ./difftest clean
@@ -180,7 +182,7 @@ simv_rtl-run:
 	$(shell if [ -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv.daidir ];then rm -rf $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv.daidir; fi)
 	ln -s $(ABS_WORK_DIR)/sim/rtl/comp/simv $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv
 	ln -s $(ABS_WORK_DIR)/sim/rtl/comp/simv.daidir $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv.daidir
-	cd sim/rtl/$(RUN_BIN) && (./simv $(RUN_OPTS) | tee sim.log)
+	cd sim/rtl/$(RUN_BIN) && (./simv $(RUN_OPTS) 2> assert.log | tee sim.log)
 
 verdi_rtl:
 	cd sim/rtl/$(RUN_BIN) && verdi -sv -2001 +verilog2001ext+v +systemverilogext+v -ssf tb_top.vf -dbdir simv.daidir -f sim_flist.f

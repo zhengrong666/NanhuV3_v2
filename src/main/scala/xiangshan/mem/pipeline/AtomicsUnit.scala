@@ -26,21 +26,18 @@ import xiangshan.cache.{AtomicWordIO, MemoryOpConstants}
 import xiangshan.cache.mmu.{TlbCmd, TlbRequestIO}
 import difftest._
 import xiangshan.ExceptionNO._
-import xiangshan.backend.fu.PMPRespBundle
-import xiangshan.backend.fu.util.SdtrigExt
+import xiangshan.backend.execute.fu.PMPRespBundle
+import xiangshan.backend.execute.fu.csr.SdtrigExt
 
 class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstants with SdtrigExt{
   val io = IO(new Bundle() {
     val hartId = Input(UInt(8.W))
     val in            = Flipped(Decoupled(new ExuInput))
-    val storeDataIn   = Flipped(Valid(new ExuOutput)) // src2 from rs
     val out           = Decoupled(new ExuOutput)
     val dcache        = new AtomicWordIO
     val dtlb          = new TlbRequestIO(2)
     val pmpResp       = Flipped(new PMPRespBundle())
-    val rsIdx         = Input(UInt(log2Up(IssQueSize).W))
     val flush_sbuffer = new SbufferFlushBundle
-    val feedbackSlow  = ValidIO(new RSFeedback)
     val redirect      = Flipped(ValidIO(new Redirect))
     val exceptionAddr = ValidIO(UInt(VAddrBits.W))
     val csrCtrl       = Flipped(new CustomCSRCtrlIO)
@@ -98,28 +95,15 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
     io.in.ready := true.B
     when (io.in.fire) {
       in := io.in.bits
-      in.src(1) := in.src(1) // leave src2 unchanged
       state := s_tlb
+      data_valid := true.B
     }
   }
-
-  when (io.storeDataIn.fire) {
-    in.src(1) := io.storeDataIn.bits.data
-    data_valid := true.B
-  }
-
-  assert(!(io.storeDataIn.fire && data_valid), "atomic unit re-receive data")
-
   // Send TLB feedback to store issue queue
   // we send feedback right after we receives request
   // also, we always treat amo as tlb hit
   // since we will continue polling tlb all by ourself
-  io.feedbackSlow.valid       := RegNext(RegNext(io.in.valid))
-  io.feedbackSlow.bits.hit    := true.B
-  io.feedbackSlow.bits.rsIdx  := RegEnable(io.rsIdx, io.in.valid)
-  io.feedbackSlow.bits.flushState := DontCare
-  io.feedbackSlow.bits.sourceType := DontCare
-  io.feedbackSlow.bits.dataInvalidSqIdx := DontCare
+
 
   // tlb translation, manipulating signals && deal with exception
   when (state === s_tlb) {
@@ -146,6 +130,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
       exceptionVec(storeAddrMisaligned) := !addrAligned && !isLr
       exceptionVec(storePageFault)      := io.dtlb.resp.bits.excp(0).pf.st
       exceptionVec(loadPageFault)       := io.dtlb.resp.bits.excp(0).pf.ld
+      //software is used to restrict atomic instructions from accessing mmio. Now if is_mmio is true,we treat it as an exception
       exceptionVec(storeAccessFault)    := io.dtlb.resp.bits.excp(0).af.st
       exceptionVec(loadAccessFault)     := io.dtlb.resp.bits.excp(0).af.ld
       static_pm := io.dtlb.resp.bits.static_pm
