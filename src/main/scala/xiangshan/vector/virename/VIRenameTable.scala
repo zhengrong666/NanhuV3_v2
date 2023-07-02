@@ -29,22 +29,21 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import xs.utils.CircularShift
-import xiangshan.backend.rename.freelist.BaseFreeList
-import xiangshan.vector.virename._
+import xiangshan.vector._
 
-class VIRatReadPortSingle(implicit p: Parameters) extends VIRenameBundle {
+class VIRatReadPortSingle(implicit p: Parameters) extends VectorBaseBundle {
     //input logic reg index, output physical reg index
     val lrIdx = Input(UInt(5.W))
     val prIdx = Output(UInt(VIPhyRegIdxWidth.W))
 }
 
-class VIRatReadPortInstr(implicit p: Parameters) extends VIRenameBundle {
+class VIRatReadPortInstr(implicit p: Parameters) extends VectorBaseBundle {
     val vs1 = new VIRatReadPortSingle
     val vs2 = new VIRatReadPortSingle
     val vd = new VIRatReadPortSingle
 }
 
-class VIRatRenamePort(implicit p: Parameters) extends VIRenameBundle {
+class VIRatRenamePort(implicit p: Parameters) extends VectorBaseBundle {
     val doRename = Input(Bool())
     val mask = Vec(VIRenameWidth, Input(Bool()))
     val lrIdx = Vec(VIRenameWidth, Input(UInt(5.W)))
@@ -52,7 +51,7 @@ class VIRatRenamePort(implicit p: Parameters) extends VIRenameBundle {
     //val needRename = Vec(VIRenameWidth, Input(Bool()))
 }
 
-class VIRatCommitPort(implicit p: Parameters) extends VIRenameBundle {
+class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
     val doCommit = Input(Bool())
     val doWalk = Input(Bool())
     val mask = Input(Vec(VICommitWidth, Bool()))
@@ -60,7 +59,7 @@ class VIRatCommitPort(implicit p: Parameters) extends VIRenameBundle {
     val prIdx = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
-class VIRenameTable(implicit p: Parameters) extends VIRenameModule {
+class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
         val renameReadPorts = Vec(VIRenameWidth, new VIRatReadPortInstr)
         val oldPhyRegIdxReadPorts = Vec(VIRenameWidth, new VIRatReadPortSingle)

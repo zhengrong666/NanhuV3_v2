@@ -31,20 +31,22 @@ import xiangshan._
 import utils._
 import xs.utils._
 
-class RollBackListRenameWritePort(implicit p: Parameters) extends VIRenameBundle {
+import xiangshan.vector._
+
+class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBundle {
     val robIdx      = UInt(log2Up(RobSize).W)
     val lrIdx       = UInt(5.W)
     val oldPrIdx    = UInt(VIPhyRegIdxWidth.W)
     val newPrIdx    = UInt(VIPhyRegIdxWidth.W)
 }
 
-class RollBackListRenamePort(implicit p: Parameters) extends VIRenameBundle {
+class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
     val doRename = Input(Bool())
     val writePorts = Input(Vec(VIRenameWidth, new RollBackListRenameWritePort))
     val mask = Input(Vec(VIRenameWidth, Bool()))
 }
 
-class RollBackListCommitPort(implicit p: Parameters) extends VIRenameBundle {
+class RollBackListCommitPort(implicit p: Parameters) extends VectorBaseBundle {
     val hasPendingRobIdx = Output(Bool())
     val pendingType = Output(Bool()) //0-commit, 1-walk
 
@@ -60,19 +62,19 @@ class RollBackListCommitPort(implicit p: Parameters) extends VIRenameBundle {
     val newprIdx = Output(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
-class RollBackListBundle(implicit p: Parameters) extends VIRenameBundle {
+class RollBackListBundle(implicit p: Parameters) extends VectorBaseBundle {
     val renamePort = new RollBackListRenamePort
     val commitPort = new RollBackListCommitPort
 }
 
-class RollBackListEntry(implicit p: Parameters) extends VIRenameBundle {
+class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
     val robIdx          = UInt(log2Up(RobSize).W)
     val logicRegIdx     = UInt(5.W)
     val oldPhyRegIdx    = UInt(VIPhyRegIdxWidth.W)
     val newPhyRegIdx    = UInt(VIPhyRegIdxWidth.W)
 }
 
-class VIRollBackList(implicit p: Parameters) extends VIRenameModule  with HasCircularQueuePtrHelper{
+class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasCircularQueuePtrHelper{
     val io = IO(new RollBackListBundle)
 
     class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)

@@ -31,7 +31,9 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
 import xiangshan._
 import utils._
 
-class VIRobIdxQueueDeqIO(implicit p: Parameters) extends VIRenameBundle {
+import xiangshan.vector._
+
+class VIRobIdxQueueDeqIO(implicit p: Parameters) extends VectorBaseBundle {
     val hasPendingRobIdx = Input(Bool())
     val pendingType = Input(Bool()) //0-commit, 1-walk
 
@@ -46,7 +48,7 @@ class VIRobIdxQueueDeqIO(implicit p: Parameters) extends VIRenameBundle {
     val hasWalk = Output(Bool())
 }
 
-class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VIRenameBundle {
+class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VectorBaseBundle {
     val canEnq = Output(Bool())
     val doCommit = Input(Bool())
     val doWalk = Input(Bool())
@@ -54,12 +56,12 @@ class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VIRenameBundle {
     val robIdx = Input(Vec(VICommitWidth, UInt(log2Up(RobSize).W)))
 }
 
-class VICommitReqEntry(implicit p: Parameters) extends VIRenameBundle {
+class VICommitReqEntry(implicit p: Parameters) extends VectorBaseBundle {
     val robIdx = UInt(log2Up(RobSize).W)
     val commitType = Bool() //0-commit, 1-rollback
 }
 
-class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VIRenameModule with HasCircularQueuePtrHelper {
+class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
     val io = IO(new Bundle {
         val out = new VIRobIdxQueueDeqIO
         val in = new VIRobIdxQueueEnqIO

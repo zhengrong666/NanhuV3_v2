@@ -26,13 +26,15 @@ package xiangshan.vector.virename
 
 import chisel3._
 import chisel3.util._
+import chipsalliance.rocketchip.config._
+
 import xiangshan._
 import utils._
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
-import xiangshan.vector.virename._
-import chipsalliance.rocketchip.config._
 
-class VIFreeListBundle(implicit p: Parameters) extends VIRenameBundle {
+import xiangshan.vector._
+
+class VIFreeListBundle(implicit p: Parameters) extends VectorBaseBundle {
 
     def reqNumWidth: Int = log2Up(VIRenameWidth + 1)
 
@@ -51,7 +53,7 @@ class VIFreeListBundle(implicit p: Parameters) extends VIRenameBundle {
     val releaseReqPhyReg = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
-class VIFreeList(implicit p: Parameters) extends VIRenameModule with HasCircularQueuePtrHelper {
+class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
     val io = IO(new VIFreeListBundle)
 
     class VIFreeListPtr extends CircularQueuePtr[VIFreeListPtr](VIPhyRegsNum)
