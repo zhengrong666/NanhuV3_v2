@@ -51,3 +51,40 @@ class VIWaitQueueToRenameBundle(implicit p: Parameters) extends VectorBaseBundle
     val vtypeValue  = Input(UInt(64.W))
     val doRename = Output(Bool())
 }
+
+class VICtrlFlow(implicit p: Parameters) extends VectorBaseBundle {
+    val cf = new CtrlFlow
+    val funct6 = UInt(6.W)
+    val funct3 = UInt(3.W)
+    val vm = UInt(1.W)
+    val vs1_imm = UInt(5.W)
+    val widen = Bool()
+    val widen2 = Bool()
+    val narrow = Bool()
+    val narrow_to_1 = Bool()
+}
+
+class VICsrInfo(implicit p: Parameters) extends VectorBaseBundle {
+    val ma = UInt(1.W)
+    val ta = UInt(1.W)
+    val vsew = UInt(3.W)
+    val vlmul = UInt(3.W)
+    val vl = UInt(8.W)
+    val vstart = UInt(7.W)
+    val vxrm = UInt(2.W)
+    val frm = UInt(3.W)
+}
+
+class VICtrl(implicit p: Parameters) extends VectorBaseBundle {
+    val vicf = new VICtrlFlow
+    val viinfo = new VICsrInfo
+    val visignal = new CtrlSignals
+    val vs1 = UInt(128.W)
+    val vs2 = UInt(128.W)
+    val rs1 = UInt(64.W)
+    val oldvd = UInt(128.W)
+    val mask = UInt(128.W)
+    val vd = UInt(128.W)
+    val vxsat = UInt(1.W)
+    val fflags = UInt(5.W)
+}

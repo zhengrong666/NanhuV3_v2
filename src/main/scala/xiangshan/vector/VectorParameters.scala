@@ -28,6 +28,7 @@ import chipsalliance.rocketchip.config._
 
 case class VectorParameters (
     vLen: Int               = 128, //maybe 64、256、512...
+    vDecodeWidth: Int       = 6,
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 64
@@ -43,6 +44,7 @@ trait HasVectorParameters {
     val vector = p(VectorParametersKey)
 
     val VLEN = vector.vLen
+    val VIDecodeWidth = vector.vDecodeWidth
     val VIRenameWidth = vector.vRenameWidth
     val VICommitWidth = vector.vCommitWidth
     val VIPhyRegsNum = vector.vPhyRegsNum
