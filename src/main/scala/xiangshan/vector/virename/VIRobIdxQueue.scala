@@ -13,7 +13,6 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-
 /*--------------------------------------------------------------------------------------
     Author: GMX
     Date: 2023-06-28
@@ -26,10 +25,10 @@ package xiangshan.vector.virename
 import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config.Parameters
-import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
 
 import xiangshan._
 import utils._
+import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
 
 import xiangshan.vector._
 
@@ -44,8 +43,6 @@ class VIRobIdxQueueDeqIO(implicit p: Parameters) extends VectorBaseBundle {
     val doWalk = Output(Bool())
     val robIdx = Output(Vec(VICommitWidth, UInt(log2Up(RobSize).W)))
     val mask = Output(Vec(VICommitWidth, Bool()))
-
-    val hasWalk = Output(Bool())
 }
 
 class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VectorBaseBundle {
@@ -65,6 +62,7 @@ class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule 
     val io = IO(new Bundle {
         val out = new VIRobIdxQueueDeqIO
         val in = new VIRobIdxQueueEnqIO
+        val hasWalk = Output(Bool())
     })
 
     class robIdxQueuePtr extends CircularQueuePtr[robIdxQueuePtr](size)
@@ -97,7 +95,7 @@ class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule 
     headPtr := Mux(entryEnq, headPtrNext, headPtr)
 
     walkNum := Mux(io.in.doWalk, walkNum + enqNum, walkNum)
-    io.out.hasWalk := (walkNum === 0.U)
+    io.hasWalk := (walkNum === 0.U)
 
     val enqType = Mux(io.in.doCommit, false.B, true.B)
     for((e, i) <- io.in.robIdx.zipWithIndex) {
