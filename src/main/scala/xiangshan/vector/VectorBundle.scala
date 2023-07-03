@@ -27,8 +27,11 @@ import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config.Parameters
 
-import xiangshan._
+import xiangshan.CtrlFlow
 import utils._
+
+import _root_.Vector.videcode.{ImmUnion, VectorArithDecode}
+import Vector._
 
 //TODO: Vector Micro OP interface align
 //fake interface
@@ -50,6 +53,43 @@ class VIWaitQueueToRenameBundle(implicit p: Parameters) extends VectorBaseBundle
     val needRename = Input(Vec(VIRenameWidth, Bool()))
     val vtypeValue  = Input(UInt(64.W))
     val doRename = Output(Bool())
+}
+
+class VICtrlSignals(implicit p: Parameters) extends VectorBaseBundle {
+    val srcType = Vec(3, SrcType())
+    val lsrc = Vec(3, UInt(5.W))
+    val ldest = UInt(5.W)
+    val fuType = FuType()
+    val fuOpType = FuOpType()
+    val vdWen = Bool()
+    val rfWen = Bool()
+    val fpWen = Bool()
+    val isorder = Bool()
+    val isWiden = Bool()
+    val isNarrow = Bool()
+    val Widen = IsWiden
+    val Narrow = IsNarrow
+    val selImm = SelImm()
+    val imm = UInt(ImmUnion.maxLen.W)
+    val commitType = CommitType()
+
+    private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
+        vdWen, isorder, isWiden, isNarrow, selImm)
+
+    def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): VICtrlSignals = {
+        val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
+        allSignals zip decoder foreach { case (s, d) => s := d }
+        commitType := DontCare
+        this
+    }
+
+    def decodewn(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): VICtrlSignals = {
+        val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
+        allSignals zip decoder foreach { case (s, d) => s := d }
+        commitType := DontCare
+        this
+    }
+
 }
 
 class VICtrlFlow(implicit p: Parameters) extends VectorBaseBundle {
@@ -78,7 +118,7 @@ class VICsrInfo(implicit p: Parameters) extends VectorBaseBundle {
 class VICtrl(implicit p: Parameters) extends VectorBaseBundle {
     val vicf = new VICtrlFlow
     val viinfo = new VICsrInfo
-    val visignal = new CtrlSignals
+    val visignal = new VICtrlSignals
     val vs1 = UInt(128.W)
     val vs2 = UInt(128.W)
     val rs1 = UInt(64.W)
