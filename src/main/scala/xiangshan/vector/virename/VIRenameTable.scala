@@ -13,7 +13,6 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-
 /*--------------------------------------------------------------------------------------
     Author: GMX
     Date: 2023-06-28
@@ -23,12 +22,14 @@
 
 package xiangshan.vector.virename
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import chipsalliance.rocketchip.config.Parameters
+
 import xiangshan._
 import utils._
 import xs.utils.CircularShift
+
 import xiangshan.vector._
 
 class VIRatReadPortSingle(implicit p: Parameters) extends VectorBaseBundle {

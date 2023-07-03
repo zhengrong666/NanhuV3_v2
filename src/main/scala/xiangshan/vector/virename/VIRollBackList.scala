@@ -13,7 +13,6 @@
  * See the Mulan PSL v2 for more details.
  ***************************************************************************************/
 
-
 /*--------------------------------------------------------------------------------------
     Author: GMX
     Date: 2023-06-28
@@ -32,6 +31,7 @@ import utils._
 import xs.utils._
 
 import xiangshan.vector._
+import chisel3.experimental.Param
 
 class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBundle {
     val robIdx      = UInt(log2Up(RobSize).W)
@@ -46,20 +46,18 @@ class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
     val mask = Input(Vec(VIRenameWidth, Bool()))
 }
 
+// class RollBackListCommitOutIO(implicit p: Parameters) extends VectorBaseBundle {
+//     val lrIdx = Output(Vec(VICommitWidth, UInt(5.W)))
+//     val oldprIdx = Output(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+//     val newprIdx = Output(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+//     val mask = Output(Vec(VICommitWidth, Bool()))
+// }
+
+
+
 class RollBackListCommitPort(implicit p: Parameters) extends VectorBaseBundle {
-    val hasPendingRobIdx = Output(Bool())
-    val pendingType = Output(Bool()) //0-commit, 1-walk
-
-    val doCommit = Input(Bool())
-    val doWalk = Input(Bool())
-    val canCommitRobIdxNum = Output(UInt(log2Up(VICommitWidth).W))
-    val canRollBackRobIdxNum = Output(UInt(log2Up(VICommitWidth).W))
-    val mask = Input(Vec(VICommitWidth, Bool()))
-    val robIdx = Input(Vec(VICommitWidth, UInt(log2Up(RobSize).W)))
-
-    val lrIdx = Output(Vec(VICommitWidth, UInt(5.W)))
-    val oldprIdx = Output(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
-    val newprIdx = Output(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+    val req = Flipped(new VIRobIdxQueueDeqIO)
+    val resp = Flipped(new VIRatCommitPort)
 }
 
 class RollBackListBundle(implicit p: Parameters) extends VectorBaseBundle {
@@ -134,13 +132,13 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     }
 
     when(entryNum === 0.U) {
-        io.commitPort.canCommitRobIdxNum := 0.U
-        io.commitPort.canRollBackRobIdxNum := 0.U
+        io.commitPort.req.canCommitRobIdxNum := 0.U
+        io.commitPort.req.canRollBackRobIdxNum := 0.U
     }.otherwise {
         val entryEqualHeadNum = PopCount(entryEqualHead)
         val entryEqualTailNum = PopCount(entryEqualHead)
-        io.commitPort.canCommitRobIdxNum := Mux(hasRobIdxTail === true.B, entryEqualHeadNum, (entryEqualHeadNum + 1.U))
-        io.commitPort.canRollBackRobIdxNum := Mux(hasRobIdxHead === true.B, entryEqualTailNum, (entryEqualTailNum + 1.U))
+        io.commitPort.req.canCommitRobIdxNum := Mux(hasRobIdxTail === true.B, entryEqualHeadNum, (entryEqualHeadNum + 1.U))
+        io.commitPort.req.canRollBackRobIdxNum := Mux(hasRobIdxHead === true.B, entryEqualTailNum, (entryEqualTailNum + 1.U))
     }
 
     val hasPendingRobIdx = RegInit(Bool(), false.B)
@@ -154,7 +152,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     commitNextEntry := rollBackList((tailPtr + VICommitWidth.U).value)
 
     val commitEqualMask = Wire(Vec(VICommitWidth, Bool()))
-    commitEqualMask := commitEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (io.commitPort.mask(i) === true.B && io.commitPort.robIdx(i) === entry.robIdx))) =/= 0.U)
+    commitEqualMask := commitEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (io.commitPort.req.mask(i) === true.B && io.commitPort.req.robIdx(i) === entry.robIdx))) =/= 0.U)
     
     val commitEqualMaskPending = Wire(Vec(VICommitWidth, Bool()))
     commitEqualMaskPending := commitEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (entry.robIdx === pendingRobIdx && hasPendingRobIdx === true.B && pendingType === false.B))) =/= 0.U)
@@ -164,7 +162,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
 
     val commitNum = PopCount(commitMask)
     val tailPtrNext = tailPtr + commitNum
-    tailPtr := Mux(io.commitPort.doCommit, tailPtrNext, tailPtr)
+    tailPtr := Mux(io.commitPort.req.doCommit, tailPtrNext, tailPtr)
 
     //roll back
     val walkEntry = Wire(Vec(VICommitWidth, new RollBackListEntry))
@@ -173,7 +171,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     walkNextEntry := rollBackList((headPtr - VICommitWidth.U).value)
 
     val walkEqualMask = Wire(Vec(VICommitWidth, Bool()))
-    walkEqualMask := walkEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (io.commitPort.mask(i) === true.B && io.commitPort.robIdx(i) === entry.robIdx))) =/= 0.U)
+    walkEqualMask := walkEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (io.commitPort.req.mask(i) === true.B && io.commitPort.req.robIdx(i) === entry.robIdx))) =/= 0.U)
 
     val walkEqualMaskPending = Wire(Vec(VICommitWidth, Bool()))
     walkEqualMaskPending := walkEntry.map(entry => PopCount((0 until VICommitWidth).map(i => (entry.robIdx === pendingRobIdx && hasPendingRobIdx === true.B && pendingType === true.B))) =/= 0.U)
@@ -184,7 +182,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     val walkNum = PopCount(walkMask)
     val headPtrNextWalk = headPtr - walkNum
 
-    headPtr := Mux(io.commitPort.doWalk && (!io.renamePort.doRename), headPtrNextWalk, Mux(io.renamePort.doRename, headPtrNextRename, headPtr))
+    headPtr := Mux(io.commitPort.req.doWalk && (!io.renamePort.doRename), headPtrNextWalk, Mux(io.renamePort.doRename, headPtrNextRename, headPtr))
 
     val pendingRobIdxCommit = Wire(UInt(log2Up(RobSize).W))
     val pendingRobIdxWalk = Wire(UInt(log2Up(RobSize).W))
@@ -195,7 +193,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     when((commitMask(VICommitWidth - 1) === true.B) && (commitEntry(VICommitWidth-1).robIdx === rollBackList((tailPtr + VICommitWidth.U).value).robIdx)) {
         hasPendingRobIdx := true.B
         pendingRobIdx := pendingRobIdxCommit
-        pendingType := Mux(io.commitPort.doCommit, false.B, true.B)
+        pendingType := Mux(io.commitPort.req.doCommit, false.B, true.B)
     }.elsewhen((walkMask(VICommitWidth - 1) === true.B) && (walkEntry(VICommitWidth - 1).robIdx === rollBackList((headPtr - VICommitWidth.U).value).robIdx)) {
         hasPendingRobIdx := true.B
         pendingRobIdx := pendingRobIdxWalk
@@ -204,8 +202,8 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
         hasPendingRobIdx := false.B
     }
 
-    io.commitPort.pendingType := pendingType
-    io.commitPort.hasPendingRobIdx := hasPendingRobIdx
+    io.commitPort.req.pendingType := pendingType
+    io.commitPort.req.hasPendingRobIdx := hasPendingRobIdx
 
     val commitLogicIdx = Wire(Vec(VICommitWidth, UInt(5.W)))
     val walkLogicIdx = Wire(Vec(VICommitWidth, UInt(5.W)))
@@ -225,7 +223,11 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     commitLogicIdx := commitEntry.map(entry => entry.logicRegIdx)
     walkLogicIdx := walkEntry.map(entry => entry.logicRegIdx)
 
-    io.commitPort.lrIdx := Mux(io.commitPort.doCommit, commitLogicIdx, walkLogicIdx)
-    io.commitPort.oldprIdx := Mux(io.commitPort.doCommit, commitPhyIdxOld, walkPhyIdxOld)
-    io.commitPort.newprIdx := Mux(io.commitPort.doCommit, commitPhyIdxNew, walkPhyIdxNew)
+    io.commitPort.resp.lrIdx := Mux(io.commitPort.req.doCommit, commitLogicIdx, walkLogicIdx)
+    //io.commitPort.resp.oldprIdx := Mux(io.commitPort.req.doCommit, commitPhyIdxOld, walkPhyIdxOld)
+    //io.commitPort.resp.newprIdx := Mux(io.commitPort.req.doCommit, commitPhyIdxNew, walkPhyIdxNew)
+    io.commitPort.resp.mask := Mux(io.commitPort.req.doCommit, commitMask, walkMask)
+    io.commitPort.resp.prIdx := Mux(io.commitPort.req.doCommit, commitPhyIdxNew, walkPhyIdxOld)
+    io.commitPort.resp.doCommit := io.commitPort.req.doCommit
+    io.commitPort.resp.doWalk := io.commitPort.req.doWalk
 }
