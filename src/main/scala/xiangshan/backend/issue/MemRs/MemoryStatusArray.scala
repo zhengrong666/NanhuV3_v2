@@ -111,7 +111,9 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
       n := SrcState.rdy
     }
   }
-  pregMatch.foreach(hv => assert(Mux(io.entry.valid, PopCount(hv) <= 1.U, true.B)))
+  pregMatch.foreach(hv =>{
+    when(io.entry.valid){assert(PopCount(hv) <= 1.U)}
+  })
   private val miscUpdateEnWakeUp = pregMatch.map(_.reduce(_ | _)).reduce(_ | _)
   //End of wake up
 
@@ -186,20 +188,18 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   }.elsewhen(counter.orR) {
     counterNext := LogicShiftRight(counter, 1)
   }
-  assert(Mux(io.entry.valid, Cat(srcShouldBeCancelled(0), staLoadIssued) <= 2.U, true.B))
-  assert(Mux(io.entry.valid && !io.entry.bits.isCboZero, Cat(srcShouldBeCancelled(1), stdIssued) <= 2.U, true.B))
-  assert(Mux(io.entry.valid && io.entry.bits.isCboZero, Cat(srcShouldBeCancelled(0), stdIssued) <= 2.U, true.B))
-  assert(Mux(staLoadIssued, io.entry.valid && staLoadState === s_ready, true.B))
-  assert(Mux(stdIssued, io.entry.valid && stdState === s_ready && imStore, true.B))
-  assert(Mux(io.entry.valid && imLoad, stdState === s_issued, true.B))
-  assert(Mux(io.entry.valid,
-    staLoadState === s_wait_st ||
-      staLoadState === s_ready ||
-      staLoadState === s_wait_cancel ||
-      staLoadState === s_wait_counter ||
-      staLoadState === s_wait_replay ||
-      staLoadState === s_issued, true.B))
-  assert(Mux(io.entry.valid && imStore, stdState === s_ready || stdState === s_wait_cancel || stdState === s_issued, true.B))
+  when(io.entry.valid){
+    assert(Cat(srcShouldBeCancelled(0), staLoadIssued) <= 2.U)
+    assert(staLoadState === s_wait_st || staLoadState === s_ready ||
+      staLoadState === s_wait_cancel || staLoadState === s_wait_counter ||
+      staLoadState === s_wait_replay || staLoadState === s_issued)
+  }
+  when(io.entry.valid && !io.entry.bits.isCboZero){assert(Cat(srcShouldBeCancelled(1), stdIssued) <= 2.U)}
+  when(io.entry.valid && io.entry.bits.isCboZero){assert(Cat(srcShouldBeCancelled(0), stdIssued) <= 2.U)}
+  when(staLoadIssued){assert(io.entry.valid && staLoadState === s_ready)}
+  when(stdIssued){assert(io.entry.valid && stdState === s_ready && imStore)}
+  when(io.entry.valid && imLoad){assert(stdState === s_issued)}
+  when(io.entry.valid && imStore){assert(stdState === s_ready || stdState === s_wait_cancel || stdState === s_issued)}
 
   srcShouldBeCancelled.zip(miscNext.bits.srcState).foreach{case(en, state) => when(en){state := SrcState.busy}}
   //End of issue and cancel
@@ -227,7 +227,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
       val wakeupLpvSelected = Mux1H(lpvUpdateHitsVec, lpvUpdateDataVec)
       nl := Mux(wakeupLpvValid, wakeupLpvSelected, LogicShiftRight(ol,1))
       m := wakeupLpvValid | ol.orR
-      assert(Mux(io.entry.valid, PopCount(lpvUpdateHitsVec) === 1.U || PopCount(lpvUpdateHitsVec) === 0.U, true.B))
+      when(io.entry.valid){assert(PopCount(lpvUpdateHitsVec) === 1.U || PopCount(lpvUpdateHitsVec) === 0.U)}
     }
   }
   private val miscUpdateEnLpvUpdate = lpvModified.map(_.reduce(_|_)).reduce(_|_)
@@ -320,7 +320,7 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(i
     updateNetwork.io.replay.valid := replaySels.reduce(_|_)
     updateNetwork.io.replay.bits := Mux1H(replaySels, replayVals)
     updateNetwork.io.redirect := io.redirect
-    assert(Mux(v, PopCount(replaySels) === 1.U || PopCount(replaySels) === 0.U, true.B))
+    when(v){assert(PopCount(replaySels) <= 1.U)}
     updateNetwork.io.stIssued := io.stIssued
     updateNetwork.io.stLastCompelet := io.stLastCompelet
 
@@ -333,10 +333,10 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(i
   }
 
   assert(Cat(statusArrayValid) === Cat(statusArrayValidAux))
-  assert(Mux(io.enq.valid, PopCount(io.enq.bits.addrOH) === 1.U, true.B))
+  when(io.enq.valid){assert(PopCount(io.enq.bits.addrOH) === 1.U)}
   assert((Mux(io.enq.valid, io.enq.bits.addrOH, 0.U) & Cat(statusArrayValid.reverse)) === 0.U)
   private val issues = Seq(io.staLduIssue, io.stdIssue)
   for(iss <- issues){
-    assert(Mux(iss.valid, PopCount(iss.bits & Cat(statusArrayValid.reverse)) === 1.U, true.B))
+    when(iss.valid){assert(PopCount(iss.bits & Cat(statusArrayValid.reverse)) === 1.U)}
   }
 }

@@ -132,18 +132,18 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   assert(deqPtr <= enqPtrAux)
   assert(actualEnqNum <= emptyEntriesNum)
-  assert(Mux(io.enq.canAccept, PopCount(squeezedEnqs.map(_.valid)) === actualEnqNum, true.B))
+  when(io.enq.canAccept){assert(PopCount(squeezedEnqs.map(_.valid)) === actualEnqNum)}
   for(i <- io.enq.req.indices){
-    assert(Mux(io.enq.canAccept, Mux(i.U < actualEnqNum, squeezedEnqs(i).valid === true.B, squeezedEnqs(i).valid === false.B), true.B))
+    when(io.enq.canAccept){assert(Mux(i.U < actualEnqNum, squeezedEnqs(i).valid === true.B, squeezedEnqs(i).valid === false.B))}
   }
   for(i <- 1 until squeezedEnqs.length){
-    assert(Mux(squeezedEnqs(i).valid, squeezedEnqs(i).bits.robIdx > squeezedEnqs(i - 1).bits.robIdx, true.B))
+    when(squeezedEnqs(i).valid){assert(squeezedEnqs(i).bits.robIdx > squeezedEnqs(i - 1).bits.robIdx)}
   }
   assert(flushNum <= validEntriesNum)
   private val enqFlushNextMask = UIntToMask((enqPtr - flushNum).value, size)
   private val flushXorPresentMask = enqFlushNextMask ^ enqMask
   private val enqRollbackMask = Mux(enqPtr.value >= (enqPtr - flushNum).value, flushXorPresentMask, ~flushXorPresentMask)
-  assert(Mux(io.redirect.valid, enqRollbackMask === redirectMask, true.B), "Redirect mask should be continuous.")
+  when(io.redirect.valid){assert(enqRollbackMask === redirectMask, "Redirect mask should be continuous.")}
   private val readyNum = PopCount(io.deq.map(_.ready))
   for (i <- 1 until io.deq.length) {
     assert(Mux(i.U < readyNum, io.deq(i).ready === true.B, io.deq(i).ready === false.B))
