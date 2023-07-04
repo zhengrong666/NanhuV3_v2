@@ -14,7 +14,7 @@
   * See the Mulan PSL v2 for more details.
   ***************************************************************************************/
 
-package xiangshan.vector
+package Vector
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
@@ -23,6 +23,18 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import xiangshan._
 import xiangshan.backend.exu.ExuConfig
 import xs.utils._
+import Vector.videcode.VIDecodeUnit
+import xiangshan.vector.vtyperename.VtypeRename
+import Vector._
+
+abstract class VBundle(implicit val p: Parameters) extends Bundle
+  with HasVIParameter
+
+abstract class VIModule(implicit val p: Parameters) extends MultiIOModule
+  with HasVIParameter {
+  def io: Record
+}
+
 
 class Vector(dpExuConfigs: Seq[Seq[Seq[ExuConfig]]])(implicit p: Parameters) extends LazyModule{
 
@@ -43,9 +55,11 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     //from ctrl decode
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
     //from ctrl rename
-    val vtype = Input(UInt(8.W)) //to wait queu
+    val vtype = Input(UInt(8.W)) //from rename to vtyperename
     //from ctrl rob
     val allowdeq = Input(Bool()) //to wait queue
+
+    val redirect = Flipped(ValidIO(new Redirect))
 
     //out
     //to exu
@@ -53,5 +67,12 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
 
   })
 
+  val videcode = Module(new VIDecodeUnit)
+  val vtyperename = Module(new VtypeRename(DecodeWidth,DecodeWidth,))
+
+  for (i <- 0 until DecodeWidth) {
+    val renamePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
+      io.redirect.valid)
+  }
 }
 
