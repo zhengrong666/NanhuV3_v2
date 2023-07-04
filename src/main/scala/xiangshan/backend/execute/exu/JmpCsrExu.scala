@@ -112,6 +112,10 @@ class JmpCsrExuImpl(outer:JmpCsrExu, exuCfg:ExuConfig)(implicit p:Parameters) ex
   private val redirectBits = Seq(jmp.redirectOut, fence.redirectOut)
   writebackPort.bits.redirect := Mux(csr.redirectOutValid, csr.redirectOut, Mux1H(redirectValids, redirectBits))
   writebackPort.bits.redirectValid := csr.redirectOutValid || redirectValids.reduce(_ || _)
+  writebackPort.bits.debug.isMMIO := false.B
+  writebackPort.bits.debug.isPerfCnt := csr.csrio.isPerfCnt
+  writebackPort.bits.debug.paddr := 0.U
+  writebackPort.bits.debug.vaddr := 0.U
 
   io.prefetchI := Pipe(jmp.prefetchI)
   io.fenceio.sfence := fence.sfence
@@ -119,6 +123,7 @@ class JmpCsrExuImpl(outer:JmpCsrExu, exuCfg:ExuConfig)(implicit p:Parameters) ex
   io.fenceio.sbuffer <> fence.toSbuffer
   fence.toSbuffer.sbIsEmpty := io.fenceio.sbuffer.sbIsEmpty
   fence.disableSfence := csr.csrio.disableSfence
+  fence.priviledgeMode := csr.csrio.priviledgeMode
   csr.csrio <> io.csrio
   io.csrio.tlb := DelayN(csr.csrio.tlb, 2)
   io.csrio.customCtrl := DelayN(csr.csrio.customCtrl, 2)
