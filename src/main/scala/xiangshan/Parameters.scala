@@ -33,6 +33,7 @@ import huancun.debug._
 import xiangshan.mem.prefetch.{PrefetcherParams, SMSParams}
 
 import scala.math.min
+import xiangshan.vector.VectorParameters
 
 case object XSTileKey extends Field[Seq[XSCoreParameters]]
 
@@ -232,7 +233,15 @@ case class XSCoreParameters
   )),
   L2NBanks: Int = 1,
   usePTWRepeater: Boolean = false,
-  softPTW: Boolean = false // dpi-c debug only
+  softPTW: Boolean = false, // dpi-c debug only
+  vectorParameters: VectorParameters = VectorParameters(
+    vLen               = 128, //maybe 64、256、512...
+    vDecodeWidth       = 6,
+    vRenameWidth       = 4,
+    vCommitWidth       = 4,
+    vPhyRegsNum        = 64,
+    viWalkRobIdxQueueWidth = 64
+  )
 ){
   val allHistLens: Seq[Int] = SCHistLens ++ ITTageTableInfos.map(_._2) ++ TageTableInfos.map(_._2) :+ UbtbGHRLength
   val HistoryLength: Int = allHistLens.max + numBr * FtqSize + 9 // 256 for the predictor configs now
@@ -383,6 +392,8 @@ trait HasXSParameter {
 
   val icacheParameters = coreParams.icacheParameters
   val dcacheParameters = coreParams.dcacheParametersOpt.getOrElse(DCacheParameters())
+
+  val vectorParameters = coreParams.vectorParameters
 
   // dcache block cacheline when lr for LRSCCycles - LRSCBackOff cycles
   // for constrained LR/SC loop
