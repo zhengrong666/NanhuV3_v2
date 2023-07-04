@@ -177,6 +177,22 @@ class SbufferData(implicit p: Parameters) extends XSModule with HasSbufferConst 
   io.maskOut := mask
 }
 
+
+class PLRUWrapper(nWay: Int,accessWay: Int,accessType : UInt) extends Module{
+  require(isPow2(nWay))
+  val n_bits = nWay - 1
+  val set_num = log2Up(nWay)
+
+  val io = IO(new Bundle() {
+    val access = Input(Vec(accessWay, Valid(accessType)))
+    val replaceWay = Output(UInt(set_num.W))
+  })
+
+  val plru = new PseudoLRU(nWay)
+  plru.access(io.access)
+  io.replaceWay := plru.way
+}
+
 class Sbuffer(implicit p: Parameters) extends DCacheModule with HasSbufferConst with HasPerfEvents {
   val io = IO(new Bundle() {
     val hartId = Input(UInt(8.W))
@@ -242,12 +258,18 @@ class Sbuffer(implicit p: Parameters) extends DCacheModule with HasSbufferConst 
 
   // sbuffer entry count
 
-  val plru = new PseudoLRU(StoreBufferSize)
+//  val plru = new PseudoLRU(StoreBufferSize)
   val accessIdx = Wire(Vec(StorePipelineWidth + 1, Valid(UInt(SbufferIndexWidth.W))))
 
-  val replaceIdx = plru.way
-  val replaceIdxOH = UIntToOH(plru.way)
-  plru.access(accessIdx)
+//  val replaceIdx = plru.way
+//  val replaceIdxOH = UIntToOH(plru.way)
+//  plru.access(accessIdx)
+
+  val plru = Module(new PLRUWrapper(StoreBufferSize,StorePipelineWidth + 1,UInt(SbufferIndexWidth.W)))
+  plru.io.access := accessIdx
+  val replaceIdx = plru.io.replaceWay
+  plru.suggestName("sbufferPLRU")
+
 
   //-------------------------cohCount-----------------------------
   // insert and merge: cohCount=0
@@ -420,8 +442,8 @@ class Sbuffer(implicit p: Parameters) extends DCacheModule with HasSbufferConst 
     val insertVec = if(i == 0) firstInsertVec else secondInsertVec
     assert(!((PopCount(insertVec) > 1.U) && in.fire()))
     val insertIdx = OHToUInt(insertVec)
-    accessIdx(i).valid := RegNext(in.fire())
-    accessIdx(i).bits := RegNext(Mux(canMerge(i), mergeIdx(i), insertIdx))
+    accessIdx(i).valid := RegNext(in.fire, false.B)
+    accessIdx(i).bits := RegEnable(Mux(canMerge(i), mergeIdx(i), insertIdx), in.fire)
     when(in.fire()){
       when(canMerge(i)){
         writeReq(i).bits.wvec := mergeVec(i)
@@ -688,7 +710,7 @@ class Sbuffer(implicit p: Parameters) extends DCacheModule with HasSbufferConst 
 
   if (env.EnableDifftest) {
     // hit resp
-    io.dcache.hit_resps.zipWithIndex.map{case (resp, index) => {
+    io.dcache.hit_resps.zipWithIndex.foreach{case (resp, index) => {
       val difftest = Module(new DifftestSbufferEvent)
       val dcache_resp_id = resp.bits.id
       difftest.io.clock := clock

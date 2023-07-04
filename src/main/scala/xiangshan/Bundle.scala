@@ -32,7 +32,9 @@ import xiangshan.frontend.CGHPtr
 import xiangshan.frontend.FtqToCtrlIO
 import chipsalliance.rocketchip.config.Parameters
 import chisel3.util.BitPat.bitPatToUInt
-import xiangshan.backend.exu.ExuConfig
+import xiangshan.backend.execute.fu.alu.ALUOpType
+import xiangshan.backend.execute.fu.csr.CSROpType
+import xiangshan.backend.execute.fu.fpu.FPUCtrlSignals
 import xiangshan.frontend.Ftq_Redirect_SRAMEntry
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
 import xs.utils.DataChanged
@@ -47,18 +49,6 @@ object ValidUndirectioned {
   def apply[T <: Data](gen: T) = {
     new ValidUndirectioned[T](gen)
   }
-}
-
-object RSFeedbackType {
-  val tlbMiss = 0.U(3.W)
-  val mshrFull = 1.U(3.W)
-  val dataInvalid = 2.U(3.W)
-  val bankConflict = 3.U(3.W)
-  val ldVioCheckRedo = 4.U(3.W)
-
-  val feedbackInvalid = 7.U(3.W)
-
-  def apply() = UInt(3.W)
 }
 
 class PredictorAnswer(implicit p: Parameters) extends XSBundle {
@@ -125,24 +115,6 @@ class CtrlFlow(implicit p: Parameters) extends XSBundle {
   val ftqOffset = UInt(log2Up(PredictWidth).W)
 }
 
-
-class FPUCtrlSignals(implicit p: Parameters) extends XSBundle {
-  val isAddSub = Bool() // swap23
-  val typeTagIn = UInt(1.W)
-  val typeTagOut = UInt(1.W)
-  val fromInt = Bool()
-  val wflags = Bool()
-  val fpWen = Bool()
-  val fmaCmd = UInt(2.W)
-  val div = Bool()
-  val sqrt = Bool()
-  val fcvt = Bool()
-  val typ = UInt(2.W)
-  val fmt = UInt(2.W)
-  val ren3 = Bool() //TODO: remove SrcType.fp
-  val rm = UInt(3.W)
-}
-
 // Decode DecodeWidth insts at Decode Stage
 class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val srcType = Vec(3, SrcType())
@@ -179,7 +151,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   }
 
   def decode(bit: List[BitPat]): CtrlSignals = {
-    allSignals.zip(bit.map(bitPatToUInt(_))).foreach{ case (s, d) => s := d }
+    allSignals.zip(bit.map(bitPatToUInt)).foreach{ case (s, d) => s := d }
     this
   }
 
@@ -223,19 +195,9 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val lqIdx = new LqPtr
   val sqIdx = new SqPtr
   val eliminatedMove = Bool()
+  val lpv = Vec(loadUnitNum, UInt(LpvLength.W))
   val debugInfo = new PerfDebugInfo
-  def needRfRPort(index: Int, isFp: Boolean, ignoreState: Boolean = true) : Bool = {
-    val stateReady = srcState(index) === SrcState.rdy || ignoreState.B
-    val readReg = if (isFp) {
-      ctrl.srcType(index) === SrcType.fp
-    } else {
-      ctrl.srcType(index) === SrcType.reg && ctrl.lsrc(index) =/= 0.U
-    }
-    readReg && stateReady
-  }
-  def srcIsReady: Vec[Bool] = {
-    VecInit(ctrl.srcType.zip(srcState).map{ case (t, s) => SrcType.isPcOrImm(t) || s === SrcState.rdy })
-  }
+
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
     flushPipe: Boolean = false,
@@ -249,26 +211,6 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   }
   // Assume only the LUI instruction is decoded with IMM_U in ALU.
   def isLUI: Bool = ctrl.selImm === SelImm.IMM_U && ctrl.fuType === FuType.alu
-  // This MicroOp is used to wakeup another uop (the successor: (psrc, srcType).
-  def wakeup(successor: Seq[(UInt, UInt)], exuCfg: ExuConfig): Seq[(Bool, Bool)] = {
-    successor.map{ case (src, srcType) =>
-      val pdestMatch = pdest === src
-      // For state: no need to check whether src is x0/imm/pc because they are always ready.
-      val rfStateMatch = if (exuCfg.readIntRf) ctrl.rfWen else false.B
-      val fpMatch = if (exuCfg.readFpRf) ctrl.fpWen else false.B
-      val bothIntFp = exuCfg.readIntRf && exuCfg.readFpRf
-      val bothStateMatch = Mux(SrcType.regIsFp(srcType), fpMatch, rfStateMatch)
-      val stateCond = pdestMatch && (if (bothIntFp) bothStateMatch else rfStateMatch || fpMatch)
-      // For data: types are matched and int pdest is not $zero.
-      val rfDataMatch = if (exuCfg.readIntRf) ctrl.rfWen && src =/= 0.U else false.B
-      val dataCond = pdestMatch && (rfDataMatch && SrcType.isReg(srcType) || fpMatch && SrcType.isFp(srcType))
-      (stateCond, dataCond)
-    }
-  }
-  // This MicroOp is used to wakeup another uop (the successor: MicroOp).
-  def wakeup(successor: MicroOp, exuCfg: ExuConfig): Seq[(Bool, Bool)] = {
-    wakeup(successor.psrc.zip(successor.ctrl.srcType), exuCfg)
-  }
   def isJump: Bool = FuType.isJumpExu(ctrl.fuType)
 }
 
@@ -284,6 +226,11 @@ class Redirect(implicit p: Parameters) extends XSBundle {
   val level = RedirectLevel()
   val interrupt = Bool()
   val cfiUpdate = new CfiUpdateInfo
+  val isException = Bool()
+  val isLoadStore = Bool()
+  val isLoadLoad = Bool()
+  val isXRet = Bool()
+  val isFlushPipe = Bool()
 
   val stFtqIdx = new FtqPtr // for load violation predict
   val stFtqOffset = UInt(log2Up(PredictWidth).W)
@@ -291,12 +238,6 @@ class Redirect(implicit p: Parameters) extends XSBundle {
   // def isUnconditional() = RedirectLevel.isUnconditional(level)
   def flushItself() = RedirectLevel.flushItself(level)
   // def isException() = RedirectLevel.isException(level)
-}
-
-class Dp1ToDp2IO(implicit p: Parameters) extends XSBundle {
-  val intDqToDp2 = Vec(dpParams.IntDqDeqWidth, DecoupledIO(new MicroOp))
-  val fpDqToDp2 = Vec(dpParams.FpDqDeqWidth, DecoupledIO(new MicroOp))
-  val lsDqToDp2 = Vec(dpParams.LsDqDeqWidth, DecoupledIO(new MicroOp))
 }
 
 class ResetPregStateReq(implicit p: Parameters) extends XSBundle {
@@ -392,23 +333,6 @@ class RobCommitIO(implicit p: Parameters) extends XSBundle {
   def hasCommitInstr: Bool = isCommit && commitValid.asUInt.orR
 }
 
-class RSFeedback(implicit p: Parameters) extends XSBundle {
-  val rsIdx = UInt(log2Up(IssQueSize).W)
-  val hit = Bool()
-  val flushState = Bool()
-  val sourceType = RSFeedbackType()
-  val dataInvalidSqIdx = new SqPtr
-}
-
-class MemRSFeedbackIO(implicit p: Parameters) extends XSBundle {
-  // Note: you need to update in implicit Parameters p before imp MemRSFeedbackIO
-  // for instance: MemRSFeedbackIO()(updateP)
-  val feedbackSlow = ValidIO(new RSFeedback()) // dcache miss queue full, dtlb miss
-  val feedbackFast = ValidIO(new RSFeedback()) // bank conflict
-  val rsIdx = Input(UInt(log2Up(IssQueSize).W))
-  val isFirstIssue = Input(Bool())
-}
-
 class FrontendToCtrlIO(implicit p: Parameters) extends XSBundle {
   // to backend end
   val cfVec = Vec(DecodeWidth, DecoupledIO(new CtrlFlow))
@@ -452,24 +376,8 @@ class TlbCsrBundle(implicit p: Parameters) extends XSBundle {
   }
 }
 
-class SfenceBundle(implicit p: Parameters) extends XSBundle {
-  val valid = Bool()
-  val bits = new Bundle {
-    val rs1 = Bool()
-    val rs2 = Bool()
-    val addr = UInt(VAddrBits.W)
-    val asid = UInt(AsidLength.W)
-  }
-
-  override def toPrintable: Printable = {
-    p"valid:0x${Hexadecimal(valid)} rs1:${bits.rs1} rs2:${bits.rs2} addr:${Hexadecimal(bits.addr)}"
-  }
-}
-
 // Bundle for load violation predictor updating
 class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
-  val valid = Bool()
-
   // wait table update
   val waddr = UInt(MemPredPCWidth.W)
   val wdata = Bool() // true.B by default
@@ -531,6 +439,11 @@ class DistributedCSRIO(implicit p: Parameters) extends XSBundle {
     val addr = Output(UInt(12.W))
     val data = Output(UInt(XLEN.W))
   })
+  def delay():DistributedCSRIO = {
+    val delay = Wire(new DistributedCSRIO)
+    delay.w := Pipe(this.w)
+    delay
+  }
 }
 
 class DistributedCSRUpdateReq(implicit p: Parameters) extends XSBundle {
@@ -669,3 +582,4 @@ class MatchTriggerIO(implicit p: Parameters) extends XSBundle {
   val load = Output(Bool())
   val tdata2 = Output(UInt(64.W))
 }
+

@@ -30,6 +30,7 @@ import xs.utils._
 import huancun.{AliasField, AliasKey, DirtyField, PreferCacheField, PrefetchField}
 import huancun.utils.FastArbiter
 import mem.AddPipelineReg
+import xiangshan.backend.rob.RobPtr
 import xs.utils.mbist.MBISTPipeline
 
 import scala.math.max
@@ -37,7 +38,7 @@ import scala.math.max
 // DCache specific parameters
 case class DCacheParameters
 (
-  nSets: Int = 256,
+  nSets: Int = 64,
   nWays: Int = 8,
   rowBits: Int = 64,
   tagECC: Option[String] = None,
@@ -280,6 +281,7 @@ class DCacheWordReq(implicit p: Parameters)  extends DCacheBundle
   val mask   = UInt((DataBits/8).W)
   val id     = UInt(reqIdWidth.W)
   val instrtype   = UInt(sourceTypeWidth.W)
+  val robIdx = new RobPtr
   def dump() = {
     XSDebug("DCacheWordReq: cmd: %x addr: %x data: %x mask: %x id: %d\n",
       cmd, addr, data, mask, id)

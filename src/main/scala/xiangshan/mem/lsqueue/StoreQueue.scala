@@ -287,7 +287,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
     // re-replinish mmio, for pma/pmp will get mmio one cycle later
     val storeInFireReg = RegNext(io.storeIn(i).fire() && !io.storeIn(i).bits.miss)
-    val stWbIndexReg = RegNext(stWbIndex)
+    val stWbIndexReg = RegEnable(stWbIndex, io.storeIn(i).valid)
     when (storeInFireReg) {
       pending(stWbIndexReg) := io.storeInRe(i).mmio
       mmio(stWbIndexReg) := io.storeInRe(i).mmio
@@ -460,7 +460,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     }
   }
   io.uncache.req.valid := uncacheState === s_req
-
+  io.uncache.req.bits.robIdx := DontCare
   io.uncache.req.bits.cmd  := MemoryOpConstants.M_XWR
   io.uncache.req.bits.addr := paddrModule.io.rdata(0) // data(deqPtr) -> rdata(0)
   io.uncache.req.bits.data := dataModule.io.rdata(0).data
@@ -574,6 +574,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     io.sbuffer(i).bits.wline := dataBuffer.io.deq(i).bits.wline
     io.sbuffer(i).bits.id    := DontCare
     io.sbuffer(i).bits.instrtype    := DontCare
+    io.sbuffer(i).bits.robIdx := DontCare
 
     // io.sbuffer(i).fire() is RegNexted, as sbuffer data write takes 2 cycles.
     // Before data write finish, sbuffer is unable to provide store to load

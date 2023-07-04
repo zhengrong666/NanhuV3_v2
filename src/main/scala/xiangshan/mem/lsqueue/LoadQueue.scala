@@ -23,7 +23,7 @@ import chisel3.ExcitingUtils
 import utils._
 import xs.utils._
 import xiangshan._
-import xiangshan.backend.fu.fpu.FPU
+import xiangshan.backend.execute.fu.fpu.FPU
 import xiangshan.backend.rob.RobLsqIO
 import xiangshan.cache._
 import xiangshan.frontend.FtqPtr
@@ -314,9 +314,9 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     }
 
     // vaddrModule write is delayed, as vaddrModule will not be read right after write
-    vaddrModule.io.waddr(i) := RegNext(loadWbIndex)
-    vaddrModule.io.wdata(i) := RegNext(io.loadIn(i).bits.vaddr)
-    vaddrModule.io.wen(i) := RegNext(io.loadIn(i).fire())
+    vaddrModule.io.waddr(i) := RegEnable(loadWbIndex, io.loadIn(i).fire)
+    vaddrModule.io.wdata(i) := RegEnable(io.loadIn(i).bits.vaddr, io.loadIn(i).fire)
+    vaddrModule.io.wen(i) := RegNext(io.loadIn(i).fire)
   }
 
   when(io.dcache.valid) {
@@ -707,9 +707,14 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.rollback.bits.ftqOffset := rollbackUop.cf.ftqOffset
   io.rollback.bits.stFtqOffset := rollbackStFtqOffset
   io.rollback.bits.level := RedirectLevel.flush
-  io.rollback.bits.interrupt := DontCare
+  io.rollback.bits.interrupt := false.B
   io.rollback.bits.cfiUpdate := DontCare
   io.rollback.bits.cfiUpdate.target := rollbackUop.cf.pc
+  io.rollback.bits.isException := false.B
+  io.rollback.bits.isLoadStore := true.B
+  io.rollback.bits.isLoadLoad := false.B
+  io.rollback.bits.isXRet := false.B
+  io.rollback.bits.isFlushPipe := false.B
   // io.rollback.bits.pc := DontCare
 
   io.rollback.valid := rollbackValidVecChecked.asUInt.orR
@@ -777,7 +782,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // We replay that load inst from RS
     io.loadViolationQuery.map(i => i.req.ready :=
       // use lsu side release2cycle_dup_lsu paddr for better timing
-      !i.req.bits.paddr(PAddrBits-1, DCacheLineOffset) === release2cycle_dup_lsu.bits.paddr(PAddrBits-1, DCacheLineOffset)
+      !(i.req.bits.paddr(PAddrBits-1, DCacheLineOffset) === release2cycle_dup_lsu.bits.paddr(PAddrBits-1, DCacheLineOffset))
     )
     // io.loadViolationQuery.map(i => i.req.ready := false.B) // For better timing
   }
@@ -839,7 +844,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.uncache.req.bits.addr := dataModule.io.uncache.rdata.paddr
   io.uncache.req.bits.data := dataModule.io.uncache.rdata.data
   io.uncache.req.bits.mask := dataModule.io.uncache.rdata.mask
-
+  io.uncache.req.bits.robIdx := DontCare
   io.uncache.req.bits.id   := DontCare
   io.uncache.req.bits.instrtype := DontCare
 
