@@ -62,7 +62,7 @@ class MulExuImpl(outer:MulExu, exuCfg:ExuConfig)(implicit p:Parameters) extends 
     m.io.in.bits.uop := finalIssueSignals.bits.uop
     m.io.in.bits.src := finalIssueSignals.bits.src
     m.io.out.ready := true.B
-    assert(Mux(m.io.in.valid, m.io.in.ready, true.B))
+    when(m.io.in.valid){assert(m.io.in.ready)}
   })
   i2f.rm := finalIssueSignals.bits.uop.ctrl.fpu.rm
 

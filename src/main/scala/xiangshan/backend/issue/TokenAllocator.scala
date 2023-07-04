@@ -66,6 +66,6 @@ class TokenAllocator(pdestWidth:Int, tokenNum:Int)(implicit p: Parameters) exten
         d := io.alloc.bits
       }
 
-      assert(Mux(en, !v, true.B))
+      when(en){assert(!v)}
   })
 }

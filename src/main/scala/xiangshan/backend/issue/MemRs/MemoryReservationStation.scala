@@ -164,7 +164,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     source.ready := sink.ready
     fpBusyTableReadIdx = fpBusyTableReadIdx + 1
     intBusyTableReadIdx = intBusyTableReadIdx + 2
-    assert(Mux(source.valid, FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_), true.B))
+    when(source.valid){assert(FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))}
   })
 
   for(((fromAllocate, toAllocate), rsBank) <- allocateNetwork.io.enqToRs

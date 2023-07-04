@@ -88,8 +88,10 @@ class JmpCsrExuImpl(outer:JmpCsrExu, exuCfg:ExuConfig)(implicit p:Parameters) ex
     val isJmp = finalIssueSignals.bits.uop.ctrl.fuType === FuType.jmp
     val isCsr = finalIssueSignals.bits.uop.ctrl.fuType === FuType.csr
     val isExclusive = finalIssueSignals.bits.uop.ctrl.noSpecExec && finalIssueSignals.bits.uop.ctrl.blockBackward
-    assert(Mux(m.io.in.valid, m.io.in.ready, true.B))
-    assert(Mux(m.io.in.valid, isJmp || isCsr || isExclusive, true.B))
+    when(m.io.in.valid){
+      assert(m.io.in.ready)
+      assert(isJmp || isCsr || isExclusive)
+    }
   })
 
   private val fuOut = fuSeq.map(_.io.out)
