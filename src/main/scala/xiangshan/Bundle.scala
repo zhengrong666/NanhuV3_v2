@@ -225,8 +225,6 @@ class LSIdx(implicit p: Parameters) extends XSBundle {
 
 // CfCtrl -> MicroOp at Rename Stage
 class MicroOp(implicit p: Parameters) extends CfCtrl {
-  
-
   val srcState = Vec(3, SrcState())
   val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
   val pdest = UInt(PhyRegIdxWidth.W)
