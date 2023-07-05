@@ -33,7 +33,7 @@ import xiangshan.mem.mdp._
 import xiangshan.vector._
 
 class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-    val req = Input(Vec(VIRenameWidth, new VectorMicroOP))
+    val req = Input(Vec(VIRenameWidth, new MicroOp))
     val mask = Input(UInt(VIRenameWidth.W))
     //handshake TODO
 }
@@ -41,7 +41,7 @@ class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundl
 class VectorDispatchToDQ(implicit p: Parameters) extends VectorBaseBundle {
     val doDispatch = Input(Bool())
     val needDispatch = UInt(log2Up(VIRenameWidth + 1).W)
-    val req = Vec(VIRenameWidth, new VectorMicroOP)
+    val req = Vec(VIRenameWidth, new MicroOp)
     val mask = UInt(VIRenameWidth.W)
 }
 
@@ -64,13 +64,13 @@ class VectorDispatch(dispatchTypeNum: Int)(implicit p: Parameters) extends Vecto
 
     class VectorInstrSelectNetwork(width: Int) extends RawModule {
         val io = IO(new Bundle {
-            val req = Input(Vec(width, new VectorMicroOP))
+            val req = Input(Vec(width, new MicroOp))
             val sel = Input(Vec(width, UInt(2.W))) //type
             val toDqMast = Output(Vec(width, Vec(width, Bool())))
         })
 
         for((selType, i) <- io.sel.zipWithIndex) {
-            io.toDqMast(i) := io.req.map(e => e.typeJudge(selType))
+            //io.toDqMast(i) := io.req.map(e => e.typeJudge(selType))
         }
     }
 

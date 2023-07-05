@@ -8,6 +8,8 @@ import chisel3.stage.ChiselStage
 import xiangshan.XSCoreParamsKey
 import chipsalliance.rocketchip.config.Config
 import xiangshan.vector._
+import xiangshan._
+import system._
 
 object generator extends App {
     override def main(args: Array[String]) {
@@ -17,7 +19,7 @@ object generator extends App {
         //(new ChiselStage).emitVerilog(new VIFreeList(), Array("-td", "debug_code/"))
         //(new ChiselStage).emitVerilog(new VIRenameTable(), Array("-td", "debug_code/"))
         (new ChiselStage).emitVerilog(new VIRename(), Array("-td", "debug_code/"))
-        (new ChiselStage).emitVerilog(new VIRobIdxQueue(16), Array("-td", "debug_code/"))
+        (new ChiselStage).emitVerilog(new VIRobIdxQueue(64), Array("-td", "debug_code/"))
         (new ChiselStage).emitVerilog(new VIRollBackList, Array("-td", "debug_code/"))
     }
 }

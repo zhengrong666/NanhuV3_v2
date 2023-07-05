@@ -42,7 +42,7 @@ class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
     }))
     val mask = Input(UInt(VIRenameWidth.W))
     val robIdx = Input(Vec(VIRenameWidth, UInt(robIdxWidth.W)))
-    val doRename = Input(Bool())
+    val doRename = Output(Bool())
 }
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
