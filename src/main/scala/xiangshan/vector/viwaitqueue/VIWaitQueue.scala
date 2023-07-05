@@ -10,9 +10,8 @@ import xs.utils._
 import xiangshan.backend.rob._
 
 
-class vimop(implicit p: Parameters) extends VectorBaseBundle {
-  val victrl = new VICtrl
-  val state = 2.U(1.W)
+class vimop(implicit p: Parameters) extends MicroOp {
+  val state = 3.U(1.W)
 }
 
 class WqPtr(implicit p: Parameters) extends CircularQueuePtr[WqPtr](
@@ -41,7 +40,7 @@ class WqEnqIO(implicit p: Parameters) extends VectorBaseBundle  {
   val isEmpty = Output(Bool())
   // valid vector, for robIdx gen and walk
   val needAlloc = Vec(VIDecodeWidth, Input(Bool()))
-  val req = Vec(VIDecodeWidth, Flipped(DecoupledIO(new VICtrl)))
+  val req = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp)))
   val resp = Vec(VIDecodeWidth, Output(new WqPtr))
 }
 
@@ -52,6 +51,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
     val vtype = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeInfo)))
+    val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val WqFull = Output(Bool())
   })
 
@@ -59,19 +59,18 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   // For enqueue ptr, we don't duplicate it since only enqueue needs it.
   val enqPtrVec = Wire(Vec(VIDecodeWidth, new WqPtr))
   val deqPtr = Wire(new WqPtr)
+  val enqPtr = enqPtrVec.head
+  val vtypePtr = RegInit(deqPtr)
+  val waitPtr = RegInit(deqPtr)
 
   val allowEnqueue = RegInit(true.B)
-
-  val enqPtr = enqPtrVec.head
-  val vtypePtr = RegInit(enqPtr)
-
   val isEmpty = enqPtr === deqPtr
   val isReplaying = io.redirect.valid && RedirectLevel.flushItself(io.redirect.bits.level)
 
   /**
     * states of Wq
     */
-  val s_valid :: s_busy :: s_invalid :: Nil = Enum(3)
+  val s_valid :: s_wait :: s_busy :: s_invalid :: Nil = Enum(4)
 
 
   val WqData = Module(new SyncDataModuleTemplate(new vimop, 192, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
@@ -118,7 +117,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   WqData.io.wen := canEnqueue
   WqData.io.waddr := allocatePtrVec.map(_.value)
   WqData.io.wdata.zip(io.enq.req.map(_.bits)).foreach { case (wdata, req) =>
-    wdata.victrl := req
+    wdata := req
     wdata.state := s_busy
   }
   WqData.io.raddr := ReadAddr_next
@@ -128,27 +127,50 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * instruction split (Dequeue)
     */
 
-
+  val currentdata = WqDataRead(0)
+  if (currentdata.state == s_valid) {
+    
+  }
 
 
   /**
     * vtype update
     */
-  val vtypenum = PopCount(io.vtype.map(_.valid))
   for (i <- 0 until VIDecodeWidth) {
-    val ftq = io.vtype(i).bits.cf.ftqPtr
-    val offset = io.vtype(i).bits.cf.ftqOffset
-    WqData.io.raddr := vtypePtr.value
-    val tempdata = WqData.io.rdata
-    if (tempdata(0).victrl.vicf.cf.ftqPtr == ftq && tempdata(0).victrl.vicf.cf.ftqOffset == offset) {
-      WqData.io.waddr := vtypePtr.value
-      WqData.io.wdata.zip(io.vtype.map(_.bits)).foreach { case (wdata, req) =>
-        wdata.victrl.viinfo.vsew := req.ESEW
-        wdata.victrl.viinfo.vlmul := req.ELMUL
-        wdata.victrl.robIdx := req.robIdx
-        wdata.state := req.state - 1.U
+    when (io.vtype(i).valid) {
+      val ftq = io.vtype(i).bits.cf.ftqPtr
+      val offset = io.vtype(i).bits.cf.ftqOffset
+      WqData.io.raddr := vtypePtr.value
+      val tempdata = WqData.io.rdata(0)
+      if (tempdata.cf.ftqPtr == ftq && tempdata.cf.ftqOffset == offset) {
+        WqData.io.waddr := vtypePtr.value
+        tempdata.vCsrInfo.vsew := io.vtype(i).bits.ESEW
+        tempdata.vCsrInfo.vlmul := io.vtype(i).bits.ELMUL
+        tempdata.robIdx := io.vtype(i).bits.robIdx
+        if (io.vtype(i).bits.state == 1.U) {
+          tempdata.state := tempdata.state - 1.U
+        } else {
+          tempdata.state := tempdata.state
+        }
+        WqData.io.wdata := tempdata
+        vtypePtr := vtypePtr + 1
       }
-      vtypePtr := vtypePtr + 1
+    }
+  }
+
+  /**
+    * robenq update
+    */
+  for (i <- 0 until VIDecodeWidth) {
+    when(io.robin(i).valid) {
+      WqData.io.raddr := waitPtr.value
+      val tempdata = WqData.io.rdata(0)
+      if (tempdata.robIdx == io.robin(i).bits) {
+        WqData.io.waddr := waitPtr.value
+        tempdata.state := tempdata.state - 1.U
+        WqData.io.wdata := tempdata
+        vtypePtr := vtypePtr + 1
+      }
     }
   }
 
