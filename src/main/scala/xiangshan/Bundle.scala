@@ -243,6 +243,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   // val vpdest = UInt(VIPhyRegIdxWidth.W)
   val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
+  val uopIdx = UInt(7.W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
