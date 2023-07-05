@@ -32,8 +32,11 @@ object WriteBackSinkType{
   def intRs = 4
   def memRs = 5
   def fpRs = 6
-  private def rfList = Seq(regFile)
-  private def rsList = Seq(intRs, memRs, fpRs)
+  def vecRs = 7
+  def vecPermRs = 8
+  def vecRegfile = 9
+  private def rfList = Seq(regFile, vecRegfile)
+  private def rsList = Seq(intRs, memRs, fpRs, vecRs, vecPermRs)
   def isRf(in:Int) = rfList.contains(in)
   def isRs(in:Int) = rsList.contains(in)
 }
