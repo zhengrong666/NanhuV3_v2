@@ -14,14 +14,14 @@
   * See the Mulan PSL v2 for more details.
   ***************************************************************************************/
 
-package Vector.vtyperename
+package xiangshan.vector.vtyperename
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import utils._
 import xiangshan._
-import Vector._
+import xiangshan.vector._
 import xiangshan.backend.rob._
 import xs.utils._
 
@@ -65,7 +65,7 @@ object VtypePtr {
   }
 }
 
-class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit p: Parameters) extends VIModule with HasPerfEvents with HasCircularQueuePtrHelper {
+class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit p: Parameters) extends VectorBaseModule with HasPerfEvents with HasCircularQueuePtrHelper {
 
   val io = IO(new Bundle() {
     val redirect = Flipped(ValidIO(new Redirect))
@@ -75,7 +75,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val in = Vec(enqnum, Flipped(DecoupledIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeInfo))
     val backward = Vec(numWbPorts, DecoupledIO(new VtypeInfo))
-    val deq = Vec(CommitWidth, DecoupledIO(new MicroOp))
+    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
   })
 

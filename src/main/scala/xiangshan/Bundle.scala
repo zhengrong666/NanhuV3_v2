@@ -115,6 +115,16 @@ class CtrlFlow(implicit p: Parameters) extends XSBundle {
   val ssid = UInt(SSIDWidth.W)
   val ftqPtr = new FtqPtr
   val ftqOffset = UInt(log2Up(PredictWidth).W)
+
+  //vector
+  val funct6 = UInt(6.W)
+  val funct3 = UInt(3.W)
+  val vm = UInt(1.W)
+  val vs1_imm = UInt(5.W)
+  val widen = Bool()
+  val widen2 = Bool()
+  val narrow = Bool()
+  val narrow_to_1 = Bool()
 }
 
 // Decode DecodeWidth insts at Decode Stage
@@ -140,9 +150,32 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   // then replay from this inst itself
   val replayInst = Bool()
   //Vector
+  val vdWen = Bool()
+  val isOrder = Bool()
+  val isWiden = Bool()
+  val isNarrow = Bool()
+  val Widen = IsWiden
+  val Narrow = IsNarrow
   val vecWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
+
+  private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
+    vdWen, isOrder, isWiden, isNarrow, selImm)
+
+  def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
+    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
+    VallSignals zip decoder foreach { case (s, d) => s := d }
+    commitType := DontCare
+    this
+  }
+
+  def decodevwn(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
+    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
+    VallSignals zip decoder foreach { case (s, d) => s := d }
+    commitType := DontCare
+    this
+  }
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
@@ -168,6 +201,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
 class CfCtrl(implicit p: Parameters) extends XSBundle {
   val cf = new CtrlFlow
   val ctrl = new CtrlSignals
+  val vCsrInfo = new VICsrInfo
 }
 
 class PerfDebugInfo(implicit p: Parameters) extends XSBundle {
@@ -396,6 +430,18 @@ class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
   // by default, ldpc/stpc should be xor folded
   val ldpc = UInt(MemPredPCWidth.W)
   val stpc = UInt(MemPredPCWidth.W)
+}
+
+//vector vtype
+class VICsrInfo(implicit p: Parameters) extends XSBundle {
+  val ma = UInt(1.W)
+  val ta = UInt(1.W)
+  val vsew = UInt(3.W)
+  val vlmul = UInt(3.W)
+  val vl = UInt(8.W)
+  val vstart = UInt(7.W)
+  val vxrm = UInt(2.W)
+  val frm = UInt(3.W)
 }
 
 class CustomCSRCtrlIO(implicit p: Parameters) extends XSBundle {
