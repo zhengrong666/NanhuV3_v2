@@ -26,9 +26,37 @@ package xiangshan.vector
 import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config.Parameters
-
 import utils._
+<<<<<<< Updated upstream
 import xiangshan.CtrlFlow
+=======
+import _root_.Vector._
+import _root_.Vector.videcode.{ImmUnion, VectorArithDecode}
+import _root_.xiangshan.CtrlFlow
+import xiangshan.backend.rob.RobPtr
+
+//TODO: Vector Micro OP interface align
+// //fake interface
+// class VectorMicroOP(implicit p: Parameters) extends VectorBaseBundle {
+//     def typeJudge(sel_type: UInt): Bool = sel_type === 1.U
+// }
+
+// class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
+//     val lvs1    = UInt(5.W)
+//     val lvs2    = UInt(5.W)
+//     val lvd     = UInt(5.W)
+//     //TODO: WaitQueue port aligning...
+//     val en      = Bool()
+// }
+
+// class VIWaitQueueToRenameBundle(implicit p: Parameters) extends VectorBaseBundle {
+//     val renameReq   = Input(Vec(VIRenameWidth, new VIRenameReq))
+//     val robIdx      = Input(Vec(VIRenameWidth, UInt(log2Up(RobSize).W)))
+//     val needRename = Input(Vec(VIRenameWidth, Bool()))
+//     val vtypeValue  = Input(UInt(64.W))
+//     val doRename = Output(Bool())
+// }
+>>>>>>> Stashed changes
 
 class VICtrlSignals(implicit p: Parameters) extends VectorBaseBundle {
     val srcType = Vec(3, SrcType())
@@ -39,7 +67,7 @@ class VICtrlSignals(implicit p: Parameters) extends VectorBaseBundle {
     val vdWen = Bool()
     val rfWen = Bool()
     val fpWen = Bool()
-    val isorder = Bool()
+    val isOrder = Bool()
     val isWiden = Bool()
     val isNarrow = Bool()
     val Widen = IsWiden
@@ -49,7 +77,7 @@ class VICtrlSignals(implicit p: Parameters) extends VectorBaseBundle {
     val commitType = CommitType()
 
     private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-        vdWen, isorder, isWiden, isNarrow, selImm)
+        vdWen, isOrder, isWiden, isNarrow, selImm)
 
     def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): VICtrlSignals = {
         val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
