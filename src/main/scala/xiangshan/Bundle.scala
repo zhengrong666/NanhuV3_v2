@@ -39,6 +39,8 @@ import xiangshan.frontend.Ftq_Redirect_SRAMEntry
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
 import xs.utils.DataChanged
 
+import xiangshan.vector._
+
 class ValidUndirectioned[T <: Data](gen: T) extends Bundle {
   val valid = Bool()
   val bits = gen.cloneType.asInstanceOf[T]
@@ -137,6 +139,8 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   // This inst will flush all the pipe when it is the oldest inst in ROB,
   // then replay from this inst itself
   val replayInst = Bool()
+  //Vector
+  val vecWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
 
@@ -197,6 +201,12 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val eliminatedMove = Bool()
   val lpv = Vec(loadUnitNum, UInt(LpvLength.W))
   val debugInfo = new PerfDebugInfo
+
+  //vector
+  val vpsrc = Vec(3, UInt(VIPhyRegIdxWidth.W))
+  val vpdest = UInt(VIPhyRegIdxWidth.W)
+  val vcf = new VICtrlFlow
+  val vctrl = new VICtrlSignals
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),

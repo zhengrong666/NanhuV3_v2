@@ -33,7 +33,7 @@ package object xiangshan {
     def isPc(srcType: UInt): Bool = srcType === pc
     def isImm(srcType: UInt): Bool = srcType === imm
     def isFp(srcType: UInt): Bool = srcType === fp
-    def isVec(srcType: UInt): Bool = srcType === vec
+    //def isVec(srcType: UInt): Bool = srcType === vec
     def isPcOrImm(srcType: UInt): Bool = srcType === imm
     def isRegOrFp(srcType: UInt): Bool = srcType === reg || srcType === fp
     def regIsFp(srcType: UInt): Bool = srcType === fp

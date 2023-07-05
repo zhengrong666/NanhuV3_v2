@@ -36,6 +36,7 @@ import utils._
 import xiangshan.backend._
 import xiangshan.cache.mmu._
 import xiangshan.frontend._
+import xiangshan.vector.HasVectorParameters
 
 abstract class XSModule(implicit val p: Parameters) extends MultiIOModule
   with HasXSParameter
@@ -55,7 +56,7 @@ trait NeedImpl {
 }
 
 abstract class XSBundle(implicit val p: Parameters) extends Bundle
-  with HasXSParameter
+  with HasXSParameter with HasVectorParameters
 
 abstract class XSCoreBase(val parentName:String = "Unknown")(implicit p: config.Parameters) extends LazyModule
   with HasXSParameter
