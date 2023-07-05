@@ -64,8 +64,17 @@ package object xiangshan {
     def ldu = "b1101".U
     def stu = "b1110".U
     def std = "b1111".U
-    def X = BitPat("b????")
-    def num = 16
+
+    //vector
+    def vmac = "b10000".U
+    def valu = "b10001".U
+    def vfp = "b10010".U
+    def vdiv = "b10011".U
+    def vmask = "b10100".U
+    def vreduc = "b10101".U
+    def vpermu = "b10110".U
+    def X = BitPat("b?????")
+    def num = 32
     def apply() = UInt(log2Up(num).W)
 
     val functionNameMap = Map(
@@ -272,6 +281,13 @@ package object xiangshan {
     def INVALID_INSTR = "b0110".U
     def IMM_B6 = "b1000".U
 
+    //vector
+    def IMM_VA = "b1001".U
+    def IMM_VL = "b1010".U
+    def IMM_VS = "b1011".U
+    def IMM_C = "b1100".U
+    def IMM_CI = "b1101".U
+
     def X      = BitPat("b????")
 
     def apply() = UInt(4.W)
@@ -328,5 +344,30 @@ package object xiangshan {
       partialSelect(vec, exuConfig.exceptionOut)
     def selectByExu(vec:Vec[Bool], exuConfigs: Seq[ExuConfig]): Vec[Bool] =
       partialSelect(vec, exuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted)
+  }
+
+  //vector
+  object IsWiden {
+    def Widen = "b00".U
+
+    def Widen2 = "b01".U
+
+    def NotWiden = "b10".U
+
+    def X = BitPat("b??")
+
+    def apply() = UInt(2.W)
+  }
+
+  object IsNarrow {
+    def Narrow = "b00".U
+
+    def Narrow2 = "b01".U
+
+    def NotNarrow = "b10".U
+
+    def X = BitPat("b??")
+
+    def apply() = UInt(2.W)
   }
 }
