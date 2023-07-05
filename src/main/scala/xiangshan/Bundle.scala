@@ -21,6 +21,7 @@ import chisel3.util._
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.CtrlToFtqIO
 import xiangshan.backend.decode.{ImmUnion, XDecode}
+import xiangshan.vector.videcode._
 import xiangshan.mem.{LqPtr, SqPtr}
 import xiangshan.frontend.PreDecodeInfo
 import xiangshan.frontend.HasBPUParameter
@@ -156,22 +157,11 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val funct6 = UInt(6.W)
   val funct3 = UInt(3.W)
   val vm = UInt(1.W)
-  val widen = Bool()
-  val widen2 = Bool()
-  val narrow = Bool()
-  val narrow_to_1 = Bool()
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isOrder, isWiden, isNarrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
-    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
-    VallSignals zip decoder foreach { case (s, d) => s := d }
-    commitType := DontCare
-    this
-  }
-
-  def decodevwn(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
     VallSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare
