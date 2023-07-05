@@ -156,7 +156,11 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val isVtype = Bool()
   val funct6 = UInt(6.W)
   val funct3 = UInt(3.W)
-  val vm = UInt(1.W)
+  val vm = Bool()
+  val widen = Bool()
+  val widen2 = Bool()
+  val narrow = Bool()
+  val narrow_to_1 = Bool()
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isOrder, isWiden, isNarrow, selImm)
@@ -232,6 +236,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   //vector
   // val vpsrc = Vec(3, UInt(VIPhyRegIdxWidth.W))
   // val vpdest = UInt(VIPhyRegIdxWidth.W)
+  val oldPdestState = SrcState()
   val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
@@ -428,8 +433,8 @@ class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
 
 //vector vtype
 class VICsrInfo(implicit p: Parameters) extends XSBundle {
-  val ma = UInt(1.W)
-  val ta = UInt(1.W)
+  val ma = Bool()
+  val ta = Bool()
   val vsew = UInt(3.W)
   val vlmul = UInt(3.W)
   val vl = UInt(8.W)
