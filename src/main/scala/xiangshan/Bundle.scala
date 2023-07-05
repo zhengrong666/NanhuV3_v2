@@ -117,14 +117,7 @@ class CtrlFlow(implicit p: Parameters) extends XSBundle {
   val ftqOffset = UInt(log2Up(PredictWidth).W)
 
   //vector
-  val funct6 = UInt(6.W)
-  val funct3 = UInt(3.W)
-  val vm = UInt(1.W)
-  val vs1_imm = UInt(5.W)
-  val widen = Bool()
-  val widen2 = Bool()
-  val narrow = Bool()
-  val narrow_to_1 = Bool()
+
 }
 
 // Decode DecodeWidth insts at Decode Stage
@@ -156,9 +149,15 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val isNarrow = Bool()
   val Widen = IsWiden
   val Narrow = IsNarrow
-  val vecWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
+  val funct6 = UInt(6.W)
+  val funct3 = UInt(3.W)
+  val vm = UInt(1.W)
+  val widen = Bool()
+  val widen2 = Bool()
+  val narrow = Bool()
+  val narrow_to_1 = Bool()
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isOrder, isWiden, isNarrow, selImm)
