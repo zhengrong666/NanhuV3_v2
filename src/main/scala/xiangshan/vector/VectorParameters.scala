@@ -24,6 +24,7 @@ package xiangshan.vector
 
 import chisel3.util._
 import chipsalliance.rocketchip.config._
+import xiangshan.HasXSParameter
 
 case class VectorParameters (
     vLen: Int               = 128, //maybe 64、256、512...
@@ -38,20 +39,22 @@ case class VectorParameters (
 
 case object VectorParametersKey extends Field[VectorParameters](VectorParameters())
 
-trait HasVectorParameters {
-    implicit val p: Parameters
+trait HasVectorParameters extends HasXSParameter {
+    //implicit val p: Parameters
     
-    val vector = p(VectorParametersKey)
+    //val vector = p(VectorParametersKey)
 
-    val VLEN = vector.vLen
-    val VIDecodeWidth = vector.vDecodeWidth
-    val VIRenameWidth = vector.vRenameWidth
-    val VICommitWidth = vector.vCommitWidth
-    val VIPhyRegsNum = vector.vPhyRegsNum
-    val VIPhyRegIdxWidth = vector.vPhyRegIdxWidth
+    val vectorParams = vectorParameters
 
-    val VIWalkRobIdxQueueWidth = vector.viWalkRobIdxQueueWidth
+    val VLEN = vectorParams.vLen
+    val VIDecodeWidth = vectorParams.vDecodeWidth
+    val VIRenameWidth = vectorParams.vRenameWidth
+    val VICommitWidth = vectorParams.vCommitWidth
+    val VIPhyRegsNum = vectorParams.vPhyRegsNum
+    val VIPhyRegIdxWidth = vectorParams.vPhyRegIdxWidth
+
+    val VIWalkRobIdxQueueWidth = vectorParams.viWalkRobIdxQueueWidth
 
     //unit debug only
-    val RobSize = 64
+    //val RobSize = 64
 }
