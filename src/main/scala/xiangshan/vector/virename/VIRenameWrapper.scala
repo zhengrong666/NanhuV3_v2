@@ -34,11 +34,23 @@ import xiangshan.vector._
 class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
         val hasWalk = Output(Bool())
-        val in = Input(new VICtrl)
-        val out = Output(new MicroOp)
+        val in  = Input(Vec(VIRenameWidth, new MicroOp))
+        val mask = Input(Vec(VIRenameWidth, Bool()))
+        val robIdx = Input(Vec(VIRenameWidth, UInt(log2Up(RobSize).W)))
+        val out = Output(Vec(VIRenameWidth, new MicroOp))
     })
 
     val rename = new VIRename
+    
+    //when vector pipeline is walking, block all pipeline
     val walk = rename.io.hasWalk
     io.hasWalk := walk
+
+    val renameReq = Wire(new VIRenameReq)
+    renameReq.robIdx := io.robIdx
+    renameReq.mask := io.mask
+    for(i <- 0 until VIRenameWidth) {
+        renameReq.req(i).lvs1 := io.in(i).psrc(i)
+        
+    }
 }

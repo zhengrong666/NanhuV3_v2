@@ -100,6 +100,7 @@ package object xiangshan {
     val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou)
     val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt)
     val memoryTypes: Seq[UInt] = Seq(ldu, stu)
+    val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu)
 
     def isIntExu(fuType: UInt): Bool = integerTypes.map(_ === fuType).reduce(_||_)
 
@@ -116,6 +117,13 @@ package object xiangshan {
     def isAMO(fuType: UInt): Bool = fuType === mou
 
     def isFence(fuType: UInt): Bool = fuType === fence
+
+    def isVector(fuType: UInt): Bool = vectorTypes.map(_ === fuType).reduce(_||_)
+
+    //for vector dispatch
+    def isVecPermutation(fuType: UInt): Bool = (fuType === vpermu)
+    def isVecMem(fuType: UInt): Bool = (isMemExu(fuType) & isVector(fuType))
+    def isVecOther(fuType: UInt): Bool = (isVector(fuType) & (!isVecMem(fuType)) & (!isVecPermutation(fuType)))
   }
 
   object FuOpType {
