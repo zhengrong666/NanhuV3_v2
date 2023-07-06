@@ -118,9 +118,13 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     payloadArray.io.w(idx).data := squeezedEnqs(idx).bits
   }
   private val actualEnqNum = Mux(io.enq.canAccept, PopCount(io.enq.req.map(_.valid)), 0.U)
-  enqPtr := Mux(io.redirect.valid, enqPtr - flushNum, enqPtr + actualEnqNum)
-  enqPtrAux := Mux(io.redirect.valid, enqPtr - flushNum, enqPtr + actualEnqNum)
-
+  when(io.redirect.valid){
+    enqPtr := enqPtr - flushNum
+    enqPtrAux := enqPtr - flushNum
+  }.elsewhen(actualEnqNum =/= 0.U){
+    enqPtr := enqPtr + actualEnqNum
+    enqPtrAux := enqPtr + actualEnqNum
+  }
 
   io.deq.zipWithIndex.foreach({case(deq, idx) =>
     deq.valid := ((deqPtr + idx.U) < enqPtrAux) && !io.redirect.valid
@@ -128,7 +132,9 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     deq.bits := payloadArray.io.r(idx).data
   })
   private val actualDeqNum = PopCount(io.deq.map(_.fire))
-  deqPtr := Mux(io.redirect.valid, deqPtr, deqPtr + actualDeqNum)
+  when(actualDeqNum =/= 0.U && !io.redirect.valid){
+    deqPtr := deqPtr + actualDeqNum
+  }
 
   assert(deqPtr <= enqPtrAux)
   assert(actualEnqNum <= emptyEntriesNum)

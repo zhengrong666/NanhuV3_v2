@@ -21,6 +21,7 @@ import chisel3.util._
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.CtrlToFtqIO
 import xiangshan.backend.decode.{ImmUnion, XDecode}
+import xiangshan.vector.videcode._
 import xiangshan.mem.{LqPtr, SqPtr}
 import xiangshan.frontend.PreDecodeInfo
 import xiangshan.frontend.HasBPUParameter
@@ -117,14 +118,7 @@ class CtrlFlow(implicit p: Parameters) extends XSBundle {
   val ftqOffset = UInt(log2Up(PredictWidth).W)
 
   //vector
-  val funct6 = UInt(6.W)
-  val funct3 = UInt(3.W)
-  val vm = UInt(1.W)
-  val vs1_imm = UInt(5.W)
-  val widen = Bool()
-  val widen2 = Bool()
-  val narrow = Bool()
-  val narrow_to_1 = Bool()
+
 }
 
 // Decode DecodeWidth insts at Decode Stage
@@ -150,27 +144,28 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   // then replay from this inst itself
   val replayInst = Bool()
   //Vector
+
+  val old_vdType = SrcType()
   val vdWen = Bool()
   val isOrder = Bool()
   val isWiden = Bool()
   val isNarrow = Bool()
   val Widen = IsWiden
   val Narrow = IsNarrow
-  val vecWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
+  val funct6 = UInt(6.W)
+  val funct3 = UInt(3.W)
+  val vm = Bool()
+  val widen = Bool()
+  val widen2 = Bool()
+  val narrow = Bool()
+  val narrow_to_1 = Bool()
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isOrder, isWiden, isNarrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
-    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
-    VallSignals zip decoder foreach { case (s, d) => s := d }
-    commitType := DontCare
-    this
-  }
-
-  def decodevwn(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
     VallSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare
@@ -239,9 +234,11 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   //vector
   // val vpsrc = Vec(3, UInt(VIPhyRegIdxWidth.W))
   // val vpdest = UInt(VIPhyRegIdxWidth.W)
+  val oldPdestState = SrcState()
   val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
+  val uopNum = UInt(7.W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
@@ -435,14 +432,45 @@ class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
 
 //vector vtype
 class VICsrInfo(implicit p: Parameters) extends XSBundle {
-  val ma = UInt(1.W)
-  val ta = UInt(1.W)
+  val ma = Bool()
+  val ta = Bool()
   val vsew = UInt(3.W)
   val vlmul = UInt(3.W)
   val vl = UInt(8.W)
   val vstart = UInt(7.W)
   val vxrm = UInt(2.W)
   val frm = UInt(3.W)
+
+  def SewToInt()  = {
+    val sew = 0
+    switch(vsew) {
+      is(0.U) {val sew = 8}
+      is(1.U) {val sew = 16}
+      is(2.U) {val sew = 32}
+      is(3.U) {val sew = 64}
+    }
+    sew
+  }
+
+  def LmulToInt() = {
+    val lmul = 0
+    switch(vlmul) {
+      is(0.U) {
+        val lmul = 1
+      }
+      is(1.U) {
+        val lmul = 2
+      }
+      is(2.U) {
+        val lmul = 4
+      }
+      is(3.U) {
+        val lmul = 8
+      }
+    }
+    lmul
+  }
+
 }
 
 class CustomCSRCtrlIO(implicit p: Parameters) extends XSBundle {

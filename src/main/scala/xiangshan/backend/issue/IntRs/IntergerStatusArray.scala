@@ -20,12 +20,10 @@
 package xiangshan.backend.issue.IntRs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.experimental.ChiselAnnotation
 import chisel3.util._
-import xiangshan.{Redirect, SrcState, SrcType, XSModule}
+import xiangshan.{Redirect, SrcState, XSModule}
 import xiangshan.backend.issue._
 import xs.utils.LogicShiftRight
-import firrtl.passes.InlineAnnotation
 import xiangshan.backend.issue.IntRs.EntryState._
 protected[IntRs] object EntryState{
   def s_ready:UInt = 0.U
