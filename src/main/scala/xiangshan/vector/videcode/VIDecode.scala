@@ -43,17 +43,6 @@ abstract trait DecodeConstants {
   //   |          |          |          |         |           |  |  |  |  |  |  |
     List(SrcType.vec, SrcType.vec, SrcType.vec, FuType.X, FuOpType.X, N, N, N, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
 
-  def decodeWN: List[BitPat] = // illegal instruction
-  //   srcType(0) srcType(1) srcType(2) fuType    fuOpType    rfWen
-  //   |          |          |          |         |           |  fpWen
-  //   |          |          |          |         |           |  |  vdWen
-  //   |          |          |          |         |           |  |  |  isorder
-  //   |          |          |          |         |           |  |  |  |  iswiden
-  //   |          |          |          |         |           |  |  |  |  |  isnarrow
-  //   |          |          |          |         |           |  |  |  |  |  |  selImm
-  //   |          |          |          |         |           |  |  |  |  |  |  |
-    List(SrcType.vec, SrcType.vec, SrcType.vec, FuType.X, FuOpType.X, N, N, N, N, IsWiden.X, IsNarrow.X, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
-
     val table: Array[(BitPat, List[BitPat])]
 }
 
@@ -71,6 +60,8 @@ trait DecodeUnitConstants
     val F3_MSB = 14
     val F3_LSB = 12
     val VM_LSB = 25
+    val NF_MSB = 31
+    val NF_LSB = 29
 }
 
 object VectorArithDecode extends DecodeConstants {
@@ -730,23 +721,22 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
         // output
         val cs: CtrlSignals = Wire(new CtrlSignals).decodev(io.in(i).bits.cf.instr, decode_table)
 
-
         // read src1~3 location
         cs.lsrc(0) := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
         cs.lsrc(1) := io.in(i).bits.cf.instr(VS2_MSB, VS2_LSB)
         cs.lsrc(2) := io.in(i).bits.cf.instr(VD_MSB, VD_LSB)
         cs.ldest := io.in(i).bits.cf.instr(VD_MSB, VD_LSB)
         cs.old_vdType := cs.srcType(2)
+        cs.funct6 := io.in(i).bits.cf.instr(F6_MSB, F6_LSB)
+        cs.funct3 := io.in(i).bits.cf.instr(F3_MSB, F3_LSB)
+        cs.NFiled := io.in(i).bits.cf.instr(NF_MSB, NF_LSB)
+        cs.vm := io.in(i).bits.cf.instr(VM_LSB)
+        if (cs.selImm != SelImm.X) {
+            cs.imm := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
+        }
 
         cf_ctrl.ctrl := cs
         cf_ctrl.cf := io.in(i).bits.cf
-
-        cf_ctrl.ctrl.funct6 := io.in(i).bits.cf.instr(F6_MSB, F6_LSB)
-        cf_ctrl.ctrl.funct3 := io.in(i).bits.cf.instr(F3_MSB, F3_LSB)
-        cf_ctrl.ctrl.vm := io.in(i).bits.cf.instr(VM_LSB)
-        if (cs.selImm != SelImm.X) {
-            cf_ctrl.ctrl.imm := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
-        }
 
         io.out(i).bits := cf_ctrl
         io.out(i).valid      := io.in(i).valid

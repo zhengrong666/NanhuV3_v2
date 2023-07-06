@@ -53,6 +53,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val enq = new WqEnqIO
     val vtype = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeInfo)))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
+    val out = Vec(VIRenameWidth, Flipped(DecoupledIO(new RobPtr)))
     val WqFull = Output(Bool())
   })
 
@@ -129,23 +130,52 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     */
 
   val currentdata = WqDataRead(0)
+  val deqUop = Wire(Vec(VIRenameWidth, new MicroOp))
+  val isLS = Mux(currentdata.MicroOp.ctrl.isVLS, true.B, false.B)
+  val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === IsWiden.NotWiden, false.B, true.B)
+  var countnum = 0
   if (currentdata.state == s_valid) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
-    val sew = currentdata.MicroOp.vCsrInfo.SewToInt()
-    val dnum = lmul / VIRenameWidth + 1
-    val tempout = Vec(dnum,Vec(VIRenameWidth,new MicroOp))
-    for (i <- 0 until lmul) {
-      val data = currentdata.MicroOp
-      data.uopIdx := i.U
-      data.uopNum := lmul.U
-      data.ctrl.lsrc(0) := data.ctrl.lsrc(0) + i.U
-      data.ctrl.lsrc(1) := data.ctrl.lsrc(1) + i.U
-      data.ctrl.lsrc(2) := data.ctrl.lsrc(2) + i.U
-      data.ctrl.ldest := data.ctrl.ldest + i.U
-      val tempnum = i / VIRenameWidth
-      tempout(tempnum)(i) := data
+    val elementNum = currentdata.MicroOp.vCsrInfo.SewToInt()
+    val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
+    val isSegment = Mux(currentdata.MicroOp.ctrl.fuOpType === FuOpType.LSSegment, true.B, false.B)
+    val nf = currentdata.MicroOp.ctrl.NFToInt()
+    for (i <- 0 until VIRenameWidth) {
+      if (countnum < splitnum) {
+        deqUop(i) := currentdata.MicroOp
+        deqUop(i).uopIdx := countnum.U
+        deqUop(i).uopNum := splitnum.U
+        if (isSegment == true.B) {
+          val tempnum = countnum % nf
+          if (countnum > nf) {
+            deqUop(i).canRename := false.B
+          } else {
+            deqUop(i).canRename := true.B
+          }
+          deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + tempnum.U
+          deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + tempnum.U
+          deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
+          deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + tempnum.U
+        } else {
+          deqUop(i).canRename := true.B
+          deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + countnum.U
+          deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + countnum.U
+          deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + countnum.U
+          deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + countnum.U
+        }
+        countnum = countnum + 1
+      } else {
+        deqUop(i) := DontCare
+        countnum = 0
+        isComplete := true.B
+      }
     }
-    isComplete := true.B
+  }
+
+  //To VIRename
+  for (i <- 0 until VIRenameWidth) {
+    io.out(i).bits := deqUop(i)
+    io.out(i).valid := io.out(i).ready
   }
 
   /**

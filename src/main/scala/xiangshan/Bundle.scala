@@ -143,27 +143,40 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   // This inst will flush all the pipe when it is the oldest inst in ROB,
   // then replay from this inst itself
   val replayInst = Bool()
-  //Vector
 
+  //Vector
   val old_vdType = SrcType()
   val vdWen = Bool()
   val isOrder = Bool()
   val isWiden = Bool()
   val isNarrow = Bool()
-  val Widen = IsWiden
-  val Narrow = IsNarrow
+  val Widen = IsWiden()
+  val Narrow = IsNarrow()
   val isVector = Bool()
   val isVtype = Bool()
+  val isVLS = Bool()
   val funct6 = UInt(6.W)
   val funct3 = UInt(3.W)
+  val NFiled = UInt(2.W)
   val vm = Bool()
-  val widen = Bool()
-  val widen2 = Bool()
-  val narrow = Bool()
-  val narrow_to_1 = Bool()
+
+  def NFToInt() = {
+    var nf = 0
+    switch(NFiled) {
+      is(0.U) {nf = 1}
+      is(1.U) {nf = 2}
+      is(2.U) {nf = 3}
+      is(3.U) {nf = 4}
+      is(4.U) {nf = 5}
+      is(5.U) {nf = 6}
+      is(6.U) {nf = 7}
+      is(7.U) {nf = 8}
+    }
+    nf
+  }
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isOrder, isWiden, isNarrow, selImm)
+    vdWen, isOrder, Widen, Narrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
@@ -241,6 +254,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)
+  val canRename = Bool()
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
@@ -444,31 +458,23 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
   val frm = UInt(3.W)
 
   def SewToInt()  = {
-    val sew = 0
+    var sew = 0
     switch(vsew) {
-      is(0.U) {val sew = 8}
-      is(1.U) {val sew = 16}
-      is(2.U) {val sew = 32}
-      is(3.U) {val sew = 64}
+      is(0.U) { sew = 8 }
+      is(1.U) { sew = 16 }
+      is(2.U) { sew = 32 }
+      is(3.U) { sew = 64 }
     }
     sew
   }
 
   def LmulToInt() = {
-    val lmul = 0
+    var lmul = 0
     switch(vlmul) {
-      is(0.U) {
-        val lmul = 1
-      }
-      is(1.U) {
-        val lmul = 2
-      }
-      is(2.U) {
-        val lmul = 4
-      }
-      is(3.U) {
-        val lmul = 8
-      }
+      is(0.U) { lmul = 1 }
+      is(1.U) { lmul = 2 }
+      is(2.U) { lmul = 4 }
+      is(3.U) { lmul = 8 }
     }
     lmul
   }
