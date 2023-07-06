@@ -33,7 +33,6 @@ import xiangshan.vector._
 
 class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
     def robIdxWidth = log2Up(RobSize)
-
     val req = Input(Vec(VIRenameWidth, new Bundle {
         val lvs1 = UInt(5.W)
         val lvs2 = UInt(5.W)

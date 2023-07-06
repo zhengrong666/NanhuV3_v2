@@ -34,21 +34,19 @@ import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
 import xiangshan.vector._
 
 class VIFreeListBundle(implicit p: Parameters) extends VectorBaseBundle {
-
     def reqNumWidth: Int = log2Up(VIRenameWidth + 1)
 
     //be different from int and float rename module
     //freeEntry num, determines whether the requests can enter RenameModule
-
-    val canAllocateNum = Output(UInt(reqNumWidth.W))
-    val doAllocate = Input(Bool())
+    val canAllocateNum  = Output(UInt(reqNumWidth.W))
+    val doAllocate      = Input(Bool())
 
     //connects with RAT, offer PhyRegIndex
     val allocateReqNum = Input(UInt(reqNumWidth.W))
     val allocatePhyReg = Output(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
 
     //connects with RollBackList
-    val releaseReqMask = Input(Vec(VICommitWidth, Bool()))
+    val releaseReqMask   = Input(Vec(VICommitWidth, Bool()))
     val releaseReqPhyReg = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
