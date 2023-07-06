@@ -442,6 +442,37 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
   val vstart = UInt(7.W)
   val vxrm = UInt(2.W)
   val frm = UInt(3.W)
+
+  def SewToInt()  = {
+    val sew = 0
+    switch(vsew) {
+      is(0.U) {val sew = 8}
+      is(1.U) {val sew = 16}
+      is(2.U) {val sew = 32}
+      is(3.U) {val sew = 64}
+    }
+    sew
+  }
+
+  def LmulToInt() = {
+    val lmul = 0
+    switch(vlmul) {
+      is(0.U) {
+        val lmul = 1
+      }
+      is(1.U) {
+        val lmul = 2
+      }
+      is(2.U) {
+        val lmul = 4
+      }
+      is(3.U) {
+        val lmul = 8
+      }
+    }
+    lmul
+  }
+
 }
 
 class CustomCSRCtrlIO(implicit p: Parameters) extends XSBundle {
