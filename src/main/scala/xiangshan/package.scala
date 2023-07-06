@@ -120,6 +120,7 @@ package object xiangshan {
 
   object FuOpType {
     def apply() = UInt(7.W)
+    def LSSegment = "b0000000"
     def X = BitPat("b???????")
   }
 
