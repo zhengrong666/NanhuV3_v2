@@ -39,10 +39,12 @@ class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
         val lvd = UInt(5.W)
         val needRename = Bool()
     }))
-    val mask = Input(UInt(VIRenameWidth.W))
     val robIdx = Input(Vec(VIRenameWidth, UInt(robIdxWidth.W)))
-    val doRename = Output(Bool())
+    val mask = Input(UInt(VIRenameWidth.W))
+    //val doRename = Output(Bool())
+    val canAccept = Output(Bool())
 }
+
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
         val renameReq = new VIRenameReq
@@ -66,7 +68,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     renameTable.io.renameWritePort.doRename := doRename
     rollBackList.io.renamePort.doRename := doRename
     //for handshake with vi wait queue
-    io.renameReq.doRename := doRename
+    io.renameReq.canAccept := doRename
 
     val freeListIO = freeList.io
     freeListIO.allocateReqNum := renameReqNum

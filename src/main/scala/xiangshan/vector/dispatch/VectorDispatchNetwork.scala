@@ -33,56 +33,39 @@ import xiangshan.mem.mdp._
 import xiangshan.vector._
 
 class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-    val req = Input(Vec(VIRenameWidth, new MicroOp))
+    val uop = Input(Vec(VIRenameWidth, new MicroOp))
     val mask = Input(UInt(VIRenameWidth.W))
-    //handshake TODO
 }
 
 class VectorDispatchToDQ(implicit p: Parameters) extends VectorBaseBundle {
-    val doDispatch = Input(Bool())
-    val needDispatch = UInt(log2Up(VIRenameWidth + 1).W)
-    val req = Vec(VIRenameWidth, new MicroOp)
-    val mask = UInt(VIRenameWidth.W)
+    //val uop = Output(Vec(VIRenameWidth, new MicroOp))
+    val mask = Output(UInt(VIRenameWidth.W))
 }
 
-class VectorDispatch(dispatchTypeNum: Int)(implicit p: Parameters) extends VectorBaseModule {
+class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
-        val redirect = Input(Bool())
-        val singleStep = Input(Bool())
-        //TODO: LFST
-
         val fromRename = new VectorDispatchFromRenameIO
-        val toVectorMemDQ   = new VectorDispatchToDQ
-        val toVectorDQ      = new VectorDispatchToDQ
-        val toPermutationDQ = new VectorDispatchToDQ
+        val commonMask   = Output(UInt(VIRenameWidth.W))
+        val permutationMask = Output(UInt(VIRenameWidth.W))
+        val memMask = Output(UInt(VIRenameWidth.W))
     })
 
-    val type_ds = Vec(VIRenameWidth, Bool())
-    val toPermutation = Wire(type_ds)
-    val toVectorMem = Wire(type_ds)
-    val toVector = Wire(type_ds)
-
-    class VectorInstrSelectNetwork(width: Int) extends RawModule {
+    val req_mask = io.fromRename.mask.asBools()
+    
+    class VectorInstrSelectNetwork(typeNum: Int) extends RawModule {
         val io = IO(new Bundle {
-            val req = Input(Vec(width, new MicroOp))
-            val sel = Input(Vec(width, UInt(2.W))) //type
-            val toDqMast = Output(Vec(width, Vec(width, Bool())))
+            val req = Input(Vec(VIRenameWidth, new MicroOp))
+            val toDqMask = Output(Vec(typeNum, Vec(VIRenameWidth, Bool())))
         })
-
-        for((selType, i) <- io.sel.zipWithIndex) {
-            //io.toDqMast(i) := io.req.map(e => e.typeJudge(selType))
-        }
+        io.toDqMask(0) := io.req.map(r => FuType.isVecOther(r.ctrl.fuType))
+        io.toDqMask(1) := io.req.map(r => FuType.isVecMem(r.ctrl.fuType))
+        io.toDqMask(2) := io.req.map(r => FuType.isVecPermutation(r.ctrl.fuType))
     }
 
     val selNet = new VectorInstrSelectNetwork(VIRenameWidth)
     selNet.io.req := io.fromRename
-
-    //TODO: 
-    selNet.io.sel := VecInit(Seq(0.U, 1.U, 2.U, 3.U))
     
-    io.toVectorDQ := selNet.io.toDqMast(0)
-    io.toVectorMemDQ := selNet.io.toDqMast(1)
-    io.toPermutationDQ := selNet.io.toDqMast(2)
-
-
+    io.commonMask := selNet.io.toDqMask(0).asUInt & io.fromRename.mask
+    io.permutationMask := selNet.io.toDqMask(1).asUInt & io.fromRename.mask
+    io.memMask := selNet.io.toDqMask(2).asUInt & io.fromRename.mask
 }
