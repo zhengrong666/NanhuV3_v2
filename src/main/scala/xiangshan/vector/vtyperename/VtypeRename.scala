@@ -26,21 +26,26 @@ import xiangshan.backend.rob._
 import xs.utils._
 
 class VtypeInfo(implicit p: Parameters) extends CfCtrl{
-  val s_invalid :: s_valid :: s_busy :: Nil = Enum(2)
   val robIdx = new RobPtr
   val vtypeIdx = new VtypePtr
   val ESEW = UInt(3.W)
   val ELMUL = UInt(3.W)
-  val state = RegInit(s_invalid)
+  val state = 0.U(2.W)
+}
+
+class VtypeDelayData(implicit  p: Parameters) extends VectorBaseBundle {
+  val vtypeIdx = new VtypePtr
+  val ESEW = UInt(3.W)
+  val ELMUL = UInt(3.W)
+  val state = 0.U(2.W)
 }
 
 class VtypeReg(implicit p: Parameters) extends MicroOp{
-  val s_invalid :: s_valid :: s_busy :: Nil = Enum(2)
   val vma = UInt(1.W)
   val vta = UInt(1.W)
   val vsew = UInt(3.W)
   val vlmul = UInt(3.W)
-  val state = RegInit(s_invalid)
+  val state = 0.U(2.W)
   val vtypeIdx = new VtypePtr
 }
 
@@ -74,7 +79,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val doAllocate = Input(Bool())
     val in = Vec(enqnum, Flipped(DecoupledIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeInfo))
-    val backward = Vec(numWbPorts, DecoupledIO(new VtypeInfo))
+    val WbData = Vec(numWbPorts, DecoupledIO(new VtypeDelayData))
     val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
   })
@@ -146,7 +151,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       if (tempvtype.cf.ftqPtr == io.robCommits.info(i).ftqIdx && tempvtype.cf.ftqOffset == io.robCommits.info(i).ftqOffset) {
         VtypeRegTable(headPtr.value).state := s_invalid
         val headNextPtr = headPtr + 1.U
-        headPtr := Mux(doRename, headNextPtr, headPtr)
+        headPtr := Mux(io.redirect.valid, headPtr, headNextPtr)
       }
     }
   }
@@ -163,8 +168,6 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     update point content  s_busy -> s_valid
    */
  for (i <- 0 until numWbPorts) {
-   val tempptr = headPtr
-   val tempvtype = VtypeRegTable(tempptr.value)
    when(io.writeback(i).valid) {
      for ((v,w) <- VtypeRegTable.zip(io.writeback)) {
        if (v.robIdx == w.bits.uop.robIdx) {

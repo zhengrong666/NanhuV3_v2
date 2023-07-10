@@ -32,6 +32,8 @@ case class VectorParameters (
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 64,
+    vWaitQueueNum: Int        = 16,
+    vVtypeRegsNum: Int        = 16,
     viWalkRobIdxQueueWidth: Int = 64
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum + 1)
@@ -52,7 +54,8 @@ trait HasVectorParameters extends HasXSParameter {
     val VICommitWidth = vectorParams.vCommitWidth
     val VIPhyRegsNum = vectorParams.vPhyRegsNum
     val VIPhyRegIdxWidth = vectorParams.vPhyRegIdxWidth
-
+    val VIWaitQueueWidth = vectorParams.vWaitQueueNum
+    val VIVtypeRegsNum = vectorParams.vVtypeRegsNum
     val VIWalkRobIdxQueueWidth = vectorParams.viWalkRobIdxQueueWidth
 
     //unit debug only

@@ -5,7 +5,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import xiangshan.vector._
-import xiangshan.vector.vtyperename.VtypeInfo
+import xiangshan.vector.vtyperename.{VtypeDelayData, VtypeInfo, VtypePtr}
 import xs.utils._
 import xiangshan.backend.rob._
 
@@ -13,6 +13,7 @@ import xiangshan.backend.rob._
 class vimop(implicit p: Parameters) extends VectorBaseBundle {
   val MicroOp = new MicroOp
   val state = 3.U(1.W)
+  val vtypeIdx = new VtypePtr
 }
 
 class WqPtr(implicit p: Parameters) extends CircularQueuePtr[WqPtr](
@@ -52,6 +53,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
     val vtype = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeInfo)))
+    val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new VtypeDelayData))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, Flipped(DecoupledIO(new RobPtr)))
     val WqFull = Output(Bool())
@@ -192,6 +194,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         tempdata.MicroOp.vCsrInfo.vsew := io.vtype(i).bits.ESEW
         tempdata.MicroOp.vCsrInfo.vlmul := io.vtype(i).bits.ELMUL
         tempdata.MicroOp.robIdx := io.vtype(i).bits.robIdx
+        tempdata.vtypeIdx := io.vtype(i).bits.vtypeIdx
         if (io.vtype(i).bits.state == 1.U) {
           tempdata.state := tempdata.state - 1.U
         } else {
@@ -199,6 +202,22 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         }
         WqData.io.wdata := tempdata
         vtypePtr := vtypePtr + 1
+      }
+    }
+  }
+
+  for (i <- 0 until VIDecodeWidth) {
+    when(io.vtypeWbData(i).valid) {
+      val idx = io.vtypeWbData(i).bits.vtypeIdx
+      WqData.io.raddr := waitPtr.value
+      val tempdata = WqData.io.rdata(0)
+      if (tempdata.vtypeIdx == idx) {
+        WqData.io.waddr := vtypePtr.value
+        tempdata.MicroOp.vCsrInfo.vsew := io.vtypeWbData(i).bits.ESEW
+        tempdata.MicroOp.vCsrInfo.vlmul := io.vtypeWbData(i).bits.ELMUL
+        tempdata.state := tempdata.state - 1.U
+        WqData.io.wdata := tempdata
+        waitPtr := waitPtr + 1
       }
     }
   }

@@ -20,8 +20,7 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util.{BitPat, _}
 import freechips.rocketchip.util.uintToBitPat
-import xs.utils.{LookupTree, SignExt, ZeroExt}
-import utils._
+import xs.utils.{SignExt}
 import xiangshan._
 import xiangshan.vector._
 import freechips.rocketchip.rocket.Instructions._
