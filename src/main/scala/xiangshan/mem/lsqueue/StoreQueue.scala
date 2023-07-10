@@ -82,6 +82,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     val sqFull = Output(Bool())
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
+
+    val vectorOrderedFlushSBuffer = new SbufferFlushBundle
   })
 
   println("StoreQueue: size:" + StoreQueueSize)
@@ -122,9 +124,9 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val addrvalid = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // non-mmio addr is valid
   val datavalid = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // non-mmio data is valid
   val allvalid  = VecInit((0 until StoreQueueSize).map(i => addrvalid(i) && datavalid(i))) // non-mmio data & addr is valid
-  val committed = Reg(Vec(StoreQueueSize, Bool())) // inst has been committed by rob
-  val pending = Reg(Vec(StoreQueueSize, Bool())) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
-  val mmio = Reg(Vec(StoreQueueSize, Bool())) // mmio: inst is an mmio inst
+  val committed = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // inst has been committed by rob
+  val pending = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
+  val mmio = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio: inst is an mmio inst
 
   // ptr
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new SqPtr))))
@@ -420,6 +422,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   }
 
   /**
+   *  more: reuse MMIO to handle Vector index-ordered instruction
     * Memory mapped IO / other uncached operations
     *
     * States:
@@ -430,36 +433,57 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     * (5) ROB commits the instruction: same as normal instructions
     */
   //(2) when they reach ROB's head, they can be sent to uncache channel
-  val s_idle :: s_req :: s_resp :: s_wb :: s_wait :: Nil = Enum(5)
-  val uncacheState = RegInit(s_idle)
-  switch(uncacheState) {
+  val SbufferCleaned = RegInit(false.B)
+  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).ctrl.isOrder && (uop(deqPtr).uopIdx === 0.U) && (!mmio(deqPtr)) && (!SbufferCleaned)
+
+  io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
+
+  when(needFlushSbuffer && io.vectorOrderedFlushSBuffer.empty){
+    SbufferCleaned := true.B
+  }
+  when((!uop(deqPtr).ctrl.isOrder) && allocated(deqPtr)){
+    SbufferCleaned := false.B
+  }
+
+
+  val s_idle :: s_req_mmio :: s_resp_mmio :: s_wb_mmio :: s_wb_ordered :: s_wait_mmio :: Nil = Enum(5)
+  val wbState = RegInit(s_idle)
+  switch(wbState) {
     is(s_idle) {
-      when(RegNext(io.rob.pendingst && pending(deqPtr) && allocated(deqPtr) && datavalid(deqPtr) && addrvalid(deqPtr))) {
-        uncacheState := s_req
+      when(RegNext(io.rob.pendingst && pending(deqPtr) && allocated(deqPtr) && allvalid(deqPtr))) {
+        wbState := s_req_mmio
+      }
+      when(RegNext(!mmio(deqPtr) && io.rob.pendingOrdered && allocated(deqPtr) && allvalid(deqPtr))){
+        wbState := s_wb_ordered
       }
     }
-    is(s_req) {
+    is(s_req_mmio) {
       when(io.uncache.req.fire()) {
-        uncacheState := s_resp
+        wbState := s_resp_mmio
       }
     }
-    is(s_resp) {
+    is(s_resp_mmio) {
       when(io.uncache.resp.fire()) {
-        uncacheState := s_wb
+        wbState := s_wb_mmio
       }
     }
-    is(s_wb) {
+    is(s_wb_mmio) {
       when (io.mmioStout.fire()) {
-        uncacheState := s_wait
+        wbState := s_wait_mmio
       }
     }
-    is(s_wait) {
+    is(s_wb_ordered){
+      when(io.mmioStout.fire){
+        wbState := s_idle
+      }
+    }
+    is(s_wait_mmio) {
       when(commitCount > 0.U) {
-        uncacheState := s_idle // ready for next mmio
+        wbState := s_idle // ready for next mmio
       }
     }
   }
-  io.uncache.req.valid := uncacheState === s_req
+  io.uncache.req.valid := (wbState === s_req_mmio)
   io.uncache.req.bits.robIdx := DontCare
   io.uncache.req.bits.cmd  := MemoryOpConstants.M_XWR
   io.uncache.req.bits.addr := paddrModule.io.rdata(0) // data(deqPtr) -> rdata(0)
@@ -468,7 +492,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   // CBO op type check can be delayed for 1 cycle,
   // as uncache op will not start in s_idle
-  val cbo_mmio_addr = paddrModule.io.rdata(0) >> 2 << 2 // clear lowest 2 bits for op
+  val cbo_mmio_addr = Cat(paddrModule.io.rdata(0)(PAddrBits - 1, 2),0.U(2.W)) // clear lowest 2 bits for op
   val cbo_mmio_op = 0.U //TODO
   val cbo_mmio_data = cbo_mmio_addr | cbo_mmio_op
   when(RegNext(LSUOpType.isCbo(uop(deqPtr).ctrl.fuOpType))){
@@ -497,13 +521,13 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.uncache.resp.ready := true.B
 
   // (4) writeback to ROB (and other units): mark as writebacked
-  io.mmioStout.valid := uncacheState === s_wb
+  io.mmioStout.valid := (wbState === s_wb_mmio) || (wbState === s_wb_ordered)
   io.mmioStout.bits.uop := uop(deqPtr)
   io.mmioStout.bits.uop.sqIdx := deqPtrExt(0)
   io.mmioStout.bits.data := dataModule.io.rdata(0).data // dataModule.io.rdata.read(deqPtr)
   io.mmioStout.bits.redirectValid := false.B
   io.mmioStout.bits.redirect := DontCare
-  io.mmioStout.bits.debug.isMMIO := true.B
+  io.mmioStout.bits.debug.isMMIO := mmio(deqPtr)
   io.mmioStout.bits.debug.paddr := DontCare
   io.mmioStout.bits.debug.isPerfCnt := false.B
   io.mmioStout.bits.fflags := DontCare
@@ -520,14 +544,14 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     * (1) When store commits, mark it as committed.
     * (2) They will not be cancelled and can be sent to lower level.
     */
-  XSError(uncacheState =/= s_idle && uncacheState =/= s_wait && commitCount > 0.U,
+  XSError(wbState =/= s_idle && wbState =/= s_wait_mmio && commitCount > 0.U,
    "should not commit instruction when MMIO has not been finished\n")
   for (i <- 0 until CommitWidth) {
     when (commitCount > i.U) { // MMIO inst is not in progress
       if(i == 0){
         // MMIO inst should not update committed flag
         // Note that commit count has been delayed for 1 cycle
-        when(uncacheState === s_idle){
+        when(wbState === s_idle){
           committed(cmtPtrExt(0).value) := true.B
         }
       } else {
@@ -668,7 +692,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   // perf counter
   QueuePerf(StoreQueueSize, validCount, !allowEnqueue)
   io.sqFull := !allowEnqueue
-  XSPerfAccumulate("mmioCycle", uncacheState =/= s_idle) // lq is busy dealing with uncache req
+  XSPerfAccumulate("mmioCycle", (wbState =/= s_idle) || (wbState =/= s_wb_ordered)) // lq is busy dealing with uncache req
   XSPerfAccumulate("mmioCnt", io.uncache.req.fire())
   XSPerfAccumulate("mmio_wb_success", io.mmioStout.fire())
   XSPerfAccumulate("mmio_wb_blocked", io.mmioStout.valid && !io.mmioStout.ready)
@@ -678,7 +702,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   val perfValidCount = distanceBetween(enqPtrExt(0), deqPtrExt(0))
   val perfEvents = Seq(
-    ("mmioCycle      ", uncacheState =/= s_idle),
+    ("mmioCycle      ", (wbState =/= s_idle) || (wbState =/= s_wb_ordered)),
     ("mmioCnt        ", io.uncache.req.fire()),
     ("mmio_wb_success", io.mmioStout.fire()),
     ("mmio_wb_blocked", io.mmioStout.valid && !io.mmioStout.ready),

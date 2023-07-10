@@ -591,6 +591,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // LSQ to store buffer
   lsq.io.sbuffer        <> sbuffer.io.in
   lsq.io.sqempty        <> sbuffer.io.sqempty
+  lsq.io.vectorOrderedFlushSBuffer.empty := sbuffer.io.flush.empty
 
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
@@ -602,11 +603,12 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // flush sbuffer
   val fenceFlush = io.fenceToSbuffer.flushSb
   val atomicsFlush = atomicsUnit.io.flush_sbuffer.valid
+  val vectorFlush = lsq.io.vectorOrderedFlushSBuffer.valid
   io.fenceToSbuffer.sbIsEmpty := RegNext(sbuffer.io.flush.empty)
   // if both of them tries to flush sbuffer at the same time
   // something must have gone wrong
   assert(!(fenceFlush && atomicsFlush))
-  sbuffer.io.flush.valid := RegNext(fenceFlush || atomicsFlush)
+  sbuffer.io.flush.valid := RegNext(fenceFlush || atomicsFlush || vectorFlush)
 
   // AtomicsUnit: AtomicsUnit will override other control signials,
   // as atomics insts (LR/SC/AMO) will block the pipeline

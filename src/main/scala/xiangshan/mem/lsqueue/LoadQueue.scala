@@ -111,6 +111,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val lqFull = Output(Bool())
     val lqCancelCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
+    val vectorOrderedFlushSBuffer = new SbufferFlushBundle
   })
 
   println("LoadQueue: size:" + LoadQueueSize)
@@ -128,13 +129,13 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val writebacked = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // inst has been writebacked to CDB
   val released = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // load data has been released by dcache
   val error = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // load data has been corrupted
-  val miss = Reg(Vec(LoadQueueSize, Bool())) // load inst missed, waiting for miss queue to accept miss request
+  val miss = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // load inst missed, waiting for miss queue to accept miss request
   // val listening = Reg(Vec(LoadQueueSize, Bool())) // waiting for refill result
-  val pending = Reg(Vec(LoadQueueSize, Bool())) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
+  val pending = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
   val refilling = WireInit(VecInit(List.fill(LoadQueueSize)(false.B))) // inst has been writebacked to CDB
 
-  val debug_mmio = Reg(Vec(LoadQueueSize, Bool())) // mmio: inst is an mmio inst
-  val debug_paddr = Reg(Vec(LoadQueueSize, UInt(PAddrBits.W))) // mmio: inst is an mmio inst
+  val debug_mmio = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // mmio: inst is an mmio inst
+  val debug_paddr = RegInit(VecInit(List.fill(LoadQueueSize)(0.U(PAddrBits.W)))) // mmio: inst is an mmio inst
 
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new LqPtr))))
   val deqPtrExt = RegInit(0.U.asTypeOf(new LqPtr))
@@ -150,11 +151,32 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val enqMask = UIntToMask(enqPtr, LoadQueueSize)
 
   val commitCount = RegNext(io.rob.lcommit)
+  val orderedAutoDeq = RegInit(0.U(1.W))
+  val pendingOrder = io.rob.pendingOrdered
+  orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), 1.U ,0.U)
+
+  when(orderedAutoDeq > 0.U){
+    allocated(deqPtr) := false.B
+  }
 
   val release1cycle = io.release
   val release2cycle = RegNext(io.release)
   val release2cycle_dup_lsu = RegNext(io.release)
 
+  /*
+   *  if ROB is waiting index-ordered instruction, lq should flush sbuffer
+   */
+  val SbufferCleaned = RegInit(false.B)
+  val needFlushSbuffer = io.rob.pendingOrdered && allocated(deqPtr) && (uop(deqPtr).uopIdx === 0.U) && (!SbufferCleaned)
+
+  io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
+
+  when(needFlushSbuffer && io.vectorOrderedFlushSBuffer.empty) {
+    SbufferCleaned := true.B
+  }
+  when((!uop(deqPtr).ctrl.isOrder) && allocated(deqPtr)) {
+    SbufferCleaned := false.B
+  }
   /**
     * Enqueue at dispatch
     *
@@ -496,6 +518,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     *
     * When load commited, mark it as !allocated and move deqPtrExt forward.
     */
+  //todo: -------------------------------------------------------------
   (0 until CommitWidth).map(i => {
     when(commitCount > i.U){
       allocated((deqPtrExt+i.U).value) := false.B
@@ -874,7 +897,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   // Read vaddr for mem exception
   // no inst will be commited 1 cycle before tval update
-  vaddrModule.io.raddr(0) := (deqPtrExt + commitCount).value
+  //todo: -----------------------------------------------------
+  vaddrModule.io.raddr(0) := (deqPtrExt + commitCount + orderedAutoDeq).value
   io.exceptionAddr.vaddr := vaddrModule.io.rdata(0)
 
   // Read vaddr for debug
@@ -914,7 +938,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     enqPtrExt := VecInit(enqPtrExt.map(_ + enqNumber))
   }
 
-  deqPtrExtNext := deqPtrExt + commitCount
+  ///todo: ----------------------------------------------
+  deqPtrExtNext := deqPtrExt + commitCount + orderedAutoDeq
   deqPtrExt := deqPtrExtNext
 
   io.lqCancelCnt := RegNext(lastCycleCancelCount + lastEnqCancel)
