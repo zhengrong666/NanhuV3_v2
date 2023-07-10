@@ -21,8 +21,10 @@ package xiangshan.backend.issue
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
+import chisel3.experimental.ChiselAnnotation
 import chisel3.util._
-import xiangshan.backend.execute.fu.fpu.FMAMidResult
+import firrtl.annotations.Annotation
+import firrtl.transforms.NoDedupAnnotation
 import xiangshan.{MicroOp, Redirect, XSModule}
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, LogicShiftRight}
 sealed class TwoEntryQueuePtr extends CircularQueuePtr[TwoEntryQueuePtr](entries = 2) with HasCircularQueuePtrHelper
@@ -90,4 +92,8 @@ class DecoupledPipeline(implementQueue:Boolean, bankIdxWidth:Int, entryIdxWidth:
   when(io.deq.valid){
     assert(!io.deq.bits.uop.robIdx.needFlush(io.redirect))
   }
+  private val mySelf = this
+  chisel3.experimental.annotate(new ChiselAnnotation {
+    override def toFirrtl: Annotation = NoDedupAnnotation(mySelf.toTarget)
+  })
 }
