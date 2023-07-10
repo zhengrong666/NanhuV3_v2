@@ -32,16 +32,12 @@ case class VectorParameters (
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 64,
-<<<<<<< HEAD
     vWaitQueueNum: Int        = 16,
     vVtypeRegsNum: Int        = 16,
-    viWalkRobIdxQueueWidth: Int = 64
-=======
     viWalkRobIdxQueueWidth: Int = 64,
     vDispatchQueueMem: Int = 16,
     vDispatchQueuePermu: Int = 16,
     vDispatchQueueCommon: Int = 16
->>>>>>> 47d685eadda84e15cb93023d6db1e040dd61e8b1
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum + 1)
 }
