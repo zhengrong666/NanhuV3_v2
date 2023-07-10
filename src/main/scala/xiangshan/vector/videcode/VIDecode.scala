@@ -697,7 +697,8 @@ object ImmUnion {
 class DecodeUnitIO(implicit p: Parameters) extends VectorBaseBundle {
     val in = Vec(VIDecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
   // to Rename
-    val out = Vec(VIDecodeWidth, DecoupledIO(new MicroOp))
+    val out = Vec(VIDecodeWidth, ValidIO(new MicroOp))
+    val canOut = Input(Bool())
 }
 
 /**
@@ -733,12 +734,15 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
         if (cs.selImm != SelImm.X) {
             cs.imm := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
         }
-
+        if (cs.NFiled != "3'b000" && (cs.fuType == FuType.ldu || cs.fuType == FuType.stu)) {
+            cs.isSeg := true.B
+        } else {
+            cs.isSeg := false.B
+        }
         cf_ctrl.ctrl := cs
         cf_ctrl.cf := io.in(i).bits.cf
 
         io.out(i).bits := cf_ctrl
-        io.out(i).valid      := io.in(i).valid
-        io.in(i).ready       := io.out(i).ready
+        io.out(i).valid := io.in(i).valid && io.canOut
     }
 }

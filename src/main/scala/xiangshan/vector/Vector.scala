@@ -27,6 +27,7 @@ import xs.utils._
 import xiangshan.vector.videcode._
 import xiangshan.vector.vtyperename._
 import xiangshan.vector.viwaitqueue._
+import xiangshan.vector.virename._
 
 class Vector(implicit p: Parameters) extends LazyModule {
 
@@ -62,6 +63,7 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
   val videcode = Module(new VIDecodeUnit)
   val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
   val waitqueue = Module(new VIWaitQueue)
+  val virename = Module(new VIRenameWrapper)
 
   for (i <- 0 until VIDecodeWidth) {
     val DecodePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
@@ -74,11 +76,16 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
   vtyperename.io.in <> io.vtypein
 
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && waitqueue.io.enq.canAccept
+    videcode.io.canOut := waitqueue.io.enq.canAccept
+    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
+    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
     waitqueue.io.enq.req(i).bits := videcode.io.out(i).bits
   }
   waitqueue.io.vtype <> vtyperename.io.out
   waitqueue.io.robin <> io.allowdeq
 
+  waitqueue.io.out <> virename.io.renameReq
+  waitqueue.io.hasWalk <> virename.io.hasWalk
+  waitqueue.io.canRename <> virename.io.canRename
 }
 

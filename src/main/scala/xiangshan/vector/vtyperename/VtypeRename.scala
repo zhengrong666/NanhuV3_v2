@@ -176,14 +176,11 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
          v.vta := w.bits.data(30)
          v.vsew := w.bits.data(29, 27)
          v.vlmul := w.bits.data(26, 24)
-         io.backward(i).bits.cf := v.cf
-         io.backward(i).bits.ctrl := v.ctrl
-         io.backward(i).bits.robIdx := v.robIdx
-         io.backward(i).bits.state := v.state
-         io.backward(i).bits.ESEW := v.vsew
-         io.backward(i).bits.ELMUL := v.vlmul
-         io.backward(i).bits.vtypeIdx := v.vtypeIdx
-         io.backward(i).valid := true.B
+         io.WbData(i).bits.state := v.state
+         io.WbData(i).bits.ESEW := v.vsew
+         io.WbData(i).bits.ELMUL := v.vlmul
+         io.WbData(i).bits.vtypeIdx := v.vtypeIdx
+         io.WbData(i).valid := true.B
        }
      }
    }

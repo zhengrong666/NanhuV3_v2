@@ -40,10 +40,8 @@ object WqPtr {
 class WqEnqIO(implicit p: Parameters) extends VectorBaseBundle  {
   val canAccept = Output(Bool())
   val isEmpty = Output(Bool())
-  // valid vector, for robIdx gen and walk
   val needAlloc = Vec(VIDecodeWidth, Input(Bool()))
-  val req = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp)))
-  val resp = Vec(VIDecodeWidth, Output(new WqPtr))
+  val req = Vec(VIDecodeWidth, Flipped(ValidIO(new MicroOp)))
 }
 
 class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
@@ -55,8 +53,10 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val vtype = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeInfo)))
     val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new VtypeDelayData))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val out = Vec(VIRenameWidth, Flipped(DecoupledIO(new RobPtr)))
+    val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
     val WqFull = Output(Bool())
+    val canRename = Input(Bool())
+    val hasWalk = Input(Bool())
   })
 
   // pointers
@@ -76,7 +76,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     */
   val s_valid :: s_wait :: s_busy :: s_invalid :: Nil = Enum(4)
 
-
   val WqData = Module(new SyncDataModuleTemplate(new vimop, VIWaitQueueWidth, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
 
   /**
@@ -85,15 +84,15 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   // dequeue pointers
   val isComplete = RegInit(false.B)
   val deqPtr_temp = deqPtr + 1
-  val deqPtr_next = Mux(!io.redirect.valid && isComplete, deqPtr, deqPtr_temp)
+  val deqPtr_next = Mux(!io.redirect.valid && isComplete && !io.hasWalk, deqPtr, deqPtr_temp)
   deqPtr := deqPtr_next
 
   // enqueue pointers
   val enqPtrVec_temp = RegInit(VecInit.tabulate(VIDecodeWidth)(_.U.asTypeOf(new WqPtr)))
-  val canAccept = allowEnqueue
+  val canAccept = allowEnqueue && !io.hasWalk
   val enqNum = Mux(canAccept, PopCount(VecInit(io.enq.req.map(_.valid))), 0.U)
   for ((ptr, i) <- enqPtrVec_temp.zipWithIndex) {
-    when(io.redirect.valid) {
+    when(io.redirect.valid || io.hasWalk) {
       ptr := ptr
     }.otherwise {
       ptr := ptr + enqNum
@@ -108,8 +107,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val numValidEntries = distanceBetween(enqPtr, deqPtr)
   allowEnqueue := numValidEntries + enqNum <= (VIWaitQueueWidth - VIDecodeWidth).U
   val allocatePtrVec = VecInit((0 until VIDecodeWidth).map(i => enqPtrVec(PopCount(io.enq.needAlloc.take(i)))))
-  io.enq.canAccept := allowEnqueue && !io.redirect.valid
-  io.enq.resp := allocatePtrVec
+  io.enq.canAccept := allowEnqueue && !io.redirect.valid && !io.hasWalk
   val canEnqueue = VecInit(io.enq.req.map(_.valid && io.enq.canAccept))
 
 
@@ -136,18 +134,17 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val isLS = Mux(currentdata.MicroOp.ctrl.isVLS, true.B, false.B)
   val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === IsWiden.NotWiden, false.B, true.B)
   var countnum = 0
-  if (currentdata.state == s_valid) {
+  if (currentdata.state == s_valid && io.canRename == true) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
     val elementNum = currentdata.MicroOp.vCsrInfo.SewToInt()
     val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
-    val isSegment = Mux(currentdata.MicroOp.ctrl.fuOpType === FuOpType.LSSegment, true.B, false.B)
-    val nf = currentdata.MicroOp.ctrl.NFToInt()
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
         deqUop(i) := currentdata.MicroOp
         deqUop(i).uopIdx := countnum.U
         deqUop(i).uopNum := splitnum.U
-        if (isSegment == true.B) {
+        if (deqUop(i).ctrl.isSeg == true.B) {
+          val nf = currentdata.MicroOp.ctrl.NFToInt()
           val tempnum = countnum % nf
           if (countnum > nf) {
             deqUop(i).canRename := false.B
@@ -177,7 +174,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
     io.out(i).bits := deqUop(i)
-    io.out(i).valid := io.out(i).ready
+    io.out(i).valid := !io.hasWalk
   }
 
   /**
@@ -236,6 +233,10 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         vtypePtr := vtypePtr + 1
       }
     }
+  }
+
+  when(io.hasWalk || io.redirect.valid) {
+    enqPtr
   }
 
 }
