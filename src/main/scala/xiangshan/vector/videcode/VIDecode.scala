@@ -731,18 +731,28 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
         cs.funct3 := io.in(i).bits.cf.instr(F3_MSB, F3_LSB)
         cs.NFiled := io.in(i).bits.cf.instr(NF_MSB, NF_LSB)
         cs.vm := io.in(i).bits.cf.instr(VM_LSB)
+
         if (cs.selImm != SelImm.X) {
             cs.imm := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
         }
+
         if (cs.NFiled != "3'b000" && (cs.fuType == FuType.ldu || cs.fuType == FuType.stu)) {
             cs.isSeg := true.B
+            cs.isVLS := true.B
+        } else if (cs.fuType == FuType.ldu || cs.fuType == FuType.stu) {
+            cs.isVLS := true.B
+            cs.isSeg := false.B
         } else {
+            cs.isVLS := false.B
             cs.isSeg := false.B
         }
+
+
         cf_ctrl.ctrl := cs
         cf_ctrl.cf := io.in(i).bits.cf
 
         io.out(i).bits := cf_ctrl
         io.out(i).valid := io.in(i).valid && io.canOut
+
     }
 }

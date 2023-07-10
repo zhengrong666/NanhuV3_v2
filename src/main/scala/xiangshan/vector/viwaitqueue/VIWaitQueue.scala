@@ -155,6 +155,17 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
           deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + tempnum.U
           deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
           deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + tempnum.U
+        } else if (isLS == true.B) {
+          val tempnum = countnum % elementNum
+          if (tempnum == 0) {
+            deqUop(i).canRename := true.B
+          } else {
+            deqUop(i).canRename := false.B
+          }
+          deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + tempnum.U
+          deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + tempnum.U
+          deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
+          deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + tempnum.U
         } else {
           deqUop(i).canRename := true.B
           deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + countnum.U
@@ -174,7 +185,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
     io.out(i).bits := deqUop(i)
-    io.out(i).valid := !io.hasWalk
+    io.out(i).valid := !io.hasWalk && !io.redirect.valid
   }
 
   /**
@@ -222,6 +233,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   /**
     * robenq update
     */
+
   for (i <- 0 until VIDecodeWidth) {
     when(io.robin(i).valid) {
       WqData.io.raddr := waitPtr.value
@@ -233,10 +245,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         vtypePtr := vtypePtr + 1
       }
     }
-  }
-
-  when(io.hasWalk || io.redirect.valid) {
-    enqPtr
   }
 
 }
