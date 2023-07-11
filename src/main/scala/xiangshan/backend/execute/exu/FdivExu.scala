@@ -50,7 +50,7 @@ class FdivExuImpl(outer:FdivExu, exuCfg:ExuConfig)(implicit p:Parameters) extend
   private val outputArbiter = Module(new Arbiter(new MicroOp, exuCfg.fuConfigs.length))
 
   private val fuSel = PickOneHigh(Cat(fdivSqrts.map(_.io.in.ready).reverse))
-  issuePort.issue.ready := fuSel.valid
+  issuePort.issue.ready := true.B
   fdivSqrts.zipWithIndex.zip(outputArbiter.io.in).foreach({case((fu,idx), arbIn) =>
     fu.io.redirectIn := redirectIn
     fu.io.in.valid := issuePort.issue.valid &&
