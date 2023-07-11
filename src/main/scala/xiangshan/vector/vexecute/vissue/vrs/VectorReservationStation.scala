@@ -10,9 +10,10 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
+import xiangshan.vector.vexecute.vissue.VDecoupledPipeline
 
 class VectorReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
-  private val entryNum = p(XSCoreParamsKey).intRsDepth
+  private val entryNum = vectorParameters.vRsDepth
   private val wbNodeParam = WriteBackSinkParam(name = "Vector RS", sinkType = WriteBackSinkType.vecRs)
   private val rsParam = RsParam(name = "Vector RS", RsType.vec, entryNum)
   require(entryNum % rsParam.bankNum == 0)
@@ -64,6 +65,8 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     mod
   })
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("VectorAllocateNetwork")))
+  private val oiq = Module(new OrderedInstructionQueue(param.bankNum, vectorParameters.vRsOIQDepth))
+  oiq.io.redirect := io.redirect
 
   private val integerBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth))
   integerBusyTable.io.allocPregs := io.intAllocPregs
@@ -84,7 +87,6 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     bt.bits := wb.bits.pdest
   })
 
-
   private val fuTypeList = issue.head._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType)
 
   private val orderedSelectNetwork = Module(new VRSSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, true, fuTypeList, Some(s"VectorOrderedSelectNetwork")))
@@ -101,7 +103,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private var intBusyTableReadIdx = 0
   private var fpBusyTableReadIdx = 0
   private var vectorBusyTableReadIdx = 0
-  allocateNetwork.io.enqFromDispatch.zip(enq).foreach({case(sink, source) =>
+  allocateNetwork.io.enqFromDispatch.zip(oiq.io.enq).zip(enq).foreach({case((sink, o_sink), source) =>
     val intReadPort = integerBusyTable.io.read(intBusyTableReadIdx)
     val fpReadPort = floatingBusyTable.io.read(fpBusyTableReadIdx)
     val vecReadPorts = Seq.tabulate(4)(idx => vectorBusyTable.io.read(vectorBusyTableReadIdx + idx))
@@ -111,7 +113,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     vecReadPorts(1).req := source.bits.psrc(1)
     vecReadPorts(2).req := source.bits.old_pdest
     vecReadPorts(3).req := source.bits.vm
-    sink.valid := source.valid
+    sink.valid := source.valid && oiq.io.enqCanAccept
     sink.bits := source.bits
     sink.bits.srcState(0) := MuxCase(SrcState.rdy, Seq(
       (source.bits.ctrl.srcType(0) === SrcType.reg, intReadPort.resp),
@@ -121,7 +123,10 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     sink.bits.srcState(1) := vecReadPorts(1).resp
     sink.bits.oldPdestState := vecReadPorts(2).resp
     sink.bits.vmState := vecReadPorts(3).resp
-    source.ready := sink.ready
+    source.ready := sink.ready && oiq.io.enqCanAccept
+
+    o_sink.valid := source.valid && sink.ready
+    o_sink.bits := source.bits
     intBusyTableReadIdx = intBusyTableReadIdx + 1
     fpBusyTableReadIdx = fpBusyTableReadIdx + 1
     vectorBusyTableReadIdx = vectorBusyTableReadIdx + 4
@@ -136,70 +141,46 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
 
-  private var aluWkpPortIdx = 0
-  private var mulWkpPortIdx = 0
-  private var aluPortIdx = 0
-  private var mulPortIdx = 0
-  private var divPortIdx = 0
-  private var jmpPortIdx = 0
-  println("\nInteger Reservation Issue Ports Config:")
+  private var orderedPortIdx = 0
+  private var unorderedPortIdx = 0
+  println("\nVector Reservation Issue Ports Config:")
   for((iss, issuePortIdx) <- issue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
     prefix(iss._2.name + "_" + iss._2.id) {
-      val issueDriver = Module(new DecoupledPipeline(false, param.bankNum, entriesNumPerBank))
+      val issueDriver = Module(new VDecoupledPipeline)
       issueDriver.io.redirect := io.redirect
-      issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
-      val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2))
-      selectRespArbiter.io.in(0) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
-      internalAluWakeupSignals(aluWkpPortIdx) := WakeupQueue(aluSelectNetwork.io.issueInfo(aluPortIdx), aluSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
-      aluPortIdx = aluPortIdx + 1
-      aluWkpPortIdx = aluWkpPortIdx + 1
-      if (iss._2.isAluMul) {
-        selectRespArbiter.io.in(1) <> mulSelectNetwork.io.issueInfo(mulPortIdx)
-        internalMulWakeupSignals(mulWkpPortIdx) := WakeupQueue(mulSelectNetwork.io.issueInfo(mulPortIdx), mulSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
-        mulPortIdx = mulPortIdx + 1
-        mulWkpPortIdx = mulWkpPortIdx + 1
-      } else if (iss._2.isAluDiv) {
-        selectRespArbiter.io.in(1) <> divSelectNetwork.io.issueInfo(divPortIdx)
-        divPortIdx = divPortIdx + 1
-      } else if(iss._2.isAluJmp){
-        selectRespArbiter.io.in(1) <> jmpSelectNetwork.io.issueInfo(jmpPortIdx)
-        jmpPortIdx = jmpPortIdx + 1
-      } else {
-        require(false, "Unknown Exu complex!")
-      }
-      val finalSelectInfo = selectRespArbiter.io.out
+      val issueArbiter = Module(new VRSIssueArbiter(param.bankNum, entriesNumPerBank))
+      issueArbiter.io.orderedIn <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
+      issueArbiter.io.unorderedIn <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
+      issueArbiter.io.orderedCtrl := oiq.io.ctrl
+      oiq.io.issued := issueArbiter.io.orderedChosen
+
+      orderedPortIdx = orderedPortIdx + 1
+      unorderedPortIdx = unorderedPortIdx + 1
+
+      val finalSelectInfo = issueArbiter.io.out
       val rsBankRen = Mux(issueDriver.io.enq.fire, finalSelectInfo.bits.bankIdxOH, 0.U)
       rsBankSeq.zip(rsBankRen.asBools).foreach({ case (rb, ren) =>
         rb.io.issueAddr(issuePortIdx).valid := ren
         rb.io.issueAddr(issuePortIdx).bits := finalSelectInfo.bits.entryIdxOH
       })
 
-      val issueBundle = Wire(Valid(new MicroOp))
-      issueBundle.valid := finalSelectInfo.valid
-      issueBundle.bits := Mux1H(rsBankRen, rsBankSeq.map(_.io.issueUop(issuePortIdx).bits))
-      issueBundle.bits.robIdx := finalSelectInfo.bits.info.robPtr
-      issueBundle.bits.ctrl.rfWen := finalSelectInfo.bits.info.rfWen
-      issueBundle.bits.ctrl.fpWen := finalSelectInfo.bits.info.fpWen
-      issueBundle.bits.pdest := finalSelectInfo.bits.info.pdest
-      issueBundle.bits.ctrl.fuType := finalSelectInfo.bits.info.fuType
-      issueBundle.bits.lpv := finalSelectInfo.bits.info.lpv
-
       finalSelectInfo.ready := issueDriver.io.enq.ready
-      issueDriver.io.enq.valid := issueBundle.valid
-      issueDriver.io.enq.bits.uop := issueBundle.bits
-      issueDriver.io.enq.bits.bankIdxOH := finalSelectInfo.bits.bankIdxOH
-      issueDriver.io.enq.bits.entryIdxOH := finalSelectInfo.bits.entryIdxOH
+      issueDriver.io.enq.valid := finalSelectInfo.valid
+      issueDriver.io.enq.bits := Mux1H(rsBankRen, rsBankSeq.map(_.io.issueUop(issuePortIdx).bits))
+      issueDriver.io.enq.bits.robIdx := finalSelectInfo.bits.info.robPtr
+      issueDriver.io.enq.bits.uopIdx := finalSelectInfo.bits.info.uopIdx
+      issueDriver.io.enq.bits.ctrl.fuType := finalSelectInfo.bits.info.fuType
 
       iss._1.issue.valid := issueDriver.io.deq.valid
-      iss._1.issue.bits.uop := issueDriver.io.deq.bits.uop
+      iss._1.issue.bits.uop := issueDriver.io.deq.bits
       iss._1.issue.bits.src := DontCare
-      iss._1.rsIdx.bankIdxOH := issueDriver.io.deq.bits.bankIdxOH
-      iss._1.rsIdx.entryIdxOH := issueDriver.io.deq.bits.entryIdxOH
+      iss._1.rsIdx.bankIdxOH := DontCare
+      iss._1.rsIdx.entryIdxOH := DontCare
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }
-  println("\nInteger Reservation Wake Up Ports Config:")
+  println("\nVector Reservation Wake Up Ports Config:")
   wakeup.zipWithIndex.foreach({case((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
   })

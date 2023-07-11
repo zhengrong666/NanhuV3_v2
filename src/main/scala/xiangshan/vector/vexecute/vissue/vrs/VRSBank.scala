@@ -36,7 +36,7 @@ class VRSBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
 
     enqEntry.psrc(2) := in.old_pdest
     enqEntry.srcType(2) := in.ctrl.old_vdType
-    enqEntry.srcState(2) := Mux(!(in.vCsrInfo.ta || in.vCsrInfo.ma), in.oldPdestState, SrcState.rdy)
+    enqEntry.srcState(2) := Mux(in.vCsrInfo.ta || in.vCsrInfo.ma, SrcState.rdy, in.oldPdestState)
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec

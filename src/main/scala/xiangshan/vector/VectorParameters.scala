@@ -37,7 +37,10 @@ case class VectorParameters (
     viWalkRobIdxQueueWidth: Int = 64,
     vDispatchQueueMem: Int = 16,
     vDispatchQueuePermu: Int = 16,
-    vDispatchQueueCommon: Int = 16
+    vDispatchQueueCommon: Int = 16,
+    vRsDepth: Int = 32,
+    vRsOIQDepth: Int = 8,
+    vPRsDepth: Int = 4
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum + 1)
 }
