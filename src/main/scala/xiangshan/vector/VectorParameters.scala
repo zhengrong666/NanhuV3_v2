@@ -42,7 +42,7 @@ case class VectorParameters (
     vRsOIQDepth: Int = 8,
     vPRsDepth: Int = 4
 ) {
-    def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum + 1)
+    def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum)
 }
 
 case object VectorParametersKey extends Field[VectorParameters](VectorParameters())

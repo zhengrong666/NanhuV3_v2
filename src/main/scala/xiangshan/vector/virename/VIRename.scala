@@ -106,8 +106,8 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     robIdxQueue.io.in <> io.commitReq
     rollBackList.io.commitPort.req <> robIdxQueue.io.out
     renameTable.io.commitPort <> rollBackList.io.commitPort.resp
-    freeList.io.releaseReqMask := rollBackList.io.commitPort.resp.mask
-    freeList.io.releaseReqPhyReg := rollBackList.io.commitPort.resp.prIdx
+    freeList.io.releaseMask := rollBackList.io.commitPort.resp.mask
+    freeList.io.releasePhyReg := rollBackList.io.commitPort.resp.prIdx
 
     io.hasWalk := robIdxQueue.io.hasWalk
 }

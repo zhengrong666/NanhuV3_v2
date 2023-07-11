@@ -49,7 +49,6 @@ class VIRatRenamePort(implicit p: Parameters) extends VectorBaseBundle {
     val mask = Vec(VIRenameWidth, Input(Bool()))
     val lrIdx = Vec(VIRenameWidth, Input(UInt(5.W)))
     val prIdx = Vec(VIRenameWidth, Input(UInt(VIPhyRegIdxWidth.W)))
-    //val needRename = Vec(VIRenameWidth, Input(Bool()))
 }
 
 class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
