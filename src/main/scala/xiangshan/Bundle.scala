@@ -159,6 +159,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val funct3 = UInt(3.W)
   val NFiled = UInt(2.W)
   val vm = Bool()
+  val isSeg = Bool()
 
   def NFToInt() = {
     var nf = 0
