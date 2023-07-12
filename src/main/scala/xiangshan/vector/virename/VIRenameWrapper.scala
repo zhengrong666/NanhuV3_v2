@@ -34,53 +34,58 @@ import xiangshan.backend.rob._
 
 class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
-        //robIdxQueue has walk req
-        val hasWalk = Output(Bool())
-        //rename in
-        val renameReq = Vec(VIRenameWidth, Flipped(ValidIO(new Bundle {
-            val uopIn = new MicroOp
-            val robIdx = new RobPtr
-        })))
-        val canRename = Output(Bool())
-        //rename out
+        val redirect = Flipped(ValidIO(new Redirect))
+
+        //rename in, from WaitQueue
+        val canAccept   = Output(Bool())
+        val uopIn       = Vec(VIRenameWidth, Flipped(ValidIO(new MicroOp)))
+
+        //rename out, to Dispatch
         val uopOut = Vec(VIRenameWidth, ValidIO(new MicroOp))
-        //commit
+        
+        //commit, from ROB via RobIdxQueue
         val commit = new VIRobIdxQueueEnqIO
     })
 
     val rename = new VIRename
 
     //when vector pipeline is walking, block all pipeline
-    io.hasWalk := rename.io.hasWalk
+    val hasWalk = rename.io.hasWalk
 
     //rename
     val reqMask = Wire(Vec(VIRenameWidth, Bool()))
-    reqMask := io.renameReq.map(req => req.valid)
+    reqMask := io.uopIn.map(req => req.valid)
 
     val robIdxForRename = Wire(Vec(VIRenameWidth, UInt(log2Up(RobSize).W)))
-    robIdxForRename := io.renameReq.map(req => req.bits.robIdx.value)
-    val reqForRename = Wire(Vec(VIRenameWidth, new Bundle {
-        val lvs1 = UInt(5.W)
-        val lvs2 = UInt(5.W)
-        val lvd = UInt(5.W)
-        val needRename = Bool()
-    }))
+    robIdxForRename := io.uopIn.map(req => req.bits.robIdx.value)
+
+    val reqForRename = Wire(Vec(VIRenameWidth, new VIRenameReqLr))
+
     for((req, i) <- reqForRename.zipWithIndex) {
-        req.lvs1 := io.renameReq(i).bits.uopIn.ctrl.lsrc(0)
-        req.lvs2 := io.renameReq(i).bits.uopIn.ctrl.lsrc(1)
-        req.lvd := io.renameReq(i).bits.uopIn.ctrl.lsrc(2)
-        req.needRename := io.renameReq(i).bits.uopIn.canRename
+        req.lvs1 := io.uopIn(i).bits.ctrl.lsrc(0)
+        req.lvs2 := io.uopIn(i).bits.ctrl.lsrc(1)
+        req.lvd  := io.uopIn(i).bits.ctrl.lsrc(2)
+        req.robIdx      := io.uopIn(i).bits.robIdx.value
+        req.needRename  := io.uopIn(i).bits.canRename
     }
-    rename.io.renameReq.req := reqForRename
-    rename.io.renameReq.robIdx := robIdxForRename
-    rename.io.renameReq.mask := reqMask
-    io.canRename := rename.io.renameReq.canAccept
+    rename.io.renameReq.req     := reqForRename
+    rename.io.renameReq.mask    := reqMask
+
+    io.canAccept := rename.io.renameReq.canAccept && (!hasWalk) && (!io.redirect.valid)
 
     io.uopOut := DontCare
-    (0 until VIRenameWidth).map(i => io.uopOut(i).bits := io.renameReq(i).bits)
-    (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i) & io.canRename)
+    (0 until VIRenameWidth).map(i => io.uopOut(i).bits  := io.uopIn(i).bits)
+    (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i) & io.canAccept)
+
+    val reqSrcType = Wire(Vec(VIRenameWidth, Vec(3, SrcType())))
+    reqSrcType := io.uopIn.map(req => req.bits.ctrl.srcType)
+
+    for((port, i) <- io.uopOut.zipWithIndex) {
+        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvs1, io.uopIn(i).bits.psrc(0))
+        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvs2, io.uopIn(i).bits.psrc(1))
+        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvd, io.uopIn(i).bits.psrc(2))
+    }
 
     //commit
     rename.io.commitReq <> io.commit
-
 }
