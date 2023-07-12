@@ -41,15 +41,15 @@ class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
     }))
     val robIdx = Input(Vec(VIRenameWidth, UInt(robIdxWidth.W)))
     val mask = Input(UInt(VIRenameWidth.W))
-    //val doRename = Output(Bool())
     val canAccept = Output(Bool())
 }
 
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
-        val renameReq = new VIRenameReq
-        val commitReq = new VIRobIdxQueueEnqIO
-        val hasWalk = Output(Bool())
+        val renameReq   = new VIRenameReq
+        val commitReq   = new VIRobIdxQueueEnqIO
+        val hasWalk     = Output(Bool())
+        //val redirect    = new
     })
 
     val freeList        = Module(new VIFreeList)
