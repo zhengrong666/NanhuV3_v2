@@ -407,10 +407,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
     // If addr match, data not ready, mark it as dataInvalid
     // load_s1: generate dataInvalid in load_s1 to set fastUop
-    val sqForwardMask = dataModule.io.forwardMask(i).asUInt
-    val loadMask = io.forward(i).mask
     val dataInvalidMask = (addrValidVec.asUInt & ~dataValidVec.asUInt & vaddrModule.io.forwardMmask(i).asUInt & needForward.asUInt)
-    io.forward(i).dataInvalidFast := dataInvalidMask.orR && (sqForwardMask & loadMask).orR
+    io.forward(i).dataInvalidFast := dataInvalidMask.orR
     val dataInvalidMaskReg = RegNext(dataInvalidMask)
     // load_s2
     io.forward(i).dataInvalid := RegNext(io.forward(i).dataInvalidFast)
