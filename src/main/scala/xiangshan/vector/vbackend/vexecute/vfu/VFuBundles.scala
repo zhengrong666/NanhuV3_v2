@@ -1,8 +1,9 @@
 package xiangshan.vector.vbackend.vexecute.vfu
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.XSBundle
 
 // Temporary. Will replaced by system Uop class.
 class VUopCtrl extends Bundle {
@@ -53,7 +54,7 @@ object SewOH {
 }
 
 // Input of FU
-class VFuInput extends Bundle {
+class VFuInput(implicit p: Parameters) extends XSBundle {
   val uop = new VUop
   val vs1 = UInt(128.W)
   val vs2 = UInt(128.W)
@@ -62,21 +63,21 @@ class VFuInput extends Bundle {
   val mask = UInt(128.W)
 }
 // Output of ALU
-class VAluOutput extends Bundle {
+class VAluOutput(implicit p: Parameters) extends Bundle {
   val vd = UInt(128.W)
   val vxsat = Bool()
 }
 
-class VPermInput extends Bundle {
+class VPermInput(implicit p: Parameters) extends XSBundle {
   val uop = new VUop
-  val rs1 = UInt(64.W)
-  val vs1_preg_idx = Vec(8, UInt(8.W))
-  val vs2_preg_idx = Vec(8, UInt(8.W))
-  val old_vd_preg_idx = Vec(8, UInt(8.W))
-  val mask_preg_idx = UInt(8.W)
+  val rs1 = UInt(XLEN.W)
+  val vs1_preg_idx = Vec(8, UInt(PhyRegIdxWidth.W))
+  val vs2_preg_idx = Vec(8, UInt(PhyRegIdxWidth.W))
+  val old_vd_preg_idx = Vec(8, UInt(PhyRegIdxWidth.W))
+  val mask_preg_idx = UInt(PhyRegIdxWidth.W)
   val uop_valid = Bool()
   val uop_rob_idx = UInt(9.W)
-  val rdata = UInt(128.W)
+  val rdata = UInt(VLEN.W)
   val rvalid = Bool()
   val flush_vld = Bool()
   val flush_rob_idx = UInt(9.W)

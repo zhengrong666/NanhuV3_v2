@@ -1,4 +1,4 @@
-package xiangshan.vector.vexecute.vissue.vrs
+package xiangshan.vector.vbackend.vissue.vrs
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
@@ -10,7 +10,6 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
-import xiangshan.vector.vexecute.vissue.VDecoupledPipeline
 
 class VectorReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
   private val entryNum = vectorParameters.vRsDepth
@@ -39,7 +38,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     val redirect = Input(Valid(new Redirect))
     val intAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
     val fpAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
-    val vecAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
+    val vecAllocPregs = Vec(vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
   })
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
@@ -59,7 +58,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   }))
   private val wakeupWidth = wakeupSignals.length
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new VRSBank(entriesNumPerBank, issueWidth, wakeupWidth, loadUnitNum))
+    val mod = Module(new VrsBank(entriesNumPerBank, issueWidth, wakeupWidth, loadUnitNum))
     mod.io.redirect := io.redirect
     mod.io.wakeup := wakeupSignals
     mod
@@ -68,19 +67,19 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private val oiq = Module(new OrderedInstructionQueue(param.bankNum, vectorParameters.vRsOIQDepth))
   oiq.io.redirect := io.redirect
 
-  private val integerBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth))
+  private val integerBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth, RenameWidth))
   integerBusyTable.io.allocPregs := io.intAllocPregs
   integerBusyTable.io.wbPregs.zip(wakeupSignals).foreach({case(bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth))
+  private val floatingBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth, RenameWidth))
   floatingBusyTable.io.allocPregs := io.fpAllocPregs
   floatingBusyTable.io.wbPregs.zip(wakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, wakeupWidth))
+  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, wakeupWidth, vectorParameters.vRenameWidth))
   integerBusyTable.io.allocPregs := io.vecAllocPregs
   integerBusyTable.io.wbPregs.zip(wakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec
@@ -149,7 +148,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     prefix(iss._2.name + "_" + iss._2.id) {
       val issueDriver = Module(new VDecoupledPipeline)
       issueDriver.io.redirect := io.redirect
-      val issueArbiter = Module(new VRSIssueArbiter(param.bankNum, entriesNumPerBank))
+      val issueArbiter = Module(new VrsIssueArbiter(param.bankNum, entriesNumPerBank))
       issueArbiter.io.orderedIn <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
       issueArbiter.io.unorderedIn <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
       issueArbiter.io.orderedCtrl := oiq.io.ctrl

@@ -1,12 +1,15 @@
 package xiangshan.vector.vbackend.vexecute.vfu.permutation
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import xiangshan.XSModule
+import xiangshan.vector.HasVectorParameters
+
 import scala.language.postfixOps
 import xiangshan.vector.vbackend.vexecute.vfu._
 
-class permutation extends Module {
-  val VLEN = 128
+class Permutation(implicit p: Parameters) extends Module with HasVectorParameters{
   val io = IO(new Bundle {
     val in = Input(new VPermInput)
     val out = Output(new VPermOutput)

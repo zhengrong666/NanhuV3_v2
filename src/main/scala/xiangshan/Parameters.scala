@@ -356,7 +356,7 @@ trait HasXSParameter {
   val IssQueSize = coreParams.IssQueSize
   val EnableLoadFastWakeUp = coreParams.EnableLoadFastWakeUp
   val NRPhyRegs = coreParams.NRPhyRegs
-  val PhyRegIdxWidth = log2Up(NRPhyRegs)
+
   val RobSize = coreParams.RobSize
   val IntRefCounterWidth = log2Ceil(RobSize + 1)
   val LoadQueueSize = coreParams.LoadQueueSize
@@ -394,6 +394,7 @@ trait HasXSParameter {
   val dcacheParameters = coreParams.dcacheParametersOpt.getOrElse(DCacheParameters())
 
   val vectorParameters = coreParams.vectorParameters
+  val PhyRegIdxWidth = max(log2Up(NRPhyRegs), log2Up(vectorParameters.vPhyRegIdxWidth))
 
   // dcache block cacheline when lr for LRSCCycles - LRSCBackOff cycles
   // for constrained LR/SC loop

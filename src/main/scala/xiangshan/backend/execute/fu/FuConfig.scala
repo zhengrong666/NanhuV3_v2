@@ -261,4 +261,18 @@ object FuConfigs{
     hasRedirect = false,
     exceptionOut = lduCfg.exceptionOut ++ staCfg.exceptionOut
   )
+  val vpermCfg = FuConfig(
+    name = "vperm",
+    fuType = FuType.vpermu,
+    numIntSrc = 0,
+    numFpSrc = 0,
+    numVecSrc = 0,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+  )
 }

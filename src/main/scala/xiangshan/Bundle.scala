@@ -235,12 +235,10 @@ class LSIdx(implicit p: Parameters) extends XSBundle {
 
 // CfCtrl -> MicroOp at Rename Stage
 class MicroOp(implicit p: Parameters) extends CfCtrl {
-  def srcWidth = max(log2Up(NRPhyRegs), log2Up(vectorParameters.vPhyRegIdxWidth))
-
   val srcState = Vec(3, SrcState())
-  val psrc = Vec(3, UInt(srcWidth.W))
-  val pdest = UInt(srcWidth.W)
-  val old_pdest = UInt(srcWidth.W)
+  val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
+  val pdest = UInt(PhyRegIdxWidth.W)
+  val old_pdest = UInt(PhyRegIdxWidth.W)
   val robIdx = new RobPtr
   val lqIdx = new LqPtr
   val sqIdx = new SqPtr
@@ -250,7 +248,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
 
   //vector
   val oldPdestState = SrcState()
-  val vm = UInt(srcWidth.W)
+  val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)

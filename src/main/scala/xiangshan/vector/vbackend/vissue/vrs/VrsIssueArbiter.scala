@@ -1,9 +1,10 @@
-package xiangshan.vector.vexecute.vissue.vrs
+package xiangshan.vector.vbackend.vissue.vrs
+
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.XSModule
-class VRSIssueArbiter(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends XSModule{
+class VrsIssueArbiter(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val unorderedIn = Flipped(Decoupled(new VRSSelectResp(bankIdxWidth, entryIdxWidth)))
     val orderedIn = Flipped(Decoupled(new VRSSelectResp(bankIdxWidth, entryIdxWidth)))

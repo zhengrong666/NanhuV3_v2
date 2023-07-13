@@ -15,27 +15,24 @@
 /***************************************************************************************
  * Author: Liang Sen
  * E-mail: liangsen20z@ict.ac.cn
- * Date: 2023-06-19
+ * Date: 2023-07-13
  ****************************************************************************************/
-package xiangshan.vector.vexecute.vissue
+package xiangshan.vector.vbackend.vissue.vprs
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.experimental.ChiselAnnotation
 import chisel3.util._
-import firrtl.annotations.Annotation
-import firrtl.transforms.NoDedupAnnotation
 import xiangshan.{MicroOp, Redirect, XSModule}
-import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, LogicShiftRight}
+import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 sealed class TwoEntryQueuePtr extends CircularQueuePtr[TwoEntryQueuePtr](entries = 2) with HasCircularQueuePtrHelper
 
-class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
+class VprsDecoupledPipeline(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
-    val enq = Flipped(DecoupledIO(new MicroOp))
-    val deq = DecoupledIO(new MicroOp)
+    val enq = Flipped(DecoupledIO(new VprsIssueBundle))
+    val deq = DecoupledIO(new VprsIssueBundle)
   })
-    val mem = Reg(Vec(2, new MicroOp))
+    val mem = Reg(Vec(2, new VprsIssueBundle))
     val enqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
     val deqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
     val full = enqPtr.value === deqPtr.value && enqPtr.flag =/= deqPtr.flag
@@ -44,7 +41,7 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
     val deqFire = io.deq.fire
 
   private val kills = Wire(Vec(2, Bool()))
-  kills.zip(mem).foreach({case(k,u) => k := u.robIdx.needFlush(io.redirect)})
+  kills.zip(mem).foreach({case(k,u) => k := u.uop.robIdx.needFlush(io.redirect)})
 
   io.enq.ready := !full
   io.deq.valid := !empty && !kills(deqPtr.value)

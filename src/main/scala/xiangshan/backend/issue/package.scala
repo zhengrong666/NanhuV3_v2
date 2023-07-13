@@ -66,10 +66,10 @@ package object issue {
   (
     name: String,
     rsType: Int,
-    entriesNum: Int = 48
+    entriesNum: Int = 48,
+    bankNum: Int = 4
   ) {
     //Unchangeable parameters
-    val bankNum = 4
     require(entriesNum % bankNum == 0)
     val entryNumPerBank: Int = entriesNum / bankNum
     val isIntRs: Boolean = rsType == RsType.int

@@ -1,4 +1,4 @@
-package xiangshan.vector.vexecute.vissue.vrs
+package xiangshan.vector.vbackend.vissue.vrs
 
 import chipsalliance.rocketchip.config.Parameters
 import xiangshan.backend.issue._
@@ -6,7 +6,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.{MicroOp, Redirect, SrcState, SrcType}
 
-class VRSBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends Module{
+class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends Module{
   val io = IO(new Bundle {
     val redirect = Input(Valid(new Redirect))
 
@@ -36,7 +36,7 @@ class VRSBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
 
     enqEntry.psrc(2) := in.old_pdest
     enqEntry.srcType(2) := in.ctrl.old_vdType
-    enqEntry.srcState(2) := Mux(in.vCsrInfo.ta || in.vCsrInfo.ma, SrcState.rdy, in.oldPdestState)
+    enqEntry.srcState(2) := Mux(in.vCsrInfo.ta || (in.vCsrInfo.ma && in.ctrl.vm), SrcState.rdy, in.oldPdestState)
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec

@@ -28,10 +28,10 @@ class BusyTableReadIO(implicit p: Parameters) extends XSBundle {
   val resp = Output(Bool())
 }
 
-class BusyTable(numReadPorts: Int, numWritePorts: Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
+class BusyTable(numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
     // set preg state to busy
-    val allocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
+    val allocPregs = Vec(renameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
     // set preg state to ready (write back regfile + rob walk)
     val wbPregs = Vec(numWritePorts, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
     // read preg state
