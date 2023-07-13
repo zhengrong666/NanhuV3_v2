@@ -161,7 +161,9 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
         bo.issue.valid := issueValidReg && !issueExuInReg.uop.robIdx.needFlush(io.redirect)
         bo.issue.bits := issueExuInReg
         bo.rsIdx := rsIdxReg
-        when(allowPipe) {
+        when(issueValidReg && issueExuInReg.uop.robIdx.needFlush(io.redirect)) {
+          issueValidReg := false.B
+        }.elsewhen(allowPipe) {
           issueValidReg := bi.issue.valid
         }
         when(bi.issue.fire) {
