@@ -7,9 +7,11 @@ import xiangshan.{ExuOutput, XSBundle, XSModule}
 class MoveReq(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
   val srcAddr = UInt(log2Up(VRFSize).W)
-  val moveMask = UInt((VLEN/8).W)
-  val agnostic = Bool()
   val dstAddr = UInt(log2Up(VRFSize).W)
+  val ma = Bool()
+  val ta = Bool()
+  val opMask = UInt((VLEN/8).W)
+  val tailMask = UInt((VLEN/8).W)
 }
 
 class VrfReadPort(implicit p: Parameters) extends XSBundle{
