@@ -27,9 +27,9 @@ import xs.utils._
 
 class VtypeInfo(implicit p: Parameters) extends CfCtrl{
   val robIdx = new RobPtr
-  val vtypeIdx = new VtypePtr
   val ESEW = UInt(3.W)
   val ELMUL = UInt(3.W)
+  val VL = UInt(8.W)
   val state = 0.U(2.W)
 }
 

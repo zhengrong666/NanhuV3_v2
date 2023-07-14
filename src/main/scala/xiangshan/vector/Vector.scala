@@ -48,9 +48,9 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
     //from ctrl rename
     val vtypein = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp))) //from rename to vtyperename
-
     //from ctrl rob
     val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
+    val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
 
     val redirect = Flipped(ValidIO(new Redirect))
 
@@ -75,17 +75,31 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
 
   vtyperename.io.in <> io.vtypein
 
+  videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    videcode.io.canOut := waitqueue.io.enq.canAccept
-    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
-    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
-    waitqueue.io.enq.req(i).bits := videcode.io.out(i).bits
+    when(vtyperename.io.out(i).valid && videcode.io.out(i).valid) {
+      waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
+      waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
+      val CurrentData = new VIMop
+      CurrentData.MicroOp.vCsrInfo.vsew := vtyperename.io.out(i).bits.ESEW
+      CurrentData.MicroOp.vCsrInfo.vlmul := vtyperename.io.out(i).bits.ELMUL
+      CurrentData.MicroOp.vCsrInfo.vl := vtyperename.io.out(i).bits.VL
+      CurrentData.MicroOp.robIdx := vtyperename.io.out(i).bits.robIdx
+      if (vtyperename.io.out(i).bits.state == 1.U) {
+        CurrentData.state := vtyperename.io.out(i).bits.state - 1.U
+      } else {
+        CurrentData.state := vtyperename.io.out(i).bits.state
+      }
+      waitqueue.io.enq.req(i).bits := CurrentData
+    }
   }
-  waitqueue.io.vtype <> vtyperename.io.out
-  waitqueue.io.robin <> io.allowdeq
 
-  waitqueue.io.out <> virename.io.renameReq
-  waitqueue.io.hasWalk <> virename.io.hasWalk
-  waitqueue.io.canRename <> virename.io.canRename
+  waitqueue.io.vtypeWbData <> io.vtypewriteback
+  waitqueue.io.robin <> io.allowdeq
+  waitqueue.io.canRename <> virename.io.canAccept
+
+  virename.io.uopIn <> waitqueue.io.out
+
+
 }
 

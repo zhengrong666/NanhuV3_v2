@@ -10,7 +10,7 @@ import xs.utils._
 import xiangshan.backend.rob._
 
 
-class vimop(implicit p: Parameters) extends VectorBaseBundle {
+class VIMop(implicit p: Parameters) extends VectorBaseBundle {
   val MicroOp = new MicroOp
   val state = 3.U(1.W)
   val vtypeIdx = new VtypePtr
@@ -41,7 +41,7 @@ class WqEnqIO(implicit p: Parameters) extends VectorBaseBundle  {
   val canAccept = Output(Bool())
   val isEmpty = Output(Bool())
   val needAlloc = Vec(VIDecodeWidth, Input(Bool()))
-  val req = Vec(VIDecodeWidth, Flipped(ValidIO(new MicroOp)))
+  val req = Vec(VIDecodeWidth, Flipped(ValidIO(new VIMop))
 }
 
 class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
@@ -50,7 +50,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val hartId = Input(UInt(8.W))
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtype = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeInfo)))
     val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new VtypeDelayData))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
@@ -76,7 +75,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     */
   val s_valid :: s_wait :: s_busy :: s_invalid :: Nil = Enum(4)
 
-  val WqData = Module(new SyncDataModuleTemplate(new vimop, VIWaitQueueWidth, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
+  val WqData = Module(new SyncDataModuleTemplate(new VIMop, VIWaitQueueWidth, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
 
   /**
     * pointers and counters
@@ -120,7 +119,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   WqData.io.waddr := allocatePtrVec.map(_.value)
   WqData.io.wdata.zip(io.enq.req.map(_.bits)).foreach { case (wdata, req) =>
     wdata := req
-    wdata.state := s_busy
   }
   WqData.io.raddr := ReadAddr_next
   val WqDataRead = WqData.io.rdata
@@ -136,7 +134,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   var countnum = 0
   if (currentdata.state == s_valid && io.canRename == true) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
-    val elementNum = currentdata.MicroOp.vCsrInfo.SewToInt()
+    val elementNum = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
     val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
@@ -191,28 +189,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   /**
     * vtype update
     */
-  for (i <- 0 until VIDecodeWidth) {
-    when (io.vtype(i).valid) {
-      val ftq = io.vtype(i).bits.cf.ftqPtr
-      val offset = io.vtype(i).bits.cf.ftqOffset
-      WqData.io.raddr := vtypePtr.value
-      val tempdata = WqData.io.rdata(0)
-      if (tempdata.MicroOp.cf.ftqPtr == ftq && tempdata.MicroOp.cf.ftqOffset == offset) {
-        WqData.io.waddr := vtypePtr.value
-        tempdata.MicroOp.vCsrInfo.vsew := io.vtype(i).bits.ESEW
-        tempdata.MicroOp.vCsrInfo.vlmul := io.vtype(i).bits.ELMUL
-        tempdata.MicroOp.robIdx := io.vtype(i).bits.robIdx
-        tempdata.vtypeIdx := io.vtype(i).bits.vtypeIdx
-        if (io.vtype(i).bits.state == 1.U) {
-          tempdata.state := tempdata.state - 1.U
-        } else {
-          tempdata.state := tempdata.state
-        }
-        WqData.io.wdata := tempdata
-        vtypePtr := vtypePtr + 1
-      }
-    }
-  }
 
   for (i <- 0 until VIDecodeWidth) {
     when(io.vtypeWbData(i).valid) {
