@@ -252,6 +252,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)
+  val tailMask = UInt(4.W)
   val canRename = Bool()
 
   def clearExceptions(
@@ -455,6 +456,7 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
   val vstart = UInt(7.W)
   val vxrm = UInt(2.W)
   val frm = UInt(3.W)
+  val vlmax = UInt(8.W)
 
   def VLMAXGen() = {
     var VLMAX = 0
