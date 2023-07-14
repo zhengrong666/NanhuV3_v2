@@ -447,14 +447,29 @@ class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
 
 //vector vtype
 class VICsrInfo(implicit p: Parameters) extends XSBundle {
-  val ma = Bool()
-  val ta = Bool()
+  val vma = UInt(1.W)
+  val vta = UInt(1.W)
   val vsew = UInt(3.W)
   val vlmul = UInt(3.W)
   val vl = UInt(8.W)
   val vstart = UInt(7.W)
   val vxrm = UInt(2.W)
   val frm = UInt(3.W)
+
+  def VLMAXGen() = {
+    var VLMAX = 0
+    val sew = SewToInt()
+    switch(vlmul) {
+      is(0.U) { VLMAX = VLEN / sew }
+      is(1.U) { VLMAX = VLEN / sew * 2 }
+      is(2.U) { VLMAX = VLEN / sew * 4 }
+      is(3.U) { VLMAX = VLEN / sew * 8 }
+      is(5.U) { VLMAX = VLEN / sew / 8 }
+      is(6.U) { VLMAX = VLEN / sew / 4 }
+      is(7.U) { VLMAX = VLEN / sew / 2 }
+    }
+    VLMAX
+  }
 
   def SewToInt()  = {
     var sew = 0
