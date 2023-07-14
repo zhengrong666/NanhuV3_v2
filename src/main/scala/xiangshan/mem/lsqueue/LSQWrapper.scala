@@ -23,6 +23,7 @@ import utils._
 import xiangshan._
 import xiangshan.cache._
 import xiangshan.backend.rob.RobLsqIO
+import xiangshan.vector.HasVectorParameters
 
 class ExceptionAddrIO(implicit p: Parameters) extends XSBundle {
   val isStore = Input(Bool())
@@ -215,17 +216,17 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   generatePerfEvent()
 }
 
-class LsqEnqCtrl(implicit p: Parameters) extends XSModule {
+class LsqEnqCtrl(implicit p: Parameters) extends XSModule with HasVectorParameters{
   val io = IO(new Bundle {
     val redirect = Flipped(ValidIO(new Redirect))
     // to dispatch
     val enq = new LsqEnqIO
     // from rob
-    val lcommit = Input(UInt(log2Up(CommitWidth + 1).W))
-    val scommit = Input(UInt(log2Up(CommitWidth + 1).W))
+    val lcommit = Input(UInt(log2Up(CommitWidth + MemVectorInstructionMax + 1).W))
+    val scommit = Input(UInt(log2Up(CommitWidth + MemVectorInstructionMax + 1).W))
     // from/tp lsq
-    val lqCancelCnt = Input(UInt(log2Up(LoadQueueSize + 1).W))
-    val sqCancelCnt = Input(UInt(log2Up(StoreQueueSize + 1).W))
+    val lqCancelCnt = Input(UInt(log2Up(LoadQueueSize + MemVectorInstructionMax + 1).W))
+    val sqCancelCnt = Input(UInt(log2Up(StoreQueueSize + MemVectorInstructionMax + 1).W))
     val enqLsq = Flipped(new LsqEnqIO)
   })
 

@@ -67,6 +67,9 @@ trait HasVectorParameters extends HasXSParameter {
     val VectorDispatchCommonWidth = vectorParams.vDispatchQueueCommon
     val VectorDispatchMemWidth = vectorParams.vDispatchQueueMem
     val VectorDispatchPermuWidth = vectorParams.vDispatchQueuePermu
+    val VectorLMULMax = 8
+    val VectorSEWMin = 8
+    val MemVectorInstructionMax = VLEN * VectorLMULMax / VectorSEWMin
 
     //unit debug only
     //val RobSize = 64
