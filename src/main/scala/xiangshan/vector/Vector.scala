@@ -28,6 +28,7 @@ import xiangshan.vector.videcode._
 import xiangshan.vector.vtyperename._
 import xiangshan.vector.viwaitqueue._
 import xiangshan.vector.virename._
+import xiangshan.vector.dispatch._
 
 class Vector(implicit p: Parameters) extends LazyModule {
 
@@ -51,12 +52,13 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     //from ctrl rob
     val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
+    val commit = new VIRobIdxQueueEnqIO // to rename
 
     val redirect = Flipped(ValidIO(new Redirect))
 
     //out
     //to exu
-    val dispatch = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
+    val dispatch = Vec(VIRenameWidth*3, DecoupledIO(new MicroOp))
 
   })
 
@@ -64,6 +66,7 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
   val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
   val waitqueue = Module(new VIWaitQueue)
   val virename = Module(new VIRenameWrapper)
+  val dispatch = Module(new VectorDispatchWrapper(VIRenameWidth))
 
   for (i <- 0 until VIDecodeWidth) {
     val DecodePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
@@ -97,6 +100,13 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
   waitqueue.io.canRename <> virename.io.canAccept
 
   virename.io.uopIn <> waitqueue.io.out
+  virename.io.redirect <> io.redirect
+  virename.io.commit <> io.commit
+
+  dispatch.io.req.uop <> virename.io.uopOut
+  dispatch.io.redirect <> io.redirect
+
+  io.dispatch <> dispatch.io.toVectorPermuRS ++ dispatch.io.toMem2RS ++ dispatch.io.toVectorCommonRS
 
 
 }
