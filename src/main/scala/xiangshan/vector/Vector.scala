@@ -81,9 +81,7 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
       waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
       waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
       val CurrentData = new VIMop
-      CurrentData.MicroOp.vCsrInfo.vsew := vtyperename.io.out(i).bits.ESEW
-      CurrentData.MicroOp.vCsrInfo.vlmul := vtyperename.io.out(i).bits.ELMUL
-      CurrentData.MicroOp.vCsrInfo.vl := vtyperename.io.out(i).bits.VL
+      CurrentData.MicroOp.vCsrInfo <> vtyperename.io.out(i).bits.vCsrInfo
       CurrentData.MicroOp.robIdx := vtyperename.io.out(i).bits.robIdx
       if (vtyperename.io.out(i).bits.state == 1.U) {
         CurrentData.state := vtyperename.io.out(i).bits.state - 1.U

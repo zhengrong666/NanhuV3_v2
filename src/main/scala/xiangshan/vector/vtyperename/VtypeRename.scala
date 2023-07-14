@@ -25,26 +25,17 @@ import xiangshan.vector._
 import xiangshan.backend.rob._
 import xs.utils._
 
-class VtypeInfo(implicit p: Parameters) extends CfCtrl{
-  val robIdx = new RobPtr
-  val ESEW = UInt(3.W)
-  val ELMUL = UInt(3.W)
-  val VL = UInt(8.W)
-  val state = 0.U(2.W)
-}
-
-class VtypeDelayData(implicit  p: Parameters) extends VectorBaseBundle {
-  val vtypeIdx = new VtypePtr
-  val ESEW = UInt(3.W)
-  val ELMUL = UInt(3.W)
-  val state = 0.U(2.W)
-}
+//class VtypeInfo(implicit p: Parameters) extends CfCtrl{
+//  val robIdx = new RobPtr
+//  val VMA = UInt(1.W)
+//  val VTA = UInt(1.W)
+//  val ESEW = UInt(3.W)
+//  val ELMUL = UInt(3.W)
+//  val VL = UInt(8.W)
+//  val state = 0.U(2.W)
+//}
 
 class VtypeReg(implicit p: Parameters) extends MicroOp{
-  val vma = UInt(1.W)
-  val vta = UInt(1.W)
-  val vsew = UInt(3.W)
-  val vlmul = UInt(3.W)
   val state = 0.U(2.W)
   val vtypeIdx = new VtypePtr
 }
@@ -78,8 +69,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val canAllocate = Output(Bool())
     val doAllocate = Input(Bool())
     val in = Vec(enqnum, Flipped(DecoupledIO(new MicroOp)))
-    val out = Vec(enqnum, ValidIO(new VtypeInfo))
-    val WbData = Vec(numWbPorts, DecoupledIO(new VtypeDelayData))
+    val out = Vec(enqnum, ValidIO(new VtypeReg))
     val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
   })
@@ -105,33 +95,36 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
 
   for (i <- 0 until enqnum) {
     when(io.in(i).valid) {
-      val tempvtype = VtypeRegTable(tailPtr.value)
-      io.out(i).bits.cf := tempvtype.cf
-      io.out(i).bits.ctrl := tempvtype.ctrl
-      io.out(i).bits.robIdx := tempvtype.robIdx
-      io.out(i).bits.state := tempvtype.state
-      io.out(i).bits.ESEW := tempvtype.vsew
-      io.out(i).bits.ELMUL := tempvtype.vlmul
-      io.out(i).bits.vtypeIdx := tailPtr
+      val tempVtype = VtypeRegTable(tailPtr.value)
+      io.out(i).bits <> tempVtype.cf
+      val CurrentVL = tempVtype.vCsrInfo.vl
+      val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
       io.out(i).valid := true.B
       if (io.in(i).bits.ctrl.isVtype == 1) {
         val tempvtype = new VtypeReg
         val freePtr = tailPtr + 1.U
-        tempvtype.robIdx := io.in(i).bits.robIdx
-        tempvtype.cf := io.in(i).bits.cf
-        tempvtype.ctrl := io.in(i).bits.ctrl
+        tempvtype <> io.in(i).bits
         tempvtype.vtypeIdx := freePtr
         if (io.in(i).bits.cf.instr(31) == 0) {
-          tempvtype.vma := io.in(i).bits.cf.instr(30)
-          tempvtype.vta := io.in(i).bits.cf.instr(29)
-          tempvtype.vsew := io.in(i).bits.cf.instr(28, 26)
-          tempvtype.vlmul := io.in(i).bits.cf.instr(25, 23)
-          tempvtype.state := s_valid
+          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(30)
+          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)
+          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(28, 26)
+          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(25, 23)
+          if (io.in(i).bits.ctrl.lsrc(0) != 0.U) {
+            tempvtype.state := s_busy
+          } else if (io.in(i).bits.ctrl.lsrc(0) != 0.U && io.in(i).bits.ctrl.lsrc(3) != 0) {
+            tempvtype.state := s_valid
+            tempvtype.vCsrInfo.vl := CurrentVLMAX.U
+          } else {
+            tempvtype.state := s_valid
+            tempvtype.vCsrInfo.vl := CurrentVL
+          }
         } else if (io.in(i).bits.cf.instr(31, 30) == 11) {
-          tempvtype.vma := io.in(i).bits.cf.instr(29)
-          tempvtype.vta := io.in(i).bits.cf.instr(28)
-          tempvtype.vsew := io.in(i).bits.cf.instr(27, 25)
-          tempvtype.vlmul := io.in(i).bits.cf.instr(24, 22)
+          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(29)
+          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(28)
+          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(27, 25)
+          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(24, 22)
+          tempvtype.vCsrInfo.vl := io.in(i).bits.cf.instr(19, 15)
           tempvtype.state := s_valid
         } else {
           tempvtype.state := s_busy
@@ -172,15 +165,11 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
      for ((v,w) <- VtypeRegTable.zip(io.writeback)) {
        if (v.robIdx == w.bits.uop.robIdx) {
          v.state := s_valid
-         v.vma := w.bits.data(31)
-         v.vta := w.bits.data(30)
-         v.vsew := w.bits.data(29, 27)
-         v.vlmul := w.bits.data(26, 24)
-         io.WbData(i).bits.state := v.state
-         io.WbData(i).bits.ESEW := v.vsew
-         io.WbData(i).bits.ELMUL := v.vlmul
-         io.WbData(i).bits.vtypeIdx := v.vtypeIdx
-         io.WbData(i).valid := true.B
+         v.vCsrInfo.vma := w.bits.data(31)
+         v.vCsrInfo.vta := w.bits.data(30)
+         v.vCsrInfo.vsew := w.bits.data(29, 27)
+         v.vCsrInfo.vlmul := w.bits.data(26, 24)
+         v.vCsrInfo.vl := w.bits.data(19, 15)
        }
      }
    }

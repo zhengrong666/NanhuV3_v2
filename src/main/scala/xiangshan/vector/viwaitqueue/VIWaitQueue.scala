@@ -50,7 +50,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val hartId = Input(UInt(8.W))
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new VtypeDelayData))
+    val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new ExuOutput))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
     val WqFull = Output(Bool())
@@ -192,13 +192,14 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   for (i <- 0 until VIDecodeWidth) {
     when(io.vtypeWbData(i).valid) {
-      val idx = io.vtypeWbData(i).bits.vtypeIdx
+      val idx = io.vtypeWbData(i).bits.uop.robIdx
       WqData.io.raddr := waitPtr.value
       val tempdata = WqData.io.rdata(0)
-      if (tempdata.vtypeIdx == idx) {
+      if (tempdata.MicroOp.robIdx == idx) {
         WqData.io.waddr := vtypePtr.value
-        tempdata.MicroOp.vCsrInfo.vsew := io.vtypeWbData(i).bits.ESEW
-        tempdata.MicroOp.vCsrInfo.vlmul := io.vtypeWbData(i).bits.ELMUL
+        tempdata.MicroOp.vCsrInfo.vsew := io.vtypeWbData(i).bits.data
+        tempdata.MicroOp.vCsrInfo.vlmul := io.vtypeWbData(i).bits.data
+        tempdata.MicroOp.vCsrInfo.vl := io.vtypeWbData(i).bits.data
         tempdata.state := tempdata.state - 1.U
         WqData.io.wdata := tempdata
         waitPtr := waitPtr + 1
