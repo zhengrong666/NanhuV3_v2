@@ -40,7 +40,8 @@ import xiangshan.vector.HasVectorParameters
 
 abstract class XSModule(implicit val p: Parameters) extends MultiIOModule
   with HasXSParameter
-  with HasFPUParameters {
+  with HasFPUParameters
+  with HasVectorParameters{
   def io: Record
 }
 
