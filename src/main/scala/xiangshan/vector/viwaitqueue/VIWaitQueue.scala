@@ -5,7 +5,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import xiangshan.vector._
-import xiangshan.vector.vtyperename.{VtypeDelayData, VtypeInfo, VtypePtr}
+import xiangshan.vector.vtyperename.{VtypePtr}
 import xs.utils._
 import xiangshan.backend.rob._
 
@@ -41,7 +41,7 @@ class WqEnqIO(implicit p: Parameters) extends VectorBaseBundle  {
   val canAccept = Output(Bool())
   val isEmpty = Output(Bool())
   val needAlloc = Vec(VIDecodeWidth, Input(Bool()))
-  val req = Vec(VIDecodeWidth, Flipped(ValidIO(new VIMop))
+  val req = Vec(VIDecodeWidth, Flipped(ValidIO(new VIMop)))
 }
 
 class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
@@ -134,10 +134,18 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   var countnum = 0
   if (currentdata.state == s_valid && io.canRename == true) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
+    val vl = currentdata.MicroOp.vCsrInfo.vl
     val elementNum = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
     val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
+    val tailreg = vl / elementNum.U
+    val tailelement = vl % elementNum.U
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
+        if (countnum.U == tailreg) {
+          deqUop(i).tailMask := tailelement
+        } else {
+          deqUop(i).tailMask := 15.U
+        }
         deqUop(i) := currentdata.MicroOp
         deqUop(i).uopIdx := countnum.U
         deqUop(i).uopNum := splitnum.U

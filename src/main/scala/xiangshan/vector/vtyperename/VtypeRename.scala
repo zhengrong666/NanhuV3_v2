@@ -110,6 +110,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
           tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)
           tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(28, 26)
           tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(25, 23)
+          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
           if (io.in(i).bits.ctrl.lsrc(0) != 0.U) {
             tempvtype.state := s_busy
           } else if (io.in(i).bits.ctrl.lsrc(0) != 0.U && io.in(i).bits.ctrl.lsrc(3) != 0) {
@@ -125,6 +126,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
           tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(27, 25)
           tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(24, 22)
           tempvtype.vCsrInfo.vl := io.in(i).bits.cf.instr(19, 15)
+          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
           tempvtype.state := s_valid
         } else {
           tempvtype.state := s_busy
@@ -170,6 +172,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
          v.vCsrInfo.vsew := w.bits.data(29, 27)
          v.vCsrInfo.vlmul := w.bits.data(26, 24)
          v.vCsrInfo.vl := w.bits.data(19, 15)
+         v.vCsrInfo.vlmax := v.vCsrInfo.VLMAXGen().U
        }
      }
    }
