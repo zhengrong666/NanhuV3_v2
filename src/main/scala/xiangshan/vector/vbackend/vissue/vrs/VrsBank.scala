@@ -10,7 +10,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
   val io = IO(new Bundle {
     val redirect = Input(Valid(new Redirect))
 
-    val selectInfo = Output(Vec(entryNum, Valid(new VRSSelectInfo)))
+    val selectInfo = Output(Vec(entryNum, Valid(new VrsSelectInfo)))
     val allocateInfo = Output(UInt(entryNum.W))
 
     val enq = Input(Valid(new Bundle {
@@ -23,11 +23,11 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
     val wakeup = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
   })
 
-  private val statusArray = Module(new VRSStatusArray(entryNum, issueWidth, wakeupWidth, loadUnitNum))
-  private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, issueWidth, "VRSPayloadArray"))
+  private val statusArray = Module(new VrsStatusArray(entryNum, issueWidth, wakeupWidth, loadUnitNum))
+  private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, issueWidth, "VrsPayloadArray"))
 
-  private def EnqToEntry(in: MicroOp): VRSStatusArrayEntry = {
-    val enqEntry = Wire(new VRSStatusArrayEntry)
+  private def EnqToEntry(in: MicroOp): VrsStatusArrayEntry = {
+    val enqEntry = Wire(new VrsStatusArrayEntry)
     enqEntry.psrc.take(2).zip(in.psrc.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcType.take(2).zip(in.ctrl.srcType.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcState.take(2).zip(in.srcState.take(2)).zip(in.ctrl.srcType.take(2)).foreach(elm =>
@@ -36,7 +36,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
 
     enqEntry.psrc(2) := in.old_pdest
     enqEntry.srcType(2) := in.ctrl.old_vdType
-    enqEntry.srcState(2) := Mux(in.vCsrInfo.ta || (in.vCsrInfo.ma && in.ctrl.vm), SrcState.rdy, in.oldPdestState)
+    enqEntry.srcState(2) := Mux(in.vCsrInfo.vta(0) || (in.vCsrInfo.vma(0) && in.ctrl.vm), SrcState.rdy, in.oldPdestState)
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec
@@ -45,7 +45,8 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
     enqEntry.fuType := in.ctrl.fuType
     enqEntry.robIdx := in.robIdx
     enqEntry.isOrdered := in.ctrl.isOrder
-    enqEntry.uopIdx := in.uopIdx
+    enqEntry.uopIdx := in.uopIdx(2, 0)
+    assert(in.uopIdx <= 7.U)
     enqEntry
   }
 

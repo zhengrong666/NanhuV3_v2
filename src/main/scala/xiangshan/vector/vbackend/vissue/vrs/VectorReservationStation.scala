@@ -7,6 +7,7 @@ import chisel3.util._
 import xiangshan.{FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, XSCoreParamsKey}
 import xiangshan.backend.execute.exu.ExuType
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
+import xiangshan.FuType.{valu, vdiv, vectorTypes, vfp, vmac, vmask, vpermu, vreduc}
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
@@ -86,18 +87,22 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     bt.bits := wb.bits.pdest
   })
 
-  private val fuTypeList = issue.head._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType)
+  private val fuTypeList = Seq(vmac, valu, vfp, vmask, vreduc)
+  private val vdivWb = wakeup.filter(w => w._2.name == "VdivExu").map(_._1)
 
-  private val orderedSelectNetwork = Module(new VRSSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, true, fuTypeList, Some(s"VectorOrderedSelectNetwork")))
-  private val unorderedSelectNetwork = Module(new VRSSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, false, fuTypeList, Some(s"VectorUnorderedSelectNetwork")))
+  private val orderedSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, true, false, 0, fuTypeList, Some(s"VectorOrderedSelectNetwork")))
+  private val unorderedSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, false, false, 0, fuTypeList, Some(s"VectorUnorderedSelectNetwork")))
+  private val divSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, false, true, vdivWb.length, Seq(vdiv), Some(s"VectorDivSelectNetwork")))
 
-  private val selectNetworkSeq = Seq(orderedSelectNetwork, unorderedSelectNetwork)
+  private val selectNetworkSeq = Seq(orderedSelectNetwork, unorderedSelectNetwork, divSelectNetwork)
   selectNetworkSeq.foreach(sn => {
     sn.io.selectInfo.zip(rsBankSeq).foreach({ case (sink, source) =>
       sink := source.io.selectInfo
     })
     sn.io.redirect := io.redirect
   })
+
+  divSelectNetwork.io.tokenRelease.get.zip(vdivWb).foreach({case(a, b) => a := b})
 
   private var intBusyTableReadIdx = 0
   private var fpBusyTableReadIdx = 0
@@ -142,22 +147,27 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
 
   private var orderedPortIdx = 0
   private var unorderedPortIdx = 0
+  private var divPortIdx = 0
   println("\nVector Reservation Issue Ports Config:")
   for((iss, issuePortIdx) <- issue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
     prefix(iss._2.name + "_" + iss._2.id) {
       val issueDriver = Module(new VDecoupledPipeline)
       issueDriver.io.redirect := io.redirect
-      val issueArbiter = Module(new VrsIssueArbiter(param.bankNum, entriesNumPerBank))
-      issueArbiter.io.orderedIn <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
-      issueArbiter.io.unorderedIn <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
-      issueArbiter.io.orderedCtrl := oiq.io.ctrl
-      oiq.io.issued := issueArbiter.io.orderedChosen
+      val orderedArbiter = Module(new VrsIssueArbiter(param.bankNum, entriesNumPerBank))
+      orderedArbiter.io.orderedIn <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
+      orderedArbiter.io.unorderedIn <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
+      orderedArbiter.io.orderedCtrl := oiq.io.ctrl
+      oiq.io.issued := orderedArbiter.io.orderedChosen
 
       orderedPortIdx = orderedPortIdx + 1
       unorderedPortIdx = unorderedPortIdx + 1
 
-      val finalSelectInfo = issueArbiter.io.out
+      val finalIssueArbiter = Module(new Arbiter(new VrsSelectResp(param.bankNum, entriesNumPerBank), 2))
+      finalIssueArbiter.io.in(0) <> orderedArbiter.io.out
+      finalIssueArbiter.io.in(1) <> divSelectNetwork.io.issueInfo(divPortIdx)
+
+      val finalSelectInfo = finalIssueArbiter.io.out
       val rsBankRen = Mux(issueDriver.io.enq.fire, finalSelectInfo.bits.bankIdxOH, 0.U)
       rsBankSeq.zip(rsBankRen.asBools).foreach({ case (rb, ren) =>
         rb.io.issueAddr(issuePortIdx).valid := ren
