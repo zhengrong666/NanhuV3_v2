@@ -181,7 +181,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   for((iss, issuePortIdx) <- issue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
     prefix(iss._2.name + "_" + iss._2.id) {
-      val issueDriver = Module(new DecoupledPipeline(false, param.bankNum, entriesNumPerBank))
+      val issueDriver = Module(new MemoryIssuePipeline(param.bankNum, entriesNumPerBank))
       issueDriver.io.redirect := io.redirect
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 
@@ -194,14 +194,21 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val selectedBanks = rsBankSeq.slice(issuePortIdx * issBankNum, issuePortIdx * issBankNum + issBankNum)
       val bankEns = selResp.bits.bankIdxOH.asBools.slice(issuePortIdx * issBankNum, issuePortIdx * issBankNum + issBankNum).map(_ && selResp.fire)
       val bankPayloadData = selectedBanks.map(_.io.issueUop)
-      for ((b, en) <- selectedBanks.zip(bankEns)) {
-        b.io.issue.valid := en
-        b.io.issue.bits := selResp.bits.entryIdxOH
-        b.io.isStaLduIssue := !isStd
+      for (b <- selectedBanks) {
+        b.io.issueUopAddr := selResp.bits.entryIdxOH
       }
       val selPayload = Mux1H(bankEns, bankPayloadData)
-      stIssuedWires(issuePortIdx).valid := issueDriver.io.deq.fire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu && RegEnable(isStd, selResp.fire)
+
+      stIssuedWires(issuePortIdx).valid := issueDriver.io.issueFire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu
       stIssuedWires(issuePortIdx).bits := issueDriver.io.deq.bits.uop.robIdx
+      val issBankEns = issueDriver.io.deq.bits.bankIdxOH.asBools
+        .slice(issuePortIdx * issBankNum, issuePortIdx * issBankNum + issBankNum)
+        .map(_ && issueDriver.io.issueFire)
+      for ((b, en) <- selectedBanks.zip(issBankEns)) {
+        b.io.issue.valid := en
+        b.io.issue.bits := issueDriver.io.deq.bits.entryIdxOH
+        b.io.isStaLduIssue := !(issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.std)
+      }
       val replayPortSel = selectedBanks.map(_.io.replay)
       val feedbackSeq = Seq(iss._1.rsFeedback.feedbackSlowLoad, iss._1.rsFeedback.feedbackFastLoad, iss._1.rsFeedback.feedbackSlowStore)
       replayPortSel.zipWithIndex.foreach(bankReplays => {
@@ -214,7 +221,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       })
 
       val earlyWakeupQueue = Module(new WakeupQueue(3))
-      earlyWakeupQueue.io.in.valid := selResp.fire && selResp.bits.info.fuType === FuType.ldu
+      earlyWakeupQueue.io.in.valid := selResp.fire && selResp.bits.info.fuType === FuType.ldu && !selPayload.ctrl.isVector
       earlyWakeupQueue.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       earlyWakeupQueue.io.in.bits.robPtr := selResp.bits.info.robPtr
       earlyWakeupQueue.io.in.bits.lpv := selResp.bits.info.lpv

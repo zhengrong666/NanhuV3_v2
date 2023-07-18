@@ -4,6 +4,7 @@ import chipsalliance.rocketchip.config.Parameters
 import xiangshan.backend.issue._
 import chisel3._
 import chisel3.util._
+import xiangshan.vector.vbackend.vissue.Vrs.{VrsStatusArray, VrsStatusArrayEntry}
 import xiangshan.{MicroOp, Redirect, SrcState, SrcType}
 
 class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends Module{
@@ -27,6 +28,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
   private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, issueWidth, "VrsPayloadArray"))
 
   private def EnqToEntry(in: MicroOp): VrsStatusArrayEntry = {
+    val agnostic = (in.vCsrInfo.vta(0) && in.tailMask.orR) || (in.vCsrInfo.vma(0) && in.ctrl.vm)
     val enqEntry = Wire(new VrsStatusArrayEntry)
     enqEntry.psrc.take(2).zip(in.psrc.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcType.take(2).zip(in.ctrl.srcType.take(2)).foreach(elm => elm._1 := elm._2)
@@ -36,7 +38,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
 
     enqEntry.psrc(2) := in.old_pdest
     enqEntry.srcType(2) := in.ctrl.old_vdType
-    enqEntry.srcState(2) := Mux(in.vCsrInfo.vta(0) || (in.vCsrInfo.vma(0) && in.ctrl.vm), SrcState.rdy, in.oldPdestState)
+    enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.oldPdestState)
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec

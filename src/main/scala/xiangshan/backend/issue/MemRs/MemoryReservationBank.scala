@@ -48,6 +48,7 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:In
 
     val issue = Input(Valid(UInt(entryNum.W)))
     val isStaLduIssue = Input(Bool())
+    val issueUopAddr = Input(UInt(entryNum.W))
     val issueUop = Output(new MicroOp)
 
     val replay = Input(Vec(3, Valid(new Replay(entryNum))))
@@ -70,28 +71,48 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:In
     val isCbo = LSUOpType.isCbo(in.ctrl.fuOpType)
     val isCboZero = in.ctrl.fuOpType === LSUOpType.cbo_zero
     val enqEntry = Wire(new MemoryStatusArrayEntry)
+    val isVector = in.ctrl.isVector
+    // psrc0: base
+    // psrc1: stride/offset
+    // psrc2: data/old_vd
     enqEntry.psrc(0) := in.psrc(0)
-    enqEntry.psrc(1) := in.psrc(1)
     enqEntry.srcType(0) := in.ctrl.srcType(0)
-    enqEntry.srcType(1) := in.ctrl.srcType(1)
-    enqEntry.srcState(0) := Mux(in.ctrl.srcType(0) === SrcType.reg, in.srcState(0), SrcState.rdy)
-    enqEntry.srcState(1) := Mux(in.ctrl.srcType(1) === SrcType.reg || in.ctrl.srcType(1) === SrcType.fp, in.srcState(1), SrcState.rdy)
-    enqEntry.pdest := in.pdest
+    enqEntry.srcState(0) := Mux(SrcType.isReg(in.ctrl.srcType(0)), in.srcState(0), SrcState.rdy)
     enqEntry.lpv.foreach(_.foreach(_ := 0.U))
     enqEntry.fuType := in.ctrl.fuType
     enqEntry.rfWen := in.ctrl.rfWen
     enqEntry.fpWen := in.ctrl.fpWen
     enqEntry.robIdx := in.robIdx
     enqEntry.sqIdx := in.sqIdx
-    //STAState handles LOAD, STORE, CBO.INVAL, CBO.FLUSH, CBO.CLEAN, PREFECTH.R, PREFETCH.W
-    enqEntry.staLoadState := Mux(in.ctrl.fuType === FuType.stu && isCboZero, s_issued, Mux(shouldWait, s_wait_st, s_ready))
-    //STDState handles STORE,CBO.ZERO
-    enqEntry.stdState := Mux(in.ctrl.fuType === FuType.stu && !isCbo, s_ready, s_issued)
+    enqEntry.pdest := in.pdest
     enqEntry.waitTarget := in.cf.waitForRobIdx
     enqEntry.isFirstIssue := false.B
     enqEntry.counter := 0.U
     enqEntry.isCbo := isCbo
     enqEntry.isCboZero := isCboZero
+    enqEntry.isVector := isVector
+    when(!isVector){
+      enqEntry.psrc(1) := DontCare
+      enqEntry.psrc(2) := in.psrc(1)
+      enqEntry.srcType(1) := SrcType.default
+      enqEntry.srcType(2) := in.ctrl.srcType(1)
+      enqEntry.srcState(1) := SrcState.rdy
+      enqEntry.srcState(2) := Mux(SrcType.isRegOrFp(in.ctrl.srcType(1)), in.srcState(1), SrcState.rdy)
+      //STAState handles LOAD, STORE, CBO.INVAL, CBO.FLUSH, CBO.CLEAN, PREFECTH.R, PREFETCH.W
+      enqEntry.staLoadState := Mux(in.ctrl.fuType === FuType.stu && isCboZero, s_issued, Mux(shouldWait, s_wait_st, s_ready))
+      //STDState handles STORE,CBO.ZERO
+      enqEntry.stdState := Mux(in.ctrl.fuType === FuType.stu && !isCbo, s_ready, s_issued)
+    }.otherwise{
+      val agnostic = (in.vCsrInfo.vta(0) && in.tailMask.orR) || (in.vCsrInfo.vma(0) && in.ctrl.vm)
+      enqEntry.psrc(1) := in.psrc(1)
+      enqEntry.psrc(2) := Mux(FuType.isStore(in.ctrl.fuType), in.psrc(2), in.old_pdest)
+      enqEntry.srcType(1) := in.ctrl.srcType(1)
+      enqEntry.srcType(2) := Mux(FuType.isStore(in.ctrl.fuType), SrcType.vec, Mux(agnostic, SrcType.default, SrcType.vec))
+      enqEntry.srcState(1) := Mux(SrcType.needWakeup(in.ctrl.srcType(1)), in.srcState(1), SrcState.rdy)
+      enqEntry.srcState(2) := Mux(FuType.isStore(in.ctrl.fuType), in.srcState(2), Mux(agnostic, SrcState.rdy, in.oldPdestState))
+      enqEntry.staLoadState := s_ready
+      enqEntry.stdState := Mux(FuType.isStore(in.ctrl.fuType), s_ready, s_issued)
+    }
     enqEntry
   }
 
@@ -117,7 +138,7 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:In
   payloadArray.io.write.en := io.enq.valid
   payloadArray.io.write.addr := io.enq.bits.addrOH
   payloadArray.io.write.data := io.enq.bits.data
-  payloadArray.io.read.head.addr := io.issue.bits
+  payloadArray.io.read.head.addr := io.issueUopAddr
   io.issueUop := payloadArray.io.read.head.data
 }
 

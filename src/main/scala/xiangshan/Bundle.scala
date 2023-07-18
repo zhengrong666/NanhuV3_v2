@@ -252,7 +252,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)
-  val tailMask = UInt(4.W)
+  val tailMask = UInt(16.W)
   val canRename = Bool()
 
   def clearExceptions(
@@ -321,6 +321,7 @@ class ExuOutput(implicit p: Parameters) extends XSBundle {
   val data = UInt(VLEN.W)
   val wbmask = UInt(8.W)
   val writeMask = UInt((VLEN/8).W)
+  val wbDataEnable = Bool()
   val fflags = UInt(5.W)
   val redirectValid = Bool()
   val redirect = new Redirect
