@@ -46,8 +46,8 @@ class VIFreeListBundle(implicit p: Parameters) extends VectorBaseBundle {
     val allocatePhyReg = Output(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
 
     //connects with RollBackList
-    val releaseMask = Input(UInt(VICommitWidth.W))
-    val releasePhyReg = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+    val releaseMask     = Input(UInt(VICommitWidth.W))
+    val releasePhyReg   = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
 class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {

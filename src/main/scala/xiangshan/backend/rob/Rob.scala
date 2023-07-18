@@ -209,8 +209,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   // instvalid field
   private val valid = RegInit(VecInit(Seq.fill(RobSize)(false.B)))
+
   // writeback status
   private val writebacked = Mem(RobSize, Bool())
+
   private val store_data_writebacked = Mem(RobSize, Bool())
   // data for redirect, exception, etc.
   private val flagBkup = Mem(RobSize, Bool())
@@ -241,7 +243,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   private val deqPtr = deqPtrVec(0)
   private val walkPtr = walkPtrVec(0)
 
-  private val isEmpty = enqPtr === deqPtr
+  private val isEmpty = (enqPtr === deqPtr)
 
   /**
     * states of Rob

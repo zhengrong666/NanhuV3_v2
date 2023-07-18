@@ -31,7 +31,6 @@ import utils._
 import xs.utils._
 
 import xiangshan.vector._
-import chisel3.experimental.Param
 
 class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBundle {
     val robIdx      = UInt(log2Up(RobSize).W)
@@ -41,14 +40,14 @@ class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBund
 }
 
 class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
-    val doRename = Input(Bool())
-    val writePorts = Input(Vec(VIRenameWidth, new RollBackListRenameWritePort))
-    val mask = Input(Vec(VIRenameWidth, Bool()))
+    val doRename    = Input(Bool())
+    val writePorts  = Input(Vec(VIRenameWidth, new RollBackListRenameWritePort))
+    val mask        = Input(Vec(VIRenameWidth, Bool()))
 }
 
 class RollBackListCommitPort(implicit p: Parameters) extends VectorBaseBundle {
-    val req = Flipped(new VIRobIdxQueueDeqIO)
-    val resp = Flipped(new VIRatCommitPort)
+    val req     = Flipped(new VIRobIdxQueueDeqIO)
+    val resp    = Flipped(new VIRatCommitPort)
 }
 
 class RollBackListBundle(implicit p: Parameters) extends VectorBaseBundle {

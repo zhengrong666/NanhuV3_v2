@@ -27,20 +27,25 @@ import chipsalliance.rocketchip.config._
 import xiangshan.HasXSParameter
 
 case class VectorParameters (
+    //common
     vLen: Int               = 128, //maybe 64、256、512...
+    //decode
     vDecodeWidth: Int       = 6,
+    //vector instr rename
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 64,
-    vWaitQueueNum: Int        = 16,
-    vVtypeRegsNum: Int        = 16,
+    vWaitQueueNum: Int      = 16,
+    vVtypeRegsNum: Int      = 16,
     viWalkRobIdxQueueWidth: Int = 64,
-    vDispatchQueueMem: Int = 16,
-    vDispatchQueuePermu: Int = 16,
-    vDispatchQueueCommon: Int = 16,
-    vRsDepth: Int = 32,
-    vRsOIQDepth: Int = 8,
-    vPRsDepth: Int = 4
+    //dispatch
+    vDispatchQueueMem: Int      = 16,
+    vDispatchQueuePermu: Int    = 16,
+    vDispatchQueueCommon: Int   = 16,
+    //rs
+    vRsDepth: Int       = 32,
+    vRsOIQDepth: Int    = 8,
+    vPRsDepth: Int      = 4
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum)
 }
@@ -55,13 +60,13 @@ trait HasVectorParameters extends HasXSParameter {
     val vectorParams = vectorParameters
 
     val VLEN = vectorParams.vLen
-    val VIDecodeWidth = vectorParams.vDecodeWidth
-    val VIRenameWidth = vectorParams.vRenameWidth
-    val VICommitWidth = vectorParams.vCommitWidth
-    val VIPhyRegsNum = vectorParams.vPhyRegsNum
-    val VIPhyRegIdxWidth = vectorParams.vPhyRegIdxWidth
-    val VIWaitQueueWidth = vectorParams.vWaitQueueNum
-    val VIVtypeRegsNum = vectorParams.vVtypeRegsNum
+    val VIDecodeWidth       = vectorParams.vDecodeWidth
+    val VIRenameWidth       = vectorParams.vRenameWidth
+    val VICommitWidth       = vectorParams.vCommitWidth
+    val VIPhyRegsNum        = vectorParams.vPhyRegsNum
+    val VIPhyRegIdxWidth    = vectorParams.vPhyRegIdxWidth
+    val VIWaitQueueWidth    = vectorParams.vWaitQueueNum
+    val VIVtypeRegsNum      = vectorParams.vVtypeRegsNum
     val VIWalkRobIdxQueueWidth = vectorParams.viWalkRobIdxQueueWidth
 
     val VectorDispatchCommonWidth = vectorParams.vDispatchQueueCommon
@@ -70,7 +75,4 @@ trait HasVectorParameters extends HasXSParameter {
     val VectorLMULMax = 8
     val VectorSEWMin = 8
     val MemVectorInstructionMax = VLEN * VectorLMULMax / VectorSEWMin
-
-    //unit debug only
-    //val RobSize = 64
 }
