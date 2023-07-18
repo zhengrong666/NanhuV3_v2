@@ -1,4 +1,4 @@
-package xiangshan.vector.vbackend.vissue.vrs
+package xiangshan.vector.vbackend.vissue.Vrs
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
@@ -6,20 +6,21 @@ import chisel3.util._
 import xiangshan.{FuType, Redirect, SrcState, SrcType, XSBundle, XSModule}
 import xiangshan.backend.issue._
 import xiangshan.backend.rob.RobPtr
+import xiangshan.vector.vbackend.vissue.vrs.VrsSelectInfo
 
-class VRSStatusArrayEntry(implicit p: Parameters) extends XSBundle{
+class VrsStatusArrayEntry(implicit p: Parameters) extends XSBundle{
   val psrc: Vec[UInt] = Vec(4, UInt(PhyRegIdxWidth.W))
   val srcType: Vec[UInt] = Vec(4, SrcType())
   val srcState: Vec[UInt] = Vec(4, SrcState())
   val fuType: UInt = FuType()
   val robIdx: RobPtr = new RobPtr
-  val uopIdx: UInt = UInt(7.W)
+  val uopIdx: UInt = UInt(3.W)
   val isOrdered: Bool = Bool()
 }
-class VRSIssueInfoGenerator(implicit p: Parameters) extends XSModule{
+class VrsIssueInfoGenerator(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
-    val in = Input(Valid(new VRSStatusArrayEntry))
-    val out = Output(Valid(new VRSSelectInfo))
+    val in = Input(Valid(new VrsStatusArrayEntry))
+    val out = Output(Valid(new VrsSelectInfo))
   })
   private val iv = io.in.valid
   private val ib = io.in.bits
@@ -31,19 +32,19 @@ class VRSIssueInfoGenerator(implicit p: Parameters) extends XSModule{
   io.out.bits.isOrdered := ib.isOrdered
 }
 
-class VRSStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit p: Parameters) extends XSModule{
+class VrsStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
-    val entry = Input(Valid(new VRSStatusArrayEntry))
-    val entryNext = Output(Valid(new VRSStatusArrayEntry))
+    val entry = Input(Valid(new VrsStatusArrayEntry))
+    val entryNext = Output(Valid(new VrsStatusArrayEntry))
     val updateEnable = Output(Bool())
-    val enq = Input(Valid(new VRSStatusArrayEntry))
+    val enq = Input(Valid(new VrsStatusArrayEntry))
     val issue = Input(Vec(issueWidth, Bool()))
     val wakeup = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
     val redirect = Input(Valid(new Redirect))
   })
 
   private val miscNext = WireInit(io.entry)
-  private val enqNext = Wire(Valid(new VRSStatusArrayEntry))
+  private val enqNext = Wire(Valid(new VrsStatusArrayEntry))
   private val enqUpdateEn = WireInit(false.B)
 
   //Start of wake up
@@ -88,23 +89,23 @@ class VRSStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 
-class VRSStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends XSModule{
+class VrsStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
 
-    val selectInfo = Output(Vec(entryNum, Valid(new VRSSelectInfo)))
+    val selectInfo = Output(Vec(entryNum, Valid(new VrsSelectInfo)))
     val allocateInfo = Output(UInt(entryNum.W))
 
     val enq = Input(Valid(new Bundle{
       val addrOH = UInt(entryNum.W)
-      val data = new VRSStatusArrayEntry
+      val data = new VrsStatusArrayEntry
     }))
 
     val issue = Input(Vec(issueWidth, Valid(UInt(entryNum.W))))
     val wakeup = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
   })
 
-  private val statusArray = Reg(Vec(entryNum, new VRSStatusArrayEntry))
+  private val statusArray = Reg(Vec(entryNum, new VrsStatusArrayEntry))
   private val statusArrayValid = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
   private val statusArrayValidAux = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
 
@@ -112,7 +113,7 @@ class VRSStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:
   for(((selInfo, saEntry), saValid) <- io.selectInfo
     .zip(statusArray)
     .zip(statusArrayValid)){
-    val entryToSelectInfoCvt = Module(new VRSIssueInfoGenerator)
+    val entryToSelectInfoCvt = Module(new VrsIssueInfoGenerator)
     entryToSelectInfoCvt.io.in.valid := saValid
     entryToSelectInfoCvt.io.in.bits := saEntry
     selInfo := entryToSelectInfoCvt.io.out
@@ -128,7 +129,7 @@ class VRSStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:
     .zip(statusArray)
     .zipWithIndex
       ){
-    val updateNetwork = Module(new VRSStatusArrayEntryUpdateNetwork(issueWidth, wakeupWidth))
+    val updateNetwork = Module(new VrsStatusArrayEntryUpdateNetwork(issueWidth, wakeupWidth))
     updateNetwork.io.entry.valid := v
     updateNetwork.io.entry.bits := d
     updateNetwork.io.enq.valid := io.enq.valid & io.enq.bits.addrOH(idx)

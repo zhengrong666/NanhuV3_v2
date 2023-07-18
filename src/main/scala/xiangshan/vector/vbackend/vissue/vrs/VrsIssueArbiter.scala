@@ -6,13 +6,13 @@ import chisel3.util._
 import xiangshan.XSModule
 class VrsIssueArbiter(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
-    val unorderedIn = Flipped(Decoupled(new VRSSelectResp(bankIdxWidth, entryIdxWidth)))
-    val orderedIn = Flipped(Decoupled(new VRSSelectResp(bankIdxWidth, entryIdxWidth)))
+    val unorderedIn = Flipped(Decoupled(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
+    val orderedIn = Flipped(Decoupled(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
     val orderedCtrl = Input(Valid(new OIQEntry))
     val orderedChosen = Output(Bool())
-    val out = Decoupled(new VRSSelectResp(bankIdxWidth, entryIdxWidth))
+    val out = Decoupled(new VrsSelectResp(bankIdxWidth, entryIdxWidth))
   })
-  private val finalOrderedIn = Wire(Valid(new VRSSelectResp(bankIdxWidth, entryIdxWidth)))
+  private val finalOrderedIn = Wire(Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
   finalOrderedIn.valid := io.orderedIn.valid && io.orderedCtrl.valid &&
     io.orderedIn.bits.info.robPtr === io.orderedCtrl.bits.robIdx &&
     io.orderedIn.bits.info.uopIdx === io.orderedCtrl.bits.uopIdx
