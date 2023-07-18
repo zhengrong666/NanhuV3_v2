@@ -200,7 +200,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
         b.io.isStaLduIssue := !isStd
       }
       val selPayload = Mux1H(bankEns, bankPayloadData)
-      stIssuedWires(issuePortIdx).valid := issueDriver.io.deq.fire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu && RegEnable(isStd, selResp.fire)
+      stIssuedWires(issuePortIdx).valid := issueDriver.io.deq.fire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu
       stIssuedWires(issuePortIdx).bits := issueDriver.io.deq.bits.uop.robIdx
       val replayPortSel = selectedBanks.map(_.io.replay)
       val feedbackSeq = Seq(iss._1.rsFeedback.feedbackSlowLoad, iss._1.rsFeedback.feedbackFastLoad, iss._1.rsFeedback.feedbackSlowStore)
