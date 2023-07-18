@@ -49,6 +49,11 @@ class LsqEnqIO(implicit p: Parameters) extends XSBundle {
   val resp = Vec(exuParameters.LsExuCnt, Output(new LSIdx))
 }
 
+class LsqVecDeqIO(implicit p: Parameters) extends XSBundle {
+  val loadVectorDeqCnt = UInt(log2Up(LoadQueueSize + 1).W)
+  val storeVectorDeqCnt = UInt(log2Up(StoreQueueSize + 1).W)
+}
+
 // Load / Store Queue Wrapper for XiangShan Out of Order LSU
 class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParameters with HasPerfEvents {
   val io = IO(new Bundle() {
@@ -86,6 +91,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val sqDeq = Output(UInt(2.W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
+    val lsqVecDeqCnt = Output(new LsqVecDeqIO)
   })
 
   val loadQueue = Module(new LoadQueue)
@@ -134,6 +140,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.exceptionAddr.isStore := DontCare
   loadQueue.io.lqCancelCnt <> io.lqCancelCnt
   loadQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
+  io.lsqVecDeqCnt.loadVectorDeqCnt := loadQueue.io.loadVectorDeqCnt
 
   // store queue wiring
   // storeQueue.io <> DontCare
@@ -150,6 +157,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.sqCancelCnt <> io.sqCancelCnt
   storeQueue.io.sqDeq <> io.sqDeq
   storeQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
+  io.lsqVecDeqCnt.storeVectorDeqCnt := storeQueue.io.storeVectorDeqCnt
 
   io.vectorOrderedFlushSBuffer.valid := (loadQueue.io.vectorOrderedFlushSBuffer.valid || storeQueue.io.vectorOrderedFlushSBuffer.valid)
 
@@ -222,14 +230,18 @@ class LsqEnqCtrl(implicit p: Parameters) extends XSModule with HasVectorParamete
     // to dispatch
     val enq = new LsqEnqIO
     // from rob
-    val lcommit = Input(UInt(log2Up(CommitWidth + MemVectorInstructionMax + 1).W))
-    val scommit = Input(UInt(log2Up(CommitWidth + MemVectorInstructionMax + 1).W))
+    val lcommit = Input(UInt(log2Up(CommitWidth + 1).W))
+    val scommit = Input(UInt(log2Up(CommitWidth + 1).W))
+    //from lsq
+    val lsqVecDeqIO = Input(new LsqVecDeqIO)
     // from/tp lsq
     val lqCancelCnt = Input(UInt(log2Up(LoadQueueSize + MemVectorInstructionMax + 1).W))
     val sqCancelCnt = Input(UInt(log2Up(StoreQueueSize + MemVectorInstructionMax + 1).W))
     val enqLsq = Flipped(new LsqEnqIO)
   })
 
+  val lqVecDeqNum = io.lsqVecDeqIO.loadVectorDeqCnt
+  val sqVecDeqNum = io.lsqVecDeqIO.storeVectorDeqCnt
   val lqPtr = RegInit(0.U.asTypeOf(new LqPtr))
   val sqPtr = RegInit(0.U.asTypeOf(new SqPtr))
   val lqCounter = RegInit(LoadQueueSize.U(log2Up(LoadQueueSize + 1).W))
@@ -250,17 +262,17 @@ class LsqEnqCtrl(implicit p: Parameters) extends XSModule with HasVectorParamete
   val t3_sqCancelCnt = RegNext(io.sqCancelCnt)
   when (t3_update) {
     lqPtr := lqPtr - t3_lqCancelCnt
-    lqCounter := lqCounter + io.lcommit + t3_lqCancelCnt
+    lqCounter := lqCounter + io.lcommit + t3_lqCancelCnt + lqVecDeqNum
     sqPtr := sqPtr - t3_sqCancelCnt
-    sqCounter := sqCounter + io.scommit + t3_sqCancelCnt
+    sqCounter := sqCounter + io.scommit + t3_sqCancelCnt + sqVecDeqNum
   }.elsewhen (!io.redirect.valid && io.enq.canAccept) {
     lqPtr := lqPtr + loadEnqNumber
-    lqCounter := lqCounter + io.lcommit - loadEnqNumber
+    lqCounter := lqCounter + io.lcommit - loadEnqNumber + lqVecDeqNum
     sqPtr := sqPtr + storeEnqNumber
-    sqCounter := sqCounter + io.scommit - storeEnqNumber
+    sqCounter := sqCounter + io.scommit - storeEnqNumber + sqVecDeqNum
   }.otherwise {
-    lqCounter := lqCounter + io.lcommit
-    sqCounter := sqCounter + io.scommit
+    lqCounter := lqCounter + io.lcommit + lqVecDeqNum
+    sqCounter := sqCounter + io.scommit + sqVecDeqNum
   }
 
 

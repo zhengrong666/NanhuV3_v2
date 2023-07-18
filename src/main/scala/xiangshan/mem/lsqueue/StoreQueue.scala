@@ -82,9 +82,11 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     val sqFull = Output(Bool())
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
-
+    val storeVectorDeqCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
   })
+  //todo
+  io.storeVectorDeqCnt := 0.U
 
   println("StoreQueue: size:" + StoreQueueSize)
 
@@ -521,6 +523,12 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   // (3) response from uncache channel: mark as datavalid
   io.uncache.resp.ready := true.B
 
+  val orderStoreWbIdx = deqPtr
+  val wbmask_bit = (uop(orderStoreWbIdx).uopIdx / (uop(orderStoreWbIdx).uopNum >> 3).asUInt) + 1.U
+  val wb_bit_rem = (uop(orderStoreWbIdx).uopIdx + 1.U) % (uop(orderStoreWbIdx).uopNum >> 3).asUInt
+  val order_wbmask = Mux(wb_bit_rem === 0.U, UIntToMask(wbmask_bit, 8), 0.U)
+  val wbIsOrder = uop(orderStoreWbIdx).ctrl.isOrder
+
   // (4) writeback to ROB (and other units): mark as writebacked
   io.mmioStout.valid := (wbState === s_wb_mmio) || (wbState === s_wb_ordered)
   io.mmioStout.bits.uop := uop(deqPtr)
@@ -533,6 +541,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.mmioStout.bits.debug.isPerfCnt := false.B
   io.mmioStout.bits.fflags := DontCare
   io.mmioStout.bits.debug.vaddr := DontCare
+  io.mmioStout.bits.wbmask := Mux(wbIsOrder,order_wbmask,"hff".U)
   // Remove MMIO inst from store queue after MMIO request is being sent
   // That inst will be traced by uncache state machine
   when (io.mmioStout.fire()) {

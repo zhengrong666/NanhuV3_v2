@@ -112,8 +112,11 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val lqCancelCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
+    val loadVectorDeqCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
   })
 
+  //todo
+  io.loadVectorDeqCnt := 0.U
   println("LoadQueue: size:" + LoadQueueSize)
 
   val uop = Reg(Vec(LoadQueueSize, new MicroOp))
@@ -153,10 +156,15 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val commitCount = RegNext(io.rob.lcommit)
   val orderedAutoDeq = RegInit(0.U(1.W))
   val pendingOrder = io.rob.pendingOrdered
+  val deqIsOrder = uop(deqPtr).ctrl.isOrder
   orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), 1.U ,0.U)
 
   when(orderedAutoDeq > 0.U){
     allocated(deqPtr) := false.B
+  }
+
+  when(pendingOrder){
+    assert(allocated(deqPtr) && deqIsOrder)
   }
 
   val release1cycle = io.release
@@ -485,8 +493,15 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // writeback missed int/fp load
     //
     // Int load writeback will finish (if not blocked) in one cycle
+    val loadWbPtr = loadWbSel(i).asTypeOf(new LqPtr)
+    val loadWbIdx = loadWbPtr.value
+    val wbmask_bit = (uop(loadWbIdx).uopIdx / (uop(loadWbIdx).uopNum >> 3).asUInt) + 1.U
+    val wb_bit_rem = (uop(loadWbIdx).uopIdx + 1.U) % (uop(loadWbIdx).uopNum >> 3).asUInt
+    val order_wbmask = Mux(wb_bit_rem === 0.U,UIntToMask(wbmask_bit,8),0.U)
+    val wbIsOrder = uop(loadWbIdx).ctrl.isOrder
+
     io.ldout(i).bits.uop := seluop
-    io.ldout(i).bits.uop.lqIdx := loadWbSel(i).asTypeOf(new LqPtr)
+    io.ldout(i).bits.uop.lqIdx := loadWbIdx
     io.ldout(i).bits.data := rdataPartialLoad // not used
     io.ldout(i).bits.redirectValid := false.B
     io.ldout(i).bits.redirect := DontCare
@@ -496,6 +511,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     io.ldout(i).bits.debug.vaddr := vaddrModule.io.rdata(i+1)
     io.ldout(i).bits.fflags := DontCare
     io.ldout(i).valid := loadWbSelV(i) && !io.ldout(i).bits.uop.robIdx.needFlush(lastCycleRedirect)
+    io.ldout(i).bits.wbmask := Mux(wbIsOrder,order_wbmask,"hff".U)
 
     // merged data, uop and offset for data sel in load_s3
     io.ldRawDataOut(i).lqData := dataModule.io.wb.rdata(i).data
@@ -518,7 +534,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     *
     * When load commited, mark it as !allocated and move deqPtrExt forward.
     */
-  //todo: -------------------------------------------------------------
+  //when scalar load is committed and index-ordered instruction is committed, allocated flag is false
   (0 until CommitWidth).map(i => {
     when(commitCount > i.U){
       allocated((deqPtrExt+i.U).value) := false.B
