@@ -202,7 +202,7 @@ object FuConfigs{
   val lduCfg = FuConfig(
     name = "ldu",
     fuType = FuType.ldu,
-    numIntSrc = 1,
+    numIntSrc = 2,
     numFpSrc = 0,
     numVecSrc = 1,
     writeIntRf = true,
@@ -218,7 +218,7 @@ object FuConfigs{
   val staCfg = FuConfig(
     name = "sta",
     fuType = FuType.stu,
-    numIntSrc = 1,
+    numIntSrc = 2,
     numFpSrc = 0,
     numVecSrc = 1,
     writeIntRf = false,

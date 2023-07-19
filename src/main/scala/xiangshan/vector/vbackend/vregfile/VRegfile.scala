@@ -10,7 +10,6 @@ class MoveReq(implicit p: Parameters) extends XSBundle{
   val dstAddr = UInt(log2Up(VRFSize).W)
   val ma = Bool()
   val ta = Bool()
-  val opMask = UInt((VLEN/8).W)
   val tailMask = UInt((VLEN/8).W)
 }
 

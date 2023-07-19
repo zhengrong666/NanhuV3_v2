@@ -40,8 +40,8 @@ case class ExuComplexParam
   val hasLoad: Boolean = exuConfigs.map(_.exuType == ExuType.ldu).reduce(_ || _)
   val hasSta: Boolean = exuConfigs.map(_.exuType == ExuType.sta).reduce(_ || _)
   val hasStd: Boolean = exuConfigs.map(_.exuType == ExuType.std).reduce(_ || _)
-  val hasVred:Boolean = exuConfigs.map(_.exuType == ExuType.vred).reduce(_ || _)
-  val hasVmisc:Boolean = exuConfigs.map(_.exuType == ExuType.vmisc).reduce(_ || _)
+  val hasVint:Boolean = exuConfigs.map(_.exuType == ExuType.vint).reduce(_ || _)
+  val hasVmisc:Boolean = exuConfigs.map(_.exuType == ExuType.vmask).reduce(_ || _)
   val hasVfp:Boolean = exuConfigs.map(_.exuType == ExuType.vfp).reduce(_ || _)
   val hasVint:Boolean = exuConfigs.map(_.exuType == ExuType.vint).reduce(_ || _)
   val isIntType:Boolean = exuConfigs.head.isIntType

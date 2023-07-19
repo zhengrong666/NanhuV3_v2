@@ -238,7 +238,8 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
       val finalSelectInfo = selResp
       val payload = WireInit(selPayload)
-      when(isStd){
+      val isVec = selPayload.ctrl.isVector
+      when(!isVec && isStd){
         payload.ctrl.srcType(0) := selPayload.ctrl.srcType(1)
         payload.psrc(0) := selPayload.psrc(1)
       }
@@ -265,6 +266,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       iss._1.rsIdx.bankIdxOH := issueDriver.io.deq.bits.bankIdxOH
       iss._1.rsIdx.entryIdxOH := issueDriver.io.deq.bits.entryIdxOH
       iss._1.rsFeedback.isFirstIssue := false.B
+      iss._1.hold := issueDriver.io.hold
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }

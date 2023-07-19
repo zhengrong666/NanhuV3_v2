@@ -19,6 +19,7 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
     val deq = DecoupledIO(new MemPipelineEntry(bankIdxWidth, entryIdxWidth))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val issueFire = Output(Bool())
+    val hold = Output(Bool())
   })
   private val hold = RegInit(false.B)
   when(io.enq.fire && io.enq.bits.uop.ctrl.isVector){
@@ -28,6 +29,7 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   }.elsewhen(hold){
     hold := false.B
   }
+  io.hold := hold
   io.enq.ready := io.deq.ready && !hold
   io.issueFire := !hold && io.deq.fire
 

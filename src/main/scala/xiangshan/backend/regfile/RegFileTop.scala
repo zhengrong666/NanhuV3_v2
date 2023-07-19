@@ -19,25 +19,81 @@
  ****************************************************************************************/
 package xiangshan.backend.regfile
 
-import chisel3._
-import chisel3.util._
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import chipsalliance.rocketchip.config.Parameters
+import chisel3._
 import chisel3.experimental.prefix
+import chisel3.util._
 import difftest.{DifftestArchFpRegState, DifftestArchIntRegState, DifftestFpWriteback, DifftestIntWriteback}
-import xiangshan.{ExuInput, FuType, HasXSParameter, MicroOp, Redirect, SrcType}
-import xiangshan.frontend.Ftq_RF_Components
-import xiangshan.backend.execute.fu.fpu.FMAMidResult
+import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import xiangshan.backend.issue.RsIdx
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
-import xs.utils.DelayN
+import xiangshan.frontend.Ftq_RF_Components
+import xiangshan.vector.HasVectorParameters
+import xiangshan._
+import xiangshan.vector.vbackend.vregfile.MoveReq
+import xs.utils.{DelayN, SignExt, ZeroExt}
 
-class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
+class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
+  val addr = Output(UInt(PhyRegIdxWidth.W))
+  val data = Input(UInt(VLEN.W))
+}
+class ScalarRfReadPort(implicit p:Parameters) extends XSBundle{
+  val addr = Output(UInt(PhyRegIdxWidth.W))
+  val isFp = Output(Bool())
+  val data = Input(UInt(XLEN.W))
+}
+object RegFileTop{
+  def extractElement(vsrc:UInt, sew:UInt, uopIdx:UInt, VLEN:Int, XLEN:Int): UInt = {
+    require(vsrc.getWidth == VLEN)
+    val res = WireInit(0.U(XLEN.W))
+    val vsrcSplit8  = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7,  idx * 8)))
+    val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 7,  idx * 16)))
+    val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 7,  idx * 32)))
+    val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 7,  idx * 64)))
+    res := MuxCase(0.U, Seq(
+      sew === 0.U -> ZeroExt(vsrcSplit8(uopIdx(log2Up(VLEN / 8) - 1, 0)), XLEN),
+      sew === 1.U -> ZeroExt(vsrcSplit16(uopIdx(log2Up(VLEN / 16) - 1, 0)), XLEN),
+      sew === 2.U -> ZeroExt(vsrcSplit32(uopIdx(log2Up(VLEN / 32) - 1, 0)), XLEN),
+      sew === 3.U -> ZeroExt(vsrcSplit64(uopIdx(log2Up(VLEN / 64) - 1, 0)), XLEN),
+    ))
+    res
+  }
+}
+
+class AddrGen(implicit p:Parameters) extends XSModule{
+  val io = IO(new Bundle{
+    val base = Input(UInt(XLEN.W))
+    val stride = Input(UInt(XLEN.W))
+    val offset = Input(UInt(VLEN.W))
+    val sew = Input(UInt(2.W))
+    val isStride = Input(Bool())
+    val uopIdx = Input(UInt(7.W))
+    val target = Output(UInt(XLEN.W))
+    val imm = Output(UInt(12.W))
+  })
+  private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, VLEN, XLEN)
+  private val offset = MuxCase(0.U, Seq(
+    io.sew === 0.U -> SignExt(rawOffset(7, 0), XLEN),
+    io.sew === 1.U -> SignExt(rawOffset(15, 0), XLEN),
+    io.sew === 2.U -> SignExt(rawOffset(31, 0), XLEN),
+    io.sew === 3.U -> rawOffset(63, 0),
+  ))
+  private val offsetTarget = io.base + offset
+
+  private val strideOffset = (io.stride * io.uopIdx)(63, 0)
+  private val strideTarget = Cat(strideOffset(63,12), 0.U(12.W)) + io.base
+
+  io.target := Mux(io.isStride, strideTarget, offsetTarget)
+  io.imm := Mux(io.isStride, 0.U, strideOffset(11, 0))
+}
+
+class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
   val issueNode = new RegFileNode
   val writebackNode = new WriteBackSinkNode(WriteBackSinkParam("RegFile Top", WriteBackSinkType.regFile))
 
   lazy val module = new LazyModuleImp(this) {
     val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad)
+    val vectorRfReadNum: Int = issueNode.out.count(_._2._2.hasLoad)
     println("\nRegfile Configuration:")
     println(s"PC read num: $pcReadNum \n")
     println("Regfile Writeback Info:")
@@ -46,6 +102,9 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
       val hartId = Input(UInt(64.W))
       val pcReadAddr = Output(Vec(pcReadNum, UInt(log2Ceil(FtqSize).W)))
       val pcReadData = Input(Vec(pcReadNum, new Ftq_RF_Components))
+      val vectorReads = Vec(vectorRfReadNum, new VectorRfReadPort)
+      val extraReads = Vec(extraScalarRfReadPort, Flipped(new ScalarRfReadPort))
+      val vectorRfMoveReq = Output(Vec(vectorRfReadNum, Valid(new MoveReq)))
       val debug_int_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val debug_fp_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val redirect = Input(Valid(new Redirect))
@@ -73,8 +132,11 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
     private val writeFpRfBypass = wb.filter(i => i._2.bypassFpRegfile)
     private val writeFpRf = wb.filter(i => !i._2.bypassFpRegfile && i._2.writeFpRf)
 
-    private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, needIntSrc.map(_._2.intSrcNum).sum, XLEN, "IntegerRegFile", true))
-    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, needFpSrc.map(_._2.fpSrcNum).sum, XLEN, "FloatingRegFile", false))
+    private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum + extraScalarRfReadPort
+    private val fpReadNum = needFpSrc.map(_._2.fpSrcNum).sum + extraScalarRfReadPort
+
+    private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, intReadNum, XLEN, "IntegerRegFile", true))
+    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, XLEN, "FloatingRegFile", false))
 
     private val intWriteBackSinks = intRf.io.write ++ intRf.io.bypassWrite
     private val intWriteBackSources = writeIntRf ++ writeIntRfBypass
@@ -95,6 +157,8 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
     private var intRfReadIdx = 0
     private var fpRfReadIdx = 0
     private var pcReadPortIdx = 0
+    private var vecReadPortIdx = 0
+    private var vecMoveReqPortIdx = 0
     for(in <- fromRs){
       val out = toExuMap(in._2)
       val rsParam = in._3
@@ -132,21 +196,73 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
           }
         } else if (exuComplexParam.isMemType) {
           val issueBundle = WireInit(bi.issue.bits)
-          io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
+
+          val is2Stage = SrcType.needWakeup(bi.issue.bits.uop.ctrl.srcType(1))
+          val isUnitStride = (bi.issue.bits.uop.ctrl.fuType === FuType.ldu || bi.issue.bits.uop.ctrl.fuType === FuType.stu) && !is2Stage
+          val isStd = bi.issue.bits.uop.ctrl.fuType === FuType.std
+          val uopIdx = bi.issue.bits.uop.uopIdx
+          val sew = bi.issue.bits.uop.vCsrInfo.vsew
+
+          io.vectorReads(vecReadPortIdx).addr := DontCare
+          //Mask read
+          io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
+          val vmVal = io.vectorReads(vecReadPortIdx + 1).data
+          exuInBundle.uop.loadStoreEnable := bi.issue.bits.uop.ctrl.vm && vmVal(uopIdx)
+
+          //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
+          //Stride read
+          intRf.io.read(intRfReadIdx + 1).addr := bi.issue.bits.uop.psrc(1)
+          //Scalar STD data read
           fpRf.io.read(fpRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
-          issueBundle.uop.cf.pc := io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset)
-          val intSrcData = intRf.io.read(intRfReadIdx).data
-          val fpSrcData = fpRf.io.read(fpRfReadIdx).data
-          issueBundle.src(0) := MuxCase(intSrcData,
-            Seq(
-              (bi.issue.bits.uop.ctrl.srcType(0) === SrcType.reg, intSrcData),
-              (bi.issue.bits.uop.ctrl.srcType(0) === SrcType.fp, fpSrcData)
+          //Move req
+          io.vectorRfMoveReq(vecMoveReqPortIdx).valid := bi.issue.bits.uop.ctrl.fuType === FuType.ldu &&
+            bi.issue.bits.uop.canRename && !bi.hold &&
+            bi.issue.bits.uop.ctrl.isVector
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.ma := bi.issue.bits.uop.vCsrInfo.vma(0)
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.ta := bi.issue.bits.uop.vCsrInfo.vta(0)
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := bi.issue.bits.uop.old_pdest
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.dstAddr := bi.issue.bits.uop.pdest
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.tailMask := bi.issue.bits.uop.tailMask
+
+          when(bi.issue.bits.uop.ctrl.isVector){
+            when(isStd){
+              io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
+              exuInBundle.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx + 1).data, sew, uopIdx, VLEN, XLEN)
+            }.elsewhen(isUnitStride){
+              exuInBundle.src(0) := intRf.io.read(intRfReadIdx).data
+              exuInBundle.uop.ctrl.imm := (ZeroExt(uopIdx,12) << sew)(11, 0)
+            }.otherwise{
+              val baseAddrReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.valid && bi.hold)
+              val strideReg = RegEnable(intRf.io.read(intRfReadIdx + 1).data, bi.issue.valid && bi.hold)
+              val offsetReg = RegEnable(io.vectorReads(vecReadPortIdx).data, bi.issue.valid && bi.hold)
+              val addrGen = Module(new AddrGen)
+              addrGen.io.base := baseAddrReg
+              addrGen.io.stride := strideReg
+              addrGen.io.offset := offsetReg
+              addrGen.io.sew := bi.issue.bits.uop.vCsrInfo.vsew
+              addrGen.io.isStride := bi.issue.bits.uop.ctrl.srcType(1) === SrcType.reg
+              exuInBundle.src(0) := addrGen.io.target
+              exuInBundle.uop.ctrl.imm := addrGen.io.imm
+            }
+          }.otherwise {
+            val intSrcData = intRf.io.read(intRfReadIdx).data
+            val fpSrcData = fpRf.io.read(fpRfReadIdx).data
+            issueBundle.src(0) := MuxCase(intSrcData,
+              Seq(
+                (bi.issue.bits.uop.ctrl.srcType(0) === SrcType.reg, intSrcData),
+                (bi.issue.bits.uop.ctrl.srcType(0) === SrcType.fp, fpSrcData)
+              )
             )
-          )
-          exuInBundle := ImmExtractor(exuComplexParam, issueBundle)
-          intRfReadIdx = intRfReadIdx + 1
+            exuInBundle := ImmExtractor(exuComplexParam, issueBundle)
+          }
+          io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
+          exuInBundle.uop.cf.pc := io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset)
+
+          intRfReadIdx = intRfReadIdx + 2
           fpRfReadIdx = fpRfReadIdx + 1
+          vecMoveReqPortIdx = vecMoveReqPortIdx + 1
+          vecReadPortIdx = vecReadPortIdx + 2
           pcReadPortIdx = pcReadPortIdx + 1
         } else {
           exuInBundle := DontCare
@@ -161,12 +277,10 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
         bo.issue.valid := issueValidReg && !issueExuInReg.uop.robIdx.needFlush(io.redirect)
         bo.issue.bits := issueExuInReg
         bo.rsIdx := rsIdxReg
-        when(issueValidReg && issueExuInReg.uop.robIdx.needFlush(io.redirect)){
-          issueValidReg := false.B
-        }.elsewhen(allowPipe) {
-          issueValidReg := bi.issue.valid
+        when(allowPipe) {
+          issueValidReg := bi.issue.valid && !bi.hold
         }
-        when(bi.issue.fire) {
+        when(bi.issue.fire && !bi.hold) {
           issueExuInReg := exuInBundle
           rsIdxReg := bi.rsIdx
         }
@@ -176,7 +290,16 @@ class RegFileTop(implicit p:Parameters) extends LazyModule with HasXSParameter{
         bi.rsFeedback.feedbackSlowLoad := bo.rsFeedback.feedbackSlowLoad
         bi.rsFeedback.feedbackSlowStore := bo.rsFeedback.feedbackSlowStore
         bo.rsFeedback.isFirstIssue := RegNext(bi.rsFeedback.isFirstIssue)
+        bo.hold := false.B
       }
+    }
+
+    for(r <- io.extraReads){
+      intRf.io.read(intRfReadIdx).addr := r.addr
+      fpRf.io.read(fpRfReadIdx).addr := r.addr
+      r.data := Mux(r.isFp, fpRf.io.read(fpRfReadIdx).data, intRf.io.read(intRfReadIdx).data)
+      intRfReadIdx = intRfReadIdx + 1
+      fpRfReadIdx = fpRfReadIdx + 1
     }
 
     if (env.EnableDifftest || env.AlwaysBasicDiff) {
