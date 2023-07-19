@@ -254,7 +254,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val uopNum = UInt(7.W)
   val tailMask = UInt(16.W)
   val canRename = Bool()
-  val loadStoreEnable = Bool()
+  val mergeIdx = UInt(log2Up(VectorMergeStationDepth).W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),

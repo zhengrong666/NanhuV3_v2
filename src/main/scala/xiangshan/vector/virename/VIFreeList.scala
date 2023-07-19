@@ -73,7 +73,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
 
     //Allocate
     val freeEntryNum = Wire(UInt(log2Up(VIPhyRegsNum + 1).W))
-    freeEntryNum := distanceBetween(tailPtr, headPtr) + 1.U
+    freeEntryNum := distanceBetween(tailPtr, headPtr)
 
     io.canAllocateNum := Mux(freeEntryNum >= VIRenameWidth.U, VIRenameWidth.U, freeEntryNum)
 
