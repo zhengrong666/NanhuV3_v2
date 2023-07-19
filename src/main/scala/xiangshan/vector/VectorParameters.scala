@@ -45,7 +45,9 @@ case class VectorParameters (
     //rs
     vRsDepth: Int       = 32,
     vRsOIQDepth: Int    = 8,
-    vPRsDepth: Int      = 4
+    vPRsDepth: Int      = 4,
+    //merge
+    vMergeStationDepth: Int = 64
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum)
 }
@@ -75,4 +77,6 @@ trait HasVectorParameters extends HasXSParameter {
     val VectorLMULMax = 8
     val VectorSEWMin = 8
     val MemVectorInstructionMax = VLEN * VectorLMULMax / VectorSEWMin
+
+    val VectorMergeStationDepth = vectorParams.vMergeStationDepth
 }
