@@ -57,17 +57,23 @@ sealed class BasicMemoryIssueInfoGenerator(implicit p: Parameters) extends XSMod
 }
 
 class StaLoadIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGenerator{
-  readyToIssue := ib.srcState(0) === SrcState.rdy && ib.staLoadState === EntryState.s_ready
-  io.out.bits.lpv := ib.lpv(0)
+  private val issCond = ib.srcState(0) === SrcState.rdy && ib.srcState(1) === SrcState.rdy &&
+    Mux(FuType.isStore(ib.fuType),
+      true.B,
+      ib.srcState(2) === SrcState.rdy
+    )
+  readyToIssue := issCond && ib.staLoadState === EntryState.s_ready
+  io.out.bits.lpv := VecInit(ib.lpv(0).zip(ib.lpv(1)).map({case(a, b) => a | b}))
 }
 
 class StdIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGenerator{
-  readyToIssue := (ib.srcState(1) === SrcState.rdy || (ib.isCboZero && ib.srcState(0) === SrcState.rdy)) && ib.stdState === EntryState.s_ready
+  readyToIssue := (ib.srcState(2) === SrcState.rdy || (ib.isCboZero && ib.srcState(0) === SrcState.rdy)) && ib.stdState === EntryState.s_ready
   io.out.bits.fuType := FuType.std
-  io.out.bits.lpv := Mux(ib.isCboZero, ib.lpv(0), ib.lpv(1))
+  io.out.bits.lpv := Mux(ib.isCboZero, ib.lpv(0), ib.lpv(2))
 }
 
-class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEntry(2){
+class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEntry(3) {
+  val isVector = Bool()
   val staLoadState = EntryState()
   val stdState = EntryState()
   val counter = UInt(5.W)
@@ -139,6 +145,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   miscUpdateEnCancelOrIssue := needReplay || counter.orR || shouldTurnToReady || staLoadIssued || stdIssued || shouldBeCanceled
   private val miscStateUpdateEn = Wire(Bool())
   miscStateUpdateEn := staLoadState === s_wait_cancel || stdState === s_wait_cancel
+  private val addrShouldBeCancelled = srcShouldBeCancelled(0) | srcShouldBeCancelled(1)
   switch(staLoadState) {
     is(s_wait_st) {
       when(stIssueHit || io.stLastCompelet >= io.entry.bits.sqIdx) {
@@ -151,7 +158,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
       }
     }
     is(s_wait_cancel) {
-      staLoadStateNext := Mux(srcShouldBeCancelled(0), s_ready, s_wait_replay)
+      staLoadStateNext := Mux(addrShouldBeCancelled, s_ready, s_wait_replay)
     }
     is(s_wait_replay) {
       when(needReplay) {
@@ -176,7 +183,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
         }
       }
       is(s_wait_cancel) {
-        stdStateNext := Mux(srcShouldBeCancelled(1), s_ready, s_issued)
+        stdStateNext := Mux(srcShouldBeCancelled(2), s_ready, s_issued)
       }
     }
   }
@@ -184,17 +191,17 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   when(io.replay.valid){
     counterNext := io.replay.bits
   }.elsewhen(staLoadStateNext =/= s_ready && staLoadState === s_ready) {
-    counterNext := (1 << 4).U
+    counterNext := (1 << 3).U
   }.elsewhen(counter.orR) {
     counterNext := LogicShiftRight(counter, 1)
   }
   when(io.entry.valid){
-    assert(Cat(srcShouldBeCancelled(0), staLoadIssued) <= 2.U)
+    assert(Cat(addrShouldBeCancelled, staLoadIssued) <= 2.U)
     assert(staLoadState === s_wait_st || staLoadState === s_ready ||
       staLoadState === s_wait_cancel || staLoadState === s_wait_counter ||
       staLoadState === s_wait_replay || staLoadState === s_issued)
   }
-  when(io.entry.valid && !io.entry.bits.isCboZero){assert(Cat(srcShouldBeCancelled(1), stdIssued) <= 2.U)}
+  when(io.entry.valid && !io.entry.bits.isCboZero){assert(Cat(srcShouldBeCancelled(2), stdIssued) <= 2.U)}
   when(io.entry.valid && io.entry.bits.isCboZero){assert(Cat(srcShouldBeCancelled(0), stdIssued) <= 2.U)}
   when(staLoadIssued){assert(io.entry.valid && staLoadState === s_ready)}
   when(stdIssued){assert(io.entry.valid && stdState === s_ready && imStore)}

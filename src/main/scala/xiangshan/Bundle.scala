@@ -252,8 +252,9 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)
-  val tailMask = UInt(4.W)
+  val tailMask = UInt(16.W)
   val canRename = Bool()
+  val mergeIdx = UInt(log2Up(VectorMergeStationDepth).W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
@@ -313,14 +314,15 @@ class DebugBundle(implicit p: Parameters) extends XSBundle {
 
 class ExuInput(implicit p: Parameters) extends XSBundle {
   val uop = new MicroOp
-  val src = Vec(3, UInt(XLEN.W))
+  val src = Vec(3, UInt(VLEN.W))
 }
 
 class ExuOutput(implicit p: Parameters) extends XSBundle {
   val uop = new MicroOp
   val data = UInt(VLEN.W)
   val wbmask = UInt(8.W)
-  val writeMask = UInt((VLEN/8).W)
+  val writeDataMask = UInt((VLEN/8).W)
+  val wakeupMask = UInt((VLEN / 8).W)
   val fflags = UInt(5.W)
   val redirectValid = Bool()
   val redirect = new Redirect
