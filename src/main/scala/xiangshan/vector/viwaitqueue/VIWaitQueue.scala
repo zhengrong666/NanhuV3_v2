@@ -13,7 +13,6 @@ import xiangshan.backend.rob._
 class VIMop(implicit p: Parameters) extends VectorBaseBundle {
   val MicroOp = new MicroOp
   val state = 3.U(1.W)
-  val vtypeIdx = new VtypePtr
 }
 
 class WqPtr(implicit p: Parameters) extends CircularQueuePtr[WqPtr](
@@ -51,6 +50,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
     val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new ExuOutput))
+    val MergeId = Vec(VIDecodeWidth, DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
     val WqFull = Output(Bool())
@@ -63,7 +63,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val enqPtrVec = Wire(Vec(VIDecodeWidth, new WqPtr))
   val deqPtr = Wire(new WqPtr)
   val enqPtr = enqPtrVec.head
-  val vtypePtr = RegInit(deqPtr)
+  val vtypePtr = Reg(deqPtr)
   val waitPtr = RegInit(deqPtr)
 
   val allowEnqueue = RegInit(true.B)
@@ -73,7 +73,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   /**
     * states of Wq
     */
-  val s_valid :: s_wait :: s_busy :: s_invalid :: Nil = Enum(4)
+  val s_valid :: s_merge :: s_robenq :: s_vtypewb :: s_invalid :: Nil = Enum(5)
 
   val WqData = Module(new SyncDataModuleTemplate(new VIMop, VIWaitQueueWidth, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
 
@@ -81,9 +81,9 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * pointers and counters
     */
   // dequeue pointers
-  val isComplete = RegInit(false.B)
+  val isComplete = RegEnable(false.B,isComplete)
   val deqPtr_temp = deqPtr + 1
-  val deqPtr_next = Mux(!io.redirect.valid && isComplete && !io.hasWalk, deqPtr, deqPtr_temp)
+  val deqPtr_next = Mux(!isReplaying && isComplete && !io.hasWalk, deqPtr, deqPtr_temp)
   deqPtr := deqPtr_next
 
   // enqueue pointers
@@ -91,7 +91,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val canAccept = allowEnqueue && !io.hasWalk
   val enqNum = Mux(canAccept, PopCount(VecInit(io.enq.req.map(_.valid))), 0.U)
   for ((ptr, i) <- enqPtrVec_temp.zipWithIndex) {
-    when(io.redirect.valid || io.hasWalk) {
+    when(isReplaying || io.hasWalk) {
       ptr := ptr
     }.otherwise {
       ptr := ptr + enqNum
@@ -106,7 +106,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val numValidEntries = distanceBetween(enqPtr, deqPtr)
   allowEnqueue := numValidEntries + enqNum <= (VIWaitQueueWidth - VIDecodeWidth).U
   val allocatePtrVec = VecInit((0 until VIDecodeWidth).map(i => enqPtrVec(PopCount(io.enq.needAlloc.take(i)))))
-  io.enq.canAccept := allowEnqueue && !io.redirect.valid && !io.hasWalk
+  io.enq.canAccept := allowEnqueue && !isReplaying && !io.hasWalk
   val canEnqueue = VecInit(io.enq.req.map(_.valid && io.enq.canAccept))
 
 
@@ -136,15 +136,18 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
     val vl = currentdata.MicroOp.vCsrInfo.vl
     val elementNum = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
+    //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
     val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
     val tailreg = vl / elementNum.U
     val tailelement = vl % elementNum.U
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
         if (countnum.U == tailreg) {
-          deqUop(i).tailMask := tailelement
+          deqUop(i).tailMask := 0xffff.U >> ((elementNum.U - tailelement) * 16.U / elementNum.U)
+        } else if (countnum > tailreg){
+          deqUop(i).tailMask := 0.U
         } else {
-          deqUop(i).tailMask := 15.U
+          deqUop(i).tailMask := 0xffff.U
         }
         deqUop(i) := currentdata.MicroOp
         deqUop(i).uopIdx := countnum.U
@@ -191,17 +194,17 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
     io.out(i).bits := deqUop(i)
-    io.out(i).valid := !io.hasWalk && !io.redirect.valid
+    io.out(i).valid := !io.hasWalk && !isReplaying
   }
 
   /**
-    * vtype update
+    * vtype writeback
     */
 
   for (i <- 0 until VIDecodeWidth) {
     when(io.vtypeWbData(i).valid) {
       val idx = io.vtypeWbData(i).bits.uop.robIdx
-      WqData.io.raddr := waitPtr.value
+      WqData.io.raddr := vtypePtr.value
       val tempdata = WqData.io.rdata(0)
       if (tempdata.MicroOp.robIdx == idx) {
         WqData.io.waddr := vtypePtr.value
@@ -210,7 +213,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         tempdata.MicroOp.vCsrInfo.vl := io.vtypeWbData(i).bits.data
         tempdata.state := tempdata.state - 1.U
         WqData.io.wdata := tempdata
-        waitPtr := waitPtr + 1
       }
     }
   }
@@ -227,9 +229,38 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         WqData.io.waddr := waitPtr.value
         tempdata.state := tempdata.state - 1.U
         WqData.io.wdata := tempdata
-        vtypePtr := vtypePtr + 1
       }
     }
   }
+
+  /**
+    * mergeid allocate
+    */
+
+  for (i <- 0 until VIDecodeWidth) {
+    when(io.MergeId(i).valid) {
+      WqData.io.raddr := waitPtr.value
+      val tempdata = WqData.io.rdata(0)
+      if (tempdata.state == s_merge) {
+        tempdata.MicroOp.mergeIdx := io.vtypeWbData(i).bits.data
+        tempdata.state := tempdata.state - 1.U
+        WqData.io.waddr := waitPtr.value
+        WqData.io.wdata := tempdata
+        io.MergeId(i).ready := true.B
+      }
+    }
+  }
+
+  /**
+    * update pointers
+    */
+
+  WqData.io.raddr := waitPtr.value
+  val tempdata_wait = WqData.io.rdata(0)
+  waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
+
+  WqData.io.raddr := vtypePtr.value
+  val tempdata_vtype = WqData.io.rdata(0)
+  vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
 
 }
