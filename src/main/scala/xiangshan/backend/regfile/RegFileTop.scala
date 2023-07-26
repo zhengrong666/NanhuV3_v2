@@ -30,18 +30,15 @@ import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, Write
 import xiangshan.frontend.Ftq_RF_Components
 import xiangshan.vector.HasVectorParameters
 import xiangshan._
-import xiangshan.vector.vbackend.vregfile.MoveReq
+import xiangshan.vector.vbackend.vregfile.{MoveReq, VectorRfReadPort}
 import xs.utils.{DelayN, SignExt, ZeroExt}
 
-class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
-  val addr = Output(UInt(PhyRegIdxWidth.W))
-  val data = Input(UInt(VLEN.W))
-}
 class ScalarRfReadPort(implicit p:Parameters) extends XSBundle{
-  val addr = Output(UInt(PhyRegIdxWidth.W))
-  val isFp = Output(Bool())
-  val data = Input(UInt(XLEN.W))
+  val addr = Input(UInt(PhyRegIdxWidth.W))
+  val isFp = Input(Bool())
+  val data = Output(UInt(XLEN.W))
 }
+
 object RegFileTop{
   def extractElement(vsrc:UInt, sew:UInt, uopIdx:UInt, VLEN:Int, XLEN:Int): UInt = {
     require(vsrc.getWidth == VLEN)
@@ -102,8 +99,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       val hartId = Input(UInt(64.W))
       val pcReadAddr = Output(Vec(pcReadNum, UInt(log2Ceil(FtqSize).W)))
       val pcReadData = Input(Vec(pcReadNum, new Ftq_RF_Components))
-      val vectorReads = Vec(vectorRfReadNum, new VectorRfReadPort)
-      val extraReads = Vec(extraScalarRfReadPort, Flipped(new ScalarRfReadPort))
+      val vectorReads = Vec(vectorRfReadNum, Flipped(new VectorRfReadPort))
+      val extraReads = Vec(extraScalarRfReadPort, new ScalarRfReadPort)
       val vectorRfMoveReq = Output(Vec(vectorRfReadNum, Valid(new MoveReq)))
       val debug_int_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val debug_fp_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))

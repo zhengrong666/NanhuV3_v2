@@ -247,7 +247,6 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val debugInfo = new PerfDebugInfo
 
   //vector
-  val oldPdestState = SrcState()
   val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
@@ -317,6 +316,7 @@ class DebugBundle(implicit p: Parameters) extends XSBundle {
 class ExuInput(implicit p: Parameters) extends XSBundle {
   val uop = new MicroOp
   val src = Vec(3, UInt(VLEN.W))
+  val vm = UInt(VLEN.W)
 }
 
 class ExuOutput(implicit p: Parameters) extends XSBundle {

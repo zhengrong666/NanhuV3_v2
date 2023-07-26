@@ -17,8 +17,8 @@ case class FuConfig
   latency: Int,
   hasRedirect: Boolean,
   trigger: Boolean,
-  exceptionOut: Seq[Int] = Seq()
-
+  exceptionOut: Seq[Int] = Seq(),
+  triggerVrfWakeup:Boolean = false
 ) {
   def srcCnt: Int = math.max(numIntSrc, numFpSrc)
   override def toString = name
@@ -213,6 +213,7 @@ object FuConfigs{
     hasRedirect = true,
     trigger = true,
     exceptionOut = Seq(loadAddrMisaligned, loadAccessFault, loadPageFault),
+    triggerVrfWakeup = true
   )
 
   val staCfg = FuConfig(
@@ -261,6 +262,103 @@ object FuConfigs{
     hasRedirect = false,
     exceptionOut = lduCfg.exceptionOut ++ staCfg.exceptionOut
   )
+
+  val valuCfg = FuConfig(
+    name = "valu",
+    fuType = FuType.valu,
+    numIntSrc = 1,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = true
+  )
+
+  val vmaskCfg = FuConfig(
+    name = "vmask",
+    fuType = FuType.vmask,
+    numIntSrc = 1,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = true
+  )
+
+  val vdivCfg = FuConfig(
+    name = "vmask",
+    fuType = FuType.vdiv,
+    numIntSrc = 1,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = false
+  )
+
+  val vmacCfg = FuConfig(
+    name = "vmask",
+    fuType = FuType.vmac,
+    numIntSrc = 1,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = false
+  )
+
+  val vredCfg = FuConfig(
+    name = "vmask",
+    fuType = FuType.vreduc,
+    numIntSrc = 1,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = false
+  )
+
+  val vfpCfg = FuConfig(
+    name = "vfp",
+    fuType = FuType.vfp,
+    numIntSrc = 0,
+    numFpSrc = 1,
+    numVecSrc = 4,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = false
+  )
+
   val vpermCfg = FuConfig(
     name = "vperm",
     fuType = FuType.vpermu,
@@ -274,5 +372,6 @@ object FuConfigs{
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
+    triggerVrfWakeup = false
   )
 }
