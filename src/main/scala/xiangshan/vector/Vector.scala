@@ -14,7 +14,7 @@
   * See the Mulan PSL v2 for more details.
   ***************************************************************************************/
 
-package Vector
+package xiangshan.vector
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
@@ -29,6 +29,15 @@ import xiangshan.vector.vtyperename._
 import xiangshan.vector.viwaitqueue._
 import xiangshan.vector.virename._
 import xiangshan.vector.dispatch._
+
+
+
+class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
+  val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
+  val pdest = UInt(PhyRegIdxWidth.W)
+  val old_pdest = UInt(PhyRegIdxWidth.W)
+}
+
 
 class Vector(implicit p: Parameters) extends LazyModule {
 
@@ -48,10 +57,12 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     //from ctrl decode
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
     //from ctrl rename
-    val vtypein = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp))) //from rename to vtyperename
+    val vtypein = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp))) //to vtyperename
+    val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
     //from ctrl rob
     val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
+    val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))) //to wait queue
     val commit = new VIRobIdxQueueEnqIO // to rename
 
     val redirect = Flipped(ValidIO(new Redirect))
@@ -80,11 +91,14 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
 
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    when(vtyperename.io.out(i).valid && videcode.io.out(i).valid) {
+    when(vtyperename.io.out(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid) {
       waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
       waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
       val CurrentData = new VIMop
       CurrentData.MicroOp <> videcode.io.out(i).bits
+      CurrentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
+      CurrentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
+      CurrentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
       CurrentData.MicroOp.vCsrInfo <> vtyperename.io.out(i).bits.vCsrInfo
       CurrentData.MicroOp.robIdx := vtyperename.io.out(i).bits.robIdx
       if (vtyperename.io.out(i).bits.state == 1.U) {
@@ -98,11 +112,14 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
 
   waitqueue.io.vtypeWbData <> io.vtypewriteback
   waitqueue.io.robin <> io.allowdeq
+  waitqueue.io.MergeId <> io.MergeIdAllocate
   waitqueue.io.canRename <> virename.io.canAccept
+  waitqueue.io.redirect <> io.redirect
 
   virename.io.uopIn <> waitqueue.io.out
   virename.io.redirect <> io.redirect
   virename.io.commit <> io.commit
+  virename.io.redirect <> io.redirect
 
   dispatch.io.req.uop <> virename.io.uopOut
   dispatch.io.redirect <> io.redirect

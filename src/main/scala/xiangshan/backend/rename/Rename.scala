@@ -25,6 +25,7 @@ import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.rename.freelist._
+import xiangshan.vector.SIRenameInfo
 import xiangshan.mem.mdp._
 import xs.utils.GTimer
 
@@ -46,6 +47,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val fpRenamePorts = Vec(RenameWidth, Output(new RatWritePort))
     // to dispatch1
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
+    // to vector
+    val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
   })
 
   // create free list and rat
@@ -183,6 +186,11 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
 
     intRefCounter.io.allocate(i).valid := intSpecWen(i)
     intRefCounter.io.allocate(i).bits := io.out(i).bits.pdest
+
+    io.SIRenameOUT(i).valid := io.out(i).valid
+    io.SIRenameOUT(i).bits.psrc := uops(i).psrc
+    io.SIRenameOUT(i).bits.pdest := uops(i).pdest
+    io.SIRenameOUT(i).bits.old_pdest := uops(i).old_pdest
   }
 
   /**

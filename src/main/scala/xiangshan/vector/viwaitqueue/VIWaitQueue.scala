@@ -5,7 +5,6 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import xiangshan.vector._
-import xiangshan.vector.vtyperename.{VtypePtr}
 import xs.utils._
 import xiangshan.backend.rob._
 
@@ -49,10 +48,11 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val hartId = Input(UInt(8.W))
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new ExuOutput))
-    val MergeId = Vec(VIDecodeWidth, DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))
+    val vtypeWbData = Vec(VIDecodeWidth, Flipped(DecoupledIO(new ExuOutput)))
+    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
+    val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
+    val vstart = Input(UInt(16.W))
     val WqFull = Output(Bool())
     val canRename = Input(Bool())
     val hasWalk = Input(Bool())
@@ -208,6 +208,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       val tempdata = WqData.io.rdata(0)
       if (tempdata.MicroOp.robIdx == idx) {
         WqData.io.waddr := vtypePtr.value
+        WqData.io.wen := io.vtypeWbData(i).valid
         tempdata.MicroOp.vCsrInfo.vsew := io.vtypeWbData(i).bits.data
         tempdata.MicroOp.vCsrInfo.vlmul := io.vtypeWbData(i).bits.data
         tempdata.MicroOp.vCsrInfo.vl := io.vtypeWbData(i).bits.data
@@ -227,6 +228,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       val tempdata = WqData.io.rdata(0)
       if (tempdata.MicroOp.robIdx == io.robin(i).bits) {
         WqData.io.waddr := waitPtr.value
+        WqData.io.wen := io.robin(i).valid
         tempdata.state := tempdata.state - 1.U
         WqData.io.wdata := tempdata
       }
@@ -244,6 +246,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       if (tempdata.state == s_merge) {
         tempdata.MicroOp.mergeIdx := io.vtypeWbData(i).bits.data
         tempdata.state := tempdata.state - 1.U
+        WqData.io.wen := io.MergeId(i).valid
         WqData.io.waddr := waitPtr.value
         WqData.io.wdata := tempdata
         io.MergeId(i).ready := true.B
@@ -255,12 +258,15 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * update pointers
     */
 
-  WqData.io.raddr := waitPtr.value
-  val tempdata_wait = WqData.io.rdata(0)
-  waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
+  val ren = PopCount(canEnqueue).orR
+  when(ren){
+    WqData.io.raddr := waitPtr.value
+    val tempdata_wait = WqData.io.rdata(0)
+    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
 
-  WqData.io.raddr := vtypePtr.value
-  val tempdata_vtype = WqData.io.rdata(0)
-  vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
+    WqData.io.raddr := vtypePtr.value
+    val tempdata_vtype = WqData.io.rdata(0)
+    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
+  }
 
 }
