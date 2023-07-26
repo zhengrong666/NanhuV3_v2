@@ -27,6 +27,8 @@ import xiangshan.backend.dispatch.{Dispatch, MemDispatch2Rs, DispatchQueue}
 import xiangshan.backend.execute.fu.csr.PFEvent
 import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO}
+import xiangshan.vector.SIRenameInfo
+import xiangshan.vector.vtyperename._
 import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.ExceptionNO._
 import xiangshan.backend.issue.DqDispatchNode
@@ -81,6 +83,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
         val lsdqFull  = Input(Bool())
       }
     })
+    // to vector
+    val SIRenameInfo = Vec(RenameWidth, ValidIO(new SIRenameInfo))
+    val vtypeout = Vec(RenameWidth, ValidIO(new VtypeReg))
+
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
   })
@@ -242,6 +248,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   for (i <- 0 until RenameWidth) {
     PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
   }
+
+  //to vector
+  io.SIRenameInfo <> rename.io.SIRenameOUT
+  io.vtypeout <> rename.io.vtypeout
 
   dispatch.io.hartId := io.hartId
   dispatch.io.redirect := io.redirectIn
