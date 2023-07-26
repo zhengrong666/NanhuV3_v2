@@ -40,7 +40,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     r.data := vrf(r.addr)
   }
   // write vector register file
-  for (i <- 0 until wbWkpNum) { 
+  for (i <- 0 until wbWkpNum) {
     io.wakeups(i).bits := io.wbWakeup(i).bits
     when (io.wbWakeup(i).valid) {
       val vrfBytes = vrf(io.wbWakeup(i).bits.uop.pdest)asTypeOf(Vec(dataWidth/8, UInt(8.W)))
@@ -49,7 +49,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
         when (io.wbWakeup(i).bits.writeDataMask(j) === 1.U) {
           vrfBytes(j) := io.wbWakeup(i).bits.data(j * 8 + 7, j * 8)
         }
-        when (io.wbWakeup(i).bits.wakeupMask(j) === 1.U) {   
+        when (io.wbWakeup(i).bits.wakeupMask(j) === 1.U) {
         mrfBits(j) := true.B
         }
     }
@@ -57,15 +57,15 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
       mrf(io.wbWakeup(i).bits.uop.pdest) := mrfBits.asUInt
     }
     // wakeup
-    when (mrf(io.wbWakeup(i).bits.uop.pdest).andR) {      
+    when (mrf(io.wbWakeup(i).bits.uop.pdest).andR) {
       io.wakeups(i).valid := true.B
       mrf(io.wbWakeup(i).bits.uop.pdest) := RegNext(0.U)
     } .otherwise{
       io.wakeups(i).valid := false.B
     }
   }
-  // not wakeup 
-  for (i <- 0 until wbNoWkpNum) { 
+  // not wakeup
+  for (i <- 0 until wbNoWkpNum) {
     val vrfBytes = vrf(io.wbNoWakeup(i).bits.uop.pdest)asTypeOf(Vec(dataWidth/8, UInt(8.W)))
       for (j <- 0 until maskWidth) {
         when (io.wbNoWakeup(i).bits.writeDataMask(j) === 1.U) {
@@ -79,18 +79,18 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     when (io.moveOldValReqs(i).valid) {
       val dstMask = mrf(io.moveOldValReqs(i).bits.dstAddr)
       val srcBytes = vrf(io.moveOldValReqs(i).bits.srcAddr).asTypeOf(Vec(16, UInt(8.W)))
-      // ta is true 
+      // ta is true
       when (io.moveOldValReqs(i).bits.ta) {
         val outBytes = io.moveOldValReqs(i).bits.tailMask.asBools.zipWithIndex.map{case (maskBit, index) =>
           val dataByte = Mux(maskBit, 255.U, srcBytes(index))
-          dataByte 
+          dataByte
         }
         vrf(io.moveOldValReqs(i).bits.dstAddr) := Cat(outBytes.reverse)
-      // ma is true 
+      // ma is true
       } .elsewhen(io.moveOldValReqs(i).bits.ma) {
         val outBytes = (io.moveOldValReqs(i).bits.tailMask | dstMask).asBools.zipWithIndex.map{case (maskBit, index) =>
           val dataByte = Mux(!maskBit, 255.U, srcBytes(index))
-          dataByte 
+          dataByte
         }
       vrf(io.moveOldValReqs(i).bits.dstAddr) := Cat(outBytes.reverse)
     }

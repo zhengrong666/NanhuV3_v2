@@ -24,17 +24,17 @@ import chisel3._
 import chisel3.internal.sourceinfo.SourceInfo
 import chisel3.util._
 import xiangshan.ExuOutput
-import xiangshan.backend.execute.exu.ExuConfig
+import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 
 object WriteBackSinkType{
   def regFile = 0
-  def rob = 3
-  def intRs = 4
-  def memRs = 5
-  def fpRs = 6
-  def vecRs = 7
-  def vecPermRs = 8
-  def vecRegfile = 9
+  def rob = 1
+  def intRs = 2
+  def memRs = 3
+  def fpRs = 4
+  def vecRs = 5
+  def vecPermRs = 6
+  def vecRegfile = 7
   private def rfList = Seq(regFile, vecRegfile)
   private def rsList = Seq(intRs, memRs, fpRs, vecRs, vecPermRs)
   def isRf(in:Int) = rfList.contains(in)
@@ -51,6 +51,9 @@ case class WriteBackSinkParam
   def isIntRs: Boolean = sinkType == WriteBackSinkType.intRs
   def isMemRs: Boolean = sinkType == WriteBackSinkType.memRs
   def isFpRs: Boolean = sinkType == WriteBackSinkType.fpRs
+  def isVprs: Boolean = sinkType == WriteBackSinkType.vecPermRs
+  def isVrs: Boolean = sinkType == WriteBackSinkType.vecRs
+  def isVrf: Boolean = sinkType == WriteBackSinkType.vecRegfile
   def isLegal: Boolean = isRegFile ||isRob ||isIntRs ||isMemRs ||isFpRs
   def needWriteback: Boolean = isRegFile || isRob
 }
@@ -64,13 +67,19 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
   override def edgeO(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (WriteBackSinkParam, Seq[ExuConfig], Parameters) = {
     require(pu.isLegal)
     val resPd = if (pu.isRegFile) {
-      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf || cfg.writeVecRf )
+      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf)
     } else if (pu.isIntRs) {
       pd.filter(_.wakeUpIntRs)
     } else if (pu.isMemRs) {
       pd.filter(_.wakeUpMemRs)
     } else if (pu.isFpRs) {
       pd.filter(_.wakeUpFpRs)
+    } else if(pu.isVprs || pu.isVrs) {
+      pd.filter(_.wakeUpVrs)
+    } else if (pu.isVrf) {
+      pd.filter(_.writeVecRf)
+    } else if (pu.isRob) {
+      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf)
     } else {
       pd
     }
@@ -79,21 +88,7 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
   override def bundleO(eo: (WriteBackSinkParam, Seq[ExuConfig], Parameters)): Vec[ValidIO[ExuOutput]] = Vec(eo._2.length, Valid(new ExuOutput()(eo._3)))
 }
 object WriteBackSinkNodeImpl extends SimpleNodeImp[Seq[ExuConfig], WriteBackSinkParam, (Seq[ExuConfig], Parameters), Vec[Valid[ExuOutput]]]{
-  override def edge(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (Seq[ExuConfig], Parameters) = {
-    require(pu.isLegal)
-    val resPd = if (pu.isRegFile) {
-      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf || cfg.writeVecRf)
-    } else if (pu.isIntRs) {
-      pd.filter(_.wakeUpIntRs)
-    } else if (pu.isMemRs) {
-      pd.filter(_.wakeUpMemRs)
-    } else if (pu.isFpRs) {
-      pd.filter(_.wakeUpFpRs)
-    } else {
-      pd
-    }
-    (resPd,p)
-  }
+  override def edge(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (Seq[ExuConfig], Parameters) = (pd,p)
   override def bundle(e: (Seq[ExuConfig], Parameters)): Vec[ValidIO[ExuOutput]] = Vec(e._1.length, Valid(new ExuOutput()(e._2)))
   override def render(e: (Seq[ExuConfig], Parameters)): RenderedEdge = RenderedEdge(colour = "#0000ff",label = "writeback")
 }
