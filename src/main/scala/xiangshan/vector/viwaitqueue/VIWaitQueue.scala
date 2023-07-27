@@ -134,7 +134,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val currentdata = WqDataRead(0)
   val deqUop = Wire(Vec(VIRenameWidth, new MicroOp))
   val isLS = Mux(currentdata.MicroOp.ctrl.isVLS, true.B, false.B)
-  val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === IsWiden.NotWiden, false.B, true.B)
+  val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === Widen.NotWiden, false.B, true.B)
   var countnum = 0
   if (currentdata.state == s_valid && isReplaying == false) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()

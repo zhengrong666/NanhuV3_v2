@@ -148,8 +148,8 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   //Vector
   val vdWen = Bool()
   val isOrder = Bool()
-  val Widen = Widen()
-  val Narrow = Narrow()
+  val widen = Widen()
+  val narrow = Narrow()
   val isVector = Bool()
   val isVtype = Bool()
   val isVLS = Bool()
