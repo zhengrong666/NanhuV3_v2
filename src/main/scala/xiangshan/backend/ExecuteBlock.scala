@@ -29,38 +29,53 @@ import utils.{HPerfMonitor, HasPerfEvents, PerfEvent}
 import xiangshan.backend.execute.exu.FenceIO
 import xiangshan.{CommitType, ExuInput, HasXSParameter, L1CacheErrorInfo, MemPredUpdateReq, MicroOp, Redirect, XSCoreParamsKey}
 import xiangshan.backend.execute.exublock.{FloatingBlock, IntegerBlock, MemBlock}
-import xiangshan.backend.execute.fu.csr.{CSRFileIO, PFEvent}
+import xiangshan.backend.execute.fu.csr.CSRFileIO
 import xiangshan.backend.issue.FpRs.FloatingReservationStation
 import xiangshan.backend.issue.IntRs.IntegerReservationStation
 import xiangshan.backend.issue.MemRs.MemoryReservationStation
 import xiangshan.backend.rob.RobLsqIO
 import xiangshan.backend.writeback.WriteBackNetwork
 import xiangshan.cache.mmu.BTlbPtwIO
-import xiangshan.mem.{ExceptionAddrIO, LsqEnqIO}
+import xiangshan.mem.LsqEnqIO
+import xiangshan.vector.HasVectorParameters
+import xiangshan.vector.vbackend.vexecute.VectorPermutationBlock
+import xiangshan.vector.vbackend.vissue.vrs.VectorReservationStation
+import xiangshan.vector.vbackend.vregfile.VRegfileTop
 import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
-class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) extends LazyModule with HasXSParameter{
-  private val pcMemEntries = FtqSize
+class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
   val integerReservationStation: IntegerReservationStation = LazyModule(new IntegerReservationStation)
   val floatingReservationStation: FloatingReservationStation = LazyModule(new FloatingReservationStation)
   val memoryReservationStation: MemoryReservationStation = LazyModule(new MemoryReservationStation)
+  val vectorPermutationBlock: VectorPermutationBlock = LazyModule(new VectorPermutationBlock)
+  val vectorReservationStation: VectorReservationStation = LazyModule(new VectorReservationStation)
   private val integerBlock = LazyModule(new IntegerBlock)
   private val floatingBlock = LazyModule(new FloatingBlock)
   val memoryBlock: MemBlock = LazyModule(new MemBlock(parentName + "memBlock_"))
-  private val regFile = LazyModule(new RegFileTop)
+  private val regFile = LazyModule(new RegFileTop(2))
+  private val vRegFile = LazyModule(new VRegfileTop(loadUnitNum * 2 + 1))
   val writebackNetwork: WriteBackNetwork = LazyModule(new WriteBackNetwork)
   private val exuBlocks = integerBlock :: floatingBlock :: memoryBlock :: Nil
 
   regFile.issueNode :*= integerReservationStation.issueNode
   regFile.issueNode :*= floatingReservationStation.issueNode
   regFile.issueNode :*= memoryReservationStation.issueNode
+  vRegFile.issueNode :*= vectorReservationStation.issueNode
   for (eb <- exuBlocks) {
     eb.issueNode :*= regFile.issueNode
     writebackNetwork.node :=* eb.writebackNode
   }
+
+  writebackNetwork.node :=* vRegFile.writebackMergeNode
+
+  memoryBlock.lduWritebackNodes.foreach(ldwb => vRegFile.writebackMergeNode :=* ldwb)
+  vRegFile.writebackMergeNode :=* vectorPermutationBlock.writebackNode
+
   regFile.writebackNode :=* writebackNetwork.node
   floatingReservationStation.wakeupNode := writebackNetwork.node
   integerReservationStation.wakeupNode := writebackNetwork.node
   memoryReservationStation.wakeupNode := writebackNetwork.node
+  vectorPermutationBlock.vprs.wakeupNode := writebackNetwork.node
+  vectorReservationStation.wakeupNode := writebackNetwork.node
   lazy val module = new LazyModuleImp(this) with HasSoCParameter{
     val io = IO(new Bundle {
       val hartId = Input(UInt(64.W))
@@ -77,6 +92,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
       //Rename
       val integerAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
       val floatingAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
+      val vectorAllocPregs = Vec(coreParams.vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
 
       //Mdp update
       val memPredUpdate = Output(Valid(new MemPredUpdateReq))
@@ -94,21 +110,35 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
 
       val debug_int_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val debug_fp_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
+      val debug_vec_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
     })
     private val intRs = integerReservationStation.module
     private val fpRs = floatingReservationStation.module
     private val memRs = memoryReservationStation.module
+    private val vRs = vectorReservationStation.module
+    private val vpBlk = vectorPermutationBlock.module
     private val intBlk = integerBlock.module
     private val fpBlk = floatingBlock.module
     private val memBlk = memoryBlock.module
     private val rf = regFile.module
+    private val vrf = vRegFile.module
     private val writeback = writebackNetwork.module
 
     private val localRedirect = writeback.io.redirectOut
     rf.io.hartId := io.hartId
     rf.io.debug_int_rat := io.debug_int_rat
     rf.io.debug_fp_rat := io.debug_fp_rat
+    rf.io.extraReads.take(vrf.rfReadNum).zip(vrf.io.scalarReads).foreach({case(a, b) => a <> b})
+    rf.io.extraReads.last <> vpBlk.io.rfReadPort.srf
     rf.io.redirect := Pipe(localRedirect)
+
+    vrf.io.hartId := io.hartId
+    vrf.io.debug_vec_rat := io.debug_vec_rat
+    vrf.io.vectorReads.take(loadUnitNum * 2).zip(rf.io.vectorReads).foreach({case(a, b) => a <> b})
+    vrf.io.vectorReads.last <> vpBlk.io.rfReadPort.vrf
+    vrf.io.moveOldValReqs := rf.io.vectorRfMoveReq
+    vrf.io.redirect := Pipe(localRedirect)
+
     exuBlocks.foreach(_.module.redirectIn := Pipe(localRedirect))
     
     intRs.io.redirect := Pipe(localRedirect)
@@ -128,7 +158,19 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     memRs.io.earlyWakeUpCancel := memBlk.io.earlyWakeUpCancel(2)
     memRs.io.integerAllocPregs := io.integerAllocPregs
     memRs.io.floatingAllocPregs := io.floatingAllocPregs
+    memRs.io.vectorAllocPregs := io.vectorAllocPregs
     memRs.io.stLastCompelet := memBlk.io.stIssuePtr
+
+    vRs.io.redirect := Pipe(localRedirect)
+    vRs.io.intAllocPregs := io.integerAllocPregs
+    vRs.io.fpAllocPregs := io.floatingAllocPregs
+    vRs.io.vecAllocPregs := io.vectorAllocPregs
+
+    vpBlk.io.redirect := Pipe(localRedirect)
+    vpBlk.io.intAllocPregs := io.integerAllocPregs
+    vpBlk.io.fpAllocPregs := io.floatingAllocPregs
+    vpBlk.io.vecAllocPregs := io.vectorAllocPregs
+    vpBlk.io.frm := intBlk.io.csrio.fpu.frm
 
     intBlk.io.csrio.distributedUpdate(0) := memBlk.io.csrUpdate
     memBlk.io.csrCtrl <> intBlk.io.csrio.customCtrl

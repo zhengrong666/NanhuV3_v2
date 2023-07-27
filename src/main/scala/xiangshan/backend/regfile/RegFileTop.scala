@@ -90,7 +90,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
 
   lazy val module = new LazyModuleImp(this) {
     val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad)
-    val vectorRfReadNum: Int = issueNode.out.count(_._2._2.hasLoad)
     println("\nRegfile Configuration:")
     println(s"PC read num: $pcReadNum \n")
     println("Regfile Writeback Info:")
@@ -99,9 +98,9 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       val hartId = Input(UInt(64.W))
       val pcReadAddr = Output(Vec(pcReadNum, UInt(log2Ceil(FtqSize).W)))
       val pcReadData = Input(Vec(pcReadNum, new Ftq_RF_Components))
-      val vectorReads = Vec(vectorRfReadNum, Flipped(new VectorRfReadPort))
+      val vectorReads = Vec(loadUnitNum * 2, Flipped(new VectorRfReadPort))
       val extraReads = Vec(extraScalarRfReadPort, new ScalarRfReadPort)
-      val vectorRfMoveReq = Output(Vec(vectorRfReadNum, Valid(new MoveReq)))
+      val vectorRfMoveReq = Output(Vec(loadUnitNum, Valid(new MoveReq)))
       val debug_int_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val debug_fp_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val redirect = Input(Valid(new Redirect))
@@ -194,7 +193,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         } else if (exuComplexParam.isMemType) {
           val issueBundle = WireInit(bi.issue.bits)
 
-          val is2Stage = SrcType.needWakeup(bi.issue.bits.uop.ctrl.srcType(1))
+          val is2Stage = SrcType.isVec(bi.issue.bits.uop.ctrl.srcType(1)) || SrcType.isReg(bi.issue.bits.uop.ctrl.srcType(1))
           val isUnitStride = (bi.issue.bits.uop.ctrl.fuType === FuType.ldu || bi.issue.bits.uop.ctrl.fuType === FuType.stu) && !is2Stage
           val isStd = bi.issue.bits.uop.ctrl.fuType === FuType.std
           val uopIdx = bi.issue.bits.uop.uopIdx

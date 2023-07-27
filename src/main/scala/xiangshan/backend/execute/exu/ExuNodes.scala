@@ -48,3 +48,4 @@ object ExuOutwardImpl extends SimpleNodeImp[ExuConfig, Option[ExuConfig],(ExuCon
 
 class ExuInputNode(exuConfig: ExuConfig)(implicit valName: ValName) extends SinkNode(ExuInwardImpl)(Seq(exuConfig))
 class ExuOutputNode(exuConfig: ExuConfig)(implicit valName: ValName) extends SourceNode(ExuOutwardImpl)(Seq(exuConfig))
+class ExuOutputMultiSinkNode(exuConfigs: Seq[ExuConfig])(implicit valName: ValName) extends SourceNode(ExuOutwardImpl)(exuConfigs)

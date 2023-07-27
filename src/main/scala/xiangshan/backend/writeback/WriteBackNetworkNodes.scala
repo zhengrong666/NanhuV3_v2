@@ -100,3 +100,4 @@ class WriteBackNetworkNode(implicit valName: ValName) extends MixedNexusNode(Wri
   outputRequiresInput = false
 )
 class WriteBackSinkNode(param:WriteBackSinkParam)(implicit valName: ValName) extends SinkNode(WriteBackSinkNodeImpl)(Seq(param))
+class WriteBackSinkMultiSourceNode(params:Seq[WriteBackSinkParam])(implicit valName: ValName) extends SinkNode(WriteBackSinkNodeImpl)(params)

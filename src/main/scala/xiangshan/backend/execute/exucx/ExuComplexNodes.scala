@@ -40,10 +40,9 @@ case class ExuComplexParam
   val hasLoad: Boolean = exuConfigs.map(_.exuType == ExuType.ldu).reduce(_ || _)
   val hasSta: Boolean = exuConfigs.map(_.exuType == ExuType.sta).reduce(_ || _)
   val hasStd: Boolean = exuConfigs.map(_.exuType == ExuType.std).reduce(_ || _)
-  val hasVint:Boolean = exuConfigs.map(_.exuType == ExuType.vint).reduce(_ || _)
+  val hasValu:Boolean = exuConfigs.map(_.exuType == ExuType.valu).reduce(_ || _)
   val hasVmisc:Boolean = exuConfigs.map(_.exuType == ExuType.vmask).reduce(_ || _)
   val hasVfp:Boolean = exuConfigs.map(_.exuType == ExuType.vfp).reduce(_ || _)
-  val hasVint:Boolean = exuConfigs.map(_.exuType == ExuType.vint).reduce(_ || _)
   val isIntType:Boolean = exuConfigs.head.isIntType
   val isFpType:Boolean = exuConfigs.head.isFpType
   val isMemType:Boolean = exuConfigs.head.isMemType
@@ -63,7 +62,7 @@ case class ExuComplexParam
 
   val needToken:Boolean = exuConfigs.map(_.needToken).reduce(_||_)
 
-  val readIntegerRegfile:Boolean = isAluDiv || isAluJmp || isAluMul || hasSta || hasStd || hasLoad || hasVmisc || hasVint
+  val readIntegerRegfile:Boolean = isAluDiv || isAluJmp || isAluMul || hasSta || hasStd || hasLoad || hasVmisc || hasValu
   val readFloatingRegfile:Boolean = isFmac || isFmaDiv || isFmaMisc || hasStd || hasVfp
   val readVectorRegfile:Boolean = isVecType || hasLoad || hasStd || hasSta
 

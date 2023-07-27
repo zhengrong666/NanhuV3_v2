@@ -77,7 +77,8 @@ case class ExuConfig
   fuConfigs: Seq[FuConfig],
   exuType:Int,
   needToken:Boolean = false,
-  speculativeWakeup:Boolean = false
+  speculativeWakeup:Boolean = false,
+  throughVectorRf:Boolean = false
 ){
   val intSrcNum:Int = fuConfigs.map(_.numIntSrc).max
   val fpSrcNum:Int = fuConfigs.map(_.numFpSrc).max

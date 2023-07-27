@@ -24,7 +24,7 @@ import freechips.rocketchip.tile.HasFPUParameters
 import coupledL2.PrefetchRecv
 import utils._
 import xiangshan._
-import xiangshan.backend.execute.exu.{ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
+import xiangshan.backend.execute.exu.{ExuConfig, ExuInputNode, ExuOutputMultiSinkNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.exucx.ExuComplexIssueNode
 import xiangshan.backend.execute.fu.{FuConfigs, FunctionUnit, PMP, PMPChecker, PMPCheckerv2}
 import xiangshan.backend.execute.fu.csr.{PFEvent, SdtrigExt}
@@ -100,7 +100,7 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     )
   })
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))
-  val lduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(new ExuOutputNode(_))
+  val lduWritebackNodes: Seq[ExuOutputMultiSinkNode] = lduParams.map(e => new ExuOutputMultiSinkNode(Seq.fill(2)(e)))
   val staIssueNodes: Seq[ExuInputNode] = staParams.zipWithIndex.map(e => new ExuInputNode(e._1))
   val staWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
   val stdIssueNodes: Seq[ExuInputNode] = stdParams.zipWithIndex.map(e => new ExuInputNode(e._1))
