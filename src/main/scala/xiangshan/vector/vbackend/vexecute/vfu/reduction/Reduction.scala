@@ -1,12 +1,13 @@
 package xiangshan.vector.vbackend.vexecute.vfu.reduction
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
 import xiangshan.vector.vbackend.vexecute.vfu._
 import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
-class Reduction extends Module {
+class Reduction(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val in = Input(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)

@@ -1,11 +1,12 @@
 package xiangshan.vector.vbackend.vexecute.vfu.permutation
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.vector.vbackend.vexecute.vfu._
 import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
-class Permutation extends Module {
+class Permutation(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val in = Input(new VPermInput)
     val out = Output(new VPermOutput)

@@ -1,11 +1,12 @@
 package xiangshan.vector.vbackend.vexecute.vfu.div
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.vector.vbackend.vexecute.vfu._
 import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
-class VDiv extends Module {
+class VDiv(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new VFuInput))
     val out = Decoupled(new VFpuOutput)

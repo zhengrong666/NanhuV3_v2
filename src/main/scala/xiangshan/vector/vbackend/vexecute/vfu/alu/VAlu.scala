@@ -20,6 +20,7 @@
   */
 package xiangshan.vector.vbackend.vexecute.vfu.alu
 
+import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
@@ -117,7 +118,7 @@ class VIntFixpAlu64b extends Module {
 }
 
 
-class VAlu extends Module {
+class VAlu(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val in = Input(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)
