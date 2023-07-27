@@ -52,7 +52,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
-    val vstart = Input(UInt(16.W))
+    val vstart = Input(UInt(7.W))
     val WqFull = Output(Bool())
     val canRename = Input(Bool())
     val hasWalk = Input(Bool())
@@ -68,7 +68,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   val allowEnqueue = RegInit(true.B)
   val isEmpty = enqPtr === deqPtr
-  val isReplaying = io.redirect.valid && RedirectLevel.flushItself(io.redirect.bits.level)
+  val isReplaying = io.redirect.valid && RedirectLevel.flushItself(io.redirect.bits.level) && !io.canRename
 
   /**
     * states of Wq
@@ -127,23 +127,30 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * instruction split (Dequeue)
     */
 
+  val vstartInterrupt = Mux(io.vstart === 0.U, false.B, true.B)
+  val prestartelement = io.vstart
+
+
   val currentdata = WqDataRead(0)
   val deqUop = Wire(Vec(VIRenameWidth, new MicroOp))
   val isLS = Mux(currentdata.MicroOp.ctrl.isVLS, true.B, false.B)
   val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === IsWiden.NotWiden, false.B, true.B)
   var countnum = 0
-  if (currentdata.state == s_valid && io.canRename == true) {
+  if (currentdata.state == s_valid && isReplaying == false) {
     val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
     val vl = currentdata.MicroOp.vCsrInfo.vl
-    val elementNum = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
+    val elementInRegGroup = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
+    val elementTotal = lmul * elementInRegGroup
     //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
-    val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
-    val tailreg = vl / elementNum.U
-    val tailelement = vl % elementNum.U
+    val splitnum = Mux(isLS, elementTotal, Mux(isWiden, lmul * 2, lmul))
+    val tailreg = vl / elementInRegGroup.U
+    val tailelement = vl % elementInRegGroup.U
+    val prestartreg = prestartelement / elementInRegGroup.U
+    val prestartIdx
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
         if (countnum.U == tailreg) {
-          deqUop(i).tailMask := 0xffff.U >> ((elementNum.U - tailelement) * 16.U / elementNum.U)
+          deqUop(i).tailMask := 0xffff.U >> ((elementInRegGroup.U - tailelement) * 16.U / elementInRegGroup.U)
         } else if (countnum > tailreg){
           deqUop(i).tailMask := 0.U
         } else {
@@ -165,7 +172,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
           deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
           deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + tempnum.U
         } else if (isLS == true.B) {
-          val tempnum = countnum % elementNum
+          val tempnum = countnum % elementInRegGroup
           if (tempnum == 0) {
             deqUop(i).canRename := true.B
           } else {

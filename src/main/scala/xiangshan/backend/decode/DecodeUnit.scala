@@ -57,6 +57,26 @@ abstract trait DecodeConstants {
   val table: Array[(BitPat, List[BitPat])]
 }
 
+abstract trait VIDecodeConstants {
+  // This X should be used only in 1-bit signal. Otherwise, use->List(SrcType.fp,  SrcType.imm, SrcType.vec, FuType.fmisc, FuOpType.X, N, Y, N, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.X),
+  def X = BitPat("b?")
+  def N = BitPat("b0")
+  def Y = BitPat("b1")
+
+  def decodeDefault: List[BitPat] = // illegal instruction
+  //   srcType(0) srcType(1) srcType(2) fuType    fuOpType    rfWen
+  //   |          |          |          |         |           |  fpWen
+  //   |          |          |          |         |           |  |  vdWen
+  //   |          |          |          |         |           |  |  |  isorder
+  //   |          |          |          |         |           |  |  |  |  iswiden
+  //   |          |          |          |         |           |  |  |  |  |  isnarrow
+  //   |          |          |          |         |           |  |  |  |  |  |  selImm
+  //   |          |          |          |         |           |  |  |  |  |  |  |
+    List(SrcType.vec, SrcType.vec, SrcType.vec, FuType.X, FuOpType.X, N, N, N, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
+
+  val table: Array[(BitPat, List[BitPat])]
+}
+
 trait DecodeUnitConstants
 {
   // abstract out instruction decode magic numbers
@@ -446,7 +466,7 @@ object CBODecode extends DecodeConstants {
  * Vector decode
  */
 
-object VectorArithDecode extends DecodeConstants {
+object VectorArithDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     //arithmetic instruction
@@ -802,7 +822,7 @@ object VectorArithDecode extends DecodeConstants {
   )
 }
 
-object VectorLoadDecode extends DecodeConstants {
+object VectorLoadDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     VL1RE16_V ->List(SrcType.imm,  SrcType.fp, SrcType.X, FuType.ldu, FuOpType.X, N, N, Y, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.IMM_VL),
@@ -846,7 +866,7 @@ object VectorLoadDecode extends DecodeConstants {
   )
 }
 
-object VectorStoreDecode extends DecodeConstants {
+object VectorStoreDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     VSE16_V ->List(SrcType.fp,  SrcType.vec, SrcType.X, FuType.stu, FuOpType.X, N, N, Y, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.X),
@@ -874,7 +894,7 @@ object VectorStoreDecode extends DecodeConstants {
   )
 }
 
-object VectorConfDecode extends DecodeConstants {
+object VectorConfDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     VSETIVLI ->List(SrcType.imm,  SrcType.fp, SrcType.X, FuType.valu, FuOpType.X, N, Y, N, N, IsWiden.NotWiden, IsNarrow.NotNarrow, SelImm.IMM_CI),
@@ -884,7 +904,7 @@ object VectorConfDecode extends DecodeConstants {
   )
 }
 
-object VectorWidenDecode extends DecodeConstants {
+object VectorWidenDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     //widening
@@ -952,7 +972,7 @@ object VectorWidenDecode extends DecodeConstants {
   )
 }
 
-object VectorNarrowDecode extends DecodeConstants {
+object VectorNarrowDecode extends VIDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
     //narrowing

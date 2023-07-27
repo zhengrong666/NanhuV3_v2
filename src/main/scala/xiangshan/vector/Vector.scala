@@ -39,13 +39,13 @@ class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
 }
 
 
-class Vector(implicit p: Parameters) extends LazyModule {
+class VICtrlBlock(implicit p: Parameters) extends LazyModule {
 
-  lazy val module = new VectorImp(this)
+  lazy val module = new VICtrlImp(this)
 
 }
 
-class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(outer)
+class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasVectorParameters
   with HasXSParameter
 {
@@ -65,6 +65,8 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))) //to wait queue
     val commit = new VIRobIdxQueueEnqIO // to rename
     val redirect = Flipped(ValidIO(new Redirect))
+    //from csr vstart
+    val vstart = Input(UInt(7.W))
 
     //out
     //to exu
@@ -106,6 +108,7 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     }
   }
 
+  waitqueue.io.vstart <> io.vstart
   waitqueue.io.vtypeWbData <> io.vtypewriteback
   waitqueue.io.robin <> io.allowdeq
   waitqueue.io.MergeId <> io.MergeIdAllocate

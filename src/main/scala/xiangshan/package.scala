@@ -357,7 +357,7 @@ package object xiangshan {
   }
 
   //vector
-  object IsWiden {
+  object Widen {
     def Widen = "b00".U
 
     def Widen2 = "b01".U
@@ -369,7 +369,7 @@ package object xiangshan {
     def apply() = UInt(2.W)
   }
 
-  object IsNarrow {
+  object Narrow {
     def Narrow = "b00".U
 
     def Narrow2 = "b01".U

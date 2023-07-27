@@ -723,11 +723,11 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
         val cs = io.in(i).bits.ctrl
 
         // read src1~3 location
-        cs.lsrc(0) := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
-        cs.lsrc(1) := io.in(i).bits.cf.instr(VS2_MSB, VS2_LSB)
+//        cs.lsrc(0) := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
+//        cs.lsrc(1) := io.in(i).bits.cf.instr(VS2_MSB, VS2_LSB)
         cs.lsrc(2) := io.in(i).bits.cf.instr(VD_MSB, VD_LSB)
         cs.ldest := io.in(i).bits.cf.instr(VD_MSB, VD_LSB)
-        cs.old_vdType := cs.srcType(2)
+        cs.old_vdType := Mux(cs.vdWen, SrcType.vec, Mux(cs.fpWen, SrcType.fp, SrcType.reg))
         cs.funct6 := io.in(i).bits.cf.instr(F6_MSB, F6_LSB)
         cs.funct3 := io.in(i).bits.cf.instr(F3_MSB, F3_LSB)
         cs.NFiled := io.in(i).bits.cf.instr(NF_MSB, NF_LSB)
