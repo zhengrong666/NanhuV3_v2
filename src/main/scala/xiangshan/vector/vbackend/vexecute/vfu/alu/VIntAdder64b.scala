@@ -8,11 +8,11 @@
   *     Part of 12.1
   *     Part of 12.2
   */
-package darecreek.exu.fu2.alu
+package xiangshan.vector.vbackend.vexecute.vfu.alu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
+import xiangshan.vector.vbackend.vexecute.vfu._
 
 class VIntAdder64b extends Module {
   val io = IO(new Bundle {

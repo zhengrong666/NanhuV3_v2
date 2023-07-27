@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.fp
+package xiangshan.vector.vbackend.vexecute.vfu.fp
 
 import chisel3._
 import chisel3.util.DecoupledIO
 // import darecreek.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
-import darecreek.exu.fu2.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
+import xiangshan.vector.vbackend.vexecute.vfu.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
 import freechips.rocketchip.config.Parameters
 
 class VFPUCtrlSigs extends Bundle {

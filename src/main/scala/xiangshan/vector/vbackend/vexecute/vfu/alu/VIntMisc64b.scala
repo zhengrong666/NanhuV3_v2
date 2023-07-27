@@ -12,12 +12,12 @@
   *     16.2
   *     16.6
   */
-package darecreek.exu.fu2.alu
+package xiangshan.vector.vbackend.vexecute.vfu.alu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VIntMisc64b extends Module {
   val io = IO(new Bundle {

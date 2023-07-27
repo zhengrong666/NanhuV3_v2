@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.div
+package xiangshan.vector.vbackend.vexecute.vfu.div
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VDiv extends Module {
   val io = IO(new Bundle {

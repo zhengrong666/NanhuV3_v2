@@ -1,6 +1,6 @@
 /**
   * Integer and fixed-point (except mult and div)
-  *   
+  *
   * Perform below instructions:
   *     11.1  vadd, ...
   *     11.2  vwadd, ...
@@ -18,13 +18,13 @@
   *     12.4  vssrl, ...
   *     12.5  vnclip, ...
   */
-package darecreek.exu.fu2.alu
+package xiangshan.vector.vbackend.vexecute.vfu.alu
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VIntFixpDecode extends Bundle {
   val sub = Bool()

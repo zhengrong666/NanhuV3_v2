@@ -1,12 +1,12 @@
-package darecreek.exu.fu2.fp
+package xiangshan.vector.vbackend.vexecute.vfu.fp
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util.{Arbiter, Cat, DecoupledIO}
 // import darecreek.{LaneFUInput, LaneFUOutput}
 // import darecreek.exu.fu.alu.MaskTailData
-import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
-import darecreek.exu.fu2.MaskTailData
+import xiangshan.vector.vbackend.vexecute.vfu.{LaneFUInput, LaneFUOutput}
+import xiangshan.vector.vbackend.vexecute.vfu.MaskTailData
 
 class VFPUTop(implicit val p: Parameters = (new WithVFPUConfig).toInstance)
   extends VFPUBaseModule with HasVFPUParams {

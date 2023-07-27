@@ -1,11 +1,11 @@
-package darecreek.exu.fu2.perm
+package xiangshan.vector.vbackend.vexecute.vfu.permutation
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
-class permutation extends Module {
+class Permutation extends Module {
   val io = IO(new Bundle {
     val in = Input(new VPermInput)
     val out = Output(new VPermOutput)

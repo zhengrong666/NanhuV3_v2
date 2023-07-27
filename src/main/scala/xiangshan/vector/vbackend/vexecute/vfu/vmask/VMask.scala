@@ -1,10 +1,10 @@
-package darecreek.exu.fu2.vmask
+package xiangshan.vector.vbackend.vexecute.vfu.vmask
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VMask extends Module {
   val io = IO(new Bundle {

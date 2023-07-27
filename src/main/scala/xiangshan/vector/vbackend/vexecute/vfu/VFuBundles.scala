@@ -1,8 +1,8 @@
-package darecreek.exu.fu2
+package xiangshan.vector.vbackend.vexecute.vfu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 import chipsalliance.rocketchip.config.Parameters
 
 // This is fake. Should be replaced by real MicroOp

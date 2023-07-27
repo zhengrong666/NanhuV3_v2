@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.fp
+package xiangshan.vector.vbackend.vexecute.vfu.fp
 
 import chipsalliance.rocketchip.config._
 // import darecreek.{DarecreekParameters, LaneWidth, xLen}
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.DarecreekParamVFU._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.DarecreekParamVFU._
 
 case object NAME extends Field[String]
 case object LANE_WIDTH extends Field[Int]

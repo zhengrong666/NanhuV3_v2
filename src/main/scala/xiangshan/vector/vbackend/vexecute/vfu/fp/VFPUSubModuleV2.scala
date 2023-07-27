@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.fp
+package xiangshan.vector.vbackend.vexecute.vfu.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.{LaneFUInput, LaneFUOutput}
-import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
+import xiangshan.vector.vbackend.vexecute.vfu.{LaneFUInput, LaneFUOutput}
 import freechips.rocketchip.config.Parameters
 
 abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFPUParams

@@ -1,11 +1,11 @@
-package darecreek.exu.fu2.fp
+package xiangshan.vector.vbackend.vexecute.vfu.fp
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
 import chipsalliance.rocketchip.config.Parameters
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VFPUWrapper extends Module {
   val io = IO(new Bundle {
@@ -14,7 +14,7 @@ class VFPUWrapper extends Module {
   })
 
 
-  val xlen = darecreek.exu.fu2.VFUParam.XLEN
+  val xlen = xiangshan.vector.vbackend.vexecute.vfu.VFUParam.XLEN
   val LaneWidth = 64 // constant
   val NLanes = VLEN / LaneWidth
   val vlenb = VLEN / 8

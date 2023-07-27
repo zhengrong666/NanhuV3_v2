@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.div
+package xiangshan.vector.vbackend.vexecute.vfu.div
 
 import chipsalliance.rocketchip.config.{Config, Field, Parameters}
 import chisel3._
@@ -7,10 +7,10 @@ import chisel3.util._
 // import darecreek.exu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
 // import darecreek.exu.fu.alu.MaskTailData
 // import darecreek.exu.fp._
-import darecreek.exu.fu2.DarecreekParamVFU._
-import darecreek.exu.fu2.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
-import darecreek.exu.fu2.fp._
-import darecreek.exu.fu2._
+import xiangshan.vector.vbackend.vexecute.vfu.DarecreekParamVFU._
+import xiangshan.vector.vbackend.vexecute.vfu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
+import xiangshan.vector.vbackend.vexecute.vfu.fp._
+import xiangshan.vector.vbackend.vexecute.vfu._
 
 //case object NAME extends Field[String]
 //case object LANE_WIDTH extends Field[Int]
