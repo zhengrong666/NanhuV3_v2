@@ -1207,7 +1207,7 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   val isVector = BitPat("b???????_?????_?????_???_?????_1010111") === ctrl_flow.instr || isvectorload || isvectorstore
   val isVtype = BitPat("b???????_?????_?????_111_?????_1010111") === ctrl_flow.instr
 
-  if (isVector === true) {
+  if (isVector == true.B) {
     val vdecode_table = VectorArithDecode.table ++
       VectorStoreDecode.table ++
       VectorLoadDecode.table ++

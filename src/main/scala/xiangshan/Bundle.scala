@@ -175,7 +175,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   }
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isOrder, Widen, Narrow, selImm)
+    vdWen, isOrder, widen, narrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
