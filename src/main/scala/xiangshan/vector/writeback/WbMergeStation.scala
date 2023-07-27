@@ -39,13 +39,11 @@ class WbMergeStationEntry(implicit p: Parameters) extends XSBundle {
     val wbmask  = UInt(8.W)
     val robIdx  = new RobPtr
     val canWb   = Bool()
-    val cancel  = Bool()
     val valid   = Bool()
 
     def init: Unit = {
         wbmask := 0.U
         canWb := false.B
-        cancel := false.B
         valid := false.B
     }
 }
@@ -64,7 +62,7 @@ object WbMergeStationPtr {
 class WbMergeStationPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters) extends XSModule {
     val io = IO(new Bundle {
         val allocate = Vec(allocateWidth, DecoupledIO(new WbMergeStationPtr(size)))
-        val release = Flipped(ValidIO(UInt(log2Up(releaseWidth + 1).W)))
+        val release = Flipped(ValidIO(UInt(log2Up(size + 1).W)))
         val releasePtrValue = Output(new WbMergeStationPtr(size))
     })
 
@@ -87,8 +85,6 @@ class WbMergeStationPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(
 }
 
 class WbMergeStation(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4, wbWidth: Int = 4)(implicit p: Parameters) extends XSModule {
-    def bankSize: Int = size / wbWidth
-
     val io = IO(new Bundle {
         val redirect    = Flipped(ValidIO(new Redirect))
         val waitqueue   = Vec(allocateWidth, DecoupledIO(new WbMergeStationPtr(size)))
@@ -113,7 +109,6 @@ class WbMergeStation(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4
         when(en) {
             mergeTable(ptr).wbmask := 0.U
             mergeTable(ptr).canWb := false.B
-            mergeTable(ptr).cancel := false.B
         }
     }
 
@@ -154,6 +149,12 @@ class WbMergeStation(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4
     ptrHelper.io.release := PopCount(wbVec)
 
     //redirect
-    
-
+    val cancelVec = Wire(Vec(size, Bool()))
+    val cancelNum = Wire(UInt(log2Up(size + 1).W))
+    for((entry, i) <- mergeTable.zipWithIndex) {
+        cancelVec(i) := entry.valid && io.redirect.valid && io.redirect.bits.robIdx <= entry.robIdx
+    }
+    cancelNum := PopCount(cancelVec)
+    ptrHelper.io.release.bits := cancelNum
+    ptrHelper.io.release.valid := cancelNum.orR
 }
