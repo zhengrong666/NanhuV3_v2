@@ -3,7 +3,7 @@ package xiangshan.vector.vbackend.vexecute.vfu.alu
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2.VInstructions._
+import xiangshan.vector.vbackend.vexecute.vfu.VInstructions._
 
 object VAluFunct6 {
   //                                  OPI (OPIVV/X/I)
@@ -51,6 +51,10 @@ object VAluFunct6 {
   def VSSRA      = VSSRA_VV(31, 26)  ## BitPat("b1")
   def VNCLIPU    = VNCLIPU_WV(31, 26) ## BitPat("b1")
   def VNCLIP     = VNCLIP_WV(31, 26) ## BitPat("b1")
+  // Permutatin
+  def VMVXS      = VMV_X_S(31, 26) ## BitPat("b0") //VFMV_F_S
+  def VMVSX      = VMV_S_X(31, 26) ## BitPat("b0") //VFMV_S_F
+  def VMVNRV     = VMV1R_V(31, 26) ## BitPat("b1") //VMV1(2/4/8)R_V
 }
 
 import VAluFunct6._
@@ -101,5 +105,9 @@ object VAluTable {
     VSSRA            -> BitPat("b0  1  1"),
     VNCLIPU          -> BitPat("b0  1  1"),
     VNCLIP           -> BitPat("b0  1  1"),
+    // Permutatin
+    VMVXS            -> BitPat("b0  1  0"),
+    VMVSX            -> BitPat("b0  1  0"),
+    VMVNRV           -> BitPat("b0  1  0"),
   )
 }

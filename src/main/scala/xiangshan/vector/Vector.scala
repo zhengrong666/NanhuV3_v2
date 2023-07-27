@@ -14,7 +14,7 @@
   * See the Mulan PSL v2 for more details.
   ***************************************************************************************/
 
-package Vector
+package xiangshan.vector
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
@@ -30,13 +30,22 @@ import xiangshan.vector.viwaitqueue._
 import xiangshan.vector.virename._
 import xiangshan.vector.dispatch._
 
-class Vector(implicit p: Parameters) extends LazyModule {
 
-  lazy val module = new VectorImp(this)
+
+class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
+  val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
+  val pdest = UInt(PhyRegIdxWidth.W)
+  val old_pdest = UInt(PhyRegIdxWidth.W)
+}
+
+
+class VICtrlBlock(implicit p: Parameters) extends LazyModule {
+
+  lazy val module = new VICtrlImp(this)
 
 }
 
-class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(outer)
+class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasVectorParameters
   with HasXSParameter
 {
@@ -48,13 +57,16 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     //from ctrl decode
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
     //from ctrl rename
-    val vtypein = Vec(VIDecodeWidth, Flipped(DecoupledIO(new MicroOp))) //from rename to vtyperename
+    val vtypein = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeReg))) //to waitqueue
+    val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
     //from ctrl rob
     val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
+    val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))) //to wait queue
     val commit = new VIRobIdxQueueEnqIO // to rename
-
     val redirect = Flipped(ValidIO(new Redirect))
+    //from csr vstart
+    val vstart = Input(UInt(7.W))
 
     //out
     //to exu
@@ -63,7 +75,6 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
   })
 
   val videcode = Module(new VIDecodeUnit)
-  val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
   val waitqueue = Module(new VIWaitQueue)
   val virename = Module(new VIRenameWrapper)
   val dispatch = Module(new VectorDispatchWrapper(VIRenameWidth))
@@ -76,33 +87,38 @@ class VectorImp(outer: Vector)(implicit p: Parameters) extends LazyModuleImp(out
     videcode.io.in(i).bits := DecodePipe.bits
   }
 
-  vtyperename.io.in <> io.vtypein
-
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    when(vtyperename.io.out(i).valid && videcode.io.out(i).valid) {
+    when(io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid) {
       waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
       waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
       val CurrentData = new VIMop
       CurrentData.MicroOp <> videcode.io.out(i).bits
-      CurrentData.MicroOp.vCsrInfo <> vtyperename.io.out(i).bits.vCsrInfo
-      CurrentData.MicroOp.robIdx := vtyperename.io.out(i).bits.robIdx
-      if (vtyperename.io.out(i).bits.state == 1.U) {
-        CurrentData.state := vtyperename.io.out(i).bits.state - 1.U
+      CurrentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
+      CurrentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
+      CurrentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
+      CurrentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.vCsrInfo
+      CurrentData.MicroOp.robIdx := io.vtypein(i).bits.robIdx
+      if (io.vtypein(i).bits.state == 1.U) {
+        CurrentData.state := io.vtypein(i).bits.state - 1.U
       } else {
-        CurrentData.state := vtyperename.io.out(i).bits.state
+        CurrentData.state := io.vtypein(i).bits.state
       }
       waitqueue.io.enq.req(i).bits := CurrentData
     }
   }
 
+  waitqueue.io.vstart <> io.vstart
   waitqueue.io.vtypeWbData <> io.vtypewriteback
   waitqueue.io.robin <> io.allowdeq
+  waitqueue.io.MergeId <> io.MergeIdAllocate
   waitqueue.io.canRename <> virename.io.canAccept
+  waitqueue.io.redirect <> io.redirect
 
   virename.io.uopIn <> waitqueue.io.out
   virename.io.redirect <> io.redirect
   virename.io.commit <> io.commit
+  virename.io.redirect <> io.redirect
 
   dispatch.io.req.uop <> virename.io.uopOut
   dispatch.io.redirect <> io.redirect

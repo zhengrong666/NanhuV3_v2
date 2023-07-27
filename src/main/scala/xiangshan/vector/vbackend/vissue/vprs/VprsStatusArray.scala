@@ -46,8 +46,8 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pvs1States(io.enq.bits.uopIdx) := Mux(SrcType.isVec(io.enq.bits.ctrl.srcType(0)), io.enq.bits.srcState(0), SrcState.rdy)
       enqEntryNext.bits.pvs2(io.enq.bits.uopIdx) := io.enq.bits.psrc(1)
       enqEntryNext.bits.pvs2States(io.enq.bits.uopIdx) := io.enq.bits.srcState(1)
-      enqEntryNext.bits.pov(io.enq.bits.uopIdx) := io.enq.bits.old_pdest
-      enqEntryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.oldPdestState)
+      enqEntryNext.bits.pov(io.enq.bits.uopIdx) := io.enq.bits.psrc(2)
+      enqEntryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
       enqEntryNext.bits.allMerged := io.enq.bits.uopNum === io.enq.bits.uopIdx
     }.otherwise{
       assert(!io.entry.valid)
@@ -60,8 +60,8 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pvs1States(0) := Mux(SrcType.isVec(io.enq.bits.ctrl.srcType(0)), io.enq.bits.srcState(0), SrcState.rdy)
       enqEntryNext.bits.pvs2(0) := io.enq.bits.psrc(1)
       enqEntryNext.bits.pvs2States(0) := io.enq.bits.srcState(1)
-      enqEntryNext.bits.pov(0) := io.enq.bits.old_pdest
-      enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.oldPdestState)
+      enqEntryNext.bits.pov(0) := io.enq.bits.psrc(2)
+      enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
       enqEntryNext.bits.pvm := io.enq.bits.vm
       enqEntryNext.bits.pvmState(0) := Mux(io.enq.bits.ctrl.vm, io.enq.bits.vmState, SrcState.rdy)
       enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 0.U
@@ -135,7 +135,7 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
   }
 
   private val mergeVec = valids.zip(array).map({case(v, e) =>
-    v && e.robPtr === io.enq.bits
+    v && e.robPtr === io.enq.bits.robIdx
   })
   private val mergeAuxVec = validsAux.zip(robIdxAux).map({ case (v, e) =>
     v && e === io.enq.bits

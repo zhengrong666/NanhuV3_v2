@@ -32,7 +32,7 @@ object ExuType{
   def fmisc = 7
   def fmac = 8
   def fdiv = 9
-  def vint = 10
+  def valu = 10
   def vmac = 11
   def vfp = 12
   def vdiv = 13
@@ -51,11 +51,10 @@ object ExuType{
     fmisc -> "fmisc",
     fmac -> "fmac",
     fdiv -> "fdiv",
-    vint -> "vint",
+    valu -> "valu",
     vfp -> "vfp",
     vdiv -> "vdiv",
     vmac -> "vmac",
-    vint -> "vint",
     vperm -> "vperm",
     vred -> "vred",
     vmask -> "vmask"
@@ -64,7 +63,7 @@ object ExuType{
   def intTypes: Seq[Int] = Seq(jmp, alu, mul, div)
   def memTypes: Seq[Int] = Seq(ldu, sta, std)
   def fpTypes: Seq[Int] = Seq(fmisc, fmac, fdiv)
-  def vecTypes: Seq[Int] = Seq(vred, vmask, vfp, vint, vperm, vmac)
+  def vecTypes: Seq[Int] = Seq(vred, vmask, vfp, valu, vperm, vmac)
   def typeToString(in:Int):String = mapping(in)
   def bypassIntList: Seq[Int] = Seq(alu, mul, ldu)
   def bypassFpList: Seq[Int] = Seq(ldu)
@@ -90,12 +89,14 @@ case class ExuConfig
   val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_)
   val wakeUpIntRs = fuConfigs.map(_.writeIntRf).reduce(_||_) && !hasFastWakeup
   val wakeUpFpRs = fuConfigs.map(_.writeFpRf).reduce(_||_)
-  val wakeUpMemRs =  fuConfigs.map(e => e.writeIntRf || e.writeFpRf).reduce(_||_) && !hasFastWakeup
+  val wakeUpMemRs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf).reduce(_||_) && !hasFastWakeup
+  val wakeUpVrs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || e.writeVecRf).reduce(_||_)
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
   val isIntType = ExuType.intTypes.contains(exuType)
   val isMemType = ExuType.memTypes.contains(exuType)
   val isFpType = ExuType.fpTypes.contains(exuType)
   val isVecType = ExuType.vecTypes.contains(exuType)
+  val willTriggerVrfWkp = fuConfigs.map(_.triggerVrfWakeup).reduce(_||_)
   val bypassIntRegfile = ExuType.bypassIntList.contains(exuType)
   val bypassFpRegfile = ExuType.bypassFpList.contains(exuType)
   val trigger: Boolean = fuConfigs.map(_.trigger).reduce(_ || _)

@@ -5,7 +5,6 @@ import chisel3._
 import chisel3.util._
 import xiangshan._
 import xiangshan.vector._
-import xiangshan.vector.vtyperename.{VtypePtr}
 import xs.utils._
 import xiangshan.backend.rob._
 
@@ -49,10 +48,11 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val hartId = Input(UInt(8.W))
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtypeWbData = Vec(VIDecodeWidth, DecoupledIO(new ExuOutput))
-    val MergeId = Vec(VIDecodeWidth, DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))
+    val vtypeWbData = Vec(VIDecodeWidth, Flipped(DecoupledIO(new ExuOutput)))
+    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val out = Vec(VIRenameWidth, Flipped(ValidIO(new RobPtr)))
+    val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
+    val vstart = Input(UInt(7.W))
     val WqFull = Output(Bool())
     val canRename = Input(Bool())
     val hasWalk = Input(Bool())
@@ -68,7 +68,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   val allowEnqueue = RegInit(true.B)
   val isEmpty = enqPtr === deqPtr
-  val isReplaying = io.redirect.valid && RedirectLevel.flushItself(io.redirect.bits.level)
+  val isReplaying = io.redirect.valid && RedirectLevel.flushItself(io.redirect.bits.level) && !io.canRename
 
   /**
     * states of Wq
@@ -127,50 +127,45 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * instruction split (Dequeue)
     */
 
+  val vstartInterrupt = RegNext(Mux(io.vstart === 0.U, false.B, true.B))
+  val prestartelement = io.vstart
+
+
   val currentdata = WqDataRead(0)
   val deqUop = Wire(Vec(VIRenameWidth, new MicroOp))
   val isLS = Mux(currentdata.MicroOp.ctrl.isVLS, true.B, false.B)
-  val isWiden = Mux(currentdata.MicroOp.ctrl.Widen === IsWiden.NotWiden, false.B, true.B)
+  val isWiden = Mux(currentdata.MicroOp.ctrl.widen === Widen.NotWiden, false.B, true.B)
   var countnum = 0
-  if (currentdata.state == s_valid && io.canRename == true) {
-    val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
-    val vl = currentdata.MicroOp.vCsrInfo.vl
-    val elementNum = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
-    //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
-    val splitnum = Mux(isLS, lmul * elementNum, Mux(isWiden, lmul * 2, lmul))
-    val tailreg = vl / elementNum.U
-    val tailelement = vl % elementNum.U
+  val lmul = currentdata.MicroOp.vCsrInfo.LmulToInt()
+  val vl = currentdata.MicroOp.vCsrInfo.vl
+  val elementInRegGroup = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
+  val elementTotal = lmul * elementInRegGroup
+  //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
+  val splitnum = Mux(isLS, elementTotal, Mux(isWiden, lmul * 2, lmul))
+  val tailreg = vl / elementInRegGroup.U
+  val tailidx = vl % elementInRegGroup.U
+  val prestartreg = prestartelement / elementInRegGroup.U
+  val prestartIdx = prestartelement % elementInRegGroup.U
+  if (currentdata.state == s_valid && isReplaying == false) {
     for (i <- 0 until VIRenameWidth) {
       if (countnum < splitnum) {
-        if (countnum.U == tailreg) {
-          deqUop(i).tailMask := 0xffff.U >> ((elementNum.U - tailelement) * 16.U / elementNum.U)
-        } else if (countnum > tailreg){
-          deqUop(i).tailMask := 0.U
-        } else {
-          deqUop(i).tailMask := 0xffff.U
-        }
+        deqUop(i).tailMask := Mux(countnum.U === tailreg, 0xffff.U >> ((elementInRegGroup.U - tailidx) * 16.U / elementInRegGroup.U),
+          Mux(countnum > tailreg, 0.U, 0xffff.U))
+        deqUop(i).preStartMask := Mux(vstartInterrupt && (prestartreg === countnum.U), 0xffff.U << prestartIdx, 0.U)
         deqUop(i) := currentdata.MicroOp
         deqUop(i).uopIdx := countnum.U
         deqUop(i).uopNum := splitnum.U
         if (deqUop(i).ctrl.isSeg == true.B) {
           val nf = currentdata.MicroOp.ctrl.NFToInt()
           val tempnum = countnum % nf
-          if (countnum > nf) {
-            deqUop(i).canRename := false.B
-          } else {
-            deqUop(i).canRename := true.B
-          }
+          deqUop(i).canRename := Mux(countnum.U > nf.U, false.B, true.B)
           deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + tempnum.U
           deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + tempnum.U
           deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
           deqUop(i).ctrl.ldest := currentdata.MicroOp.ctrl.ldest + tempnum.U
         } else if (isLS == true.B) {
-          val tempnum = countnum % elementNum
-          if (tempnum == 0) {
-            deqUop(i).canRename := true.B
-          } else {
-            deqUop(i).canRename := false.B
-          }
+          val tempnum = countnum % elementInRegGroup
+          deqUop(i).canRename := Mux(tempnum.U === 0.U, true.B, false.B)
           deqUop(i).ctrl.lsrc(0) := currentdata.MicroOp.ctrl.lsrc(0) + tempnum.U
           deqUop(i).ctrl.lsrc(1) := currentdata.MicroOp.ctrl.lsrc(1) + tempnum.U
           deqUop(i).ctrl.lsrc(2) := currentdata.MicroOp.ctrl.lsrc(2) + tempnum.U
@@ -186,7 +181,15 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       } else {
         deqUop(i) := DontCare
         countnum = 0
-        isComplete := true.B
+        if (vstartInterrupt == true) {
+          isComplete := false.B
+          currentdata.state := s_invalid
+          WqData.io.wen := isComplete
+          WqData.io.waddr := deqPtr_next.value
+          WqData.io.wdata := currentdata
+        } else {
+          isComplete := true.B
+        }
       }
     }
   }
@@ -208,6 +211,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       val tempdata = WqData.io.rdata(0)
       if (tempdata.MicroOp.robIdx == idx) {
         WqData.io.waddr := vtypePtr.value
+        WqData.io.wen := io.vtypeWbData(i).valid
         tempdata.MicroOp.vCsrInfo.vsew := io.vtypeWbData(i).bits.data
         tempdata.MicroOp.vCsrInfo.vlmul := io.vtypeWbData(i).bits.data
         tempdata.MicroOp.vCsrInfo.vl := io.vtypeWbData(i).bits.data
@@ -227,6 +231,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       val tempdata = WqData.io.rdata(0)
       if (tempdata.MicroOp.robIdx == io.robin(i).bits) {
         WqData.io.waddr := waitPtr.value
+        WqData.io.wen := io.robin(i).valid
         tempdata.state := tempdata.state - 1.U
         WqData.io.wdata := tempdata
       }
@@ -244,6 +249,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
       if (tempdata.state == s_merge) {
         tempdata.MicroOp.mergeIdx := io.vtypeWbData(i).bits.data
         tempdata.state := tempdata.state - 1.U
+        WqData.io.wen := io.MergeId(i).valid
         WqData.io.waddr := waitPtr.value
         WqData.io.wdata := tempdata
         io.MergeId(i).ready := true.B
@@ -255,12 +261,15 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * update pointers
     */
 
-  WqData.io.raddr := waitPtr.value
-  val tempdata_wait = WqData.io.rdata(0)
-  waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
+  val ren = PopCount(canEnqueue).orR
+  when(ren){
+    WqData.io.raddr := waitPtr.value
+    val tempdata_wait = WqData.io.rdata(0)
+    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
 
-  WqData.io.raddr := vtypePtr.value
-  val tempdata_vtype = WqData.io.rdata(0)
-  vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
+    WqData.io.raddr := vtypePtr.value
+    val tempdata_vtype = WqData.io.rdata(0)
+    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
+  }
 
 }

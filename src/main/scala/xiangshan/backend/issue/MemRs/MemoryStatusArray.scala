@@ -61,7 +61,8 @@ class StaLoadIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGe
     Mux(FuType.isStore(ib.fuType),
       true.B,
       ib.srcState(2) === SrcState.rdy
-    )
+    ) &&
+    ib.vmState === SrcState.rdy
   readyToIssue := issCond && ib.staLoadState === EntryState.s_ready
   io.out.bits.lpv := VecInit(ib.lpv(0).zip(ib.lpv(1)).map({case(a, b) => a | b}))
 }
@@ -73,6 +74,8 @@ class StdIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGenera
 }
 
 class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEntry(3) {
+  val vm = UInt(PhyRegIdxWidth.W)
+  val vmState = SrcState()
   val isVector = Bool()
   val staLoadState = EntryState()
   val stdState = EntryState()
@@ -106,12 +109,12 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   private val enqUpdateEn = WireInit(false.B)
 
   //Start of wake up
-  private val pregMatch = io.entry.bits.psrc
-    .zip(io.entry.bits.srcType)
+  private val pregMatch = (io.entry.bits.psrc :+ io.entry.bits.vm)
+    .zip(io.entry.bits.srcType :+ SrcType.vec)
     .map(p => (io.wakeup ++ io.loadEarlyWakeup).map(elm =>
       (elm.bits.pdest === p._1) && elm.valid && p._2 === elm.bits.destType && !(p._1 === 0.U && p._2 === SrcType.reg)
     ))
-  for ((n, v) <- miscNext.bits.srcState zip pregMatch) {
+  for ((n, v) <- (miscNext.bits.srcState :+ miscNext.bits.vmState) zip pregMatch) {
     val shouldUpdateSrcState = Cat(v).orR
     when(shouldUpdateSrcState) {
       n := SrcState.rdy

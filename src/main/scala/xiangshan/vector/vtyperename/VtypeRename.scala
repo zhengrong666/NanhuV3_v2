@@ -68,7 +68,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val robCommits = Flipped(new RobCommitIO)
     val canAllocate = Output(Bool())
     val doAllocate = Input(Bool())
-    val in = Vec(enqnum, Flipped(DecoupledIO(new MicroOp)))
+    val in = Vec(enqnum, Flipped(ValidIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeReg))
     val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))

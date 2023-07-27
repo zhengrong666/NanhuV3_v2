@@ -21,10 +21,9 @@ class VprsIssueBundle(implicit p: Parameters) extends XSBundle{
 
 class VpReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
   private val entryNum = vectorParameters.vPRsDepth
-  private val wbNodeParam = WriteBackSinkParam(name = "Vector RS", sinkType = WriteBackSinkType.vecRs)
+  private val wbNodeParam = WriteBackSinkParam(name = "Vector Permutation RS", sinkType = WriteBackSinkType.vecPermRs)
   private val rsParam = RsParam(name = "Vector RS", RsType.vec, entryNum, 1)
   require(entryNum % rsParam.bankNum == 0)
-  val issueNode = new RsIssueNode(rsParam)
   val wakeupNode = new WriteBackSinkNode(wbNodeParam)
   val dispatchNode = new RsDispatchNode(rsParam)
 
@@ -84,13 +83,13 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
 
   private val integerBusyTable = Module(new BusyTable(param.bankNum, intWkps.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.intAllocPregs
-  integerBusyTable.io.wbPregs.zip(scalarWakeupSignals).foreach({case(bt, wb) =>
+  integerBusyTable.io.wbPregs.zip(intWakeupSignals).foreach({case(bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
   private val floatingBusyTable = Module(new BusyTable(param.bankNum, fpWkps.length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.fpAllocPregs
-  floatingBusyTable.io.wbPregs.zip(scalarWakeupSignals).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(fpWakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
@@ -110,7 +109,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   floatingBusyTable.io.read.head.req := enq.head.bits.psrc(0)
   vectorBusyTable.io.read.head.req := enq.head.bits.psrc(0)
   vectorBusyTable.io.read(1).req := enq.head.bits.psrc(1)
-  vectorBusyTable.io.read(2).req := enq.head.bits.old_pdest
+  vectorBusyTable.io.read(2).req := enq.head.bits.psrc(2)
   vectorBusyTable.io.read(3).req := enq.head.bits.vm
 
   arrayWrapper.io.enq.bits.srcState(0) := MuxCase(SrcState.rdy, Seq(
@@ -119,7 +118,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
     enq.head.bits.ctrl.srcType(0) === SrcType.vec -> vectorBusyTable.io.read.head.resp
   ))
   arrayWrapper.io.enq.bits.srcState(1) := vectorBusyTable.io.read(1).resp
-  arrayWrapper.io.enq.bits.oldPdestState := vectorBusyTable.io.read(2).resp
+  arrayWrapper.io.enq.bits.srcState(2) := vectorBusyTable.io.read(2).resp
   arrayWrapper.io.enq.bits.vmState := vectorBusyTable.io.read(3).resp
 
   selectNetwork.io.redirect := io.redirect

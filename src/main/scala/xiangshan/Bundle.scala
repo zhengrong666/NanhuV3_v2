@@ -146,13 +146,10 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val replayInst = Bool()
 
   //Vector
-  val old_vdType = SrcType()
   val vdWen = Bool()
   val isOrder = Bool()
-  val isWiden = Bool()
-  val isNarrow = Bool()
-  val Widen = IsWiden()
-  val Narrow = IsNarrow()
+  val widen = Widen()
+  val narrow = Narrow()
   val isVector = Bool()
   val isVtype = Bool()
   val isVLS = Bool()
@@ -247,12 +244,12 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val debugInfo = new PerfDebugInfo
 
   //vector
-  val oldPdestState = SrcState()
   val vm = UInt(PhyRegIdxWidth.W)
   val vmState = SrcState()
   val uopIdx = UInt(7.W)
   val uopNum = UInt(7.W)
   val tailMask = UInt(16.W)
+  val preStartMask = UInt(16.W)
   val canRename = Bool()
   val mergeIdx = UInt(log2Up(VectorMergeStationDepth).W)
   val loadStoreEnable = Bool()
@@ -316,6 +313,7 @@ class DebugBundle(implicit p: Parameters) extends XSBundle {
 class ExuInput(implicit p: Parameters) extends XSBundle {
   val uop = new MicroOp
   val src = Vec(3, UInt(VLEN.W))
+  val vm = UInt(VLEN.W)
 }
 
 class ExuOutput(implicit p: Parameters) extends XSBundle {
