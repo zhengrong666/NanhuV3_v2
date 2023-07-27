@@ -146,7 +146,6 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val replayInst = Bool()
 
   //Vector
-  val old_vdType = SrcType()
   val vdWen = Bool()
   val isOrder = Bool()
   val isWiden = Bool()

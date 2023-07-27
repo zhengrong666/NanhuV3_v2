@@ -8,7 +8,7 @@
   *     Part of 12.1
   *     Part of 12.2
   */
-package xiangshan.vector.vbackend.vexecute.vfu.alu
+package darecreek.exu.fu2.alu
 
 import chisel3._
 import chisel3.util._

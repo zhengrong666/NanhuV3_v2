@@ -58,6 +58,9 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     wkp
   }))
   private val wakeupWidth = wakeupSignals.length
+  private val wakeupInt = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeIntRf).map(_._1)
+  private val wakeupFp = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeFpRf).map(_._1)
+  private val wakeupVec = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeVecRf).map(_._1)
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
     val mod = Module(new VrsBank(entriesNumPerBank, issueWidth, wakeupWidth, loadUnitNum))
     mod.io.redirect := io.redirect
@@ -68,21 +71,21 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private val oiq = Module(new OrderedInstructionQueue(param.bankNum, vectorParameters.vRsOIQDepth))
   oiq.io.redirect := io.redirect
 
-  private val integerBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth, RenameWidth))
+  private val integerBusyTable = Module(new BusyTable(param.bankNum, wakeupInt.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.intAllocPregs
-  integerBusyTable.io.wbPregs.zip(wakeupSignals).foreach({case(bt, wb) =>
+  integerBusyTable.io.wbPregs.zip(wakeupInt).foreach({case(bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, wakeupWidth, RenameWidth))
+  private val floatingBusyTable = Module(new BusyTable(param.bankNum, wakeupFp.length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.fpAllocPregs
-  floatingBusyTable.io.wbPregs.zip(wakeupSignals).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(wakeupFp).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, wakeupWidth, vectorParameters.vRenameWidth))
+  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, wakeupVec.length, vectorParameters.vRenameWidth))
   integerBusyTable.io.allocPregs := io.vecAllocPregs
-  integerBusyTable.io.wbPregs.zip(wakeupSignals).foreach({ case (bt, wb) =>
+  integerBusyTable.io.wbPregs.zip(wakeupVec).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec
     bt.bits := wb.bits.pdest
   })
@@ -115,7 +118,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     fpReadPort.req := source.bits.psrc(0)
     vecReadPorts(0).req := source.bits.psrc(0)
     vecReadPorts(1).req := source.bits.psrc(1)
-    vecReadPorts(2).req := source.bits.old_pdest
+    vecReadPorts(2).req := source.bits.psrc(2)
     vecReadPorts(3).req := source.bits.vm
     sink.valid := source.valid && oiq.io.enqCanAccept
     sink.bits := source.bits
@@ -125,7 +128,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
       (source.bits.ctrl.srcType(0) === SrcType.vec, vecReadPorts(0).resp)
     ))
     sink.bits.srcState(1) := vecReadPorts(1).resp
-    sink.bits.oldPdestState := vecReadPorts(2).resp
+    sink.bits.srcState(2) := vecReadPorts(2).resp
     sink.bits.vmState := vecReadPorts(3).resp
     source.ready := sink.ready && oiq.io.enqCanAccept
 
