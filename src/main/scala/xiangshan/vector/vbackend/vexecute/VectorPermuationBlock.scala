@@ -21,7 +21,7 @@ class PermutationRegfileReadPort(implicit p: Parameters) extends XSBundle{
   val sresp = Input(UInt(XLEN.W))
 }
 
-class VectorPermutationComplex(implicit p: Parameters) extends LazyModule{
+class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
   private val cfg = ExuConfig(
     name = "VectorPermutationExu",
     id = 0,

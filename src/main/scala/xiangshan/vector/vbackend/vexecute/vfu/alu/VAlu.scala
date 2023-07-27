@@ -23,8 +23,8 @@ package xiangshan.vector.vbackend.vexecute.vfu.alu
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-import darecreek.exu.fu2.VFUParam._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VIntFixpDecode extends Bundle {
   val sub = Bool()
@@ -35,6 +35,7 @@ class VIntFixpDecode extends Bundle {
 class VIntFixpAlu64b extends Module {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
+    val funct3 = Input(UInt(3.W))
     val vi = Input(Bool()) // OPIVI: vs2 op imm
     val vm = Input(Bool())
     val vs1_imm = Input(UInt(5.W))
@@ -60,6 +61,7 @@ class VIntFixpAlu64b extends Module {
     val narrowVd = Output(UInt(32.W))
     val cmpOut = Output(UInt(8.W))
     val vxsat = Output(UInt(8.W))
+    val rd = ValidIO(UInt(XLEN.W))
   })
 
   val vIntAdder64b = Module(new VIntAdder64b)
@@ -80,6 +82,7 @@ class VIntFixpAlu64b extends Module {
 
   val vIntMisc64b = Module(new VIntMisc64b)
   vIntMisc64b.io.funct6 := io.funct6 
+  vIntMisc64b.io.funct3 := io.funct3 
   vIntMisc64b.io.vi := io.vi
   vIntMisc64b.io.vm := io.vm
   vIntMisc64b.io.vs1_imm := io.vs1_imm
@@ -110,6 +113,7 @@ class VIntFixpAlu64b extends Module {
   io.narrowVd := Mux(isFixpS1, vFixPoint64b.io.narrowVd, narrowVdMiscS1)
   io.cmpOut := cmpOutS1
   io.vxsat := vFixPoint64b.io.vxsat
+  io.rd := RegNext(vIntMisc64b.io.rd)
 }
 
 
@@ -148,6 +152,7 @@ class VAlu extends Module {
   val vIntFixpAlu64bs = Seq.fill(2)(Module(new VIntFixpAlu64b))
   for (i <- 0 until 2) {
     vIntFixpAlu64bs(i).io.funct6 := io.in.bits.uop.ctrl.funct6
+    vIntFixpAlu64bs(i).io.funct3 := io.in.bits.uop.ctrl.funct3
     vIntFixpAlu64bs(i).io.vi := io.in.bits.uop.ctrl.vi
     vIntFixpAlu64bs(i).io.vm := io.in.bits.uop.ctrl.vm
     vIntFixpAlu64bs(i).io.vs1_imm := io.in.bits.uop.ctrl.vs1_imm
@@ -251,16 +256,28 @@ class VAlu extends Module {
   /**
    * Output tail/prestart/mask handling for eewVd >= 8
    */
+  //---- evl (for Whole Reg Move) ----
+  val evl = Wire(UInt(bVL.W)) // Only used for whole reg move
+  val nreg = vs1_imm(2, 0) +& 1.U  // emul = nreg, nreg = simm[2:0] + 1
+  val vlen_div_sew = Mux1H(sew.oneHot, Seq(1,2,4,8).map(k => (VLENB / k).U))
+  evl := Mux1H(Seq( // EMUL*VLEN/SEW
+    (nreg === 1.U) -> vlen_div_sew,
+    (nreg === 2.U) -> (vlen_div_sew << 1),
+    (nreg === 4.U) -> (vlen_div_sew << 2),
+    (nreg === 8.U) -> (vlen_div_sew << 3)
+  ))
+  val isWholeRegMv = funct6 === "b100111".U && funct3 === "b011".U
   //---- Tail gen ----
-  // val tail = TailGen(Mux(opcode.isVmvsx, 1.U, vl), uopIdx, eewVd, narrow)
-  val tail = TailGen(vl, uopIdx, eewVd, narrow)
+  val isPermVmv = funct6 === "b010000".U && !opi
+  val tail = TailGen(Mux(isPermVmv, 1.U, Mux(isWholeRegMv, evl, vl)), uopIdx, eewVd, narrow)
+  // val tail = TailGen(vl, uopIdx, eewVd, narrow)
   val tailS1 = RegNext(tail)
   //---- Prestart gen ----
   // val prestart = PrestartGen(vstart, uopIdx, Mux(narrow, eewVs2, eewVd))
   val prestart = PrestartGen(vstart, uopIdx, eewVd, narrow)
   val prestartS1 = RegNext(prestart)
   //---- vstart >= vl ----
-  val vstart_gte_vl = vstart >= vl
+  val vstart_gte_vl = Mux(isWholeRegMv, vstart >= evl, vstart >= vl)
   val vstart_gte_vl_S1 = RegNext(vstart_gte_vl)
 
   val tailReorg = MaskReorg.splash(tailS1, eewVdS1)
@@ -303,7 +320,8 @@ class VAlu extends Module {
 
   val vdResult = Mux(narrowS1, vdOfNarrow, 
               Mux(cmpFlagS1, cmpOutResult, Cat(vIntFixpAlu64bs.map(_.io.vd).reverse)))
-  io.out.bits.vd := vdResult & bitsKeepFinal | bitsReplaceFinal
+  io.out.bits.vd := Mux(vIntFixpAlu64bs(0).io.rd.valid, vIntFixpAlu64bs(0).io.rd.bits,
+                        vdResult & bitsKeepFinal | bitsReplaceFinal)
   when (!narrowS1) {
     io.out.bits.vxsat := (Cat(vIntFixpAlu64bs.map(_.io.vxsat).reverse) &
                      Cat(updateType.map(_(1) === false.B).reverse)).orR
@@ -325,10 +343,4 @@ class VAlu extends Module {
     ))
     Seq(result16(7, 0), result16(15, 8))
   }
-}
-
-object Main extends App {
-  println("Generating hardware")
-  emitVerilog(new VAlu, Array("--target-dir", "generated",
-              "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }
