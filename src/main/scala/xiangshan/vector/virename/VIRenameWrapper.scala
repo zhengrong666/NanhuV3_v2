@@ -82,8 +82,8 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
 
     for((port, i) <- io.uopOut.zipWithIndex) {
         port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvs1, io.uopIn(i).bits.psrc(0))
-        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvs2, io.uopIn(i).bits.psrc(1))
-        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvd, io.uopIn(i).bits.psrc(2))
+        port.bits.psrc(1) := Mux(reqSrcType(i)(1) === SrcType.vec, rename.io.renameResp(i).pvs2, io.uopIn(i).bits.psrc(1))
+        port.bits.psrc(2) := Mux(reqSrcType(i)(2) === SrcType.vec, rename.io.renameResp(i).pvd, io.uopIn(i).bits.psrc(2))
     }
 
     //commit
