@@ -21,10 +21,9 @@ class VprsIssueBundle(implicit p: Parameters) extends XSBundle{
 
 class VpReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
   private val entryNum = vectorParameters.vPRsDepth
-  private val wbNodeParam = WriteBackSinkParam(name = "Vector RS", sinkType = WriteBackSinkType.vecRs)
+  private val wbNodeParam = WriteBackSinkParam(name = "Vector Permutation RS", sinkType = WriteBackSinkType.vecPermRs)
   private val rsParam = RsParam(name = "Vector RS", RsType.vec, entryNum, 1)
   require(entryNum % rsParam.bankNum == 0)
-  val issueNode = new RsIssueNode(rsParam)
   val wakeupNode = new WriteBackSinkNode(wbNodeParam)
   val dispatchNode = new RsDispatchNode(rsParam)
 

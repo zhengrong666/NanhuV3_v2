@@ -7,7 +7,7 @@ import chipsalliance.rocketchip.config.Parameters
 import xiangshan.vector.vbackend.vexecute.vfu._
 import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
-class VFPUWrapper extends Module {
+class VFPUWrapper(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new VFuInput))
     val out = DecoupledIO(new VFpuOutput)

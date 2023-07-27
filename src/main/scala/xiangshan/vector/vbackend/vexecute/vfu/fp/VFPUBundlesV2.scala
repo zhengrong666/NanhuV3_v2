@@ -51,10 +51,10 @@ trait HasFPCtrl {
   val fWidenEnd = Bool() // is the second widen inst, for inactive element control
 }
 
-class VExpdWithMaskUOp extends VExpdUOp with HasMaskSigs
-class VFPUOp extends VExpdWithMaskUOp with HasFPCtrl
+class VExpdWithMaskUOp(implicit p: Parameters) extends VExpdUOp with HasMaskSigs
+class VFPUOp(implicit p: Parameters) extends VExpdWithMaskUOp with HasFPCtrl
 
-class LaneFUWithMaskIn extends LaneFUInput {
+class LaneFUWithMaskIn(implicit p: Parameters) extends LaneFUInput {
   override val uop = new VExpdWithMaskUOp
   def connectFromLaneFUInput(op: LaneFUInput): Unit = {
     op.elements.foreach{ case (name, data) =>
@@ -69,7 +69,7 @@ class LaneFUWithMaskIn extends LaneFUInput {
   }
 }
 
-class LaneFUWithMaskOut extends LaneFUOutput {
+class LaneFUWithMaskOut(implicit p: Parameters) extends LaneFUOutput {
   override val uop = new VExpdWithMaskUOp
   def outputToLaneFU(op: LaneFUOutput): Unit = {
     //    println(op.elements)
@@ -82,11 +82,11 @@ class LaneFUWithMaskOut extends LaneFUOutput {
   }
 }
 
-class LaneFloatFUIn extends LaneFUWithMaskIn {
+class LaneFloatFUIn(implicit p: Parameters) extends LaneFUWithMaskIn {
   override val uop = new VFPUOp
 }
 
-class LaneFloatFUOut extends LaneFUWithMaskOut {
+class LaneFloatFUOut(implicit p: Parameters) extends LaneFUWithMaskOut {
   override val uop = new VFPUOp
 //      data match {
 //        case x:Bundle  =>

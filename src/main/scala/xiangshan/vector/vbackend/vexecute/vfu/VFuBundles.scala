@@ -4,11 +4,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 import chipsalliance.rocketchip.config.Parameters
-
-// This is fake. Should be replaced by real MicroOp
-class MicroOp extends Bundle {
-  val this_is_fake = Bool()
-}
+import xiangshan.MicroOp
 
 // Temporary. Will replaced by system Uop class.
 class VUopCtrl extends Bundle {
@@ -34,7 +30,7 @@ class VUopInfo extends Bundle {
   val vxrm = UInt(2.W)
   val frm = UInt(3.W)
 }
-class VUop extends Bundle with ConnectFromLaneUop {
+class VUop(implicit p: Parameters) extends Bundle with ConnectFromLaneUop {
   val ctrl = new VUopCtrl
   val info = new VUopInfo
   val uopIdx = UInt(3.W)
@@ -61,7 +57,7 @@ object SewOH {
 }
 
 // Input of FU
-class VFuInput extends Bundle {
+class VFuInput(implicit p: Parameters)  extends Bundle {
   val uop = new VUop
   val vs1 = UInt(128.W)
   val vs2 = UInt(128.W)
@@ -80,13 +76,13 @@ class VAluOutput extends Bundle {
 // }
 
 // Output of FPU
-class VFpuOutput extends Bundle {
+class VFpuOutput(implicit p: Parameters) extends Bundle {
   val uop = new VUop
   val vd = UInt(128.W)
   val fflags = UInt(5.W)
 }
 
-class VPermInput extends Bundle {
+class VPermInput(implicit p: Parameters) extends Bundle {
   val uop = new VUop
   val rs1 = UInt(64.W)
   val vs1_preg_idx = Vec(8, UInt(8.W))
@@ -169,7 +165,7 @@ class VCtrlInfo extends Bundle {
 }
 
 // Expanded micro-op after renaming
-class VExpdUOp extends VCtrlInfo with ConnectFromVUop {
+class VExpdUOp(implicit p: Parameters)  extends VCtrlInfo with ConnectFromVUop {
   // val vRobIdx = new VRobPtr
   // val expdLen = UInt(4.W) // Number of expanded uops
   val expdIdx = UInt(3.W) // Idx of expanded uop
@@ -186,7 +182,7 @@ class VExpdUOp extends VCtrlInfo with ConnectFromVUop {
 }
 
 // Input of the lane FU
-class LaneFUInput extends Bundle {
+class LaneFUInput(implicit p: Parameters)  extends Bundle {
   val uop = new VExpdUOp
   val vs1 = UInt(64.W)
   val vs2 = UInt(64.W)
@@ -197,7 +193,7 @@ class LaneFUInput extends Bundle {
   val tail = UInt(8.W)
 }
 // Output of the lane FU
-class LaneFUOutput extends Bundle {
+class LaneFUOutput(implicit p: Parameters)  extends Bundle {
   val uop = new VExpdUOp
   val vd = UInt(64.W)
   val fflags = UInt(5.W) // Floating-point accrued exception flag
