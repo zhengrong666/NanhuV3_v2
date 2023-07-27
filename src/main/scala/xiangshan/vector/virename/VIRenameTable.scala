@@ -56,7 +56,8 @@ class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
     val doWalk = Input(Bool())
     val mask = Input(Vec(VICommitWidth, Bool()))
     val lrIdx = Input(Vec(VICommitWidth, UInt(5.W)))
-    val prIdx = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+    val prIdxOld = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+    val prIdxNew = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
 }
 
 class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
@@ -104,13 +105,13 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
     }
 
     val lrIdxs_commit = io.commitPort.lrIdx
-    val prIdxs_commit = io.commitPort.prIdx
+    val prIdxs_commit = Mux(io.commitPort.doCommit, io.commitPort.prIdxNew, io.commitPort.prIdxOld)
     //XSError((io.commitPort.doCommit && io.commitPort.doWalk), s"commit and walk")
     //commit write aRAT, rollBack write sRAT
     for((lr, i) <- lrIdxs_commit.zipWithIndex) {
         when(io.commitPort.doCommit && (io.commitPort.mask(i) === true.B)) {
             aRAT(lr) := prIdxs_commit(i)
-        }.elsewhen(io.commitPort.doCommit && (io.commitPort.mask(i) === true.B)) {
+        }.elsewhen(io.commitPort.doWalk && (io.commitPort.mask(i) === true.B)) {
             sRAT(lr) := prIdxs_commit(i)
         }
     }
