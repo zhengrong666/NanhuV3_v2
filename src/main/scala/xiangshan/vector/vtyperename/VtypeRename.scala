@@ -99,7 +99,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       io.out(i).bits <> tempVtype.cf
       val CurrentVL = tempVtype.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
-      io.out(i).valid := true.B
+      io.out(i).valid := io.canAllocate
       if (io.in(i).bits.ctrl.isVtype == 1) {
         val tempvtype = new VtypeReg
         val freePtr = tailPtr + 1.U
@@ -155,9 +155,10 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     caculate the free entry
   */
 
+  val vsetvlNum = PopCount(io.in.map(_.bits.ctrl.isVtype))
   val freeRegCnt = distanceBetween(tailPtr, headPtr)
   val freeRegCntReg = RegNext(freeRegCnt)
-  io.canAllocate := freeRegCntReg >= enqnum.U
+  io.canAllocate := freeRegCntReg >= vsetvlNum
 
   /*
     update point content  s_busy -> s_valid
