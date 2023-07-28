@@ -70,10 +70,10 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   })
   private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, VLEN, XLEN)
   private val offset = MuxCase(0.U, Seq(
-    io.sew === 0.U -> SignExt(rawOffset(7, 0), XLEN),
-    io.sew === 1.U -> SignExt(rawOffset(15, 0), XLEN),
-    io.sew === 2.U -> SignExt(rawOffset(31, 0), XLEN),
-    io.sew === 3.U -> rawOffset(63, 0),
+    (io.sew === 0.U) -> SignExt(rawOffset(7, 0), XLEN),
+    (io.sew === 1.U) -> SignExt(rawOffset(15, 0), XLEN),
+    (io.sew === 2.U) -> SignExt(rawOffset(31, 0), XLEN),
+    (io.sew === 3.U) -> rawOffset(63, 0),
   ))
   private val offsetTarget = io.base + offset
 

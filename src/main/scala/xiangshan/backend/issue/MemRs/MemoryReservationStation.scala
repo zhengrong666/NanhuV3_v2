@@ -182,9 +182,9 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     fdRead.req := source.bits.psrc(1)
     offRead.req := source.bits.psrc(1)
     sink.bits.srcState(1) := MuxCase(SrcState.rdy, Seq(
-      type1 === SrcType.reg -> strdOrIdRead.resp,
-      type1 === SrcType.fp -> fdRead.resp,
-      type1 === SrcType.vec -> offRead.resp,
+      (type1 === SrcType.reg) -> strdOrIdRead.resp,
+      (type1 === SrcType.fp) -> fdRead.resp,
+      (type1 === SrcType.vec) -> offRead.resp,
     ))
 
     vdRead.req := source.bits.psrc(2)
