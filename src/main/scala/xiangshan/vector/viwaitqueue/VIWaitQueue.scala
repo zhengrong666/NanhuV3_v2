@@ -6,6 +6,7 @@ import chisel3.util._
 import xiangshan._
 import xiangshan.vector._
 import xs.utils._
+import utils._
 import xiangshan.backend.rob._
 
 
@@ -15,16 +16,8 @@ class VIMop(implicit p: Parameters) extends VectorBaseBundle {
 }
 
 class WqPtr(implicit p: Parameters) extends CircularQueuePtr[WqPtr](
-  p => p(XSCoreParamsKey).RobSize
-) with HasCircularQueuePtrHelper {
-
-  def needFlush(redirect: Valid[Redirect]): Bool = {
-    val flushItself = redirect.bits.flushItself() && this === redirect.bits.robIdx
-    redirect.valid && (flushItself || isAfter(this, redirect.bits.robIdx))
-  }
-
-  def needFlush(redirect: Seq[Valid[Redirect]]): Bool = VecInit(redirect.map(needFlush)).asUInt.orR
-}
+  p => p(VectorParametersKey).vWaitQueueNum
+) with HasCircularQueuePtrHelper
 
 object WqPtr {
   def apply(f: Bool, v: UInt)(implicit p: Parameters): WqPtr = {
@@ -81,8 +74,9 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * pointers and counters
     */
   // dequeue pointers
-  val isComplete = RegEnable(false.B,isComplete)
-  val deqPtr_temp = deqPtr + 1
+  val isComplete = RegInit(false.B)
+  isComplete := RegEnable(false.B, isComplete)
+  val deqPtr_temp = deqPtr + 1.U
   val deqPtr_next = Mux(!isReplaying && isComplete && !io.hasWalk, deqPtr, deqPtr_temp)
   deqPtr := deqPtr_next
 
@@ -141,20 +135,21 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val elementInRegGroup = VLEN / currentdata.MicroOp.vCsrInfo.SewToInt()
   val elementTotal = lmul * elementInRegGroup
   //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
-  val splitnum = Mux(isLS, elementTotal, Mux(isWiden, lmul * 2, lmul))
+  val splitnum = Mux(isLS, elementTotal.U, Mux(isWiden, lmul.U * 2.U, lmul.U))
   val tailreg = vl / elementInRegGroup.U
   val tailidx = vl % elementInRegGroup.U
   val prestartreg = prestartelement / elementInRegGroup.U
   val prestartIdx = prestartelement % elementInRegGroup.U
   if (currentdata.state == s_valid && isReplaying == false) {
     for (i <- 0 until VIRenameWidth) {
-      if (countnum < splitnum) {
+      val cansplit = Mux(countnum.U < splitnum, true.B, false.B)
+      if (cansplit == true.B) {
         deqUop(i).tailMask := Mux(countnum.U === tailreg, 0xffff.U >> ((elementInRegGroup.U - tailidx) * 16.U / elementInRegGroup.U),
-          Mux(countnum > tailreg, 0.U, 0xffff.U))
+          Mux(countnum.U > tailreg, 0.U, 0xffff.U))
         deqUop(i).preStartMask := Mux(vstartInterrupt && (prestartreg === countnum.U), 0xffff.U << prestartIdx, 0.U)
         deqUop(i) := currentdata.MicroOp
         deqUop(i).uopIdx := countnum.U
-        deqUop(i).uopNum := splitnum.U
+        deqUop(i).uopNum := splitnum
         if (deqUop(i).ctrl.isSeg == true.B) {
           val nf = currentdata.MicroOp.ctrl.NFToInt()
           val tempnum = countnum % nf
@@ -265,11 +260,11 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   when(ren){
     WqData.io.raddr := waitPtr.value
     val tempdata_wait = WqData.io.rdata(0)
-    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1, waitPtr)
+    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1.U, waitPtr)
 
     WqData.io.raddr := vtypePtr.value
     val tempdata_vtype = WqData.io.rdata(0)
-    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1)
+    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1.U)
   }
 
 }
