@@ -8,18 +8,21 @@
   *     11.16 vmv.v.
   *     Part of 12.4
   *     Part of 12.5
-  *     15.1  vmand.mm, ...
-  *     16.1  vmv.s.x (only this one) (only supports XLEN=64)
+  *     16.1
+  *     16.2
+  *     16.6
   */
 package xiangshan.vector.vbackend.vexecute.vfu.alu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
+import xiangshan.vector.vbackend.vexecute.vfu._
+import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
 
 class VIntMisc64b extends Module {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
+    val funct3 = Input(UInt(3.W))
     val vi = Input(Bool()) // OPIVI: vs2 op imm
     val vm = Input(Bool())
     val vs1_imm = Input(UInt(5.W))
@@ -33,9 +36,11 @@ class VIntMisc64b extends Module {
     val vd = Output(UInt(64.W))
     val narrowVd = Output(UInt(32.W))
     val toFixP = Output(new MiscToFixP)
+    val rd = ValidIO(UInt(XLEN.W))
   })
 
   val funct6 = io.funct6
+  val funct3 = io.funct3
   val sew = io.sew
   val uopIdx = io.uopIdx
   val vs1 = io.vs1
@@ -182,8 +187,24 @@ class VIntMisc64b extends Module {
   }
   val mergeMove = Mux(io.vm, vs1, Cat(mergeResult.reverse))
 
-  // Output arbiter
-  io.vd := Mux(funct6(5), shiftResult,
-               Mux(funct6 === "b010010".U, extResult,
-               Mux(funct6(5, 2) === "b0010".U, bitLogical, mergeMove)))
+  /** 
+   * 16.1 16.2 (funct6 = 010000    funct3 = 010 x.s  110 s.x  001 f.s  101 s.f)
+   *  @note vs should be 0 for vmv.x.s, we didn't do the judgement since other vs1 values
+   *  are for mask instrns (vcpop, vfirst)
+   */
+  val perm_vmv = Wire(UInt(64.W))
+  perm_vmv := Mux1H(Seq(
+    (funct3 === "b110".U) -> Mux1H(sew.oneHot, Seq(8, 16, 32, 64).map(k => vs1(k-1, 0))),
+    (funct3 === "b101".U) -> Mux1H(sew.oneHot(3,2), Seq(32, 64).map(k => vs1(k-1, 0)))
+  ))
+
+  // Output arbiter                      // vmv<nr>r
+  io.vd := Mux(funct6(5), Mux(funct6 === "b100111".U, vs2, shiftResult),
+           Mux(funct6(5, 2) === "b0100".U, Mux(funct6(1), extResult, perm_vmv),
+           Mux(funct6(5, 2) === "b0010".U, bitLogical, mergeMove)))
+  io.rd.bits := Mux1H(Seq(
+    (funct3 === "b010".U) -> Mux1H(sew.oneHot, Seq(8, 16, 32, 64).map(k => vs2(k-1, 0).asSInt.pad(XLEN).asUInt)),
+    (funct3 === "b001".U) -> Mux1H(sew.oneHot(3,2), Seq(32, 64).map(k => vs2(k-1, 0).asUInt.pad(XLEN))),
+  ))
+  io.rd.valid := funct6 === "b010000".U && (funct3 === "b010".U || funct3 === "b001".U)
 }

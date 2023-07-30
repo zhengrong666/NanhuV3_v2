@@ -94,8 +94,10 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:In
     when(!isVector){
       enqEntry.psrc(1) := DontCare
       enqEntry.psrc(2) := in.psrc(1)
+      enqEntry.vm := DontCare
       enqEntry.srcType(1) := SrcType.default
       enqEntry.srcType(2) := in.ctrl.srcType(1)
+      enqEntry.vmState := SrcState.rdy
       enqEntry.srcState(1) := SrcState.rdy
       enqEntry.srcState(2) := Mux(SrcType.isRegOrFp(in.ctrl.srcType(1)), in.srcState(1), SrcState.rdy)
       //STAState handles LOAD, STORE, CBO.INVAL, CBO.FLUSH, CBO.CLEAN, PREFECTH.R, PREFETCH.W
@@ -105,11 +107,13 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:In
     }.otherwise{
       val agnostic = (in.vCsrInfo.vta(0) && in.tailMask.orR) || (in.vCsrInfo.vma(0) && in.ctrl.vm)
       enqEntry.psrc(1) := in.psrc(1)
-      enqEntry.psrc(2) := Mux(FuType.isStore(in.ctrl.fuType), in.psrc(2), in.old_pdest)
+      enqEntry.psrc(2) := in.psrc(2)
+      enqEntry.vm := in.vm
       enqEntry.srcType(1) := in.ctrl.srcType(1)
-      enqEntry.srcType(2) := Mux(FuType.isStore(in.ctrl.fuType), SrcType.vec, Mux(agnostic, SrcType.default, SrcType.vec))
+      enqEntry.srcType(2) := Mux(agnostic, SrcType.default, SrcType.vec)
       enqEntry.srcState(1) := Mux(SrcType.needWakeup(in.ctrl.srcType(1)), in.srcState(1), SrcState.rdy)
-      enqEntry.srcState(2) := Mux(FuType.isStore(in.ctrl.fuType), in.srcState(2), Mux(agnostic, SrcState.rdy, in.oldPdestState))
+      enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.srcState(2))
+      enqEntry.vmState := Mux(in.ctrl.vm, in.vmState, SrcState.rdy)
       enqEntry.staLoadState := s_ready
       enqEntry.stdState := Mux(FuType.isStore(in.ctrl.fuType), s_ready, s_issued)
     }

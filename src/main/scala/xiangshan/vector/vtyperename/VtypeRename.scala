@@ -68,7 +68,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val robCommits = Flipped(new RobCommitIO)
     val canAllocate = Output(Bool())
     val doAllocate = Input(Bool())
-    val in = Vec(enqnum, Flipped(DecoupledIO(new MicroOp)))
+    val in = Vec(enqnum, Flipped(ValidIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeReg))
     val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
@@ -99,7 +99,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       io.out(i).bits <> tempVtype.cf
       val CurrentVL = tempVtype.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
-      io.out(i).valid := true.B
+      io.out(i).valid := io.canAllocate
       if (io.in(i).bits.ctrl.isVtype == 1) {
         val tempvtype = new VtypeReg
         val freePtr = tailPtr + 1.U
@@ -155,9 +155,10 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     caculate the free entry
   */
 
+  val vsetvlNum = PopCount(io.in.map(_.bits.ctrl.isVtype))
   val freeRegCnt = distanceBetween(tailPtr, headPtr)
   val freeRegCntReg = RegNext(freeRegCnt)
-  io.canAllocate := freeRegCntReg >= enqnum.U
+  io.canAllocate := freeRegCntReg >= vsetvlNum
 
   /*
     update point content  s_busy -> s_valid

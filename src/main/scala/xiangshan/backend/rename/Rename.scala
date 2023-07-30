@@ -25,6 +25,8 @@ import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.rename.freelist._
+import xiangshan.vector.SIRenameInfo
+import xiangshan.vector.vtyperename.{VtypeRename, VtypeReg}
 import xiangshan.mem.mdp._
 import xs.utils.GTimer
 
@@ -46,12 +48,16 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val fpRenamePorts = Vec(RenameWidth, Output(new RatWritePort))
     // to dispatch1
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
+    // to vector
+    val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
+    val vtypeout = Vec(VIDecodeWidth, ValidIO(new VtypeReg))
   })
 
   // create free list and rat
   val intFreeList = Module(new MEFreeList(NRPhyRegs))
   val intRefCounter = Module(new RefCounter(NRPhyRegs))
   val fpFreeList = Module(new StdFreeList(NRPhyRegs - 32))
+  val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
 
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
@@ -161,6 +167,10 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
 
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
     io.out(i).bits := uops(i)
+
+    vtyperename.io.in(i).bits := uops(i)
+    vtyperename.io.in(i).valid := io.in(i).valid
+
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
       io.out(i).bits.ctrl.imm := Cat(io.in(i).bits.ctrl.lsrc(1), io.in(i).bits.ctrl.lsrc(0))
@@ -253,6 +263,10 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
       io.out(i).bits.psrc(1) := lui_imm(lui_imm.getWidth - 1, lui_imm_in_imm + psrcWidth)
     }
 
+    io.SIRenameOUT(i).valid := io.out(i).valid
+    io.SIRenameOUT(i).bits.psrc := io.out(i).bits.psrc
+    io.SIRenameOUT(i).bits.pdest := io.out(i).bits.pdest
+    io.SIRenameOUT(i).bits.old_pdest := io.out(i).bits.old_pdest
   }
 
   /**
@@ -294,6 +308,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     intRefCounter.io.deallocate(i).valid := (commitValid || walkValid) && needDestRegCommit(false, io.robCommits.info(i))
     intRefCounter.io.deallocate(i).bits := Mux(io.robCommits.isWalk, io.robCommits.info(i).pdest, io.robCommits.info(i).old_pdest)
   }
+
+
+  io.vtypeout <> vtyperename.io.out
 
   /*
   Debug and performance counters

@@ -36,9 +36,9 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
       elm._1._1 := Mux(SrcType.needWakeup(elm._2), elm._1._1, SrcState.rdy)
     )
 
-    enqEntry.psrc(2) := in.old_pdest
-    enqEntry.srcType(2) := in.ctrl.old_vdType
-    enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.oldPdestState)
+    enqEntry.psrc(2) := in.psrc(2)
+    enqEntry.srcType(2) := in.ctrl.srcType(2)
+    enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.ctrl.srcType(2))
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec

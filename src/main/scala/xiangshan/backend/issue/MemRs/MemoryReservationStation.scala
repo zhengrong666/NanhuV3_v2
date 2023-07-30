@@ -26,6 +26,7 @@ import xiangshan.{FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, 
 import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.execute.fu.FuConfigs
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
+import utils.XSPerfHistogram
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.rob.RobPtr
@@ -77,6 +78,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     val stLastCompelet = Input(new SqPtr)
     val integerAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
     val floatingAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
+    val vectorAllocPregs = Vec(coreParams.vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
   })
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
@@ -87,7 +89,11 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
-    wkp.bits.destType := Mux(elm.bits.uop.ctrl.rfWen, SrcType.reg, Mux(elm.bits.uop.ctrl.fpWen, SrcType.fp, SrcType.default))
+    wkp.bits.destType := MuxCase(SrcType.default, Seq(
+      elm.bits.uop.ctrl.rfWen -> SrcType.reg,
+      elm.bits.uop.ctrl.fpWen -> SrcType.fp,
+      elm.bits.uop.ctrl.vdWen -> SrcType.vec
+    ))
     wkp
   }))
 
@@ -107,6 +113,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
   private val wakeupFp = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeFpRf).map(_._1)
   private val wakeupInt = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeIntRf).map(_._1)
+  private val wakeupVec = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeVecRf).map(_._1)
   private val floatingBusyTable = Module(new BusyTable(param.bankNum, (wakeupFp ++ io.mulSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
   floatingBusyTable.io.wbPregs.zip(wakeupFp ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
@@ -117,6 +124,12 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   integerBusyTable.io.allocPregs := io.integerAllocPregs
   integerBusyTable.io.wbPregs.zip(wakeupInt ++ io.aluSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
+    bt.bits := wb.bits.pdest
+  })
+  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 3, wakeupVec.length + io.mulSpecWakeup.length, coreParams.vectorParameters.vRenameWidth))
+  vectorBusyTable.io.allocPregs := io.vectorAllocPregs
+  vectorBusyTable.io.wbPregs.zip(wakeupVec ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+    bt.valid := wb.valid && wb.bits.destType === SrcType.vec
     bt.bits := wb.bits.pdest
   })
 
@@ -148,22 +161,42 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
   private var fpBusyTableReadIdx = 0
   private var intBusyTableReadIdx = 0
+  private var vectorBusyTableReadIdx = 0
   allocateNetwork.io.enqFromDispatch.zip(enq).foreach({case(sink, source) =>
-    val fread = floatingBusyTable.io.read(fpBusyTableReadIdx)
-    val iread0 = integerBusyTable.io.read(intBusyTableReadIdx)
-    val iread1 = integerBusyTable.io.read(intBusyTableReadIdx + 1)
+    val fdRead = floatingBusyTable.io.read(fpBusyTableReadIdx)
+    val baseRead = integerBusyTable.io.read(intBusyTableReadIdx)
+    val strdOrIdRead = integerBusyTable.io.read(intBusyTableReadIdx + 1)
+    val offRead = vectorBusyTable.io.read(vectorBusyTableReadIdx + 0)
+    val vdRead = vectorBusyTable.io.read(vectorBusyTableReadIdx + 1)
+    val vmRead = vectorBusyTable.io.read(vectorBusyTableReadIdx + 2)
     val type0 = source.bits.ctrl.srcType(0)
     val type1 = source.bits.ctrl.srcType(1)
-    fread.req := source.bits.psrc(1)
-    iread0.req := source.bits.psrc(0)
-    iread1.req := source.bits.psrc(1)
     sink.valid := source.valid
     sink.bits := source.bits
-    sink.bits.srcState(0) := Mux(type0 === SrcType.reg, iread0.resp, SrcState.rdy)
-    sink.bits.srcState(1) := Mux(type1 === SrcType.reg, iread1.resp, Mux(type1 === SrcType.fp, fread.resp, SrcState.rdy))
     source.ready := sink.ready
+
+    baseRead.req := source.bits.psrc(0)
+    sink.bits.srcState(0) := baseRead.resp
+
+    strdOrIdRead.req := source.bits.psrc(1)
+    fdRead.req := source.bits.psrc(1)
+    offRead.req := source.bits.psrc(1)
+    sink.bits.srcState(1) := MuxCase(SrcState.rdy, Seq(
+      (type1 === SrcType.reg) -> strdOrIdRead.resp,
+      (type1 === SrcType.fp) -> fdRead.resp,
+      (type1 === SrcType.vec) -> offRead.resp,
+    ))
+
+    vdRead.req := source.bits.psrc(2)
+    sink.bits.srcState(2) := vdRead.resp
+
+    vmRead.req := source.bits.vm
+    sink.bits.vmState := vmRead.resp
+
     fpBusyTableReadIdx = fpBusyTableReadIdx + 1
     intBusyTableReadIdx = intBusyTableReadIdx + 2
+    vectorBusyTableReadIdx = vectorBusyTableReadIdx + 3
+    assert(type0 === SrcType.reg)
     when(source.valid){assert(FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))}
   })
 
@@ -274,5 +307,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   wakeup.zipWithIndex.foreach({ case ((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
   })
+  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 0, issue.length, 1)
+  XSPerfHistogram("valid_entries_num", PopCount(Cat(allocateNetwork.io.entriesValidBitVecList)), true.B, 0, param.entriesNum, 4)
 }
 
