@@ -780,6 +780,8 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   ))
   val s3_rdataPartialLoad = rdataHelper(s3_uop,s3_sel_rdata)
 
+  val wbIsOrder = load_s2.io.out.bits.uop.ctrl.isOrder
+  val wbIsEnable = load_s2.io.out.bits.uop.loadStoreEnable
   io.ldout.bits := s3_load_wb_meta_reg
 //  io.ldout.bits.data := Mux(RegNext(hitLoadOut.valid), s3_rdataPartialLoadDcache, s3_rdataPartialLoadLQ)
   io.ldout.bits.data := s3_rdataPartialLoad
@@ -788,7 +790,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   io.ldout.valid := (!writebackShouldBeFlushed) && (hitLoadOutValidReg || lsqOutputValidReg)
 
   io.ldout.bits.uop.cf.exceptionVec(loadAccessFault) := s3_load_wb_meta_reg.uop.cf.exceptionVec(loadAccessFault) //||
-  io.ldout.bits.wbmask := "hff".U
+  io.ldout.bits.wbmask := Mux(!wbIsEnable || wbIsOrder, 0.U, "hff".U)
     //RegNext(hitLoadOut.valid) && load_s2.io.s3_delayed_load_error
 
   // fast load to load forward

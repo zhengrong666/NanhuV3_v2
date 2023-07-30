@@ -85,7 +85,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     val storeVectorDeqCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
   })
-  //todo
+  //
   io.storeVectorDeqCnt := 0.U
 
   println("StoreQueue: size:" + StoreQueueSize)

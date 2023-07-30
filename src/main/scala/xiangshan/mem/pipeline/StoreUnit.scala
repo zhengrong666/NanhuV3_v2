@@ -184,6 +184,8 @@ class StoreUnit_S3(implicit p: Parameters) extends XSModule {
     val stout = DecoupledIO(new ExuOutput) // writeback store
   })
 
+  val wbIsOrder = io.in.bits.uop.ctrl.isOrder
+  val wbIsEnable = io.in.bits.uop.loadStoreEnable
   io.in.ready := true.B
 
   io.stout.valid := io.in.valid && !io.in.bits.uop.robIdx.needFlush(io.redirect)
@@ -196,7 +198,7 @@ class StoreUnit_S3(implicit p: Parameters) extends XSModule {
   io.stout.bits.debug.vaddr := io.in.bits.vaddr
   io.stout.bits.debug.isPerfCnt := false.B
   io.stout.bits.fflags := DontCare
-  io.stout.bits.wbmask := "hff".U
+  io.stout.bits.wbmask :=  Mux(!wbIsEnable | wbIsOrder, 0.U, "hff".U)
 
 }
 
