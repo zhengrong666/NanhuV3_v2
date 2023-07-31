@@ -47,7 +47,10 @@ case class VectorParameters (
     vRsOIQDepth: Int    = 8,
     vPRsDepth: Int      = 4,
     //merge
-    vMergeStationDepth: Int = 64
+    vMergeBufferDepth: Int = 64,
+    vMergeBufferAllocateWidth: Int = 4,
+    vMergeWidth: Int = 4,
+    vMergeWbWdith: Int = 4
 ) {
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum)
 }
