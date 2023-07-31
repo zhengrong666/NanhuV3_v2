@@ -51,6 +51,7 @@ class VIRenameResp(implicit p: Parameters) extends VectorBaseBundle {
     val pvs1    = UInt(VIPhyRegIdxWidth.W)
     val pvs2    = UInt(VIPhyRegIdxWidth.W)
     val pvd     = UInt(VIPhyRegIdxWidth.W)
+    val pmask   = UInt(VIPhyRegIdxWidth.W)
 }
 
 class VIRename(implicit p: Parameters) extends VectorBaseModule {

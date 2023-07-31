@@ -65,6 +65,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
         val renameReadPorts = Vec(VIRenameWidth, new VIRatReadPortInstr)
         val oldPhyRegIdxReadPorts = Vec(VIRenameWidth, new VIRatReadPortSingle)
         val renameWritePort = new VIRatRenamePort
+        val prIdx0          = new Output(UInt(VIPhyRegIdxWidth.W))
         val commitPort = new VIRatCommitPort
         val debugReadPorts = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
     })
@@ -88,6 +89,8 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
             Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vd.lrIdx && io.renameWritePort.doRename === true.B), 
                 io.renameWritePort.prIdx(k), p))
     }
+    //TODO: mask reg(lrIdx0) bypass
+    io.prIdx0 := sRAT(0.U)
 
     //old regId read, for rollBackList storage
     val oldLrOHVec = io.oldPhyRegIdxReadPorts.map(port => UIntToOH(port.lrIdx))
