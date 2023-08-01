@@ -79,7 +79,7 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
     } else if (pu.isVms) {
       pd.filter(p => p.throughVectorRf)
     } else if (pu.isRob) {
-      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf)
+      pd.filterNot(_.throughVectorRf)
     } else {
       pd
     }
