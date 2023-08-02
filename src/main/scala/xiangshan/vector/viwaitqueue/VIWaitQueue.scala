@@ -52,7 +52,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val hartId = Input(UInt(8.W))
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtypeWbData = Vec(VIDecodeWidth, Flipped(DecoupledIO(new ExuOutput)))
+    val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
     val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
@@ -172,7 +172,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
       val cansplit = Mux(countnum(i) < splitnum, true.B, false.B)
-      when(globalcanSplit && !isReplaying && cansplit) {
+      when(cansplit) {
         deqUop(i) <> currentdata
         deqUop(i).tailMask := Mux(countnum(i) === tailreg, 0xffff.U >> ((elementInRegGroup.U - tailidx) * 16.U / elementInRegGroup.U),
           Mux(countnum(i) > tailreg, 0.U, 0xffff.U))
@@ -243,7 +243,6 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     */
 
   for (i <- 0 until VIDecodeWidth) {
-    io.vtypeWbData(i).ready := false.B
     when(io.vtypeWbData(i).valid) {
       WqStateAraay.zipWithIndex.foreach({ case (o, idx) =>
         val tempdata = o
@@ -251,9 +250,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         tempdata.vtypeInfo.vlmul := io.vtypeWbData(i).bits.data(2, 0)
         tempdata.vtypeInfo.vsew := io.vtypeWbData(i).bits.data(5, 3)
         o := Mux(o.vtypeRegIdx === io.vtypeWbData(i).bits.uop.vtypeRegIdx, tempdata, o)
-        io.vtypeWbData(i).ready := Mux(o.vtypeRegIdx === io.vtypeWbData(i).bits.uop.vtypeRegIdx, true.B, false.B)
       })
-      io.vtypeWbData(i).ready := true.B
     }
   }
 

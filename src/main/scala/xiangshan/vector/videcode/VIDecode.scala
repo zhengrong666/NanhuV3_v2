@@ -720,7 +720,8 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
 
         // output
         //val cs: CtrlSignals = Wire(new CtrlSignals).decodev(io.in(i).bits.cf.instr, decode_table)
-        val cs = io.in(i).bits.ctrl
+        val cs = Wire(new CtrlSignals)
+        cs := io.in(i).bits.ctrl
 
         // read src1~3 location
 //        cs.lsrc(0) := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)

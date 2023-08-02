@@ -100,7 +100,7 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
     when(io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid) {
       waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
       waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
-      val CurrentData = new VIMop
+      val CurrentData = Wire(new VIMop)
       CurrentData.MicroOp <> videcode.io.out(i).bits
       CurrentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
       CurrentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc

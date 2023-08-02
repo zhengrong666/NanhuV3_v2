@@ -36,7 +36,7 @@ import xs.utils._
 //}
 
 class VtypeReg(implicit p: Parameters) extends MicroOp{
-  val state = 0.U(2.W)
+  val state = UInt(2.W)
   val vtypeIdx = new VtypePtr
 }
 
