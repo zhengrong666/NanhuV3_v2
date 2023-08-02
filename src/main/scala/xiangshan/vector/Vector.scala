@@ -124,7 +124,13 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
   virename.io.commit <> io.commit
   virename.io.redirect <> io.redirect
 
-  dispatch.io.req.uop <> virename.io.uopOut
+  dispatch.io.req.uop := virename.io.uopOut
+  for((rp, dp) <- virename.io.uopOut zip dispatch.io.req.uop) {
+    rp.ready := dispatch.io.req.canAccept
+    dp.bits := rp.bits
+  }
+  dipatch.io.req.mask := virename.io.uopOut.map(_.valid).asUInt
+  
   dispatch.io.redirect <> io.redirect
 
   io.vecDispatch2Ctrl <>  dispatch.io.toMem2RS
