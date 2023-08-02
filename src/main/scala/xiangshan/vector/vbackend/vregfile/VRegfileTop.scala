@@ -111,11 +111,13 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       when(bi.issue.fire) {
         issDataReg := exuInBundle
       }
+      bi.issue.ready := allowPipe
+
       bo.rsIdx := DontCare
       bi.rsFeedback := DontCare
       bo.hold := false.B
 
-      scalarReadPortIdx = scalarReadPortIdx + 2
+      scalarReadPortIdx = scalarReadPortIdx + 1
       vecReadPortIdx = vecReadPortIdx + 4
     }
   }

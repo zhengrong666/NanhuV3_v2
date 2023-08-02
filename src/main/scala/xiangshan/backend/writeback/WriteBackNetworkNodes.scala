@@ -34,8 +34,8 @@ object WriteBackSinkType{
   def fpRs = 4
   def vecRs = 5
   def vecPermRs = 6
-  def vecRegfile = 7
-  private def rfList = Seq(regFile, vecRegfile)
+  def vecMs = 7
+  private def rfList = Seq(regFile)
   private def rsList = Seq(intRs, memRs, fpRs, vecRs, vecPermRs)
   def isRf(in:Int) = rfList.contains(in)
   def isRs(in:Int) = rsList.contains(in)
@@ -53,7 +53,7 @@ case class WriteBackSinkParam
   def isFpRs: Boolean = sinkType == WriteBackSinkType.fpRs
   def isVprs: Boolean = sinkType == WriteBackSinkType.vecPermRs
   def isVrs: Boolean = sinkType == WriteBackSinkType.vecRs
-  def isVrf: Boolean = sinkType == WriteBackSinkType.vecRegfile
+  def isVms: Boolean = sinkType == WriteBackSinkType.vecMs
   def isLegal: Boolean = isRegFile ||isRob ||isIntRs ||isMemRs ||isFpRs
   def needWriteback: Boolean = isRegFile || isRob
 }
@@ -75,11 +75,11 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
     } else if (pu.isFpRs) {
       pd.filter(_.wakeUpFpRs)
     } else if(pu.isVprs || pu.isVrs) {
-      pd.filter(_.wakeUpVrs)
-    } else if (pu.isVrf) {
-      pd.filter(_.writeVecRf)
+      pd.filter(p => p.wakeUpVrs)
+    } else if (pu.isVms) {
+      pd.filter(p => p.throughVectorRf)
     } else if (pu.isRob) {
-      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf)
+      pd.filterNot(_.throughVectorRf)
     } else {
       pd
     }

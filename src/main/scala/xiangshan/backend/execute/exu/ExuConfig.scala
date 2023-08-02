@@ -87,11 +87,11 @@ case class ExuConfig
   val exceptionOut: Seq[Int] = fuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted
   val writeIntRf = fuConfigs.map(_.writeIntRf).reduce(_||_)
   val writeFpRf = fuConfigs.map(_.writeFpRf).reduce(_||_)
-  val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_)
+  val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_) && throughVectorRf
   val wakeUpIntRs = fuConfigs.map(_.writeIntRf).reduce(_||_) && !hasFastWakeup
   val wakeUpFpRs = fuConfigs.map(_.writeFpRf).reduce(_||_)
-  val wakeUpMemRs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf).reduce(_||_) && !hasFastWakeup
-  val wakeUpVrs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || e.writeVecRf).reduce(_||_)
+  val wakeUpMemRs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || (e.writeVecRf && throughVectorRf)).reduce(_||_) && !hasFastWakeup
+  val wakeUpVrs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || (e.writeVecRf && throughVectorRf)).reduce(_||_)
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
   val isIntType = ExuType.intTypes.contains(exuType)
   val isMemType = ExuType.memTypes.contains(exuType)
