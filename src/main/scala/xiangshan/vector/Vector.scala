@@ -21,6 +21,7 @@ import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import xiangshan._
+import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.rob._
 import xiangshan.vector._
 import xs.utils._
@@ -42,6 +43,7 @@ class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
 class VICtrlBlock(implicit p: Parameters) extends LazyModule {
 
   lazy val module = new VICtrlImp(this)
+  val dispatchNode = new DqDispatchNode
 
 }
 
@@ -70,14 +72,20 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
 
     //out
     //to exu
-    val dispatch = Vec(VIRenameWidth*3, DecoupledIO(new MicroOp))
+    val vecDispatch2Rs = Vec(vecDispatch._2.bankNum * 2, DecoupledIO(new MicroOp))
+
+    //to sictrlblock
+    val vecDispatch2Ctrl = Vec(vecDispatch._2.bankNum, DecoupledIO(new MicroOp))
 
   })
+
+  private val vecDispatch = outer.dispatchNode.out.filter(_._2._1.isVecRs).map(e => (e._1, e._2._1)).head
+  private val vecDeq = vecDispatch._1
 
   val videcode = Module(new VIDecodeUnit)
   val waitqueue = Module(new VIWaitQueue)
   val virename = Module(new VIRenameWrapper)
-  val dispatch = Module(new VectorDispatchWrapper(VIRenameWidth))
+  val dispatch = Module(new VectorDispatchWrapper(vecDispatch._2.bankNum))
 
   for (i <- 0 until VIDecodeWidth) {
     val DecodePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
@@ -99,11 +107,7 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
       CurrentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
       CurrentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.vCsrInfo
       CurrentData.MicroOp.robIdx := io.vtypein(i).bits.robIdx
-      if (io.vtypein(i).bits.state == 1.U) {
-        CurrentData.state := io.vtypein(i).bits.state - 1.U
-      } else {
-        CurrentData.state := io.vtypein(i).bits.state
-      }
+      CurrentData.state := io.vtypein(i).bits.state
       waitqueue.io.enq.req(i).bits := CurrentData
     }
   }
@@ -123,8 +127,9 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
   dispatch.io.req.uop <> virename.io.uopOut
   dispatch.io.redirect <> io.redirect
 
-  io.dispatch <> dispatch.io.toVectorPermuRS ++ dispatch.io.toMem2RS ++ dispatch.io.toVectorCommonRS
+  io.vecDispatch2Ctrl <>  dispatch.io.toMem2RS
 
+  vecDeq <> dispatch.io.toVectorPermuRS ++ dispatch.io.toVectorCommonRS
 
 }
 
