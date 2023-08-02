@@ -82,7 +82,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
           realSrc.bits.uop := RegEnable(src.bits.uop, realValid)
           realSrc.valid := RegNext(realValid, false.B) && !realSrc.bits.uop.robIdx.needFlush(localRedirectReg)
         }
-        if(s._2._1.isRob){
+        if(s._2._1.isRob || s._2._1.isVrs || s._2._1.isVprs || s._2._1.isVms || s._2._1.isMemRs && cfg.throughVectorRf){
           dst.bits := RegEnable(realSrc.bits, realSrc.valid)
           dst.valid := RegNext(realSrc.valid, false.B) && !dst.bits.uop.robIdx.needFlush(localRedirectReg)
         } else {

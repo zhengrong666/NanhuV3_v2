@@ -30,7 +30,7 @@ case class VectorParameters (
     //common
     vLen: Int               = 128, //maybe 64、256、512...
     //decode
-    vDecodeWidth: Int       = 6,
+    vDecodeWidth: Int       = 4,
     //vector instr rename
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,

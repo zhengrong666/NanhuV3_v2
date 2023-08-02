@@ -44,12 +44,6 @@ class VtypePtr(implicit p: Parameters) extends CircularQueuePtr[VtypePtr](
   p => p(XSCoreParamsKey).RobSize
 ) with HasCircularQueuePtrHelper {
 
-  def needFlush(redirect: Valid[Redirect]): Bool = {
-    val flushItself = redirect.bits.flushItself() && this === redirect.bits.robIdx
-    redirect.valid && (flushItself || isAfter(this, redirect.bits.robIdx))
-  }
-
-  def needFlush(redirect: Seq[Valid[Redirect]]): Bool = VecInit(redirect.map(needFlush)).asUInt.orR
 }
 
 object VtypePtr {
@@ -105,6 +99,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
         val freePtr = tailPtr + 1.U
         tempvtype <> io.in(i).bits
         tempvtype.vtypeIdx := freePtr
+        tempvtype.vCsrInfo.oldvl := CurrentVL
         if (io.in(i).bits.cf.instr(31) == 0) {
           tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(30)
           tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)

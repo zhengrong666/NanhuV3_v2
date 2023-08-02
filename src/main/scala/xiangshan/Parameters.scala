@@ -239,7 +239,7 @@ case class XSCoreParameters
   softPTW: Boolean = false, // dpi-c debug only
   vectorParameters: VectorParameters = VectorParameters(
     vLen               = 128, //maybe 64、256、512...
-    vDecodeWidth       = 6,
+    vDecodeWidth       = 4,
     vRenameWidth       = 4,
     vCommitWidth       = 4,
     vPhyRegsNum        = 64,
