@@ -52,15 +52,14 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
         val redirect = Flipped(ValidIO(new Redirect))
     })
 
-    val dispatchNetwork = new VectorDispatchNetwork
+    val dispatchNetwork = Module(new VectorDispatchNetwork)
     //TODO: RS Input Width align
-    val dqCommon    = new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, 4)
-    val dqPermu     = new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, 4)
-    val dqMem       = new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, 4)
-    val dqMem2RS    = new MemDispatch2Rs
+    val dqCommon    = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, 4))
+    val dqPermu     = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, 4))
+    val dqMem       = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, 4))
 
     //dispatch
-    dispatchNetwork.io.fromRename.uop   := io.req.uop
+    dispatchNetwork.io.fromRename.bits   := io.req.uop
     dispatchNetwork.io.fromRename.mask  := io.req.mask
 
     //handshake
@@ -68,7 +67,7 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
     val dqPermuCanAccept    = dqPermu.io.enq.canAccept
     val dqMemCanAccept      = dqMem.io.enq.canAccept
 
-    val canDispatch = dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept
+    io.req.canDispatch = dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept
 
     val dqCommonMask    = dispatchNetwork.io.commonMask.asBools
     val dqPermuMask     = dispatchNetwork.io.permutationMask.asBools
@@ -78,14 +77,18 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
     dqPermu.io.enq.needAlloc    := dqPermuMask
     dqMem.io.enq.needAlloc      := dqMemMask
 
+    deCommon.io.redirect <> io.redirect
+    dePermu.io.redirect <> io.redirect
+    deMem.io.redirect <> io.redirect
+
     for((uop, i) <- io.req.uop.zipWithIndex) {
         dqCommon.io.enq.req(i).bits := uop
         dqMem.io.enq.req(i).bits    := uop
         dqPermu.io.enq.req(i).bits  := uop
         
-        dqCommon.io.enq.req(i).valid    := dqCommonMask(i) & canDispatch
-        dqMem.io.enq.req(i).valid       := dqMemMask(i) & canDispatch
-        dqPermu.io.enq.req(i).valid     := dqPermuMask(i) & canDispatch
+        dqCommon.io.enq.req(i).valid    := dqCommonMask(i)
+        dqMem.io.enq.req(i).valid       := dqMemMask(i)
+        dqPermu.io.enq.req(i).valid     := dqPermuMask(i)
         }
 
     io.toVectorCommonRS <> dqCommon.io.deq

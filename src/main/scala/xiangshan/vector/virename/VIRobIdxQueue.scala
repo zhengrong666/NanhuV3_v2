@@ -46,7 +46,7 @@ class VIRobIdxQueueDeqIO(implicit p: Parameters) extends VectorBaseBundle {
 }
 
 class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VectorBaseBundle {
-    val canEnq      = Output(Bool())
+    //val canEnq      = Output(Bool())
     val doCommit    = Input(Bool())
     val doWalk      = Input(Bool())
     val mask        = Input(Vec(VICommitWidth, Bool()))
@@ -61,7 +61,7 @@ class VICommitReqEntry(implicit p: Parameters) extends VectorBaseBundle {
 class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
     val io = IO(new Bundle {
         val out     = new VIRobIdxQueueDeqIO
-        val in      = new VIRobIdxQueueEnqIO
+        val in      = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO))
         val hasWalk = Output(Bool())
     })
 
@@ -86,7 +86,7 @@ class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule 
     val freeEntryNum = distanceBetween(tailPtr, headPtr)
 
     //enq
-    io.in.canEnq := freeEntryNum >= VICommitWidth.U
+    io.in.ready := freeEntryNum >= VICommitWidth.U
     val enqNum = PopCount(io.in.mask)
 
     val entryEnq = io.in.doCommit || io.in.doWalk

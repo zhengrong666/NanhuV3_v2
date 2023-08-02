@@ -32,25 +32,25 @@ import xiangshan.mem.mdp._
 
 import xiangshan.vector._
 
-class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-    val uop = Input(Vec(VIRenameWidth, new MicroOp))
-    val mask = Input(UInt(VIRenameWidth.W))
-}
+// class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundle {
+//     val uop = Input(Vec(VIRenameWidth, new MicroOp))
+//     val mask = Input(UInt(VIRenameWidth.W))
+// }
 
-class VectorDispatchToDQ(implicit p: Parameters) extends VectorBaseBundle {
-    //val uop = Output(Vec(VIRenameWidth, new MicroOp))
-    val mask = Output(UInt(VIRenameWidth.W))
-}
+// class VectorDispatchToDQ(implicit p: Parameters) extends VectorBaseBundle {
+//     //val uop = Output(Vec(VIRenameWidth, new MicroOp))
+//     val mask = Output(UInt(VIRenameWidth.W))
+// }
 
 class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
-        val fromRename = new VectorDispatchFromRenameIO
-        val commonMask   = Output(UInt(VIRenameWidth.W))
+        val fromRename      = Vec(VIRenameWidth, Flipped(DecoupledIO(new MicroOp)))
+        val commonMask      = Output(UInt(VIRenameWidth.W))
         val permutationMask = Output(UInt(VIRenameWidth.W))
-        val memMask = Output(UInt(VIRenameWidth.W))
+        val memMask         = Output(UInt(VIRenameWidth.W))
     })
 
-    val req_mask = io.fromRename.mask.asBools()
+    val req_mask = io.fromRename.map(_.fire())
     
     class VectorInstrSelectNetwork(typeNum: Int) extends RawModule {
         val io = IO(new Bundle {
@@ -62,10 +62,10 @@ class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
         io.toDqMask(2) := io.req.map(r => FuType.isVecPermutation(r.ctrl.fuType))
     }
 
-    val selNet = new VectorInstrSelectNetwork(VIRenameWidth)
-    selNet.io.req := io.fromRename
+    val selNet = new VectorInstrSelectNetwork(VectorDispatchTypeNum)
+    selNet.io.req := io.fromRename.uop
     
-    io.commonMask := selNet.io.toDqMask(0).asUInt & io.fromRename.mask
-    io.permutationMask := selNet.io.toDqMask(1).asUInt & io.fromRename.mask
-    io.memMask := selNet.io.toDqMask(2).asUInt & io.fromRename.mask
+    io.commonMask       := selNet.io.toDqMask(0).asUInt & io.fromRename.mask
+    io.permutationMask  := selNet.io.toDqMask(1).asUInt & io.fromRename.mask
+    io.memMask          := selNet.io.toDqMask(2).asUInt & io.fromRename.mask
 }

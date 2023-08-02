@@ -42,12 +42,12 @@ class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBund
 class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
     val doRename    = Input(Bool())
     val writePorts  = Input(Vec(VIRenameWidth, new RollBackListRenameWritePort))
-    val mask        = Input(Vec(VIRenameWidth, Bool()))
+    val mask        = Input(UInt(VIRenameWidth.W))
 }
 
 class RollBackListCommitPort(implicit p: Parameters) extends VectorBaseBundle {
     val req     = Flipped(new VIRobIdxQueueDeqIO)
-    val resp    = Flipped(new VIRatCommitPort)
+    val resp    = Output(new VIRatCommitPort)
 }
 
 class RollBackListBundle(implicit p: Parameters) extends VectorBaseBundle {

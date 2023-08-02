@@ -42,9 +42,8 @@ class VIRenameReqLr(implicit p: Parameters) extends VectorBaseBundle {
 }
 
 class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
-    val req         = Input(Vec(VIRenameWidth, new VIRenameReqLr))
-    val mask        = Input(UInt(VIRenameWidth.W))
-    val canAccept   = Output(Bool())
+    val req         = Vec(VIRenameWidth, new VIRenameReqLr)
+    val mask        = UInt(VIRenameWidth.W)
 }
 
 class VIRenameResp(implicit p: Parameters) extends VectorBaseBundle {
@@ -57,13 +56,12 @@ class VIRenameResp(implicit p: Parameters) extends VectorBaseBundle {
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
         val redirect    = Flipped(ValidIO(new Redirect))
-
-        val renameReq   = new VIRenameReq
+        //rename, from waitqueue
+        val renameReq   = Flipped(DecoupledIO(new VIRenameReq))
         val renameResp  = Output(Vec(VIRenameWidth, new VIRenameResp))
-
+        //commit, from ROB
         val commitReq   = new VIRobIdxQueueEnqIO
         val hasWalk     = Output(Bool())
-        //val redirect    = new
     })
 
     val freeList        = Module(new VIFreeList)
@@ -72,21 +70,21 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val robIdxQueue     = Module(new VIRobIdxQueue(VIWalkRobIdxQueueWidth))
 
     //-------------------------------------------- Rename --------------------------------------------
-    val doRename = Wire(Bool())
+    
     val renameReqNum = PopCount(io.renameReq.req.map(i => (i.needRename === true.B)))
 
     //TODO: !redirect && !walk
-    doRename := (freeList.io.canAllocateNum >= renameReqNum) && (!io.redirect.valid) && (!io.hasWalk)// & queue.hasWalk
+    io.renameReq.ready := (freeList.io.canAllocateNum >= renameReqNum)
 
-    freeList.io.doAllocate := doRename
-    renameTable.io.renameWritePort.doRename := doRename
-    rollBackList.io.renamePort.doRename := doRename
-    //for handshake with vi wait queue
-    io.renameReq.canAccept := doRename
+    val doRename = Wire(Bool())
+    doRename := io.renameReq.fire() && (!io.redirect.valid) && (!io.hasWalk)// & queue.hasWalk
 
-    val freeListIO = freeList.io
-    freeListIO.allocateReqNum := renameReqNum
-    renameTable.io.renameWritePort.prIdx := freeListIO.allocatePhyReg
+    //doRename, allocate FreeList Ptr, write rat and rollbackList
+    freeList.io.doAllocate                  := doRename
+    rollBackList.io.renamePort.doRename     := doRename
+
+    freeList.io.allocateReqNum := renameReqNum
+    renameTable.io.renameWritePort.prIdx := freeList.io.allocatePhyReg
 
     //read RAT
     val renameReqPort = io.renameReq.req
@@ -100,6 +98,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
         port.pvs1   := rdp.vs1.prIdx
         port.pvs2   := rdp.vs2.prIdx
         port.pvd    := rdp.vd.prIdx
+        port.pmask  := rdp.vmask
     }
 
     //read old value
@@ -108,19 +107,21 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     }
 
     //write RAT
+    val renameMask = io.renamePort.map(_.fire())
     val ratRenamePortW = renameTable.io.renameWritePort
-    ratRenamePortW.lrIdx    := (0 until VIRenameWidth).map(i => io.renameReq.req(i).lvd)
-    ratRenamePortW.mask     := (0 until VIRenameWidth).map(i => io.renameReq.req(i).needRename) //align port
-    ratRenamePortW.prIdx    := freeListIO.allocatePhyReg
+    ratRenamePortW.doRename := doRename
+    ratRenamePortW.mask     := renameMask.asUInt
+    ratRenamePortW.lrIdx    := io.renameReq.bits.req.map(_.lvd)
+    ratRenamePortW.prIdx    := freeList.io.allocatePhyReg
 
     //write roll back list
     for((wp, i) <- rollBackList.io.renamePort.writePorts.zipWithIndex) {
-        wp.lrIdx := io.renameReq.req(i).lvd
-        wp.newPrIdx := freeListIO.allocatePhyReg(i)
+        wp.lrIdx    := io.renameReq.req(i).lvd
+        wp.newPrIdx := freeList.io.allocatePhyReg(i)
         wp.oldPrIdx := renameTable.io.oldPhyRegIdxReadPorts(i).prIdx
-        wp.robIdx := io.renameReq.req(i).robIdx
+        wp.robIdx   := io.renameReq.req(i).robIdx
     }
-    rollBackList.io.renamePort.mask := io.renameReq.req.map(e => e.needRename)
+    rollBackList.io.renamePort.mask := io.renameReq.req.map(e => e.needRename).asUInt
 
     //-------------------------------------------- TODO: commit & walk --------------------------------------------
     robIdxQueue.io.in <> io.commitReq
