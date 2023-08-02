@@ -38,36 +38,36 @@ class VIRatReadPortSingle(implicit p: Parameters) extends VectorBaseBundle {
     val prIdx = Output(UInt(VIPhyRegIdxWidth.W))
 }
 
-class VIRatReadPortInstr(implicit p: Parameters) extends VectorBaseBundle {
+class VIRatReadPortOneInstr(implicit p: Parameters) extends VectorBaseBundle {
     val vs1 = new VIRatReadPortSingle
     val vs2 = new VIRatReadPortSingle
-    val vd = new VIRatReadPortSingle
+    val vd  = new VIRatReadPortSingle
+    val vmask = Output(UInt(VIPhyRegIdxWidth.W))
 }
 
 class VIRatRenamePort(implicit p: Parameters) extends VectorBaseBundle {
-    val doRename = Input(Bool())
-    val mask = Vec(VIRenameWidth, Input(Bool()))
-    val lrIdx = Vec(VIRenameWidth, Input(UInt(5.W)))
-    val prIdx = Vec(VIRenameWidth, Input(UInt(VIPhyRegIdxWidth.W)))
+    val doRename    = Bool()
+    val mask        = UInt(VIRenameWidth.W)
+    val lrIdx       = Vec(VIRenameWidth, UInt(5.W))
+    val prIdx       = Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W))
 }
 
 class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
-    val doCommit = Input(Bool())
-    val doWalk = Input(Bool())
-    val mask = Input(Vec(VICommitWidth, Bool()))
-    val lrIdx = Input(Vec(VICommitWidth, UInt(5.W)))
-    val prIdxOld = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
-    val prIdxNew = Input(Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W)))
+    val doCommit    = Bool()
+    val doWalk      = Bool()
+    val mask        = UInt(VICommitWidth.W)
+    val lrIdx       = Vec(VICommitWidth, UInt(5.W))
+    val prIdxOld    = Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W))
+    val prIdxNew    = Vec(VICommitWidth, UInt(VIPhyRegIdxWidth.W))
 }
 
 class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
-        val renameReadPorts = Vec(VIRenameWidth, new VIRatReadPortInstr)
-        val oldPhyRegIdxReadPorts = Vec(VIRenameWidth, new VIRatReadPortSingle)
-        val renameWritePort = new VIRatRenamePort
-        val prIdx0          = new Output(UInt(VIPhyRegIdxWidth.W))
-        val commitPort = new VIRatCommitPort
-        val debugReadPorts = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
+        val renameReadPorts         = Vec(VIRenameWidth, new VIRatReadPortOneInstr)
+        val oldPhyRegIdxReadPorts   = Vec(VIRenameWidth, new VIRatReadPortSingle) //for RollBackList write
+        val renameWritePort         = Input(new VIRatRenamePort)
+        val commitPort      = Input(new VIRatCommitPort)
+        val debugReadPorts  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
     })
     //RAT
     val rat_ds = VecInit.tabulate(32)(i => i.U(VIPhyRegIdxWidth.W))
@@ -88,9 +88,10 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
         port.vd.prIdx := (0 until i).foldLeft(sRAT(port.vd.lrIdx))((p, k) => 
             Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vd.lrIdx && io.renameWritePort.doRename === true.B), 
                 io.renameWritePort.prIdx(k), p))
+        port.vmask := (0 until i).foldLeft(sRAT(0.U))((p, k) => 
+            Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === 0.U && io.renameWritePort.doRename === true.B), 
+                io.renameWritePort.prIdx(k), p))
     }
-    //TODO: mask reg(lrIdx0) bypass
-    io.prIdx0 := sRAT(0.U)
 
     //old regId read, for rollBackList storage
     val oldLrOHVec = io.oldPhyRegIdxReadPorts.map(port => UIntToOH(port.lrIdx))

@@ -47,14 +47,14 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
         val commit = new VIRobIdxQueueEnqIO
     })
 
-    val rename = new VIRename
+    val rename = Module(new VIRename)
 
     //when vector pipeline is walking, block all pipeline
     val hasWalk = rename.io.hasWalk
 
     //rename
-    val reqMask = Wire(Vec(VIRenameWidth, Bool()))
-    reqMask := io.uopIn.map(req => req.valid)
+    val reqMask = Wire(UInt(VIRenameWidth.W))
+    reqMask := io.uopIn.map(req => req.valid).asUInt
 
     val robIdxForRename = Wire(Vec(VIRenameWidth, UInt(log2Up(RobSize).W)))
     robIdxForRename := io.uopIn.map(req => req.bits.robIdx.value)
@@ -73,7 +73,6 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
 
     io.canAccept := rename.io.renameReq.canAccept && (!hasWalk) && (!io.redirect.valid)
 
-    io.uopOut := DontCare
     (0 until VIRenameWidth).map(i => io.uopOut(i).bits  := io.uopIn(i).bits)
     (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i) & io.canAccept)
 
