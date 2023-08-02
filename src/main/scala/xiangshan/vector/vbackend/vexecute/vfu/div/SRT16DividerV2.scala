@@ -18,7 +18,7 @@
 // https://github.com/OpenXiangShan/XS-Verilog-Library/tree/main/int_div_radix_4_v1
 // Email of original author: hyf_sysu@qq.com
 
-package xiangshan.vector.vbackend.vexecute.vfu.div
+package darecreek.exu.fu2.div
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._

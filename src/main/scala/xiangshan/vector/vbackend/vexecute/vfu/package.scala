@@ -2,6 +2,7 @@ package xiangshan.vector.vbackend.vexecute
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import darecreek.exu.fu2.VUop
 import xiangshan.{MicroOp, Narrow, Widen}
 package object vfu {
   def uopToVuop(src:MicroOp, p:Parameters):VUop = {

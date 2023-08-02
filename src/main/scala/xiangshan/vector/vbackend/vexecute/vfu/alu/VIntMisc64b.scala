@@ -12,14 +12,15 @@
   *     16.2
   *     16.6
   */
-package xiangshan.vector.vbackend.vexecute.vfu.alu
+package darecreek.exu.fu2.alu
 
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config.Parameters
 
-class VIntMisc64b extends Module {
+class VIntMisc64b(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
     val funct3 = Input(UInt(3.W))

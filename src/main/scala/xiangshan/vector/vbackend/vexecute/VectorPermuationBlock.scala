@@ -2,13 +2,13 @@ package xiangshan.vector.vbackend.vexecute
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import darecreek.exu.fu2.perm.Permutation
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, LazyModuleImpLike}
 import xiangshan.{HasXSParameter, Redirect, SrcType, XSBundle, XSModule}
 import xiangshan.backend.execute.exu.{ExuConfig, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.backend.regfile.ScalarRfReadPort
 import xiangshan.vector.HasVectorParameters
-import xiangshan.vector.vbackend.vexecute.vfu.permutation.Permutation
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 import xiangshan.vector.vbackend.vissue.vprs.{VpReservationStation, VprsIssueBundle}
 import xiangshan.vector.vbackend.vregfile.VectorRfReadPort
@@ -79,14 +79,19 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.old_vd_preg_idx.zip(issueDataReg.pov).foreach({case(a,b) => a := b})
     permutation.io.in.mask_preg_idx := issueDataReg.pvm
     permutation.io.in.uop_valid := issueValidReg
+    permutation.io.in.uop_rob_flag := issueDataReg.uop.robIdx.flag
     permutation.io.in.uop_rob_idx := issueDataReg.uop.robIdx.value
     permutation.io.in.rdata := rfRespData
     permutation.io.in.rvalid := rfRespValid
     permutation.io.in.flush_vld := io.redirect.valid
+    permutation.io.in.flush_rob_flag := io.redirect.bits.robIdx.flag
     permutation.io.in.flush_rob_idx := io.redirect.bits.robIdx.value
 
     private val wb = writebackNode.out.head._1
     wb.valid := permutation.io.out.wb_vld
     wb.bits.data := permutation.io.out.wb_data
+    wb.bits.uop := permutation.io.out.uop.sysUop
+    wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
+    wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
   }
 }

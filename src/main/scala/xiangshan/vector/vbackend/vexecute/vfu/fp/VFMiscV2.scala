@@ -1,9 +1,9 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import fudian.FloatPoint
+import darecreek.exu.fu2.fp.fudian.FloatPoint
 
 
 // cmp & minmax

@@ -1,11 +1,12 @@
-package xiangshan.vector.vbackend.vexecute.vfu.permutation
+package darecreek.exu.fu2.perm
 
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config.Parameters
 
-class VcmprsEngine extends Module {
+class VcmprsEngine(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
     val funct3 = Input(UInt(3.W))
@@ -25,7 +26,7 @@ class VcmprsEngine extends Module {
     val cmprs_rd_wb = Input(Bool())
     val cmprs_rd_old_vd = Input(Bool())
     val calc_done = Input(Bool())
-    val flush_vld = Input(Bool())
+    val flush = Input(Bool())
 
     val cmprs_vd = Output(UInt(128.W))
   })
@@ -48,7 +49,7 @@ class VcmprsEngine extends Module {
   val cmprs_rd_wb = io.cmprs_rd_wb
   val cmprs_rd_old_vd = io.cmprs_rd_old_vd
   val calc_done = io.calc_done
-  val flush_vld = io.flush_vld
+  val flush = io.flush
 
   val vcompress = (funct6 === "b010111".U) && (funct3 === "b010".U)
   val eew = SewOH(vsew)
@@ -75,7 +76,7 @@ class VcmprsEngine extends Module {
   vmask_vl := vmask & vd_mask_vl
   current_vs_ones_sum := PopCount(vmask_16b)
 
-  when(flush_vld) {
+  when(flush) {
     ones_sum := 0.U
   }.elsewhen(cmprs_rd_old_vd || calc_done) {
     ones_sum := 0.U
@@ -117,10 +118,10 @@ class VcmprsEngine extends Module {
   io.cmprs_vd := Cat(cmprs_vd.reverse)
 }
 
-object VerilogVcmprs extends App {
-  println("Generating the VPU Vcompress hardware")
-  emitVerilog(new VcmprsEngine(), Array("--target-dir", "build/vifu"))
+// object VerilogVcmprs extends App {
+//   println("Generating the VPU Vcompress hardware")
+//   emitVerilog(new VcmprsEngine(), Array("--target-dir", "build/vifu"))
 
-}
+// }
 
 

@@ -1,12 +1,12 @@
-package xiangshan.vector.vbackend.vexecute.vfu.mac
+package darecreek.exu.fu2.mac
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config._
 
-class VMac(implicit p: Parameters) extends Module {
+class VMac(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Input(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput) // Same as ALU

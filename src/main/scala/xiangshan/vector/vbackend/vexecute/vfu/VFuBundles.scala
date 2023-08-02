@@ -1,8 +1,8 @@
-package xiangshan.vector.vbackend.vexecute.vfu
+package darecreek.exu.fu2
 
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+// import darecreek.exu.fu2.VFUParam._
 import chipsalliance.rocketchip.config.Parameters
 import xiangshan.MicroOp
 
@@ -19,8 +19,8 @@ class VUopCtrl extends Bundle {
   def vv = !funct3(2) && !(funct3(1) && funct3(0))
   def vx = funct3(2)
   def vi = !funct3(2) && funct3(1) && funct3(0)
-}
-class VUopInfo extends Bundle {
+} 
+class VUopInfo(implicit p: Parameters) extends VFuBundle {
   val ma = Bool()
   val ta = Bool()
   val vsew = UInt(3.W)
@@ -57,7 +57,7 @@ object SewOH {
 }
 
 // Input of FU
-class VFuInput(implicit p: Parameters)  extends Bundle {
+class VFuInput(implicit p: Parameters) extends VFuBundle {
   val uop = new VUop
   val vs1 = UInt(128.W)
   val vs2 = UInt(128.W)
@@ -90,14 +90,17 @@ class VPermInput(implicit p: Parameters) extends Bundle {
   val old_vd_preg_idx = Vec(8, UInt(8.W))
   val mask_preg_idx = UInt(8.W)
   val uop_valid = Bool()
-  val uop_rob_idx = UInt(9.W)
+  val uop_rob_flag = Bool()
+  val uop_rob_idx = UInt(8.W)
   val rdata = UInt(128.W)
   val rvalid = Bool()
   val flush_vld = Bool()
-  val flush_rob_idx = UInt(9.W)
+  val flush_rob_flag = Bool()
+  val flush_rob_idx = UInt(8.W)
 }
 
-class VPermOutput extends Bundle {
+class VPermOutput(implicit p: Parameters) extends Bundle {
+  val uop = new VUop
   val rd_en = Bool()
   val rd_preg_idx = UInt(8.W)
   val wb_vld = Bool()
@@ -144,7 +147,7 @@ class VCtrl extends Bundle {
   // def isLdst = load || store
 }
 
-class VInfo extends Bundle {
+class VInfo(implicit p: Parameters) extends VFuBundle {
   val vstart = UInt(bVSTART.W) // from CSR
   val vl = UInt(bVL.W) //---- Todo: width reduction
   val vxrm = UInt(2.W)
@@ -159,13 +162,13 @@ class VInfo extends Bundle {
   // val wenRF = Bool() // RF wen. E.g., vstart >= vl or vl=0 
 }
 
-class VCtrlInfo extends Bundle {
+class VCtrlInfo(implicit p: Parameters) extends Bundle {
   val ctrl = new VCtrl
   val info = new VInfo
 }
 
 // Expanded micro-op after renaming
-class VExpdUOp(implicit p: Parameters)  extends VCtrlInfo with ConnectFromVUop {
+class VExpdUOp(implicit p: Parameters) extends VCtrlInfo with ConnectFromVUop {
   // val vRobIdx = new VRobPtr
   // val expdLen = UInt(4.W) // Number of expanded uops
   val expdIdx = UInt(3.W) // Idx of expanded uop
@@ -182,7 +185,7 @@ class VExpdUOp(implicit p: Parameters)  extends VCtrlInfo with ConnectFromVUop {
 }
 
 // Input of the lane FU
-class LaneFUInput(implicit p: Parameters)  extends Bundle {
+class LaneFUInput(implicit p: Parameters) extends VFuBundle {
   val uop = new VExpdUOp
   val vs1 = UInt(64.W)
   val vs2 = UInt(64.W)
@@ -193,7 +196,7 @@ class LaneFUInput(implicit p: Parameters)  extends Bundle {
   val tail = UInt(8.W)
 }
 // Output of the lane FU
-class LaneFUOutput(implicit p: Parameters)  extends Bundle {
+class LaneFUOutput(implicit p: Parameters) extends Bundle {
   val uop = new VExpdUOp
   val vd = UInt(64.W)
   val fflags = UInt(5.W) // Floating-point accrued exception flag
@@ -208,7 +211,7 @@ class LaneUnit(implicit p: Parameters) extends Module {
 }
  
 trait ConnectFromLaneUop { this: VUop =>
-  def connectFromLaneUop(laneUop: VExpdUOp) = {
+  def connectFromLaneUop(laneUop: VExpdUOp)(implicit p: Parameters) = {
     this.elements.foreach {case (name, data) =>
       data match {
         case x:Bundle =>
@@ -216,7 +219,7 @@ trait ConnectFromLaneUop { this: VUop =>
         x.elements.foreach {case (name2, data2) =>
           if (name2 != "vs1_imm") {
             data2 := laneUop.elements(name).asTypeOf( 
-              {if (name == "ctrl") {new VCtrl} else {new VInfo}}).elements(name2)
+              {if (name == "ctrl") {new VCtrl} else {new VInfo()(p)}}).elements(name2)
           }
         }
         }
@@ -231,7 +234,7 @@ trait ConnectFromLaneUop { this: VUop =>
 }
 
 trait ConnectFromVUop { this: VExpdUOp =>
-  def connectFromVUop(vUop: VUop, isDiv: Boolean = false) = {
+  def connectFromVUop(vUop: VUop, isDiv: Boolean = false)(implicit p: Parameters) = {
     this.elements.foreach {case (name, data) =>
       data match {
         case x:Bundle =>
@@ -239,7 +242,7 @@ trait ConnectFromVUop { this: VExpdUOp =>
         x.elements.foreach {case (name2, data2) =>
           if (!(Array("destEew", "lsrc", "ldest").contains(name2))) {
             data2 := vUop.elements(name).asTypeOf( 
-              {if (name == "ctrl") {new VUopCtrl} else {new VUopInfo}}).elements(name2)
+              {if (name == "ctrl") {new VUopCtrl} else {new VUopInfo()(p)}}).elements(name2)
           }
         }
         }

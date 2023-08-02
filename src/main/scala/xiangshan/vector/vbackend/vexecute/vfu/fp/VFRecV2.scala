@@ -1,9 +1,9 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu.fp.fudian._
-import xiangshan.vector.vbackend.vexecute.vfu.fp.fudian.utils.CLZ
+import darecreek.exu.fu2.fp.fudian._
+import darecreek.exu.fu2.fp.fudian.utils.CLZ
 import freechips.rocketchip.config._
 
 class VFRec(implicit val p: Parameters) extends VFPUSubModule {

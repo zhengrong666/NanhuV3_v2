@@ -1,7 +1,8 @@
-package xiangshan.vector.vbackend.vexecute.vfu
+package darecreek.exu.fu2
 
 import chisel3._
 import chisel3.util._
+import chipsalliance.rocketchip.config.Parameters
 
 object UIntSplit {
   //Split into elements, e.g., if sew=8, UInt(64.W) => Seq(UInt(8.W) * 8)
@@ -125,7 +126,7 @@ object BundleHelper {
   }
 }
 
-class MaskTailData extends Module {
+class MaskTailData(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val mask = Input(UInt(8.W))
     val tail = Input(UInt(8.W))

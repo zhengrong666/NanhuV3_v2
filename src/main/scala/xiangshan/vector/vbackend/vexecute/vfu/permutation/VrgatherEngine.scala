@@ -1,11 +1,12 @@
-package xiangshan.vector.vbackend.vexecute.vfu.permutation
+package darecreek.exu.fu2.perm
 
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config.Parameters
 
-class VrgatherEngine extends Module {
+class VrgatherEngine(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
     val funct3 = Input(UInt(3.W))
@@ -236,10 +237,10 @@ class VrgatherEngine extends Module {
   io.vrgather_vd := Cat(vrgather_vd.reverse)
 }
 
-object VerilogVrgather extends App {
-  println("Generating the VPU Vrgather hardware")
-  emitVerilog(new VrgatherEngine(), Array("--target-dir", "build/vifu"))
+// object VerilogVrgather extends App {
+//   println("Generating the VPU Vrgather hardware")
+//   emitVerilog(new VrgatherEngine(), Array("--target-dir", "build/vifu"))
 
-}
+// }
 
 
