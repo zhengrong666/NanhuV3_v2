@@ -2,8 +2,8 @@ package xiangshan.vector.vbackend.vregfile
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu.div.ZeroExt
-import xiangshan.{ExuOutput, Redirect, XSBundle, XSModule}
+import xiangshan.{ExuOutput, XSBundle, XSModule}
+import xs.utils.ZeroExt
 
 class MoveReq(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
@@ -31,8 +31,6 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val wakeups = Output(Vec(wbWkpNum, Valid(new ExuOutput)))
     val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
     val readPorts = Vec(readPortNum, new VrfReadPort)
-    val clear = Vec(vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
-    val redirect = Input(Valid(new Redirect))
   })
   
   
@@ -58,13 +56,8 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val wbValidReg = RegNext(io.wbWakeup(i).valid, false.B)
     val wbBitsReg = RegEnable(io.wakeups(i).bits, io.wbWakeup(i).valid)
     val maskRead = mrf.read(wbBitsReg.uop.pdest)
-    io.wakeups(i).valid := wbValidReg && !wbBitsReg.uop.robIdx.needFlush(io.redirect) && maskRead.reduce(_&_)
+    io.wakeups(i).valid := wbValidReg && maskRead.reduce(_&_)
     io.wakeups(i).bits := wbBitsReg
-  }
-  for(c <- io.clear){
-    when(c.valid){
-      mrf(c.bits) := 0.U
-    }
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {

@@ -12,6 +12,7 @@ import xiangshan.vector.HasVectorParameters
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 import xiangshan.vector.vbackend.vissue.vprs.{VpReservationStation, VprsIssueBundle}
 import xiangshan.vector.vbackend.vregfile.VectorRfReadPort
+import xs.utils.DelayN
 
 class PermutationRegfileReadPort(implicit p: Parameters) extends XSBundle{
   val vrf = Flipped(new VectorRfReadPort)
@@ -87,11 +88,18 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.flush_rob_flag := io.redirect.bits.robIdx.flag
     permutation.io.in.flush_rob_idx := io.redirect.bits.robIdx.value
 
+    private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
-    wb.valid := permutation.io.out.wb_vld
+    wb.valid := DelayN(permutation.io.out.wb_vld, 3)
     wb.bits.data := permutation.io.out.wb_data
     wb.bits.uop := permutation.io.out.uop.sysUop
     wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
     wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
+    when(wb.valid){
+      wbCounter := wbCounter + 1
+    }.elsewhen(wbCounter === wb.bits.uop.uopNum){
+      wbCounter := 0.U
+    }
+    wb.bits.uop.uopIdx := wbCounter
   }
 }

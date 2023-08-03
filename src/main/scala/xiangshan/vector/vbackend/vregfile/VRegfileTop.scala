@@ -21,11 +21,11 @@ class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
 }
 
 object VRegfileTopUtil{
-  def GenWbMask(in:MicroOp, width:Int, isLoad:Boolean, VLEN:Int): UInt = {
+  def GenWbMask(in:MicroOp, width:Int, elementWise:Boolean, VLEN:Int): UInt = {
     val res = Wire(VecInit(Seq.fill(width)(false.B)))
     val sew = in.vCsrInfo.vsew
     val w = width - 1
-    val (ui, un) = if(isLoad) {
+    val (ui, un) = if(elementWise) {
       MuxCase((0.U, 0.U), Seq(
         sew === 0.U -> (ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 8)), 3), ZeroExt(in.uopNum(w, log2Ceil(VLEN / 8)), 3)),
         sew === 1.U -> (ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 16)), 3), ZeroExt(in.uopNum(w, log2Ceil(VLEN / 16)), 3)),
@@ -99,15 +99,17 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
           sew === 3.U -> (wbin.bits.data << (wbin.bits.uop.uopIdx(0) + 6.U))(VLEN - 1, 0)
         ))
       }
-      wbout := rfwkp
+      wbout.valid := rfwkp.valid && !rfwkp.bits.uop.robIdx.needFlush(io.redirect)
+      wbout.bits := rfwkp.bits
       wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 8, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
       rfwb.bits := wbin.bits
-      val validCond = wbin.valid && wbin.bits.uop.ctrl.isVector
-      wbout.valid := RegNext(validCond, false.B)
+      val validCond = wbin.valid
+      val validReg = RegNext(validCond, false.B)
       val bitsReg = RegEnable(wbin.bits, wbin.valid && validCond)
+      wbout.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
       wbout.bits := bitsReg
       wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 8, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
     })
