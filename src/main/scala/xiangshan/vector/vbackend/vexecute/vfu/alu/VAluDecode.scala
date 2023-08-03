@@ -1,9 +1,9 @@
-package xiangshan.vector.vbackend.vexecute.vfu.alu
+package darecreek.exu.fu2.alu
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import xiangshan.vector.vbackend.vexecute.vfu.VInstructions._
+import darecreek.exu.fu2.VInstructions._
 
 object VAluFunct6 {
   //                                  OPI (OPIVV/X/I)

@@ -1,4 +1,4 @@
-package xiangshan.vector.vbackend.vexecute.vfu.div
+package darecreek.exu.fu2.div
 
 import chipsalliance.rocketchip.config.{Config, Field, Parameters}
 import chisel3._
@@ -7,27 +7,27 @@ import chisel3.util._
 // import darecreek.exu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
 // import darecreek.exu.fu.alu.MaskTailData
 // import darecreek.exu.fp._
-import xiangshan.vector.vbackend.vexecute.vfu.DarecreekParamVFU._
-import xiangshan.vector.vbackend.vexecute.vfu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
-import xiangshan.vector.vbackend.vexecute.vfu.fp._
-import xiangshan.vector.vbackend.vexecute.vfu._
+// import darecreek.exu.fu2.DarecreekParamVFU._
+// import darecreek.exu.fu2.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
+import darecreek.exu.fu2.fp._
+import darecreek.exu.fu2._
 
 //case object NAME extends Field[String]
 //case object LANE_WIDTH extends Field[Int]
 //case object XLEN extends Field[Int]
 //
-class VDivConfig extends Config((site, here, up) => {
-  case NAME => "VDIV"
-  case LANE_WIDTH => LaneWidth
-  case XLEN => xLen
-}) with DarecreekParametersVFU
+// class VDivConfig extends Config((site, here, up) => {
+//   case NAME => "VDIV"
+//   case LANE_WIDTH => LaneWidth
+//   case XLEN => xLen
+// }) with DarecreekParametersVFU
 
-trait HasDivParams {
-  implicit val p: Parameters
-  //  val name = p(NAME)
-  val laneWidth = p(LANE_WIDTH)
-  val xLen = p(XLEN)
-}
+// trait HasDivParams {
+//   implicit val p: Parameters
+//   //  val name = p(NAME)
+//   val laneWidth = p(LANE_WIDTH)
+//   val xLen = p(XLEN)
+// }
 
 // comb logic
 class VDivInputGen(implicit val p: Parameters) extends Module {
@@ -39,7 +39,7 @@ class VDivInputGen(implicit val p: Parameters) extends Module {
   val sewOH = UIntToOH(io.in.uop.info.vsew)
   // src expand
   val expdSigs = VecInit(Seq.tabulate(4)( i =>
-    Cat(Seq.fill(8 >> i)(io.in.rs1(8 << i - 1 ,0))
+    Cat(Seq.fill(8 >> i)(io.in.rs1((8 << i) - 1 ,0))
   )))
   val rs1Expd = Mux(ctrl.vx, Mux1H(sewOH, expdSigs), io.in.vs1)
 
@@ -58,7 +58,7 @@ class VDivInputGen(implicit val p: Parameters) extends Module {
 
 }
 
-class DivTop(implicit val p: Parameters = (new WithVFPUConfig).toInstance) extends Module with HasVFPUParams {
+class DivTop(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
     val out = DecoupledIO(new LaneFUOutput)
@@ -78,7 +78,7 @@ class DivTop(implicit val p: Parameters = (new WithVFPUConfig).toInstance) exten
 //  idiv.io.out.ready := io.out.ready
   fdivsqrt.io.in.bits := FinputGen.io.out
   // fdivsqrt.io.in.valid := io.in.valid && uop.ctrl.div && uop.ctrl.fp
-  fdivsqrt.io.in.valid := io.in.valid && uop.ctrl.funct3(1, 0) =/= 1.U //OPFVV/VF
+  fdivsqrt.io.in.valid := io.in.valid && uop.ctrl.funct3(1, 0) === 1.U //OPFVV/VF
 //  fdivsqrt.io.out.ready := io.out.ready
 
   val fdivResult = Wire(new LaneFUOutput)

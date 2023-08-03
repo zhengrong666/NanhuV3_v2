@@ -1,4 +1,4 @@
-package xiangshan.vector.vbackend.vexecute.vfu.permutation
+package darecreek.exu.fu2.perm
 
 import chisel3._
 import chisel3.util._

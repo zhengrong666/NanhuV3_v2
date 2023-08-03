@@ -1,12 +1,12 @@
-package xiangshan.vector.vbackend.vexecute.vfu.div
+package darecreek.exu.fu2.div
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config._
 
-class VDiv(implicit p: Parameters) extends Module {
+class VDiv(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new VFuInput))
     val out = Decoupled(new VFpuOutput)
@@ -14,10 +14,9 @@ class VDiv(implicit p: Parameters) extends Module {
 
   val divTops = Seq.fill(2)(Module(new DivTop))
 
-  io.in.ready := divTops(0).io.in.ready && divTops(1).io.in.ready
   /** VFuInput -> LaneFuInput */
   for (i <- 0 until 2) {
-    divTops(i).io.in.valid := io.in.valid
+    // divTops(i).io.in.valid := io.in.valid
     divTops(i).io.in.bits.uop.connectFromVUop(io.in.bits.uop, isDiv = true)
     divTops(i).io.in.bits.vs1 := UIntSplit(io.in.bits.vs1, 64)(i)
     divTops(i).io.in.bits.vs2 := UIntSplit(io.in.bits.vs2, 64)(i)
@@ -31,18 +30,20 @@ class VDiv(implicit p: Parameters) extends Module {
   /** LaneFUOutput -> VFpOutput */
   val outVdReg = Reg(Vec(2, UInt(64.W)))
   val outfflagsReg = Reg(Vec(2, UInt(5.W)))
+  val outUopReg = Reg(new VUop)
   val outValidReg = RegInit(VecInit.fill(2)(false.B))
+  val allOutValidRegClear = !outValidReg(0) && !outValidReg(1)
   io.out.valid := outValidReg(0) && outValidReg(1)
   for (i <- 0 until 2) {
-    divTops(i).io.out.ready := !divTops(i).io.out.valid || io.out.ready
-    when (divTops(i).io.out.fire) {
+    divTops(i).io.out.ready := true.B
+    when (divTops(i).io.out.valid) {
       outValidReg(i) := true.B
     }.elsewhen (io.out.fire) {
       outValidReg(i) := false.B
     }.otherwise {
       outValidReg(i) := outValidReg(i)
     }
-    when (divTops(i).io.out.fire) {
+    when (divTops(i).io.out.valid) {
       outVdReg(i) := divTops(i).io.out.bits.vd
       outfflagsReg(i) := divTops(i).io.out.bits.fflags
     }
@@ -51,11 +52,21 @@ class VDiv(implicit p: Parameters) extends Module {
   io.out.bits.fflags := outfflagsReg(1) | outfflagsReg(0)
   val outVUop = Wire(new VUop)
   outVUop.connectFromLaneUop(divTops(0).io.out.bits.uop)
-  io.out.bits.uop := RegNext(outVUop)
+  when (divTops(0).io.out.valid) {
+    outUopReg := outVUop
+  }
+  io.out.bits.uop := outUopReg
+
+  val outIsReady = io.out.fire || allOutValidRegClear
+  for (i <- 0 until 2) {
+    divTops(i).io.in.valid := io.in.valid && outIsReady
+  }
+  io.in.ready := divTops(0).io.in.ready && divTops(1).io.in.ready && outIsReady
 }
 
 object Main extends App {
   println("Generating hardware")
-  emitVerilog(new VDiv, Array("--target-dir", "generated",
+  val p = Parameters.empty
+  emitVerilog(new VDiv()(p.alterPartial({case VFuParamsKey => VFuParameters()})), Array("--target-dir", "generated",
               "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }

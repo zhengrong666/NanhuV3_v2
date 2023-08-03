@@ -1,15 +1,16 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.{LaneFUInput, LaneFUOutput}
-import xiangshan.vector.vbackend.vexecute.vfu.{LaneFUInput, LaneFUOutput}
+import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import freechips.rocketchip.config.Parameters
+import darecreek.exu.fu2._
 
-abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFPUParams
+abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFuParameters
 
 // a module that has decoupled interfaces
-abstract class VFPUSubModule(implicit p: Parameters) extends VFPUBaseModule with HasVFPUParams {
+abstract class VFPUSubModule(implicit p: Parameters) extends VFPUBaseModule with HasVFuParameters {
   val io = IO(new LaneFloatFUIO)
   def invert_sign(x: UInt, len: Int) = {
     Cat(

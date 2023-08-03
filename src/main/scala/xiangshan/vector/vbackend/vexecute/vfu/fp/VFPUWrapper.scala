@@ -1,24 +1,24 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
 import chipsalliance.rocketchip.config.Parameters
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
 
-class VFPUWrapper(implicit p: Parameters) extends Module {
+class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new VFuInput))
     val out = DecoupledIO(new VFpuOutput)
   })
 
 
-  val xlen = xiangshan.vector.vbackend.vexecute.vfu.VFUParam.XLEN
-  val LaneWidth = 64 // constant
-  val NLanes = VLEN / LaneWidth
-  val vlenb = VLEN / 8
-  val vlenbWidth = log2Up(vlenb)
+  // val xlen = darecreek.exu.fu2.VFUParam.XLEN
+  // val LaneWidth = 64 // constant
+  // val NLanes = VLEN / LaneWidth
+  // val vlenb = VLEN / 8
+  // val vlenbWidth = log2Up(vlenb)
   val ctrl = io.in.bits.uop.ctrl
   val info = io.in.bits.uop.info
   val funct6 = io.in.bits.uop.ctrl.funct6
@@ -251,7 +251,7 @@ class VFPUWrapper(implicit p: Parameters) extends Module {
   val vd_vsew = Mux(widen, vsew + 1.U, vsew)
   val eewVd = SewOH(vd_vsew)
   val vs1_zero = Wire(UInt(64.W))
-   vs1_zero := Mux1H(eewVd.oneHot, Seq(8, 16, 32).map(n => Cat(Fill(xlen - n, 0.U), vs1(n - 1, 0))) :+ vs1(63, 0))
+   vs1_zero := Mux1H(eewVd.oneHot, Seq(8, 16, 32).map(n => Cat(Fill(XLEN - n, 0.U), vs1(n - 1, 0))) :+ vs1(63, 0))
   // vs1_zero := vs1(63, 0)
 
   val red_zero = RegEnable(red_out_bits(63, 0), (red_state === calc_vs1) && red_out_valid && red_out_ready)
@@ -396,16 +396,26 @@ class VFPUWrapper(implicit p: Parameters) extends Module {
     fpu(i).io.in.bits.uop.expdEnd := Mux(fpu_in_valid, red_in(i).uop.expdEnd, uopEnd)
     fpu(i).io.in.bits.uop.pdestVal := false.B
     fpu(i).io.in.bits.uop.sysUop := sysUop
-    fpu(i).io.in.bits.vs1 := Mux(fpu_in_valid, red_in(i).vs1, vs1)
-    fpu(i).io.in.bits.vs2 := Mux(fpu_in_valid, red_in(i).vs2, vs2)
-    fpu(i).io.in.bits.old_vd := Mux(fpu_in_valid, red_in(i).old_vd, old_vd)
+    fpu(i).io.in.bits.vs1 := Mux(fpu_in_valid, red_in(i).vs1, vs1(VLEN / 2, 0))
+    fpu(i).io.in.bits.vs2 := Mux(fpu_in_valid, red_in(i).vs2, vs2(VLEN / 2, 0))
+    fpu(i).io.in.bits.old_vd := Mux(fpu_in_valid, red_in(i).old_vd, old_vd(VLEN / 2, 0))
     fpu(i).io.in.bits.rs1 := rs1
     fpu(i).io.in.bits.prestart := 0.U
-    fpu(i).io.in.bits.mask := vmask
+    fpu(i).io.in.bits.mask := vmask(7, 0)
     fpu(i).io.in.bits.tail := 0.U
     fpu(i).io.out.ready := io.out.ready
     vd(i) := fpu(i).io.out.bits.vd
     fpu_out(i) := fpu(i).io.out.bits
+  }
+
+  val vmask2 = Wire(UInt(8.W))
+  vmask2 := vmask(15, 8)
+  when(vsew === 1.U) {
+    vmask2 := vmask(11, 4)
+  }.elsewhen(vsew === 2.U) {
+    vmask2 := vmask(9, 2)
+  }.elsewhen(vsew === 3.U) {
+    vmask2 := vmask(8, 1)
   }
 
   for (i <- NLanes / 2 until NLanes) {
@@ -435,12 +445,12 @@ class VFPUWrapper(implicit p: Parameters) extends Module {
     fpu(i).io.in.bits.uop.expdEnd := uopEnd
     fpu(i).io.in.bits.uop.pdestVal := false.B
     fpu(i).io.in.bits.uop.sysUop := sysUop
-    fpu(i).io.in.bits.vs1 := vs1
-    fpu(i).io.in.bits.vs2 := vs2
-    fpu(i).io.in.bits.old_vd := old_vd
+    fpu(i).io.in.bits.vs1 := vs1(VLEN - 1, VLEN / 2)
+    fpu(i).io.in.bits.vs2 := vs2(VLEN - 1, VLEN / 2)
+    fpu(i).io.in.bits.old_vd := old_vd(VLEN - 1, VLEN / 2)
     fpu(i).io.in.bits.rs1 := rs1
     fpu(i).io.in.bits.prestart := 0.U
-    fpu(i).io.in.bits.mask := vmask
+    fpu(i).io.in.bits.mask := vmask2
     fpu(i).io.in.bits.tail := 0.U
     fpu(i).io.out.ready := io.out.ready
     vd(i) := fpu(i).io.out.bits.vd
@@ -472,15 +482,15 @@ class VFPUWrapper(implicit p: Parameters) extends Module {
 
 
   io.out.bits.vd := Cat(vd.reverse)
-  io.in.ready := fpu(0).io.in.ready
-  io.out.bits.fflags := fpu(0).io.out.bits.fflags
+  io.in.ready := fpu(0).io.in.ready & fpu(1).io.in.ready & io.out.ready
+  io.out.bits.fflags := fpu(0).io.out.bits.fflags | fpu(1).io.out.bits.fflags
   io.out.valid := fpu(0).io.out.valid
   fpu_in_ready := fpu(0).io.in.ready
   fpu_out_valid := fpu(0).io.out.valid
 }
 
-object VerilogFpuWrapper extends App {
-  println("Generating the VPU FPU hardware")
-  emitVerilog(new VFPUWrapper(), Array("--target-dir", "build/vifu"))
-}
+// object VerilogFpuWrapper extends App {
+//   println("Generating the VPU FPU hardware")
+//   emitVerilog(new VFPUWrapper(), Array("--target-dir", "build/vifu"))
+// }
 

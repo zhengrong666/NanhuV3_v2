@@ -1,13 +1,13 @@
-package xiangshan.vector.vbackend.vexecute.vfu.vmask
+package darecreek.exu.fu2.vmask
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config._
 
-class VMask(implicit p: Parameters) extends Module {
+class VMask(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Input(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)
@@ -80,7 +80,7 @@ class VMask(implicit p: Parameters) extends Module {
 
   val eew = SewOH(vsew)
   val vsew_plus1 = Wire(UInt(3.W))
-  vsew_plus1 := Cat(0.U(1.W), ~vsew) + 1.U
+  vsew_plus1 := Cat(0.U(1.W), ~vsew(1,0)) + 1.U
   val vsew_bytes = 1.U << vsew
   val vsew_bits = 8.U << vsew
   val ele_cnt = VLENB.U >> vsew
@@ -158,7 +158,12 @@ class VMask(implicit p: Parameters) extends Module {
     one_cnt_uop(i + 1) := PopCount(vs2m_uop_vid(i, 0))
   }
 
-  one_sum := one_cnt(ele_cnt)
+  when(uopEnd && fire) {
+    one_sum := 0.U
+  }.otherwise {
+    one_sum := one_cnt(ele_cnt)
+  }
+
   for (i <- 0 until VLENB + 1) {
     one_cnt(i) := one_sum + one_cnt_uop(i)
   }
@@ -220,7 +225,7 @@ class VMask(implicit p: Parameters) extends Module {
   val reg_viota_m = RegEnable(viota_m, false.B, fire)
   val reg_vid_v = RegEnable(vid_v, false.B, fire)
   val vsew_plus1_reg = Wire(UInt(3.W))
-  vsew_plus1_reg := Cat(0.U(1.W), ~vsew_reg) + 1.U
+  vsew_plus1_reg := Cat(0.U(1.W), ~vsew_reg(1,0)) + 1.U
 
   val vmask_bits = Wire(UInt(VLEN.W))
   vmask_bits := vmask_reg >> (uopIdx_reg << vsew_plus1_reg)
@@ -314,11 +319,16 @@ class VMask(implicit p: Parameters) extends Module {
 
   val old_vd_vl_mask = Wire(UInt(VLEN.W))
   val vd_vl_mask = Wire(UInt(VLEN.W))
+  val vstart_mask = Wire(UInt(VLEN.W))
+  val vstart_vd = Wire(UInt(VLEN.W))
 
   old_vd_vl_mask := (~0.U(VLEN.W)) << vl_reg
   vd_vl_mask := (~0.U(VLEN.W)) >> (VLEN.U - vl_reg)
 
-  tail_vd := old_vd_vl_mask | (mask_vd & vd_vl_mask)
+  vstart_mask := (~0.U(VLEN.W)) << vstart_reg
+  vstart_vd := old_vd_reg & ~vstart_mask
+
+  tail_vd := vstart_vd | old_vd_vl_mask | (mask_vd & vd_vl_mask & vstart_mask)
 
   vd_out := vd_reg
   when(vstart_reg >= vl_reg) {
@@ -333,7 +343,7 @@ class VMask(implicit p: Parameters) extends Module {
   io.out.bits.vxsat := false.B
 }
 
-object VerilogVmask extends App {
-  println("Generating the VPU VMask hardware")
-  emitVerilog(new VMask(), Array("--target-dir", "build/vifu"))
-}
+// object VerilogVmask extends App {
+//   println("Generating the VPU VMask hardware")
+//   emitVerilog(new VMask(), Array("--target-dir", "build/vifu"))
+// }

@@ -48,10 +48,10 @@ object RegFileTop{
     val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 7,  idx * 32)))
     val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 7,  idx * 64)))
     res := MuxCase(0.U, Seq(
-      sew === 0.U -> ZeroExt(vsrcSplit8(uopIdx(log2Up(VLEN / 8) - 1, 0)), XLEN),
-      sew === 1.U -> ZeroExt(vsrcSplit16(uopIdx(log2Up(VLEN / 16) - 1, 0)), XLEN),
-      sew === 2.U -> ZeroExt(vsrcSplit32(uopIdx(log2Up(VLEN / 32) - 1, 0)), XLEN),
-      sew === 3.U -> ZeroExt(vsrcSplit64(uopIdx(log2Up(VLEN / 64) - 1, 0)), XLEN),
+      sew === 0.U -> ZeroExt(vsrcSplit8(uopIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
+      sew === 1.U -> ZeroExt(vsrcSplit16(uopIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
+      sew === 2.U -> ZeroExt(vsrcSplit32(uopIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
+      sew === 3.U -> ZeroExt(vsrcSplit64(uopIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
     ))
     res
   }
@@ -203,7 +203,10 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
           val vmVal = io.vectorReads(vecReadPortIdx + 1).data
-          exuInBundle.uop.loadStoreEnable := bi.issue.bits.uop.ctrl.vm && vmVal(uopIdx)
+          val isMaskDisabled = bi.issue.bits.uop.ctrl.vm && vmVal(uopIdx) === 0.U
+          val isTailDisabled = bi.issue.bits.uop.isTail
+          val isPrestartDisabled = bi.issue.bits.uop.isPrestart
+          exuInBundle.uop.loadStoreEnable := !(isMaskDisabled || isTailDisabled || isPrestartDisabled)
 
           //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
@@ -213,13 +216,25 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           fpRf.io.read(fpRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
           //Move req
           io.vectorRfMoveReq(vecMoveReqPortIdx).valid := bi.issue.bits.uop.ctrl.fuType === FuType.ldu &&
-            bi.issue.bits.uop.canRename && !bi.hold &&
-            bi.issue.bits.uop.ctrl.isVector
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.ma := bi.issue.bits.uop.vCsrInfo.vma(0)
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.ta := bi.issue.bits.uop.vCsrInfo.vta(0)
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := bi.issue.bits.uop.old_pdest
+            !bi.hold && bi.issue.valid && bi.issue.bits.uop.ctrl.isVector
+          when(isPrestartDisabled){
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := false.B
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
+          }.elsewhen(isTailDisabled){
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := bi.issue.bits.uop.vCsrInfo.vta(0)
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
+          }.elsewhen(isMaskDisabled){
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := bi.issue.bits.uop.vCsrInfo.vma(0)
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
+          }.otherwise{
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := false.B
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := true.B
+          }
+
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := bi.issue.bits.uop.psrc(2)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.dstAddr := bi.issue.bits.uop.pdest
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.tailMask := bi.issue.bits.uop.tailMask
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := bi.issue.bits.uop.vCsrInfo.vsew
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := bi.issue.bits.uop.uopIdx
 
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isStd){

@@ -1,5 +1,4 @@
-package xiangshan.vector.vbackend.vexecute.vfu
-
+package darecreek.exu.fu2
 // package darecreek.ctrl.decode
 
 import chisel3._

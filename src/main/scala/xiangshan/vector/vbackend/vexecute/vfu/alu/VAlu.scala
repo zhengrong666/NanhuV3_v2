@@ -1,6 +1,6 @@
 /**
   * Integer and fixed-point (except mult and div)
-  *
+  *   
   * Perform below instructions:
   *     11.1  vadd, ...
   *     11.2  vwadd, ...
@@ -18,14 +18,14 @@
   *     12.4  vssrl, ...
   *     12.5  vnclip, ...
   */
-package xiangshan.vector.vbackend.vexecute.vfu.alu
+package darecreek.exu.fu2.alu
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import xiangshan.vector.vbackend.vexecute.vfu._
-import xiangshan.vector.vbackend.vexecute.vfu.VFUParam._
+import darecreek.exu.fu2._
+// import darecreek.exu.fu2.VFUParam._
+import chipsalliance.rocketchip.config._
 
 class VIntFixpDecode extends Bundle {
   val sub = Bool()
@@ -33,7 +33,7 @@ class VIntFixpDecode extends Bundle {
   val fixp = Bool()
 }
 
-class VIntFixpAlu64b extends Module {
+class VIntFixpAlu64b(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val funct6 = Input(UInt(6.W))
     val funct3 = Input(UInt(3.W))
@@ -118,19 +118,17 @@ class VIntFixpAlu64b extends Module {
 }
 
 
-class VAlu(implicit p: Parameters) extends Module {
+class VAlu(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Input(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)
   })
 
-  io.out.valid := RegNext(io.in.valid)
-
   val (funct6, funct3) = (io.in.bits.uop.ctrl.funct6, io.in.bits.uop.ctrl.funct3)
   val (vm, vs1_imm) = (io.in.bits.uop.ctrl.vm, io.in.bits.uop.ctrl.vs1_imm)
   val (widen, widen2) = (io.in.bits.uop.ctrl.widen, io.in.bits.uop.ctrl.widen2)
   val (narrow, narrow_to_1) = (io.in.bits.uop.ctrl.narrow, io.in.bits.uop.ctrl.narrow_to_1)
-  val uopIdx = io.in.bits.uop.uopIdx
+  val (uopIdx, uopEnd) = (io.in.bits.uop.uopIdx, io.in.bits.uop.uopEnd)
   val sew = SewOH(io.in.bits.uop.info.vsew)
   val (ma, ta) = (io.in.bits.uop.info.ma, io.in.bits.uop.info.ta)
   val (vl, vstart) = (io.in.bits.uop.info.vl, io.in.bits.uop.info.vstart)
@@ -252,7 +250,16 @@ class VAlu(implicit p: Parameters) extends Module {
   cmpOutKeep := cmpOut128b << shiftCmpOut
   val cmpOutOff = Wire(UInt(128.W))
   cmpOutOff := ~(cmpOutOff128b << shiftCmpOut)
-  val cmpOutResult = old_vd_S1 & cmpOutOff | cmpOutKeep // Compare and carry-out
+  // val cmpOutResult = old_vd_S1 & cmpOutOff | cmpOutKeep // Compare and carry-out instrns
+
+  /** Change cmpOutResult generation: 
+   *    use a internal register to hold last compare-out
+   */
+  val old_cmpOutResult = Reg(UInt(128.W))
+  val cmpOutResult = old_cmpOutResult & cmpOutOff | cmpOutKeep // Compare and carry-out instrns
+  when (RegNext(io.in.valid)) {
+    old_cmpOutResult := Mux(RegNext(uopEnd), 0.U, cmpOutResult)
+  }
 
   /**
    * Output tail/prestart/mask handling for eewVd >= 8
@@ -332,6 +339,8 @@ class VAlu(implicit p: Parameters) extends Module {
                                       Cat(updateType.take(VLENB/2).map(_(1) === false.B).reverse))
                      ).orR
   }
+
+  io.out.valid := RegNext(Mux(narrow_to_1, uopEnd && io.in.valid, io.in.valid))
 
   //---- Some methods ----
   def mask16_to_2x8(maskIn: UInt, sew: SewOH): Seq[UInt] = {

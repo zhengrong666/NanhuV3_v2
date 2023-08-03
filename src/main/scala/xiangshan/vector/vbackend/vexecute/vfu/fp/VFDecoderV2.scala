@@ -1,9 +1,9 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.LaneFUInput
-import xiangshan.vector.vbackend.vexecute.vfu.LaneFUInput
+import darecreek.exu.fu2.LaneFUInput
 import VFInsts._
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.rocket.DecodeLogic

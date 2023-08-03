@@ -1,15 +1,15 @@
-package xiangshan.vector.vbackend.vexecute.vfu.fp
+package darecreek.exu.fu2.fp
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util.{Arbiter, Cat, DecoupledIO}
 // import darecreek.{LaneFUInput, LaneFUOutput}
 // import darecreek.exu.fu.alu.MaskTailData
-import xiangshan.vector.vbackend.vexecute.vfu.{LaneFUInput, LaneFUOutput}
-import xiangshan.vector.vbackend.vexecute.vfu.MaskTailData
+import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
+import darecreek.exu.fu2.MaskTailData
 
-class VFPUTop(implicit val p: Parameters = (new WithVFPUConfig).toInstance)
-  extends VFPUBaseModule with HasVFPUParams {
+class VFPUTop(implicit val p: Parameters)
+  extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
     val out = DecoupledIO(new LaneFUOutput)
