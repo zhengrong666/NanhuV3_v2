@@ -36,8 +36,6 @@ object ExuType{
   def vmac = 11
   def vfp = 12
   def vdiv = 13
-  def vmask = 14
-  def vred = 15
   def vperm = 16
 
   private val mapping = Map(
@@ -56,14 +54,12 @@ object ExuType{
     vdiv -> "vdiv",
     vmac -> "vmac",
     vperm -> "vperm",
-    vred -> "vred",
-    vmask -> "vmask"
   )
 
   def intTypes: Seq[Int] = Seq(jmp, alu, mul, div)
   def memTypes: Seq[Int] = Seq(ldu, sta, std)
   def fpTypes: Seq[Int] = Seq(fmisc, fmac, fdiv)
-  def vecTypes: Seq[Int] = Seq(vred, vmask, vfp, valu, vperm, vmac)
+  def vecTypes: Seq[Int] = Seq(vfp, valu, vperm, vmac, vdiv)
   def typeToString(in:Int):String = mapping(in)
   def bypassIntList: Seq[Int] = Seq(alu, mul, ldu)
   def bypassFpList: Seq[Int] = Seq(ldu)

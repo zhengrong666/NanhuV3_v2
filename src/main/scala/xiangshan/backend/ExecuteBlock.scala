@@ -38,7 +38,7 @@ import xiangshan.backend.writeback.WriteBackNetwork
 import xiangshan.cache.mmu.BTlbPtwIO
 import xiangshan.mem.LsqEnqIO
 import xiangshan.vector.HasVectorParameters
-import xiangshan.vector.vbackend.vexecute.VectorPermutationBlock
+import xiangshan.vector.vbackend.vexecute.{VectorBlock, VectorPermutationBlock}
 import xiangshan.vector.vbackend.vissue.vrs.VectorReservationStation
 import xiangshan.vector.vbackend.vregfile.VRegfileTop
 import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
@@ -51,6 +51,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   private val integerBlock = LazyModule(new IntegerBlock)
   private val floatingBlock = LazyModule(new FloatingBlock)
   val memoryBlock: MemBlock = LazyModule(new MemBlock(parentName + "memBlock_"))
+  private val vectorBlock = LazyModule(new VectorBlock)
   private val regFile = LazyModule(new RegFileTop(2))
   private val vRegFile = LazyModule(new VRegfileTop(loadUnitNum * 2 + 1))
   val writebackNetwork: WriteBackNetwork = LazyModule(new WriteBackNetwork)
@@ -64,11 +65,13 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     eb.issueNode :*= regFile.issueNode
     writebackNetwork.node :=* eb.writebackNode
   }
-
-  writebackNetwork.node :=* vRegFile.writebackMergeNode
+  vectorBlock.issueNode :*= vRegFile.issueNode
 
   memoryBlock.lduWritebackNodes.foreach(ldwb => vRegFile.writebackMergeNode :=* ldwb)
   vRegFile.writebackMergeNode :=* vectorPermutationBlock.writebackNode
+  vRegFile.writebackMergeNode :=* vectorBlock.writebackNode
+
+  writebackNetwork.node :=* vRegFile.writebackMergeNode
 
   regFile.writebackNode :=* writebackNetwork.node
   floatingReservationStation.wakeupNode := writebackNetwork.node
@@ -136,7 +139,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     vrf.io.debug_vec_rat := io.debug_vec_rat
     vrf.io.vectorReads.take(loadUnitNum * 2).zip(rf.io.vectorReads).foreach({case(a, b) => a <> b})
     vrf.io.vectorReads.last <> vpBlk.io.rfReadPort.vrf
-    vrf.io.moveOldValReqs := rf.io.vectorRfMoveReq
+    for (elem <- vrf.io.moveOldValReqs.zip(rf.io.vectorRfMoveReq)) {elem._1 := Pipe(elem._2)}
     vrf.io.redirect := Pipe(localRedirect)
 
     exuBlocks.foreach(_.module.redirectIn := Pipe(localRedirect))
