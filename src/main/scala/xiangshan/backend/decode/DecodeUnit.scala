@@ -894,12 +894,12 @@ object VectorStoreDecode extends VIDecodeConstants {
   )
 }
 
-object VectorConfDecode extends VIDecodeConstants {
+object VectorConfDecode extends DecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
-    VSETIVLI ->List(SrcType.imm,  SrcType.fp, SrcType.X, FuType.valu, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_CI),
-    VSETVL ->List(SrcType.fp,  SrcType.fp, SrcType.X, FuType.valu, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-    VSETVLI ->List(SrcType.imm,  SrcType.fp, SrcType.X, FuType.valu, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_C),
+    VSETIVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.IMM_CI),
+    VSETVL ->List(SrcType.reg,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.X),
+    VSETVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.IMM_C),
 
   )
 }
@@ -1191,7 +1191,9 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
     X64Decode.table ++
     XSTrapDecode.table ++
     BDecode.table ++
-    CBODecode.table
+    CBODecode.table ++
+    VectorConfDecode.table
+
 //    ++ SvinvalDecode.table
   // assertion for LUI: only LUI should be assigned `selImm === SelImm.IMM_U && fuType === FuType.alu`
   val luiMatch = (t: Seq[BitPat]) => t(3).value == FuType.alu.litValue && t.reverse.head.value == SelImm.IMM_U.litValue

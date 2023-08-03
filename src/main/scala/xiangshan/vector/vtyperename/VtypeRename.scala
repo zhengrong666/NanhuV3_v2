@@ -94,41 +94,52 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       val CurrentVL = tempVtype.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
       io.out(i).valid := io.canAllocate
-      if (io.in(i).bits.ctrl.isVtype == 1) {
-        val tempvtype = new VtypeReg
-        val freePtr = tailPtr + 1.U
-        tempvtype <> io.in(i).bits
-        tempvtype.vtypeIdx := freePtr
-        tempvtype.vCsrInfo.oldvl := CurrentVL
-        if (io.in(i).bits.cf.instr(31) == 0) {
-          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(30)
-          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)
-          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(28, 26)
-          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(25, 23)
-          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
-          if (io.in(i).bits.ctrl.lsrc(0) != 0.U) {
-            tempvtype.state := s_busy
-          } else if (io.in(i).bits.ctrl.lsrc(0) != 0.U && io.in(i).bits.ctrl.lsrc(3) != 0) {
-            tempvtype.state := s_valid
-            tempvtype.vCsrInfo.vl := CurrentVLMAX.U
-          } else {
-            tempvtype.state := s_valid
-            tempvtype.vCsrInfo.vl := CurrentVL
-          }
-        } else if (io.in(i).bits.cf.instr(31, 30) == 11) {
-          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(29)
-          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(28)
-          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(27, 25)
-          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(24, 22)
-          tempvtype.vCsrInfo.vl := io.in(i).bits.cf.instr(19, 15)
-          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
-          tempvtype.state := s_valid
-        } else {
-          tempvtype.state := s_busy
-        }
-        VtypeRegTable(freePtr.value) := tempvtype
-        tailPtr := Mux(doRename, freePtr, tailPtr)
-      }
+      val tempvtype = new VtypeReg
+      val freePtr = tailPtr + 1.U
+      tempvtype <> io.in(i).bits
+      tempvtype.vtypeIdx := freePtr
+      tempvtype.vCsrInfo.oldvl := CurrentVL
+      tempvtype.vCsrInfo.vma := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(30), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(29), 0.U))
+      tempvtype.vCsrInfo.vta := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(29), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(28), 0.U))
+      tempvtype.vCsrInfo.vsew := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(28, 26), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(27, 25), 0.U))
+      tempvtype.vCsrInfo.vlmul := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(25, 23), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(24, 22), 0.U))
+      tempvtype.vCsrInfo.vlmax := Mux(io.in(i).bits.cf.instr(31) === 0.U, tempvtype.vCsrInfo.VLMAXGen().U, Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, tempvtype.vCsrInfo.VLMAXGen().U, 0.U))
+      tempvtype.vCsrInfo.vl := Mux(io.in(i).bits.cf.instr(31) === 0.U,
+        Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, Mux(io.in(i).bits.ctrl.lsrc(3) === 0.U, CurrentVL, CurrentVLMAX.U), 0.U),
+        Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(19, 15), 0.U))
+      tempvtype.state := Mux(io.in(i).bits.cf.instr(31) === 0.U,
+        Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, s_valid, s_busy),
+        Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, s_valid, s_busy))
+
+      //        if (io.in(i).bits.cf.instr(31) == 0) {
+      //          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(30)
+      //          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)
+      //          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(28, 26)
+      //          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(25, 23)
+      //          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
+      //          if (io.in(i).bits.ctrl.lsrc(0) != 0.U) {
+      //            tempvtype.state := s_busy
+      //          } else if (io.in(i).bits.ctrl.lsrc(0) == 0.U && io.in(i).bits.ctrl.lsrc(3) != 0) {
+      //            tempvtype.state := s_valid
+      //            tempvtype.vCsrInfo.vl := CurrentVLMAX.U
+      //          } else {
+      //            tempvtype.state := s_valid
+      //            tempvtype.vCsrInfo.vl := CurrentVL
+      //          }
+      //        } else if (io.in(i).bits.cf.instr(31, 30) == 11) {
+      //          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(29)
+      //          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(28)
+      //          tempvtype.vCsrInfo.vsew := io.in(i).bits.cf.instr(27, 25)
+      //          tempvtype.vCsrInfo.vlmul := io.in(i).bits.cf.instr(24, 22)
+      //          tempvtype.vCsrInfo.vl := io.in(i).bits.cf.instr(19, 15)
+      //          tempvtype.vCsrInfo.vlmax := tempvtype.vCsrInfo.VLMAXGen().U
+      //          tempvtype.state := s_valid
+      //        } else {
+      //          tempvtype.state := s_busy
+      //        }
+      VtypeRegTable(freePtr.value) := tempvtype
+      tailPtr := Mux(doRename, freePtr, tailPtr)
+
     }
   }
 
@@ -137,12 +148,11 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
    */
   for (i <- 0 until CommitWidth) {
     val tempvtype = VtypeRegTable(headPtr.value)
-    when(io.robCommits.isCommit) {
-      if (tempvtype.cf.ftqPtr == io.robCommits.info(i).ftqIdx && tempvtype.cf.ftqOffset == io.robCommits.info(i).ftqOffset) {
-        VtypeRegTable(headPtr.value).state := s_invalid
-        val headNextPtr = headPtr + 1.U
-        headPtr := Mux(io.redirect.valid, headPtr, headNextPtr)
-      }
+    val selectDeqEntry = tempvtype.cf.ftqPtr === io.robCommits.info(i).ftqIdx && tempvtype.cf.ftqOffset === io.robCommits.info(i).ftqOffset
+    when(io.robCommits.isCommit && selectDeqEntry) {
+      VtypeRegTable(headPtr.value).state := s_invalid
+      val headNextPtr = headPtr + 1.U
+      headPtr := Mux(io.redirect.valid, headPtr, headNextPtr)
     }
   }
 
@@ -158,21 +168,20 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
   /*
     update point content  s_busy -> s_valid
    */
- for (i <- 0 until numWbPorts) {
-   when(io.writeback(i).valid) {
-     for ((v,w) <- VtypeRegTable.zip(io.writeback)) {
-       if (v.robIdx == w.bits.uop.robIdx) {
-         v.state := s_valid
-         v.vCsrInfo.vma := w.bits.data(31)
-         v.vCsrInfo.vta := w.bits.data(30)
-         v.vCsrInfo.vsew := w.bits.data(29, 27)
-         v.vCsrInfo.vlmul := w.bits.data(26, 24)
-         v.vCsrInfo.vl := w.bits.data(19, 15)
-         v.vCsrInfo.vlmax := v.vCsrInfo.VLMAXGen().U
-       }
-     }
-   }
- }
+  for (i <- 0 until numWbPorts) {
+    when(io.writeback(i).valid) {
+      for ((v, w) <- VtypeRegTable.zip(io.writeback)) {
+        val selectEntry = v.robIdx === w.bits.uop.robIdx && v.vtypeRegIdx === w.bits.uop.vtypeRegIdx
+        v.state := Mux(selectEntry, s_valid, v.state)
+        v.vCsrInfo.vma := Mux(selectEntry, w.bits.data(7), 0.U)
+        v.vCsrInfo.vta := Mux(selectEntry, w.bits.data(6), 0.U)
+        v.vCsrInfo.vsew := Mux(selectEntry, w.bits.data(5, 3), 0.U)
+        v.vCsrInfo.vlmul := Mux(selectEntry, w.bits.data(2, 0), 0.U)
+        v.vCsrInfo.vl := Mux(selectEntry, w.bits.data(15, 8), 0.U)
+        v.vCsrInfo.vlmax := v.vCsrInfo.VLMAXGen().U
+      }
+    }
+  }
 
   val perfEvents = Seq(
     ("dispatchq_out", PopCount(io.deq.map(_.fire))),
