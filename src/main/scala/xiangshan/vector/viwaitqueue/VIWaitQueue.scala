@@ -87,10 +87,8 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val isComplete = RegInit(false.B)
   isComplete := RegEnable(false.B, isComplete)
   val deqPtr_temp = deqPtr + 1.U
-  val deqPtr_next = Mux(!isReplaying && isComplete, deqPtr, deqPtr_temp)
-  when(!isReplaying) {
-    deqPtr := deqPtr_next
-  }
+  val deqPtr_next = Mux(isComplete, deqPtr, deqPtr_temp)
+  deqPtr := deqPtr_next
 
   // enqueue pointers
   val enqPtrVec_temp = RegInit(VecInit.tabulate(VIDecodeWidth)(_.U.asTypeOf(new WqPtr)))
