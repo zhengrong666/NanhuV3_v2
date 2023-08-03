@@ -3,7 +3,7 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
 import darecreek.exu.fu2.fp.VFPUWrapper
-import xiangshan.HasXSParameter
+import xiangshan.{HasXSParameter, Narrow}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.HasVectorParameters
@@ -51,7 +51,24 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     wb.bits.uop := vfp.io.out.bits.uop.sysUop
     wb.bits.data := vfp.io.out.bits.vd
     wb.bits.fflags := vfp.io.out.bits.fflags
-    wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
-    wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
+
+    private val uopOut = vfp.io.out.bits.uop.sysUop
+    private val isNarrow = uopOut.ctrl.narrow === Narrow.Narrow
+    private val lowHalf = !uopOut.uopIdx(0)
+    private val highHalf = uopOut.uopIdx(0)
+    private val maskLen = VLEN / 8
+    private val halfMaskLen = maskLen / 2
+
+    private def ones(in: Int): UInt = ((1 << in) - 1).U(in.W)
+
+    private val lowHalfMask = Cat(0.U(halfMaskLen.W), ones(halfMaskLen))
+    private val highHalfMask = Cat(ones(halfMaskLen), 0.U(halfMaskLen.W))
+    private val fullMask = ones(maskLen)
+    private val finalMask = MuxCase(fullMask, Seq(
+      (isNarrow && lowHalf) -> lowHalfMask,
+      (isNarrow && highHalf) -> highHalfMask,
+    ))
+    wb.bits.wakeupMask := finalMask
+    wb.bits.writeDataMask := finalMask
   }
 }

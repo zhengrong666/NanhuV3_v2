@@ -6,7 +6,7 @@ import darecreek.exu.fu2.alu.VAlu
 import darecreek.exu.fu2.reduction.Reduction
 import darecreek.exu.fu2.vmask.VMask
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-import xiangshan.HasXSParameter
+import xiangshan.{HasXSParameter, Narrow}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.HasVectorParameters
@@ -81,7 +81,22 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     wb.bits.uop := uopShiftQueue.io.out.bits
     wb.bits.data := wbData.vd
     wb.bits.vxsat := wbData.vxsat
-    wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
-    wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
+
+    private val isNarrow = uopShiftQueue.io.out.bits.ctrl.narrow === Narrow.Narrow
+    private val lowHalf = !uopShiftQueue.io.out.bits.uopIdx(0)
+    private val highHalf = uopShiftQueue.io.out.bits.uopIdx(0)
+    private val maskLen = VLEN / 8
+    private val halfMaskLen = maskLen / 2
+    private def ones(in:Int):UInt = ((1 << in) - 1).U(in.W)
+
+    private val lowHalfMask = Cat(0.U(halfMaskLen.W), ones(halfMaskLen))
+    private val highHalfMask = Cat(ones(halfMaskLen), 0.U(halfMaskLen.W))
+    private val fullMask = ones(maskLen)
+    private val finalMask = MuxCase(fullMask, Seq(
+      (isNarrow && lowHalf) -> lowHalfMask,
+      (isNarrow && highHalf) -> highHalfMask,
+    ))
+    wb.bits.wakeupMask := finalMask
+    wb.bits.writeDataMask := finalMask
   }
 }
