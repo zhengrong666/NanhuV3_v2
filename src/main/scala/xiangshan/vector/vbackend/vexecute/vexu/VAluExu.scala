@@ -10,13 +10,14 @@ import xiangshan.{HasXSParameter, Narrow}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.HasVectorParameters
+import xiangshan.vector.vbackend.vexecute.vfu.s2v.Scalar2Vector
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicExu{
   private val cfg = ExuConfig(
     name = "VAluExu",
     id = id,
     complexName = complexName,
-    fuConfigs = Seq(FuConfigs.valuCfg, FuConfigs.vmaskCfg, FuConfigs.vredCfg),
+    fuConfigs = Seq(FuConfigs.valuCfg, FuConfigs.vmaskCfg, FuConfigs.vredCfg, FuConfigs.s2vCfg),
     exuType = ExuType.valu,
     writebackToRob = false,
     writebackToVms = true
@@ -35,6 +36,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val valu = Module(new VAlu)
     private val vmask = Module(new VMask)
     private val vred = Module(new Reduction)
+    private val s2v = Module(new Scalar2Vector)
     private val uopShiftQueue = Module(new MicroOpShiftQueue(latency))
 
     private val vuop = uopToVuop(iss.bits.uop, p)
@@ -71,11 +73,19 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vred.io.in.bits.oldVd := src2
     vred.io.in.bits.mask := mask
 
-    when(iss.valid){assert(Seq(valu.io.in.valid, vmask.io.in.valid, vred.io.in.valid).reduce(_|_))}
+    s2v.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.s2vCfg.fuType
+    s2v.io.in.bits.uop := vuop
+    s2v.io.in.bits.vs1 := src0
+    s2v.io.in.bits.vs2 := src1
+    s2v.io.in.bits.rs1 := src0(XLEN - 1, 0)
+    s2v.io.in.bits.oldVd := src2
+    s2v.io.in.bits.mask := mask
 
-    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid)
+    when(iss.valid){assert(Seq(valu.io.in.valid, vmask.io.in.valid, vred.io.in.valid, s2v.io.in.valid).reduce(_|_))}
+
+    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
     assert(PopCount(validSeq) <= 1.U)
-    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits)
+    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
     private val wbData = Mux1H(validSeq, dataSeq)
 
     wb.valid := uopShiftQueue.io.out.valid

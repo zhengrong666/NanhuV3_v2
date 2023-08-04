@@ -39,7 +39,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
 
   private val enqEntryNext = WireInit(io.entry)
   when(io.enq.valid){
-    val agnostic = (io.enq.bits.vCsrInfo.vta(0) && io.enq.bits.tailMask.orR) || (io.enq.bits.vCsrInfo.vma(0) && io.enq.bits.ctrl.vm)
+    val agnostic = (io.enq.bits.vCsrInfo.vta(0) && io.enq.bits.isTail) || (io.enq.bits.vCsrInfo.vma(0) && io.enq.bits.ctrl.vm)
     when(io.enqIsMerge){
       assert(io.entry.valid)
       enqEntryNext.bits.pvs1(io.enq.bits.uopIdx) := io.enq.bits.psrc(0)

@@ -23,7 +23,7 @@ class MicroOpShiftQueue(latency:Int)(implicit p: Parameters) extends XSModule{
     res.bits := resDataReg
     res
   }
-  io.out := DelayInput(io.in, latency)
+  io.out := DelayInput(io.in, latency - 1)
 
   when(io.out.valid) {
     assert(!io.out.bits.robIdx.needFlush(io.redirect))

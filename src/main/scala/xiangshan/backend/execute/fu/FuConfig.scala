@@ -400,10 +400,10 @@ object FuConfigs{
   )
 
   val s2vCfg = FuConfig(
-    name = "i2v",
+    name = "s2v",
     fuType = FuType.s2v,
     numIntSrc = 1,
-    numFpSrc = 0,
+    numFpSrc = 1,
     numVecSrc = 0,
     writeIntRf = false,
     writeFpRf = false,
