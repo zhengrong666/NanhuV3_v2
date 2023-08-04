@@ -323,6 +323,7 @@ class ExuOutput(implicit p: Parameters) extends XSBundle {
   val wbmask = UInt(8.W)
   val writeDataMask = UInt((VLEN/8).W)
   val wakeupMask = UInt((VLEN / 8).W)
+  val vxsat = Bool()
   val fflags = UInt(5.W)
   val redirectValid = Bool()
   val redirect = new Redirect

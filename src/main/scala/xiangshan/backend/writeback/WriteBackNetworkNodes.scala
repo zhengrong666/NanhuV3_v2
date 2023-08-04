@@ -67,19 +67,19 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
   override def edgeO(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (WriteBackSinkParam, Seq[ExuConfig], Parameters) = {
     require(pu.isLegal)
     val resPd = if (pu.isRegFile) {
-      pd.filter(cfg => cfg.writeIntRf || cfg.writeFpRf)
+      pd.filter(_.writebackToRegfile)
     } else if (pu.isIntRs) {
-      pd.filter(_.wakeUpIntRs)
+      pd.filter(_.writebackToIntRs)
     } else if (pu.isMemRs) {
-      pd.filter(_.wakeUpMemRs)
+      pd.filter(_.writebackToMemRs)
     } else if (pu.isFpRs) {
-      pd.filter(_.wakeUpFpRs)
+      pd.filter(_.writebackToFpRs)
     } else if(pu.isVprs || pu.isVrs) {
-      pd.filter(p => p.wakeUpVrs)
+      pd.filter(_.writebackToVecRs)
     } else if (pu.isVms) {
-      pd.filter(p => p.throughVectorRf)
+      pd.filter(_.writebackToMergeStation)
     } else if (pu.isRob) {
-      pd.filterNot(_.throughVectorRf)
+      pd.filter(_.writebackToReorderQueue)
     } else {
       pd
     }

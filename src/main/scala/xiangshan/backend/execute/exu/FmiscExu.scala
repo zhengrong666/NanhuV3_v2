@@ -30,7 +30,9 @@ class FmiscExu(id:Int, complexName:String)(implicit p:Parameters) extends BasicE
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.f2iCfg, FuConfigs.f2fCfg),
-    exuType = ExuType.fmisc
+    exuType = ExuType.fmisc,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)

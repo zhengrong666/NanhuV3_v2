@@ -61,8 +61,8 @@ object WbMergeBufferPtr {
 
 class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters) extends XSModule {
     val io = IO(new Bundle {
-        val allocate = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
-        val release = Flipped(ValidIO(UInt(log2Up(size + 1).W)))
+        val allocate        = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
+        val release         = Flipped(ValidIO(UInt(log2Up(size + 1).W)))
         val releasePtrValue = Output(new WbMergeBufferPtr(size))
     })
 
@@ -71,8 +71,8 @@ class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(i
 
     for((port, i) <- io.allocate.zipWithIndex) {
         val allocPtr = allocatePtr + i.U
-        port.bits := allocPtr
-        port.valid := (allocPtr >= releasePtr)
+        port.bits   := allocPtr
+        port.valid  := (allocPtr >= releasePtr)
     }
     
     val allocatePtrNext = allocatePtr + PopCount(io.allocate.map(_.fire))
@@ -107,19 +107,20 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     allocateVec := io.waitqueue.map(_.fire)
     for((ptr, en) <- ptrHelper.io.allocate.map(_.bits.value).zip(allocateVec)) {
         when(en) {
-            mergeTable(ptr).wbmask := 0.U
-            mergeTable(ptr).canWb := false.B
+            mergeTable(ptr).wbmask  := 0.U
+            mergeTable(ptr).canWb   := false.B
+            mergeTable(ptr).valid   := true.B
         }
     }
 
     //merge, connect with EXU
     for((merge, i) <- io.exu.zipWithIndex) {
-        val entry = mergeTable(merge.bits.uop.mergeIdx)
-        val mergeId = merge.bits.uop.mergeIdx
-        val wbmaskNext = entry.wbmask | merge.bits.wbmask
+        val entry       = mergeTable(merge.bits.uop.mergeIdx)
+        val mergeId     = merge.bits.uop.mergeIdx
+        val wbmaskNext  = entry.wbmask | merge.bits.wbmask
         when(merge.valid && wbmaskNext.andR) {
-            mergeTable(mergeId).canWb := true.B
-            mergeTable(mergeId).wbmask := wbmaskNext
+            mergeTable(mergeId).canWb   := true.B
+            mergeTable(mergeId).wbmask  := wbmaskNext
         }.elsewhen(merge.valid && (merge.bits.uop.robIdx === entry.robIdx)) {
             mergeTable(mergeId).wbmask := wbmaskNext
         }.elsewhen(merge.valid && (merge.bits.uop.robIdx =/= entry.robIdx)) {

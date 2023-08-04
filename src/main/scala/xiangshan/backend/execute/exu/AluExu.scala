@@ -31,7 +31,9 @@ class AluExu(id:Int, complexName:String, val bypassInNum:Int)(implicit p:Paramet
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.aluCfg),
-    exuType = ExuType.alu
+    exuType = ExuType.alu,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)
