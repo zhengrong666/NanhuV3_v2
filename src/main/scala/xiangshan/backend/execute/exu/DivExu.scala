@@ -34,7 +34,9 @@ class DivExu(id:Int, complexName:String, val bypassInNum:Int)(implicit p:Paramet
     fuConfigs = Seq(FuConfigs.divCfg, FuConfigs.divCfg, FuConfigs.divCfg),
     exuType = ExuType.div,
     needToken = true,
-    speculativeWakeup = true
+    speculativeWakeup = true,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)

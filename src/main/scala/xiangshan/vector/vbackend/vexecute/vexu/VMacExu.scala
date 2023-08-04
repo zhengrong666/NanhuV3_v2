@@ -14,7 +14,9 @@ class VMacExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.vmacCfg),
-    exuType = ExuType.vmac
+    exuType = ExuType.vmac,
+    writebackToRob = false,
+    writebackToVms = true
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)

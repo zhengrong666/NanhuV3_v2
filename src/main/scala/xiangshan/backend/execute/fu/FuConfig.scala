@@ -14,6 +14,7 @@ case class FuConfig
   writeFpRf: Boolean,
   writeVecRf: Boolean,
   writeFflags: Boolean,
+  writeVxsat: Boolean,
   latency: Int,
   hasRedirect: Boolean,
   trigger: Boolean,
@@ -35,6 +36,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = 0,
     trigger = false,
     hasRedirect = true
@@ -49,6 +51,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = 1, //Actual latency is 2. It is reduced to 1 because of bypass network
     trigger = false,
     hasRedirect = false
@@ -63,6 +66,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = 1, //Actual latency is 2. It is reduced to 1 because of bypass network
     trigger = false,
     hasRedirect = false
@@ -77,6 +81,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false
@@ -91,6 +96,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = 0,
     trigger = false,
     hasRedirect = true
@@ -105,6 +111,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     hasRedirect = true,
     trigger = false,
@@ -120,6 +127,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = 1,
     hasRedirect = true,
     trigger = false,
@@ -135,6 +143,7 @@ object FuConfigs{
     writeFpRf = true,
     writeVecRf = false,
     writeFflags = true,
+    writeVxsat = false,
     latency = 1, //Actual latency is 2. It is reduced to 1 because of bypass network
     trigger = false,
     hasRedirect = false
@@ -149,6 +158,7 @@ object FuConfigs{
     writeFpRf = true,
     writeVecRf = false,
     writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false
@@ -164,6 +174,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue, //No fast wakeup
     trigger = false,
     hasRedirect = false
@@ -179,6 +190,7 @@ object FuConfigs{
     writeFpRf = true,
     writeVecRf = false,
     writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue, //No fast wakeup
     trigger = false,
     hasRedirect = false
@@ -194,6 +206,7 @@ object FuConfigs{
     writeFpRf = true,
     writeVecRf = false,
     writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false
@@ -209,6 +222,7 @@ object FuConfigs{
     writeFpRf = true,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     hasRedirect = true,
     trigger = true,
@@ -226,6 +240,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     hasRedirect = true,
     trigger = true,
@@ -242,6 +257,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false
@@ -257,6 +273,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = false,
     writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = true,
     hasRedirect = false,
@@ -269,10 +286,11 @@ object FuConfigs{
     numIntSrc = 1,
     numFpSrc = 1,
     numVecSrc = 4,
-    writeIntRf = false,
-    writeFpRf = false,
+    writeIntRf = true,
+    writeFpRf = true,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = true,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -289,6 +307,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = true,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -304,7 +323,8 @@ object FuConfigs{
     writeIntRf = false,
     writeFpRf = false,
     writeVecRf = true,
-    writeFflags = false,
+    writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -321,6 +341,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = true,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -337,6 +358,7 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = true,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -352,7 +374,8 @@ object FuConfigs{
     writeIntRf = false,
     writeFpRf = false,
     writeVecRf = true,
-    writeFflags = false,
+    writeFflags = true,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
@@ -369,6 +392,24 @@ object FuConfigs{
     writeFpRf = false,
     writeVecRf = true,
     writeFflags = false,
+    writeVxsat = false,
+    latency = Int.MaxValue,
+    trigger = false,
+    hasRedirect = false,
+    triggerVrfWakeup = false
+  )
+
+  val s2vCfg = FuConfig(
+    name = "i2v",
+    fuType = FuType.s2v,
+    numIntSrc = 1,
+    numFpSrc = 0,
+    numVecSrc = 0,
+    writeIntRf = false,
+    writeFpRf = false,
+    writeVecRf = true,
+    writeFflags = false,
+    writeVxsat = false,
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,

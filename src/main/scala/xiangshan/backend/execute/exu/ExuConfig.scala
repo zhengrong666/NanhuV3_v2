@@ -37,6 +37,7 @@ object ExuType{
   def vfp = 12
   def vdiv = 13
   def vperm = 16
+  def s2v = 17
 
   private val mapping = Map(
     jmp -> "jmp",
@@ -54,12 +55,13 @@ object ExuType{
     vdiv -> "vdiv",
     vmac -> "vmac",
     vperm -> "vperm",
+    s2v -> "s2v"
   )
 
   def intTypes: Seq[Int] = Seq(jmp, alu, mul, div)
   def memTypes: Seq[Int] = Seq(ldu, sta, std)
   def fpTypes: Seq[Int] = Seq(fmisc, fmac, fdiv)
-  def vecTypes: Seq[Int] = Seq(vfp, valu, vperm, vmac, vdiv)
+  def vecTypes: Seq[Int] = Seq(vfp, valu, vperm, vmac, vdiv, s2v)
   def typeToString(in:Int):String = mapping(in)
   def bypassIntList: Seq[Int] = Seq(alu, mul, ldu)
   def bypassFpList: Seq[Int] = Seq(ldu)
@@ -72,6 +74,8 @@ case class ExuConfig
   complexName: String,
   fuConfigs: Seq[FuConfig],
   exuType:Int,
+  writebackToRob:Boolean,
+  writebackToVms:Boolean,
   needToken:Boolean = false,
   speculativeWakeup:Boolean = false,
   throughVectorRf:Boolean = false
@@ -83,11 +87,16 @@ case class ExuConfig
   val exceptionOut: Seq[Int] = fuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted
   val writeIntRf = fuConfigs.map(_.writeIntRf).reduce(_||_)
   val writeFpRf = fuConfigs.map(_.writeFpRf).reduce(_||_)
-  val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_) && throughVectorRf
-  val wakeUpIntRs = fuConfigs.map(_.writeIntRf).reduce(_||_) && !hasFastWakeup
-  val wakeUpFpRs = fuConfigs.map(_.writeFpRf).reduce(_||_)
-  val wakeUpMemRs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || (e.writeVecRf && throughVectorRf)).reduce(_||_) && !hasFastWakeup
-  val wakeUpVrs = fuConfigs.map(e => e.writeIntRf || e.writeFpRf || (e.writeVecRf && throughVectorRf)).reduce(_||_)
+  val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_)
+
+  val writebackToRegfile = (writeIntRf || writeFpRf) && !throughVectorRf
+  val writebackToIntRs = writeIntRf && !hasFastWakeup && !throughVectorRf
+  val writebackToFpRs = writeFpRf && !throughVectorRf
+  val writebackToReorderQueue = writebackToRob && !throughVectorRf
+  val writebackToVecRs = writeVecRf && throughVectorRf
+  val writebackToMergeStation = writebackToVms && throughVectorRf || exuType == ExuType.sta
+  val writebackToMemRs = writebackToIntRs || writebackToFpRs || writebackToVecRs
+
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
   val isIntType = ExuType.intTypes.contains(exuType)
   val isMemType = ExuType.memTypes.contains(exuType)

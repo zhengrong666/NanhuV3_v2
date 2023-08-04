@@ -74,6 +74,7 @@ package object xiangshan {
     def vmask = "b10100".U
     def vreduc = "b10101".U
     def vpermu = "b10110".U
+    def s2v = "b10111".U
     def X = BitPat("b?????")
     def num = 32
     def apply() = UInt(log2Up(num).W)
@@ -94,13 +95,21 @@ package object xiangshan {
       ldu.litValue -> "load",
       stu.litValue -> "store",
       mou.litValue -> "mou",
-      std.litValue -> "std"
+      std.litValue -> "std",
+
+      vmac.litValue -> "vmac",
+      valu.litValue -> "valu",
+      vfp.litValue -> "vfp",
+      vmask.litValue -> "vmask",
+      vreduc.litValue -> "vreduc",
+      vpermu.litValue -> "vpermu",
+      s2v.litValue -> "s2v",
     )
 
-    val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou)
-    val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt)
+    val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou, i2v)
+    val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt, f2v)
     val memoryTypes: Seq[UInt] = Seq(ldu, stu)
-    val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu)
+    val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu, ldu, stu)
 
     def isIntExu(fuType: UInt): Bool = integerTypes.map(_ === fuType).reduce(_||_)
 

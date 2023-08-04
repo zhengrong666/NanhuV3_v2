@@ -40,7 +40,9 @@ class JmpCsrExu (id:Int, complexName:String, val bypassInNum:Int)(implicit p:Par
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.jmpCfg, FuConfigs.fenceCfg, FuConfigs.mouCfg, FuConfigs.csrCfg),
-    exuType = ExuType.jmp
+    exuType = ExuType.jmp,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)

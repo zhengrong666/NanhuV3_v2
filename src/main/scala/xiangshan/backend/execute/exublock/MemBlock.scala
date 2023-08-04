@@ -78,7 +78,9 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
       id = idx,
       complexName = "MemComplex",
       fuConfigs = Seq(FuConfigs.lduCfg),
-      exuType = ExuType.ldu
+      exuType = ExuType.ldu,
+      writebackToRob = true,
+      writebackToVms = true
     )
   })
   private val staParams = Seq.tabulate(exuParameters.StuCnt)(idx => {
@@ -87,7 +89,9 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
       id = idx,
       complexName = "MemComplex",
       fuConfigs = Seq(FuConfigs.staCfg),
-      exuType = ExuType.sta
+      exuType = ExuType.sta,
+      writebackToRob = true,
+      writebackToVms = true
     )
   })
   private val stdParams = Seq.tabulate(exuParameters.StuCnt)(idx => {
@@ -96,7 +100,9 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
       id = idx,
       complexName = "MemComplex",
       fuConfigs = Seq(FuConfigs.stdCfg),
-      exuType = ExuType.std
+      exuType = ExuType.std,
+      writebackToRob = true,
+      writebackToVms = true
     )
   })
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))

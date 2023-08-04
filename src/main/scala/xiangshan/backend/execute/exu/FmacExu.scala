@@ -31,7 +31,9 @@ class FmacExu(id:Int, complexName:String)(implicit p:Parameters) extends BasicEx
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.fmacCfg),
     exuType = ExuType.fmac,
-    speculativeWakeup = true
+    speculativeWakeup = true,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)

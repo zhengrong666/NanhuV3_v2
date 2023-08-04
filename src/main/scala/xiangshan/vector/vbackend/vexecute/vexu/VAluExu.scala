@@ -17,7 +17,9 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.valuCfg, FuConfigs.vmaskCfg, FuConfigs.vredCfg),
-    exuType = ExuType.valu
+    exuType = ExuType.valu,
+    writebackToRob = false,
+    writebackToVms = true
   )
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)
