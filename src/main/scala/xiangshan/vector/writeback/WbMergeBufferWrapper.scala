@@ -37,7 +37,7 @@ import freechips.rocketchip.diplomacy._
 import xiangshan.backend.execute.exu.ExuType
 
 class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter {
-    val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
+    val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.mergeBuffer)
     val writebackNode = new WriteBackSinkNode(wbNodeParam)
     lazy val module = new WbMergeBufferWrapperImp(this)
 }
@@ -46,6 +46,13 @@ class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameter
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
     val vectorWbNodes = writebackIn.filter(ExuType.vecTypes exists (e => (e == _._1.exuType)))
     val vectorWriteBack = vectorWbNodes.map(_._2)
+
+    val io = IO(new Bundle {
+        val allocate = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
+        val redirect = Flipped(Valid(new Redirect))
+    })
+
+    io.allocate <> outer.module.io.allocate
 
     val bufferImp = Module(new WbMergeBuffer(vMergeBufferDepth, vMergeBufferAllocateWidth, vMergeWidth, vMergeWbWdith))
 
