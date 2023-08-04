@@ -100,15 +100,15 @@ object VectorArithDecode extends DecodeConstants {
         VMINU_VV -> List(SrcType.reg, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
         VMINU_VX -> List(SrcType.reg, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
 
-        VMV1R_V -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV2R_V -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV4R_V -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV8R_V -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV_S_X -> List(SrcType.reg, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV_V_I -> List(SrcType.imm, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VA),
-        VMV_V_V -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV_V_X -> List(SrcType.reg, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-        VMV_X_S -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, Y, N, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV1R_V -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV2R_V -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV4R_V -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV8R_V -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV_S_X -> List(SrcType.reg, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV_V_I -> List(SrcType.imm, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VA),
+        VMV_V_V -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV_V_X -> List(SrcType.reg, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
+        VMV_X_S -> List(SrcType.vec, SrcType.X, SrcType.X, FuType.valu, FuOpType.X, Y, N, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
         VOR_VI -> List(SrcType.imm, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VA),
         VOR_VV -> List(SrcType.vec, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
         VOR_VX -> List(SrcType.reg, SrcType.vec, SrcType.X, FuType.valu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
@@ -494,7 +494,7 @@ object VectorStoreDecode extends DecodeConstants {
 object VectorConfDecode extends DecodeConstants {
     val table: Array[(BitPat, List[BitPat])] = Array(
 
-        VSETIVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_CI),
+        VSETIVLI ->List(SrcType.imm,  SrcType.imm, SrcType.X, FuType.csr, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_CI),
         VSETVL ->List(SrcType.reg,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
         VSETVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, N, Y, N, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_C),
 

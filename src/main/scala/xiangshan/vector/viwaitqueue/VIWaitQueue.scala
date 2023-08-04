@@ -12,7 +12,7 @@ import xiangshan.backend.rob._
 
 class VIMop(implicit p: Parameters) extends VectorBaseBundle {
   val MicroOp = new MicroOp
-  val state = 3.U(1.W)
+  val state = UInt(3.W)
 }
 
 class WaitQueueState(implicit p: Parameters) extends VectorBaseBundle {
