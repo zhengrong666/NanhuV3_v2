@@ -104,8 +104,10 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.dtlbReq.bits.debug.pc := s0_uop.cf.pc
   io.dtlbReq.bits.debug.isFirstIssue := io.isFirstIssue
 
+  val enalbeMem = !(io.in.bits.uop.ctrl.isOrder)
+
   // query DCache
-  io.dcacheReq.valid := io.in.valid || tryFastpath
+  io.dcacheReq.valid := (io.in.valid || tryFastpath) && enalbeMem
   when (isSoftPrefetchRead) {
     io.dcacheReq.bits.cmd  := MemoryOpConstants.M_PFR
   }.elsewhen (isSoftPrefetchWrite) {
@@ -194,6 +196,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   val s1_mask = io.in.bits.mask
   val s1_bank_conflict = io.dcacheBankConflict
 
+  val disableMem = io.in.bits.uop.ctrl.isOrder
   io.out.bits := io.in.bits // forwardXX field will be updated in s1
 
   io.dtlbResp.ready := true.B
@@ -201,7 +204,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.lsuPAddr := s1_paddr_dup_lsu
   io.dcachePAddr := s1_paddr_dup_dcache
   //io.dcacheKill := s1_tlb_miss || s1_exception || s1_mmio
-  io.dcacheKill := s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel
+  io.dcacheKill := s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel || disableMem
   // load forward query datapath
   io.sbuffer.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill)
   io.sbuffer.vaddr := io.in.bits.vaddr
@@ -622,8 +625,9 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
       cancelPointerChasing && !isCancelled && !notFastMatch && !fuOpTypeIsNotLd && !addressNotAligned && addressMisMatch)
   }
 
+  val load_s1_isOrder = load_s1.io.out.bits.uop.ctrl.isOrder
   PipelineConnect(load_s1.io.out, load_s2.io.in, true.B,
-    load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect) || cancelPointerChasing)
+    load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect) || cancelPointerChasing || load_s1_isOrder)
 
   // load s2
   io.s2IsPointerChasing := RegEnable(s1_tryPointerChasing && !cancelPointerChasing, load_s1.io.out.fire)

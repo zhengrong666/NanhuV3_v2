@@ -107,6 +107,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val dcache = Flipped(ValidIO(new Refill)) // TODO: to be renamed
     val release = Flipped(ValidIO(new Release))
     val uncache = new UncacheWordIO
+    val dcacheReqResp = new LQDcacheReqResp
     val exceptionAddr = new ExceptionAddrIO
     val lqFull = Output(Bool())
     val lqCancelCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
@@ -115,7 +116,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val loadVectorDeqCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
   })
 
-  //todo
+
   io.loadVectorDeqCnt := 0.U
   println("LoadQueue: size:" + LoadQueueSize)
 
@@ -154,12 +155,12 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val enqMask = UIntToMask(enqPtr, LoadQueueSize)
 
   val commitCount = RegNext(io.rob.lcommit)
-  val orderedAutoDeq = RegInit(0.U(1.W))
+  val orderedAutoDeq = RegInit(false.B)
   val pendingOrder = io.rob.pendingOrdered
   val deqIsOrder = uop(deqPtr).ctrl.isOrder
-  orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), 1.U ,0.U)
+  orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), true.B, false.B)
 
-  when(orderedAutoDeq > 0.U){
+  when(orderedAutoDeq){
     allocated(deqPtr) := false.B
     io.loadVectorDeqCnt := 1.U
   }
@@ -854,30 +855,30 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val lqTailMmioPending = WireInit(pending(deqPtr))
   val lqTailAllocated = WireInit(allocated(deqPtr))
   val s_idle :: s_req :: s_resp :: s_wait :: Nil = Enum(4)
-  val uncacheState = RegInit(s_idle)
-  switch(uncacheState) {
+  val uncache_Order_State = RegInit(s_idle)
+  switch(uncache_Order_State) {
     is(s_idle) {
       when(RegNext(io.rob.pendingld && lqTailMmioPending && lqTailAllocated)) {
-        uncacheState := s_req
+        uncache_Order_State := s_req
       }
     }
     is(s_req) {
-      when(io.uncache.req.fire()) {
-        uncacheState := s_resp
+      when(io.uncache.req.fire || io.dcacheReqResp.req.fire) {
+        uncache_Order_State := s_resp
       }
     }
     is(s_resp) {
-      when(io.uncache.resp.fire()) {
-        uncacheState := s_wait
+      when(io.uncache.resp.fire || io.dcacheReqResp.resp.fire) {
+        uncache_Order_State := s_wait
       }
     }
     is(s_wait) {
-      when(RegNext(io.rob.commit)) {
-        uncacheState := s_idle // ready for next mmio
+      when(RegNext(io.rob.commit) || orderedAutoDeq) {
+        uncache_Order_State := s_idle // ready for next mmio
       }
     }
   }
-  io.uncache.req.valid := uncacheState === s_req
+  io.uncache.req.valid := (uncache_Order_State === s_req) && (!uop(deqPtr).ctrl.isOrder)
 
   dataModule.io.uncache.raddr := deqPtrExtNext.value
 
@@ -890,6 +891,19 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.uncache.req.bits.instrtype := DontCare
 
   io.uncache.resp.ready := true.B
+
+  io.dcacheReqResp.req.valid := (uncache_Order_State === s_req) && (uop(deqPtr).ctrl.isOrder)
+  io.dcacheReqResp.req.bits := DontCare
+  io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XRD
+  io.dcacheReqResp.req.bits.instrtype := LOAD_SOURCE.U
+  io.dcacheReqResp.req.bits.robIdx := uop(deqPtr).robIdx
+
+  when(io.dcacheReqResp.resp.fire){
+    datavalid(deqPtr) := true.B
+    dataModule.io.uncacheWrite(deqPtr,Mux1H(io.dcacheReqResp.resp.bits.bank_oh, io.dcacheReqResp.resp.bits.bank_data))
+    dataModule.io.uncache.wen := true.B
+  }
+
 
   when (io.uncache.req.fire()) {
     pending(deqPtr) := false.B
@@ -969,7 +983,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   QueuePerf(LoadQueueSize, validCount, !allowEnqueue)
   io.lqFull := !allowEnqueue
   XSPerfAccumulate("rollback", io.rollback.valid) // rollback redirect generated
-  XSPerfAccumulate("mmioCycle", uncacheState =/= s_idle) // lq is busy dealing with uncache req
+  XSPerfAccumulate("mmioCycle", uncache_Order_State =/= s_idle) // lq is busy dealing with uncache req
   XSPerfAccumulate("mmioCnt", io.uncache.req.fire())
   XSPerfAccumulate("refill", io.dcache.valid)
   XSPerfAccumulate("writeback_success", PopCount(VecInit(io.ldout.map(i => i.fire()))))
@@ -992,7 +1006,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   val perfEvents = Seq(
     ("rollback         ", io.rollback.valid),
-    ("mmioCycle        ", uncacheState =/= s_idle),
+    ("mmioCycle        ", uncache_Order_State =/= s_idle),
     ("mmio_Cnt         ", io.uncache.req.fire()),
     ("refill           ", io.dcache.valid),
     ("writeback_success", PopCount(VecInit(io.ldout.map(i => i.fire())))),
