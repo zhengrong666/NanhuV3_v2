@@ -54,6 +54,12 @@ class LsqVecDeqIO(implicit p: Parameters) extends XSBundle {
   val storeVectorDeqCnt = UInt(log2Up(StoreQueueSize + 1).W)
 }
 
+class LQDcacheReqResp(implicit p: Parameters) extends XSBundle {
+  val req = DecoupledIO(new DCacheWordReq)
+  val resp = Flipped(DecoupledIO(new BankedDCacheWordResp))
+}
+
+
 // Load / Store Queue Wrapper for XiangShan Out of Order LSU
 class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParameters with HasPerfEvents {
   val io = IO(new Bundle() {
@@ -92,6 +98,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
     val lsqVecDeqCnt = Output(new LsqVecDeqIO)
+    val loadQueueDcache = new LQDcacheReqResp
+    val storeQueueDcache = Flipped(new DCacheToSbufferIO)
   })
 
   val loadQueue = Module(new LoadQueue)
@@ -141,6 +149,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.lqCancelCnt <> io.lqCancelCnt
   loadQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
   io.lsqVecDeqCnt.loadVectorDeqCnt := loadQueue.io.loadVectorDeqCnt
+  loadQueue.io.dcacheReqResp <> io.loadQueueDcache
 
   // store queue wiring
   // storeQueue.io <> DontCare
@@ -157,6 +166,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.sqCancelCnt <> io.sqCancelCnt
   storeQueue.io.sqDeq <> io.sqDeq
   storeQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
+  storeQueue.io.dcacheReqResp <> io.storeQueueDcache
   io.lsqVecDeqCnt.storeVectorDeqCnt := storeQueue.io.storeVectorDeqCnt
 
   io.vectorOrderedFlushSBuffer.valid := (loadQueue.io.vectorOrderedFlushSBuffer.valid || storeQueue.io.vectorOrderedFlushSBuffer.valid)

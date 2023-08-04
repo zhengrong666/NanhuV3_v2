@@ -27,6 +27,7 @@ import xiangshan.cache.MemoryOpConstants
 import xiangshan.backend.rob.RobLsqIO
 import difftest._
 import device.RAMHelper
+import freechips.rocketchip.util.SeqBoolBitwiseOps
 
 class SqPtr(implicit p: Parameters) extends CircularQueuePtr[SqPtr](
   p => p(XSCoreParamsKey).StoreQueueSize
@@ -84,6 +85,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     val sqDeq = Output(UInt(2.W))
     val storeVectorDeqCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
+    val dcacheReqResp = Flipped(new DCacheToSbufferIO)
+    val stout = Vec(2,Decoupled(new ExuOutput))
   })
   //
   io.storeVectorDeqCnt := 0.U
@@ -449,49 +452,48 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   }
 
 
-  val s_idle :: s_req_mmio :: s_resp_mmio :: s_wb_mmio :: s_wb_ordered :: s_wait_mmio :: Nil = Enum(5)
-  val wbState = RegInit(s_idle)
-  switch(wbState) {
+  val s_idle :: s_req_mmio :: s_resp_mmio :: s_wb_mmio :: s_wait_mmio :: Nil = Enum(5)
+  val mmio_order_state = RegInit(s_idle)
+  switch(mmio_order_state) {
     is(s_idle) {
       when(RegNext(io.rob.pendingst && pending(deqPtr) && allocated(deqPtr) && allvalid(deqPtr))) {
-        wbState := s_req_mmio
-      }
-      when(RegNext(!mmio(deqPtr) && io.rob.pendingOrdered && allocated(deqPtr) && allvalid(deqPtr))){
-        wbState := s_wb_ordered
+        mmio_order_state := s_req_mmio
       }
     }
     is(s_req_mmio) {
-      when(io.uncache.req.fire()) {
-        wbState := s_resp_mmio
+      when(io.uncache.req.fire || io.dcacheReqResp.req.fire) {
+        mmio_order_state := s_resp_mmio
       }
     }
     is(s_resp_mmio) {
-      when(io.uncache.resp.fire()) {
-        wbState := s_wb_mmio
+      when(io.uncache.resp.fire || io.dcacheReqResp.hit_resps.map(resp => resp.fire).orR){
+        mmio_order_state := s_wb_mmio
       }
     }
     is(s_wb_mmio) {
       when (io.mmioStout.fire()) {
-        wbState := s_wait_mmio
-      }
-    }
-    is(s_wb_ordered){
-      when(io.mmioStout.fire){
-        wbState := s_idle
+        mmio_order_state := s_wait_mmio
       }
     }
     is(s_wait_mmio) {
       when(commitCount > 0.U) {
-        wbState := s_idle // ready for next mmio
+        mmio_order_state := s_idle // ready for next mmio
       }
     }
   }
-  io.uncache.req.valid := (wbState === s_req_mmio)
+  io.uncache.req.valid := (mmio_order_state === s_req_mmio) && (!uop(deqPtr).ctrl.isOrder)
   io.uncache.req.bits.robIdx := DontCare
   io.uncache.req.bits.cmd  := MemoryOpConstants.M_XWR
   io.uncache.req.bits.addr := paddrModule.io.rdata(0) // data(deqPtr) -> rdata(0)
   io.uncache.req.bits.data := dataModule.io.rdata(0).data
   io.uncache.req.bits.mask := dataModule.io.rdata(0).mask
+
+  io.dcacheReqResp.req.valid := (mmio_order_state === s_req_mmio) && (uop(deqPtr).ctrl.isOrder)
+  io.dcacheReqResp.req.bits := DontCare
+  io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XWR
+  io.dcacheReqResp.req.bits.addr := paddrModule.io.rdata(0)
+  io.dcacheReqResp.req.bits.data := dataModule.io.rdata(0).data
+  io.dcacheReqResp.req.bits.mask := dataModule.io.rdata(0).mask
 
   // CBO op type check can be delayed for 1 cycle,
   // as uncache op will not start in s_idle
@@ -530,7 +532,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val wbIsOrder = uop(orderStoreWbIdx).ctrl.isOrder
 
   // (4) writeback to ROB (and other units): mark as writebacked
-  io.mmioStout.valid := (wbState === s_wb_mmio) || (wbState === s_wb_ordered)
+  io.mmioStout.valid := (mmio_order_state === s_wb_mmio)
   io.mmioStout.bits.uop := uop(deqPtr)
   io.mmioStout.bits.uop.sqIdx := deqPtrExt(0)
   io.mmioStout.bits.data := dataModule.io.rdata(0).data // dataModule.io.rdata.read(deqPtr)
@@ -554,14 +556,14 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     * (1) When store commits, mark it as committed.
     * (2) They will not be cancelled and can be sent to lower level.
     */
-  XSError(wbState =/= s_idle && wbState =/= s_wait_mmio && commitCount > 0.U,
+  XSError(mmio_order_state =/= s_idle && mmio_order_state =/= s_wait_mmio && commitCount > 0.U,
    "should not commit instruction when MMIO has not been finished\n")
   for (i <- 0 until CommitWidth) {
     when (commitCount > i.U) { // MMIO inst is not in progress
       if(i == 0){
         // MMIO inst should not update committed flag
         // Note that commit count has been delayed for 1 cycle
-        when(wbState === s_idle){
+        when(mmio_order_state === s_idle){
           committed(cmtPtrExt(0).value) := true.B
         }
       } else {
@@ -592,6 +594,12 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     dataBuffer.io.enq(i).bits.mask  := dataModule.io.rdata(i).mask
     dataBuffer.io.enq(i).bits.wline := paddrModule.io.rlineflag(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
+
+    io.stout(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
+    io.stout(i).bits := DontCare
+    io.stout(i).bits.uop := uop(ptr)
+    io.stout(i).bits.data := dataModule.io.rdata(i).data
+    io.stout(i).bits.wbmask := "hff".U
   }
 
   // Send data stored in sbufferReqBitsReg to sbuffer
@@ -702,7 +710,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   // perf counter
   QueuePerf(StoreQueueSize, validCount, !allowEnqueue)
   io.sqFull := !allowEnqueue
-  XSPerfAccumulate("mmioCycle", (wbState =/= s_idle) || (wbState =/= s_wb_ordered)) // lq is busy dealing with uncache req
+  XSPerfAccumulate("mmioCycle", (mmio_order_state =/= s_idle)) // lq is busy dealing with uncache req
   XSPerfAccumulate("mmioCnt", io.uncache.req.fire())
   XSPerfAccumulate("mmio_wb_success", io.mmioStout.fire())
   XSPerfAccumulate("mmio_wb_blocked", io.mmioStout.valid && !io.mmioStout.ready)
@@ -712,7 +720,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   val perfValidCount = distanceBetween(enqPtrExt(0), deqPtrExt(0))
   val perfEvents = Seq(
-    ("mmioCycle      ", (wbState =/= s_idle) || (wbState =/= s_wb_ordered)),
+    ("mmioCycle      ", (mmio_order_state =/= s_idle)),
     ("mmioCnt        ", io.uncache.req.fire()),
     ("mmio_wb_success", io.mmioStout.fire()),
     ("mmio_wb_blocked", io.mmioStout.valid && !io.mmioStout.ready),

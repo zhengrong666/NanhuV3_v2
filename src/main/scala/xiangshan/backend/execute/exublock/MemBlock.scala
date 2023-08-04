@@ -617,7 +617,17 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
-  sbuffer.io.dcache     <> dcache.io.lsu.store
+
+  val dcacheArb = Module(new Arbiter(new DCacheToSbufferIO,2))
+  dcacheArb.io.in(0) <> sbuffer.io.dcache
+  dcacheArb.io.in(1) <> lsq.io.storeQueueDcache
+  dcache.io.lsu.store <> dcacheArb.io.out
+
+  lsq.io.loadQueueDcache <> dcache.io.lsu.load(exuParameters.LduCnt)
+
+
+//  sbuffer.io.dcache     <> dcache.io.lsu.store
+
   // TODO: if dcache sbuffer resp needs to ne delayed
   // sbuffer.io.dcache.pipe_resp.valid := RegNext(dcache.io.lsu.store.pipe_resp.valid)
   // sbuffer.io.dcache.pipe_resp.bits := RegNext(dcache.io.lsu.store.pipe_resp.bits)

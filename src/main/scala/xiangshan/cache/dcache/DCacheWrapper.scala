@@ -434,7 +434,7 @@ class DCacheToSbufferIO(implicit p: Parameters) extends DCacheBundle {
 }
 
 class DCacheToLsuIO(implicit p: Parameters) extends DCacheBundle {
-  val load  = Vec(LoadPipelineWidth, Flipped(new DCacheLoadIO)) // for speculative load
+  val load  = Vec(LoadPipelineWidth + 1, Flipped(new DCacheLoadIO)) // for speculative load
   val lsq = ValidIO(new Refill)  // refill to load queue, wake up load misses
   val store = new DCacheToSbufferIO // for sbuffer
   val atomics  = Flipped(new AtomicWordIO)  // atomics reqs
@@ -604,7 +604,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   // the s1 kill signal
   // only lsu uses this, replay never kills
   for (w <- 0 until LoadPipelineWidth) {
-    ldu(w).io.lsu <> io.lsu.load(w)
+//    ldu(w).io.lsu <> io.lsu.load(w)
 
     // replay and nack not needed anymore
     // TODO: remove replay and nack
@@ -613,6 +613,13 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
     ldu(w).io.disable_ld_fast_wakeup :=
       bankedDataArray.io.disable_ld_fast_wakeup(w) // load pipe fast wake up should be disabled when bank conflict
   }
+
+  //todo
+  ldu.head.io.lsu <> io.lsu.load.head
+  val loadArb = Module(new Arbiter(new DCacheLoadIO,2))
+  loadArb.io.in(0) <> io.lsu.load(1)
+  loadArb.io.in(1) <> io.lsu.load(2)
+  loadArb.io.out <> ldu(1).io.lsu
 
   //----------------------------------------
   // atomics
