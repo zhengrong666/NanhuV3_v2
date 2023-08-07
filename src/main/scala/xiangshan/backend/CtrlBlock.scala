@@ -29,6 +29,7 @@ import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO}
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename._
+import xiangshan.vector._
 import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.ExceptionNO._
 import xiangshan.backend.issue.DqDispatchNode
@@ -42,6 +43,8 @@ class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
 
 class CtrlBlock(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val rob = LazyModule(new Rob)
+  val vectorCtrlBlock = LazyModule(new VICtrlBlock)
+  val wbMergeBuffer = LazyModule(new WbMergeBufferWrapper)
   val dispatchNode = new DqDispatchNode
 
   lazy val module = new CtrlBlockImp(this)
@@ -112,6 +115,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val lsDq = Module(new DispatchQueue(dpParams.LsDqSize, RenameWidth, lsDispatch._2.bankNum))
   private val rob = outer.rob.module
   private val memDispatch2Rs = Module(new MemDispatch2Rs)
+  //vector module
+  private val vCtrlBlock = outer.vectorCtrlBlock.module
+  private val memDqArb = Module(new MemDispatchArbiter(coreParams.rsBankNum))
+  private val wbMergeBuffer = outer.wbMergeBuffer.module
 
   for (i <- 0 until CommitWidth) {
     val is_commit = rob.io.commits.commitValid(i) && rob.io.commits.isCommit
@@ -269,13 +276,17 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   intDeq <> intDq.io.deq
   fpDeq <> fpDq.io.deq
 
+  //mem and vmem dispatch merge
+  memDqArb.io.memIn <> lsDq.io.deq
+  memDqArb.io.vmemIn <> vCtrlBlock.io.vecDispatch2Rs
+
   memDispatch2Rs.io.redirect := Pipe(io.redirectIn)
   memDispatch2Rs.io.lcommit := rob.io.lsq.lcommit
   memDispatch2Rs.io.scommit := io.sqDeq
   memDispatch2Rs.io.lqCancelCnt := io.lqCancelCnt
   memDispatch2Rs.io.sqCancelCnt := io.sqCancelCnt
   memDispatch2Rs.io.enqLsq <> io.enqLsq
-  memDispatch2Rs.io.in <> lsDq.io.deq
+  memDispatch2Rs.io.in <> memDqArb.toMem2RS //lsDq.io.deq
   lsDeq <> memDispatch2Rs.io.out
 
   rob.io.hartId := io.hartId
