@@ -89,7 +89,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
   val writebackNode = new WriteBackSinkNode(WriteBackSinkParam("RegFile Top", WriteBackSinkType.regFile))
 
   lazy val module = new LazyModuleImp(this) {
-    val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad)
+    val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad) + + issueNode.out.count(_._2._2.hasSpecialLoad)
     println("\nRegfile Configuration:")
     println(s"PC read num: $pcReadNum \n")
     println("Regfile Writeback Info:")
@@ -190,7 +190,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             d := fpRf.io.read(fpRfReadIdx).data
             fpRfReadIdx = fpRfReadIdx + 1
           }
-        } else if (exuComplexParam.isMemType) {
+        } else if (exuComplexParam.isMemType && !exuComplexParam.isSpecialLoad) {
           val issueBundle = WireInit(bi.issue.bits)
 
           val is2Stage = SrcType.isVec(bi.issue.bits.uop.ctrl.srcType(1)) || SrcType.isReg(bi.issue.bits.uop.ctrl.srcType(1))
@@ -274,6 +274,15 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           fpRfReadIdx = fpRfReadIdx + 1
           vecMoveReqPortIdx = vecMoveReqPortIdx + 1
           vecReadPortIdx = vecReadPortIdx + 2
+          pcReadPortIdx = pcReadPortIdx + 1
+        } else if (exuComplexParam.isMemType && exuComplexParam.isSpecialLoad) {
+          val issueBundle = WireInit(bi.issue.bits)
+          io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
+          intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
+          issueBundle.uop.cf.pc := io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset)
+          issueBundle.src(0) := intRf.io.read(intRfReadIdx).data
+          exuInBundle := ImmExtractor(exuComplexParam, issueBundle)
+          intRfReadIdx = intRfReadIdx + 1
           pcReadPortIdx = pcReadPortIdx + 1
         } else {
           exuInBundle := DontCare

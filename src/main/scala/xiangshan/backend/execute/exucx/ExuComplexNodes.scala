@@ -38,6 +38,7 @@ case class ExuComplexParam
   val hasFmisc: Boolean = exuConfigs.map(_.exuType == ExuType.fmisc).reduce(_ || _)
   val hasFdiv: Boolean = exuConfigs.map(_.exuType == ExuType.fdiv).reduce(_ || _)
   val hasLoad: Boolean = exuConfigs.map(_.exuType == ExuType.ldu).reduce(_ || _)
+  val hasSpecialLoad: Boolean = exuConfigs.map(_.exuType == ExuType.sldu).reduce(_ || _)
   val hasSta: Boolean = exuConfigs.map(_.exuType == ExuType.sta).reduce(_ || _)
   val hasStd: Boolean = exuConfigs.map(_.exuType == ExuType.std).reduce(_ || _)
   val hasValu:Boolean = exuConfigs.map(_.exuType == ExuType.valu).reduce(_ || _)
@@ -47,6 +48,7 @@ case class ExuComplexParam
   val isFpType:Boolean = exuConfigs.head.isFpType
   val isMemType:Boolean = exuConfigs.head.isMemType
   val isVecType:Boolean = exuConfigs.head.isVecType
+  val isSpecialLoad:Boolean = exuConfigs.head.isMemType && exuConfigs.head.exuType == ExuType.sldu
   val intSrcNum:Int = exuConfigs.map(_.intSrcNum).max
   val fpSrcNum:Int = exuConfigs.map(_.fpSrcNum).max
 
