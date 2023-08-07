@@ -100,12 +100,14 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val lsqVecDeqCnt = Output(new LsqVecDeqIO)
     val loadQueueDcache = new LQDcacheReqResp
     val storeQueueDcache = Flipped(new DCacheToSbufferIO)
+    val stout = Vec(2,Decoupled(new ExuOutput))
   })
 
   val loadQueue = Module(new LoadQueue)
   val storeQueue = Module(new StoreQueue)
 
   storeQueue.io.hartId := io.hartId
+  storeQueue.io.stout <> io.stout
 
   // io.enq logic
   // LSQ: send out canAccept when both load queue and store queue are ready
