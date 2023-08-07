@@ -32,18 +32,42 @@ import xiangshan.mem.mdp._
 
 import xiangshan.vector._
 
-class MemDispatchArbiter(implicit p: Parameters) extends XSModule {
+class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule {
     val io = IO(new Bundle {
-        val memIn = Flipped(DecoupledIO(new MicroOp))
-        val vmemIn = Flipped(DecoupledIO(new MicroOp))
-        val toMem2RS = DecoupledIO(new MicroOp)
+        val memIn = Vec(arbWidth, Flipped(DecoupledIO(new MicroOp)))
+        val vmemIn = Vec(arbWidth, Flipped(DecoupledIO(new MicroOp)))
+        val toMem2RS = Vec(arbWidth, DecoupledIO(new MicroOp))
     })
     
     val s_mem :: s_vmem :: Nil = Enum(2)
     val arbState = RegInit(s_mem)
 
-    io.memIn.ready := (arbState === s_mem) && io.toMem2RS.ready
-    io.vmemIn.ready := (arbState === s_vmem) && io.toMem2RS.ready
+    val memCanDeqVec = Wire(Vec(arbWidth, Bool()))
+    val hasVVec = Wire(Vec(arbWidth, Bool()))
+    val vmemCanDeqVec = Wire(Vec(arbWidth, Bool()))
+    val memDeqNum = PopCount(io.memIn.map(_.fire()))
+    val vmemDeqNum = PopCount(io.vmemIn.map(_.fire()))
+
+    memCanDeqVec(0) := io.memIn(0).valid && (!io.memIn(0).bits.ctrl.isVector)
+    for(i <- 1 until arbWidth) {
+        memCanDeqVec(i) := io.memIn(i).valid && (!io.memIn(i).bits.ctrl.isVector) && memCanDeqVec(i-1)
+    }
+
+    vmemCanDeqVec(0) := io.vmemIn(0).valid
+    for(i <- 1 until arbWidth) {
+        vmemCanDeqVec(i) := io.vmemIn(i).valid && vmemCanDeqVec(i-1) && (io.vmemIn(i).bits.robIdx === vRobIdx)
+    }
+    for((v, port) <- hasVVec.zip(io.memIn)) {
+        v := port.bits.ctrl.isVector
+    }
+
+    for((in, i) <- io.memIn.zipWithIndex) {
+        in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.orR)
+    }
+
+    for((in, out) <- io.vmemIn.zip(io.toMem2RS)) {
+        in.ready := (arbState === s_vmem) && io.toMem2RS.ready
+    }
 
     val vRobIdx = Reg(new RobPtr)
     val vRobIdxValid = RegInit(Bool(), false.B)
@@ -53,10 +77,10 @@ class MemDispatchArbiter(implicit p: Parameters) extends XSModule {
         vRobIdx := io.memIn.bits.robIdx
     }
 
-    when(arbState === s_vmem && io.vmemIn.fire() && (vRobIdx === io.vmemIn.bits.robIdx) && (io.vmemIn.bits.uopIdx + 1.U) === io.vmemIn.bits.uopNum) {
-        arbState := s_mem
+    when(arbState === s_vmem) {
+        arbState := Mux((io.vmemIn(vmemDeqNum).uopIdx + 1.U) === io.vmemIn(vmemDeqNum).uopNum, s_mem, s_vmem)
     }
 
     io.toMem2RS.bits := Mux(arbState === s_mem, io.memIn.bits, io.vmemIn.bits)
-    io.toMem2RS.valid := Mux(arbState === s_mem, Mux(!io.memIn.bits.isVector, io.memIn.valid, false.B), io.vmemIn.valid)
+    io.toMem2RS.valid := Mux(arbState === s_mem, memCanDeqVec, vmemCanDeqVec)
 }

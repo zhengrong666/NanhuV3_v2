@@ -32,6 +32,7 @@ class SelectInfo(implicit p: Parameters) extends XSBundle{
   val pdest = UInt(PhyRegIdxWidth.W)
   val rfWen = Bool()
   val fpWen = Bool()
+  val isVector = Bool()
   val robPtr = new RobPtr
 }
 

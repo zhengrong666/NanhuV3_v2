@@ -19,6 +19,7 @@ package xiangshan.vector
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import utils._
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import xiangshan._
 import xiangshan.backend.issue.DqDispatchNode
@@ -40,14 +41,14 @@ class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
 }
 
 
-class VICtrlBlock(implicit p: Parameters) extends LazyModule {
+class VectorCtrlBlock(implicit p: Parameters) extends LazyModule {
 
   lazy val module = new VICtrlImp(this)
   val dispatchNode = new DqDispatchNode
 
 }
 
-class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
+class VICtrlImp(outer: VectorCtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasVectorParameters
   with HasXSParameter
 {
@@ -126,10 +127,10 @@ class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleIm
 
   dispatch.io.req.uop := virename.io.uopOut
   for((rp, dp) <- virename.io.uopOut zip dispatch.io.req.uop) {
-    rp.ready := dispatch.io.req.canAccept
-    dp.bits := rp.bits
+    rp.ready := dispatch.io.req.canDispatch
+    dp := rp.bits
   }
-  dipatch.io.req.mask := virename.io.uopOut.map(_.valid).asUInt
+  dispatch.io.req.mask := virename.io.uopOut.map(_.valid).asUInt
   
   dispatch.io.redirect <> io.redirect
 

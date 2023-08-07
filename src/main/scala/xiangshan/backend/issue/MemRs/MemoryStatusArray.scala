@@ -54,6 +54,7 @@ sealed class BasicMemoryIssueInfoGenerator(implicit p: Parameters) extends XSMod
   io.out.bits.pdest := ib.pdest
   io.out.bits.fpWen := ib.fpWen
   io.out.bits.rfWen := ib.rfWen
+  io.out.bits.isVector := ib.isVector
 }
 
 class StaLoadIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGenerator{
@@ -347,6 +348,6 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(i
   assert((Mux(io.enq.valid, io.enq.bits.addrOH, 0.U) & Cat(statusArrayValid.reverse)) === 0.U)
   private val issues = Seq(io.staLduIssue, io.stdIssue)
   for(iss <- issues){
-    when(iss.valid){assert(PopCount(iss.bits & Cat(statusArrayValid.reverse)) === 1.U)}
+    when(iss.valid){assert((PopCount(iss.bits & Cat(statusArrayValid.reverse)) <= 2.U) && (iss.bits & Cat(statusArrayValid.reverse)).orR)}
   }
 }
