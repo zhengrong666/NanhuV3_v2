@@ -15,7 +15,7 @@
 
 /*--------------------------------------------------------------------------------------
     Author: GMX
-    Date: 2023-06-28
+    Date: 2023-08-06
     email: guanmingxing@bosc.ac.cn
 
 ---------------------------------------------------------------------------------------*/
@@ -32,30 +32,31 @@ import xiangshan.mem.mdp._
 
 import xiangshan.vector._
 
-class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
+class MemDispatchArbiter(implicit p: Parameters) extends XSModule {
     val io = IO(new Bundle {
-        val fromRename      = Vec(VIRenameWidth, Flipped(DecoupledIO(new MicroOp)))
-        val commonMask      = Output(UInt(VIRenameWidth.W))
-        val permutationMask = Output(UInt(VIRenameWidth.W))
-        val memMask         = Output(UInt(VIRenameWidth.W))
+        val memIn = Flipped(DecoupledIO(new MicroOp))
+        val vmemIn = Flipped(DecoupledIO(new MicroOp))
+        val toMem2RS = DecoupledIO(new MicroOp)
     })
-
-    val req_mask = io.fromRename.map(_.fire())
     
-    class VectorInstrSelectNetwork(typeNum: Int) extends RawModule {
-        val io = IO(new Bundle {
-            val req = Input(Vec(VIRenameWidth, new MicroOp))
-            val toDqMask = Output(Vec(typeNum, Vec(VIRenameWidth, Bool())))
-        })
-        io.toDqMask(0) := io.req.map(r => FuType.isVecOther(r.ctrl.fuType))
-        io.toDqMask(1) := io.req.map(r => FuType.isVecMem(r.ctrl.fuType))
-        io.toDqMask(2) := io.req.map(r => FuType.isVecPermutation(r.ctrl.fuType))
+    val s_mem :: s_vmem :: Nil = Enum(2)
+    val arbState = RegInit(s_mem)
+
+    io.memIn.ready := (arbState === s_mem) && io.toMem2RS.ready
+    io.vmemIn.ready := (arbState === s_vmem) && io.toMem2RS.ready
+
+    val vRobIdx = Reg(new RobPtr)
+    val vRobIdxValid = RegInit(Bool(), false.B)
+
+    when(arbState === s_mem && io.memIn.bits.fire() && io.memIn.bits.ctrl.isVector) {
+        arbState := s_vmem
+        vRobIdx := io.memIn.bits.robIdx
     }
 
-    val selNet = new VectorInstrSelectNetwork(VectorDispatchTypeNum)
-    selNet.io.req := io.fromRename.uop
-    
-    io.commonMask       := selNet.io.toDqMask(0).asUInt & io.fromRename.mask
-    io.permutationMask  := selNet.io.toDqMask(1).asUInt & io.fromRename.mask
-    io.memMask          := selNet.io.toDqMask(2).asUInt & io.fromRename.mask
+    when(arbState === s_vmem && io.vmemIn.fire() && (vRobIdx === io.vmemIn.bits.robIdx) && (io.vmemIn.bits.uopIdx + 1.U) === io.vmemIn.bits.uopNum) {
+        arbState := s_mem
+    }
+
+    io.toMem2RS.bits := Mux(arbState === s_mem, io.memIn.bits, io.vmemIn.bits)
+    io.toMem2RS.valid := Mux(arbState === s_mem, Mux(!io.memIn.bits.isVector, io.memIn.valid, false.B), io.vmemIn.valid)
 }

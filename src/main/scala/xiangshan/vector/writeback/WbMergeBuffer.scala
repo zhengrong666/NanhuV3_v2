@@ -90,7 +90,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
         val waitqueue   = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
         val rob         = Vec(wbWidth, ValidIO(new ExuOutput))
         val exu         = Vec(mergeWidth, Flipped(ValidIO(new ExuOutput)))
-        val wbMSFull    = Output(Bool())
+        //val wbMSFull    = Output(Bool())
     })
 
     val ptrHelper = Module(new WbMergeBufferPtrHelper(size, allocateWidth, wbWidth))

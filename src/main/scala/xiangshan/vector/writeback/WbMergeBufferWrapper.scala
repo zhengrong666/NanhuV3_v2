@@ -15,7 +15,7 @@
 
 /*--------------------------------------------------------------------------------------
     Author: GMX
-    Date: 2023-06-28
+    Date: 2023-07-10
     email: guanmingxing@bosc.ac.cn
 
     Vector Instruction writeback merge
@@ -37,7 +37,7 @@ import freechips.rocketchip.diplomacy._
 import xiangshan.backend.execute.exu.ExuType
 
 class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter {
-    val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.mergeBuffer)
+    val wbNodeParam = WriteBackSinkParam(name = "MergeBuffer", sinkType = WriteBackSinkType.mergeBuffer)
     val writebackNode = new WriteBackSinkNode(wbNodeParam)
     lazy val module = new WbMergeBufferWrapperImp(this)
 }
@@ -45,15 +45,26 @@ class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXS
 class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) {
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
     val vectorWbNodes = writebackIn.filter(ExuType.vecTypes exists (e => (e == _._1.exuType)))
-    val vectorWriteBack = vectorWbNodes.map(_._2)
-
+    val vectorWbNodeNum = vectorWbNodes.length
+    
     val io = IO(new Bundle {
         val allocate = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
         val redirect = Flipped(Valid(new Redirect))
+        val rob = Vec(vMergeWbWdith, ValidIO(new ExuOutput))
     })
 
     io.allocate <> outer.module.io.allocate
 
     val bufferImp = Module(new WbMergeBuffer(vMergeBufferDepth, vMergeBufferAllocateWidth, vMergeWidth, vMergeWbWdith))
 
+    //write back from VectorExu, use Diplomacy
+    val vectorWriteBack = vectorWbNodes.map(_._2)
+    for((wb, i) <- vectorWriteBack.zipWithIndex) {
+        bufferImp.io.exu(i).valid := wb.valid
+        bufferImp.io.exu(i).bits := wb.bits
+    }
+
+    bufferImp.io.redirect <> io.redirect
+    bufferImp.io.waitqueue <> io.allocate
+    io.rob <> bufferImp.io.rob
 }
