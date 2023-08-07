@@ -161,20 +161,19 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val elementInRegGroup = VLEN >> (sew + 3)
   val elementTotal = lmul * elementInRegGroup
   //val elementWidth = currentdata.MicroOp.vCsrInfo.SewToInt()
-  val splitnum = Mux(isLS, elementTotal.U, Mux(isWiden, lmul.U * 2.U, lmul.U))
+  val splitnum = Mux(isLS, elementTotal.U, Mux(isWiden, (lmul << 1).U, lmul.U))
   val tailreg = vl / elementInRegGroup.U
-  val tailidx = vl % elementInRegGroup.U
+//  val tailidx = vl % elementInRegGroup.U
   val prestartreg = prestartelement / elementInRegGroup.U
-  val prestartIdx = prestartelement % elementInRegGroup.U
+//  val prestartIdx = prestartelement % elementInRegGroup.U
   val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn)
   when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
       val cansplit = Mux(countnum(i) < splitnum, true.B, false.B)
       when(cansplit) {
         deqUop(i) <> currentdata
-        deqUop(i).tailMask := Mux(countnum(i) === tailreg, 0xffff.U >> ((elementInRegGroup.U - tailidx) * 16.U / elementInRegGroup.U),
-          Mux(countnum(i) > tailreg, 0.U, 0xffff.U))
-        deqUop(i).preStartMask := Mux(vstartInterrupt && (prestartreg === countnum(i)), 0xffff.U << prestartIdx, 0.U)
+        deqUop(i).isTail := Mux(countnum(i) === tailreg, true.B, false.B)
+        deqUop(i).isPrestart := Mux(vstartInterrupt && (prestartreg === countnum(i)), true.B, false.B)
         deqUop(i).uopIdx := countnum(i)
         deqUop(i).uopNum := splitnum
         deqUop(i).canRename := Mux(deqUop(i).ctrl.isSeg, Mux(countnum(i) > nf.U, false.B, true.B), Mux(isLS, Mux(countnum(i) % elementInRegGroup.U === 0.U, true.B, false.B), true.B))
