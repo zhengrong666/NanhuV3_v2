@@ -41,14 +41,14 @@ class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
 }
 
 
-class VICtrlBlock(implicit p: Parameters) extends LazyModule {
+class VectorCtrlBlock(implicit p: Parameters) extends LazyModule {
 
   lazy val module = new VICtrlImp(this)
   val dispatchNode = new DqDispatchNode
 
 }
 
-class VICtrlImp(outer: VICtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
+class VICtrlImp(outer: VectorCtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasVectorParameters
   with HasXSParameter
 {

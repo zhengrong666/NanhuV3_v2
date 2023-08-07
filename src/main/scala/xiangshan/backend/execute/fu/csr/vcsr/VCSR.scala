@@ -43,12 +43,18 @@ class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRCons
     val vlenb   = UInt(XLEN.W)
 }
 
+class VCSRWIO(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
+    val vstartValue = UInt(XLEN.W)
+    val vstartWen = Bool()
+}
+
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val cfIn = io.in.bits.uop.cf
     val cfOut = Wire(new CtrlFlow)
 
     val vcsr_io = IO(new Bundle {
         val vcsrInfo = new VCSRInfo
+        val write = new VCSRWIO
     })
 
     //csr define
@@ -60,13 +66,13 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vl      = RegInit(UInt(XLEN.W), 0.U)
     val vlenb   = RegInit(UInt(XLEN.W), (VLEN / 8).U)
 
-    vcsr_io.vcsrInfo.vtype := vtype
+    vcsr_io.vcsrInfo.vtype  := vtype
     vcsr_io.vcsrInfo.vstart := vstart
-    vcsr_io.vcsrInfo.vxsat := vxsat
-    vcsr_io.vcsrInfo.vxrm := vxrm
-    vcsr_io.vcsrInfo.vcsr := vcsr
-    vcsr_io.vcsrInfo.vl := vl
-    vcsr_io.vcsrInfo.vlenb := vlenb
+    vcsr_io.vcsrInfo.vxsat  := vxsat
+    vcsr_io.vcsrInfo.vxrm   := vxrm
+    vcsr_io.vcsrInfo.vcsr   := vcsr
+    vcsr_io.vcsrInfo.vl     := vl
+    vcsr_io.vcsrInfo.vlenb  := vlenb
 
     val vectorCSRMapping = Map(
         MaskedRegMap(vstartAddr, vstart),
@@ -76,6 +82,7 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
         MaskedRegMap(vlAddr, vl),
         MaskedRegMap(vlenbAddr, vlenb)
     )
+    
     //vsetvl
     val isVsetvl = cfIn.instr(31, 30) === "b10".U
     //vsetvl{i}
