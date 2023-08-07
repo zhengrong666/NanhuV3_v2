@@ -89,7 +89,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
   val writebackNode = new WriteBackSinkNode(WriteBackSinkParam("RegFile Top", WriteBackSinkType.regFile))
 
   lazy val module = new LazyModuleImp(this) {
-    val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad) + + issueNode.out.count(_._2._2.hasSpecialLoad)
+    val pcReadNum:Int = issueNode.out.count(_._2._2.hasJmp) * 2 + issueNode.out.count(_._2._2.hasLoad) + issueNode.out.count(_._2._2.hasSpecialLoad)
     println("\nRegfile Configuration:")
     println(s"PC read num: $pcReadNum \n")
     println("Regfile Writeback Info:")

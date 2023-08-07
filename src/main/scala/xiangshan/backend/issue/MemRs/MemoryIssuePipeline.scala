@@ -3,7 +3,7 @@ package xiangshan.backend.issue.MemRs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.{MicroOp, Redirect, SrcType, XSModule}
+import xiangshan.{FuType, MicroOp, Redirect, SrcType, XSModule}
 import xs.utils.LogicShiftRight
 
 sealed class MemPipelineEntry(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends Bundle{
@@ -20,6 +20,7 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val issueFire = Output(Bool())
     val hold = Output(Bool())
+    val isLoad = Output(Bool())
   })
   private val hold = RegInit(false.B)
   when(io.enq.fire && io.enq.bits.uop.ctrl.isVector){
@@ -30,6 +31,7 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
     hold := false.B
   }
   io.hold := hold
+
   io.enq.ready := io.deq.ready && !hold
   io.issueFire := !hold && io.deq.fire
 
@@ -37,8 +39,8 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   private val deqDataDriverReg = Reg(new MemPipelineEntry(bankIdxWidth, entryIdxWidth))
   private val shouldBeFlushed = deqDataDriverReg.uop.robIdx.needFlush(io.redirect)
   private val shouldBeCanceled = deqDataDriverReg.uop.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
-
-  when(!hold | shouldBeFlushed | shouldBeCanceled){
+  io.isLoad := deqDataDriverReg.uop.ctrl.fuType === FuType.ldu
+    when(!hold | shouldBeFlushed | shouldBeCanceled){
     deqValidDriverReg := io.enq.fire
   }
   when(hold){
