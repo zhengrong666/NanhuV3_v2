@@ -56,7 +56,7 @@ object ExuType{
     vdiv -> "vdiv",
     vmac -> "vmac",
     vperm -> "vperm",
-    s2v -> "s2v"
+    s2v -> "s2v",
     sldu -> "sldu"
   )
 
