@@ -101,6 +101,7 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule {
     val rsFeedback = ValidIO(new RSFeedback)
   })
 
+  val EnableMem = io.in.bits.uop.loadStoreEnable
   // mmio cbo decoder
   val is_mmio_cbo = io.in.bits.uop.ctrl.fuOpType === LSUOpType.cbo_clean ||
     io.in.bits.uop.ctrl.fuOpType === LSUOpType.cbo_flush ||
@@ -109,7 +110,7 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule {
   val s1_paddr = io.dtlbResp.bits.paddr(0)
   val s1_tlb_miss = io.dtlbResp.bits.miss
   val s1_mmio = is_mmio_cbo
-  val s1_exception = ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR
+  val s1_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR, false.B)
 
   io.in.ready := true.B
 
@@ -117,7 +118,7 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule {
 
   // Send TLB feedback to store issue queue
   // Store feedback is generated in store_s1, sent to RS in store_s2
-  io.rsFeedback.valid := io.in.valid && s1_tlb_miss
+  io.rsFeedback.valid := io.in.valid && s1_tlb_miss && EnableMem
   io.rsFeedback.bits.flushState := io.dtlbResp.bits.ptwBack
   io.rsFeedback.bits.rsIdx := io.in.bits.rsIdx
   io.rsFeedback.bits.sourceType := RSFeedbackType.tlbMiss
@@ -159,6 +160,7 @@ class StoreUnit_S2(implicit p: Parameters) extends XSModule {
     val static_pm = Input(Valid(Bool()))
     val out = Decoupled(new LsPipelineBundle)
   })
+  val EnableMem = io.in.bits.uop.loadStoreEnable
   val pmp = WireInit(io.pmpResp)
   when (io.static_pm.valid) {
     pmp.ld := false.B
@@ -167,7 +169,7 @@ class StoreUnit_S2(implicit p: Parameters) extends XSModule {
     pmp.mmio := io.static_pm.bits
   }
 
-  val s2_exception = ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR
+  val s2_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR, false.B)
   val is_mmio = io.in.bits.mmio || pmp.mmio
 
   io.in.ready := true.B

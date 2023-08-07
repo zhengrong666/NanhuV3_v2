@@ -94,9 +94,10 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   val isSoftPrefetch = LSUOpType.isPrefetch(s0_uop.ctrl.fuOpType)
   val isSoftPrefetchRead = s0_uop.ctrl.fuOpType === LSUOpType.prefetch_r
   val isSoftPrefetchWrite = s0_uop.ctrl.fuOpType === LSUOpType.prefetch_w
+  val EnableMem = io.in.bits.uop.loadStoreEnable
 
   // query DTLB
-  io.dtlbReq.valid := io.in.valid || tryFastpath
+  io.dtlbReq.valid := (io.in.valid || tryFastpath) && EnableMem
   io.dtlbReq.bits.vaddr := s0_vaddr
   io.dtlbReq.bits.cmd := TlbCmd.read
   io.dtlbReq.bits.size := LSUOpType.size(s0_uop.ctrl.fuOpType)
@@ -104,10 +105,9 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.dtlbReq.bits.debug.pc := s0_uop.cf.pc
   io.dtlbReq.bits.debug.isFirstIssue := io.isFirstIssue
 
-  val enalbeMem = !(io.in.bits.uop.ctrl.isOrder)
 
   // query DCache
-  io.dcacheReq.valid := (io.in.valid || tryFastpath) && enalbeMem
+  io.dcacheReq.valid := (io.in.valid || tryFastpath) && EnableMem
   when (isSoftPrefetchRead) {
     io.dcacheReq.bits.cmd  := MemoryOpConstants.M_PFR
   }.elsewhen (isSoftPrefetchWrite) {
@@ -141,7 +141,7 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.out.bits.vaddr := s0_vaddr
   io.out.bits.mask := s0_mask
   io.out.bits.uop := s0_uop
-  io.out.bits.uop.cf.exceptionVec(loadAddrMisaligned) := !addrAligned
+  io.out.bits.uop.cf.exceptionVec(loadAddrMisaligned) := Mux(EnableMem, 0.U.asTypeOf(ExceptionVec()), !addrAligned)
   io.out.bits.rsIdx := io.rsIdx
   io.out.bits.isFirstIssue := io.isFirstIssue
   io.out.bits.isSoftPrefetch := isSoftPrefetch
@@ -190,13 +190,13 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   val s1_uop = io.in.bits.uop
   val s1_paddr_dup_lsu = io.dtlbResp.bits.paddr(0)
   val s1_paddr_dup_dcache = io.dtlbResp.bits.paddr(1)
+  val EnableMem = io.in.bits.uop.loadStoreEnable
   // af & pf exception were modified below.
-  val s1_exception = ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, lduCfg).asUInt.orR
+  val s1_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, lduCfg).asUInt.orR, false.B)
   val s1_tlb_miss = io.dtlbResp.bits.miss
   val s1_mask = io.in.bits.mask
   val s1_bank_conflict = io.dcacheBankConflict
 
-  val disableMem = io.in.bits.uop.ctrl.isOrder
   io.out.bits := io.in.bits // forwardXX field will be updated in s1
 
   io.dtlbResp.ready := true.B
@@ -204,9 +204,9 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.lsuPAddr := s1_paddr_dup_lsu
   io.dcachePAddr := s1_paddr_dup_dcache
   //io.dcacheKill := s1_tlb_miss || s1_exception || s1_mmio
-  io.dcacheKill := s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel || disableMem
+  io.dcacheKill := s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel || (!EnableMem)
   // load forward query datapath
-  io.sbuffer.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill)
+  io.sbuffer.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill) && EnableMem
   io.sbuffer.vaddr := io.in.bits.vaddr
   io.sbuffer.paddr := s1_paddr_dup_lsu
   io.sbuffer.uop := s1_uop
@@ -214,7 +214,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.sbuffer.mask := s1_mask
   io.sbuffer.pc := s1_uop.cf.pc // FIXME: remove it
 
-  io.lsq.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill)
+  io.lsq.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill) && EnableMem
   io.lsq.vaddr := io.in.bits.vaddr
   io.lsq.paddr := s1_paddr_dup_lsu
   io.lsq.uop := s1_uop
@@ -224,7 +224,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.lsq.pc := s1_uop.cf.pc // FIXME: remove it
 
   // ld-ld violation query
-  io.loadViolationQueryReq.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill)
+  io.loadViolationQueryReq.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill) && EnableMem
   io.loadViolationQueryReq.bits.paddr := s1_paddr_dup_lsu
   io.loadViolationQueryReq.bits.uop := s1_uop
 
@@ -239,7 +239,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
     !io.loadViolationQueryReq.ready &&
     RegNext(io.csrCtrl.ldld_vio_check_enable)
   io.needLdVioCheckRedo := needLdVioCheckRedo
-  io.rsFeedback.valid := io.in.valid && (s1_bank_conflict || needLdVioCheckRedo || io.s1_cancel) && !io.s1_kill
+  io.rsFeedback.valid := io.in.valid && (s1_bank_conflict || needLdVioCheckRedo || io.s1_cancel) && !io.s1_kill && EnableMem
   io.rsFeedback.bits.rsIdx := io.in.bits.rsIdx
   io.rsFeedback.bits.flushState := io.in.bits.ptwBack
   io.rsFeedback.bits.sourceType := Mux(s1_bank_conflict, Cat(0.U((RSFeedbackType.width - 1).W), io.bankConflictAvoidIn), RSFeedbackType.ldVioCheckRedo)
@@ -303,6 +303,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
     pmp.mmio := io.static_pm.bits
   }
 
+  val EnableMem = io.in.bits.uop.loadStoreEnable
   val s2_is_prefetch = io.in.bits.isSoftPrefetch
 
   // exception that may cause load addr to be invalid / illegal
@@ -315,7 +316,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
   when (s2_is_prefetch) {
     s2_exception_vec := 0.U.asTypeOf(s2_exception_vec.cloneType)
   }
-  val s2_exception = ExceptionNO.selectByFu(s2_exception_vec, lduCfg).asUInt.orR
+  val s2_exception = Mux(EnableMem, ExceptionNO.selectByFu(s2_exception_vec, lduCfg).asUInt.orR,false.B)
 
   // writeback access fault caused by ecc error / bus error
   //
@@ -463,7 +464,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
       s2_cache_replay && !s2_is_prefetch && !s2_mmio && !s2_exception && !io.dataForwarded || // replay if dcache miss queue full / busy
       s2_data_invalid && !s2_is_prefetch // replay if store to load forward data is not ready
   }
-  io.rsFeedback.valid := io.in.valid && s2_need_replay_from_rs
+  io.rsFeedback.valid := io.in.valid && s2_need_replay_from_rs && EnableMem
   io.rsFeedback.bits.rsIdx := io.in.bits.rsIdx
   io.rsFeedback.bits.flushState := io.in.bits.ptwBack
   io.rsFeedback.bits.sourceType := Mux(s2_tlb_miss, RSFeedbackType.tlbMiss,
