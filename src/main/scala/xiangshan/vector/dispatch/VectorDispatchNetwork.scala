@@ -32,16 +32,6 @@ import xiangshan.mem.mdp._
 
 import xiangshan.vector._
 
-// class VectorDispatchFromRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-//     val uop = Input(Vec(VIRenameWidth, new MicroOp))
-//     val mask = Input(UInt(VIRenameWidth.W))
-// }
-
-// class VectorDispatchToDQ(implicit p: Parameters) extends VectorBaseBundle {
-//     //val uop = Output(Vec(VIRenameWidth, new MicroOp))
-//     val mask = Output(UInt(VIRenameWidth.W))
-// }
-
 class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
         val fromRename      = Vec(VIRenameWidth, Flipped(DecoupledIO(new MicroOp)))

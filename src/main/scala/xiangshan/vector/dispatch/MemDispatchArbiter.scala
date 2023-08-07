@@ -58,6 +58,5 @@ class MemDispatchArbiter(implicit p: Parameters) extends XSModule {
     }
 
     io.toMem2RS.bits := Mux(arbState === s_mem, io.memIn.bits, io.vmemIn.bits)
-    io.toMem2RS.valid := Mux(arbState === s_mem && !io.memIn.bits.isVector, io.memIn.valid, io.vmemIn.valid)
-    
+    io.toMem2RS.valid := Mux(arbState === s_mem, Mux(!io.memIn.bits.isVector, io.memIn.valid, false.B), io.vmemIn.valid)
 }
