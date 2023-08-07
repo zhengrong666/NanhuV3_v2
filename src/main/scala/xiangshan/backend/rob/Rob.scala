@@ -54,6 +54,7 @@ class RobCSRIO(implicit p: Parameters) extends XSBundle {
   val wfiEvent   = Input(Bool())
 
   val fflags     = Output(Valid(UInt(5.W)))
+  val vstart     = Output(Valid(UInt(7.W)))
   val dirty_fs   = Output(Bool())
   val perfinfo   = new Bundle {
     val retiredInstr = Output(UInt(3.W))
@@ -163,6 +164,15 @@ class RobFlushInfo(implicit p: Parameters) extends XSBundle {
   val replayInst = Bool()
 }
 
+class CSRDataEntry(implicit p: Parameters) extends XSBundle {
+  val value = UInt(7.W)
+  //0-fflags, 1-vstart
+  val csrType = Bool()
+  
+  //vector
+  val vxsat = Bool()
+}
+
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   private val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
   val writebackNode = new WriteBackSinkNode(wbNodeParam)
@@ -188,6 +198,11 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val robFull = Output(Bool())
     val cpu_halt = Output(Bool())
     val wfi_enable = Input(Bool())
+
+    //mergeBuffer wb
+    val wbFromMergeBuffer = Vec(vMergeWbWdith, Flipped(ValidIO(new ExuOut)))
+    //store wb
+    val wbFromStoreQueue = Flipped(Vec(2,Decoupled(new ExuOutput)))
   })
 
 
@@ -267,7 +282,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   private val exceptionGen = Module(new ExceptionGen(wbWithException.length))
   private val exceptionDataRead = exceptionGen.io.state
-  private val fflagsDataRead = Wire(Vec(CommitWidth, UInt(5.W)))
+  //private val fflagsDataRead = Wire(Vec(CommitWidth, UInt(5.W)))
+  private val csrDataRead = Wire(Vec(CommitWidth, new CSRDataEntry))
 
   io.robDeqPtr := deqPtr
 
@@ -671,6 +687,17 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       writebacked(wbIdx) := !block_wb
     }
   }
+
+  // for(wb <- io.wbFromMergeBuffer) {
+  //   when(wb.valid) {
+  //     val wbIdx = wb.bits.uop.robIdx.value
+  //     val wbHasException = ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, cfg).asUInt.orR
+  //     val wbHasTriggerCanFire = if (cfg.trigger) wb.bits.uop.cf.trigger.getBackendCanFire else false.B
+  //     val block_wb = wbHasException || wbHasTriggerCanFire
+  //     writebacked(wbIdx) := !block_wb
+  //   }
+  // }
+
   // store data writeback logic mark store as data_writebacked
   for (wb <- stdWriteback) {
     when(RegNext(wb.valid, false.B)) {
@@ -754,17 +781,32 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   private val fflags_wb = wbWithFFlag.map(_._2)
-  private val fflagsDataModule = Module(new SyncDataModuleTemplate(
-    UInt(5.W), RobSize, CommitWidth, fflags_wb.size, "fflags")
-  )
-  for(i <- fflags_wb.indices){
-    fflagsDataModule.io.wen  (i) := fflags_wb(i).valid
-    fflagsDataModule.io.waddr(i) := fflags_wb(i).bits.uop.robIdx.value
-    fflagsDataModule.io.wdata(i) := fflags_wb(i).bits.fflags
-  }
-  fflagsDataModule.io.raddr := VecInit(deqPtrVec_next.map(_.value))
-  fflagsDataRead := fflagsDataModule.io.rdata
+  private val sq_wb = io.wbFromStoreQueue
+  // private val fflagsDataModule = Module(new SyncDataModuleTemplate(
+  //   UInt(5.W), RobSize, CommitWidth, fflags_wb.size, "fflags")
+  // )
 
+  private val csrDataModule = Module(new SyncDataModuleTemplate(
+    new CSRDataEntry, RobSize, CommitWidth, fflags_wb.size + 2, "csr"
+  ))
+
+  for(i <- fflags_wb.indices) {
+    csrDataModule.io.wen(i)           := fflags_wb(i).valid
+    csrDataModule.io.waddr(i)         := fflags_wb(i).bits.uop.robIdx.value
+    csrDataModule.io.wdata(i).value   := fflags_wb(i).bits.fflags
+    csrDataModule.io.wdata(i).csrType := false.B
+  }
+
+  for(i <- 0 until 2){
+    csrDataModule.io.wen(fflags_wb.length + i)            := sq_wb(i).valid
+    csrDataModule.io.waddr(fflags_wb.length + i)          := sq_wb(i).bits.uop.robIdx.value
+    csrDataModule.io.wdata(fflags_wb.length + i).value    := sq_wb(i).bits.uop.uopIdx
+    csrDataModule.io.wdata(fflags_wb.length + i).csrType  := true.B
+    csrDataModule.io.wdata(fflags_wb.length + i).vxsat    := sq_wb(i).bits.vxsat
+  }
+
+  csrDataModule.io.raddr := VecInit(deqPtrVec_next.map(_.value))
+  csrDataRead := csrDataModule.io.rdata
 
   private val instrCntReg = RegInit(0.U(64.W))
   private val fuseCommitCnt = PopCount(io.commits.commitValid.zip(io.commits.info).map{ case (v, i) => RegNext(v && CommitType.isFused(i.commitType)) })
