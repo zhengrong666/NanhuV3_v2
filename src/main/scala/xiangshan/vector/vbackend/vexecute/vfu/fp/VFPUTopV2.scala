@@ -48,7 +48,20 @@ class VFPUTop(implicit val p: Parameters)
   //   uop_adjust.expdIdx := uop.expdIdx >> 1
   // }
 
-  io.in.ready := subModules.map(_.io.in.ready).reduce(_ && _) // must all ready
+  val sel_cvt = inputGen.io.out.uop.vfpCtrl.isCvt
+  val sel_misc = inputGen.io.out.uop.vfpCtrl.isMisc
+  val sel_rec = inputGen.io.out.uop.vfpCtrl.isRec7 || inputGen.io.out.uop.vfpCtrl.isRecSqrt7
+
+  io.in.ready := fma.io.in.ready
+  when (sel_cvt) {
+    io.in.ready := cvt.io.in.ready
+  } .elsewhen(sel_misc) {
+    io.in.ready := misc.io.in.ready
+  }.elsewhen(sel_rec){
+    io.in.ready := rec.io.in.ready
+  }
+
+ // io.in.ready := subModules.map(_.io.in.ready).reduce(_ && _) // must all ready
 }
 
 // comb logic
