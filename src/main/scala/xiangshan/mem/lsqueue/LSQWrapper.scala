@@ -24,6 +24,7 @@ import xiangshan._
 import xiangshan.cache._
 import xiangshan.backend.rob.RobLsqIO
 import xiangshan.vector.HasVectorParameters
+import xs.utils.UIntToMask
 
 class ExceptionAddrIO(implicit p: Parameters) extends XSBundle {
   val isStore = Input(Bool())
@@ -107,7 +108,6 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   val storeQueue = Module(new StoreQueue)
 
   storeQueue.io.hartId := io.hartId
-  storeQueue.io.stout <> io.stout
 
   // io.enq logic
   // LSQ: send out canAccept when both load queue and store queue are ready
@@ -115,21 +115,31 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.enq.canAccept := loadQueue.io.enq.canAccept && storeQueue.io.enq.canAccept
   loadQueue.io.enq.sqCanAccept := storeQueue.io.enq.canAccept
   storeQueue.io.enq.lqCanAccept := loadQueue.io.enq.canAccept
+
+  val loadValid  = Wire(Vec(exuParameters.LsExuCnt,Bool()))
+  val storeValid = Wire(Vec(exuParameters.LsExuCnt,Bool()))
+
   for (i <- io.enq.req.indices) {
     loadQueue.io.enq.needAlloc(i)      := io.enq.needAlloc(i)(0)
-    loadQueue.io.enq.req(i).valid      := io.enq.needAlloc(i)(0) && io.enq.req(i).valid
     loadQueue.io.enq.req(i).bits       := io.enq.req(i).bits
     loadQueue.io.enq.req(i).bits.sqIdx := storeQueue.io.enq.resp(i)
+    loadValid(i)                       := io.enq.needAlloc(i)(0) && io.enq.req(i).valid
+    loadQueue.io.enq.req(i).valid      := loadValid(i)
 
     storeQueue.io.enq.needAlloc(i)      := io.enq.needAlloc(i)(1)
-    storeQueue.io.enq.req(i).valid      := io.enq.needAlloc(i)(1) && io.enq.req(i).valid
     storeQueue.io.enq.req(i).bits       := io.enq.req(i).bits
     storeQueue.io.enq.req(i).bits       := io.enq.req(i).bits
     storeQueue.io.enq.req(i).bits.lqIdx := loadQueue.io.enq.resp(i)
+    storeValid(i)                       := io.enq.needAlloc(i)(1) && io.enq.req(i).valid
+    storeQueue.io.enq.req(i).valid      := storeValid(i)
 
     io.enq.resp(i).lqIdx := loadQueue.io.enq.resp(i)
     io.enq.resp(i).sqIdx := storeQueue.io.enq.resp(i)
   }
+
+  loadQueue.io.enq.reqNum := PopCount(loadValid)
+  storeQueue.io.enq.reqNum := PopCount(storeValid)
+
 
   // load queue wiring
   loadQueue.io.brqRedirect <> io.brqRedirect
