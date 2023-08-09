@@ -23,7 +23,7 @@ class WaitQueueState(implicit p: Parameters) extends VectorBaseBundle {
   val robIdx = new RobPtr
   val vtypeRegIdx = UInt(3.W)
   val vtypeInfo = new VICsrInfo
-  val mergeIdx = UInt(log2Up(VectorMergeStationDepth).W)
+  val mergeIdx = UInt(log2Up(VectorMergeBufferDepth).W)
 }
 
 class WqPtr(implicit p: Parameters) extends CircularQueuePtr[WqPtr](
@@ -53,7 +53,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
     val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
-    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W))))
+    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
     val vstart = Input(UInt(7.W))
