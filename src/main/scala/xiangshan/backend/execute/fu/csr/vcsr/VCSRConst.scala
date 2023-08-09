@@ -20,7 +20,7 @@
 
 ---------------------------------------------------------------------------------------*/
 
-package xiangshan.vector.vbackend.vcsr
+package xiangshan.backend.execute.fu.csr.vcsr
 
 trait HasVCSRConst {
     val vstartAddr  = 0x008
