@@ -102,6 +102,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     })))
 
     //allocate, connect with WaitQueue
+    //TODO: bypass Merge
     io.waitqueue <> ptrHelper.io.allocate
     val allocateVec = Vec(allocateWidth, Bool())
     allocateVec := io.waitqueue.map(_.fire)
