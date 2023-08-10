@@ -92,6 +92,7 @@ case class ExuConfig
   val writeIntRf = fuConfigs.map(_.writeIntRf).reduce(_||_)
   val writeFpRf = fuConfigs.map(_.writeFpRf).reduce(_||_)
   val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_)
+  val writeFFlags: Boolean = fuConfigs.map(_.writeFflags).reduce(_ || _)
 
   private val isLdu = exuType == ExuType.ldu
   val writebackToRegfile = if(isLdu) !throughVectorRf else (writeIntRf || writeFpRf)
@@ -112,8 +113,6 @@ case class ExuConfig
   val bypassFpRegfile = ExuType.bypassFpList.contains(exuType)
   val trigger: Boolean = fuConfigs.map(_.trigger).reduce(_ || _)
   val hasException: Boolean = exceptionOut.nonEmpty || trigger
-
-  val hasFFlags: Boolean = fuConfigs.map(_.writeFflags).reduce(_ || _)
 
   override def toString = s"\n\t${name}: intSrcNum: ${intSrcNum} fpSrcNum: ${fpSrcNum} Type: ${ExuType.typeToString(exuType)} " +
     "\n\t\t Functions Units: " + fuConfigs.map(_.toString + " ").reduce(_++_)
