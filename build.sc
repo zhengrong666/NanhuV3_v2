@@ -138,7 +138,7 @@ object huancun extends XSModule with SbtModule {
 
 object CoupledL2 extends XSModule with SbtModule {
 
-  override def millSourcePath = os.pwd / "CoupledL2"
+  override def millSourcePath = os.pwd / "coupledL2"
 
   override def moduleDeps = super.moduleDeps ++ Seq(
     rocketchip,
