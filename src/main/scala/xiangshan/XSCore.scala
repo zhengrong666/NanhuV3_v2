@@ -75,7 +75,10 @@ abstract class XSCoreBase(val parentName:String = "Unknown")(implicit p: config.
   exuBlock.integerReservationStation.dispatchNode :*= ctrlBlock.dispatchNode
   exuBlock.floatingReservationStation.dispatchNode :*= ctrlBlock.dispatchNode
   exuBlock.memoryReservationStation.dispatchNode :*= ctrlBlock.dispatchNode
+  exuBlock.vectorReservationStation.dispatchNode :*= ctrlBlock.dispatchNode
+  exuBlock.vectorPermutationBlock.vprs.dispatchNode :*= ctrlBlock.dispatchNode
   ctrlBlock.rob.writebackNode :=* exuBlock.writebackNetwork.node
+  ctrlBlock.wbMergeBuffer.writebackNode :=* exuBlock.writebackNetwork.node
   ptw_to_l2_buffer.node := ptw.node
 }
 

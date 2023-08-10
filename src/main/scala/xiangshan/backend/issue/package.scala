@@ -60,6 +60,8 @@ package object issue {
     def fp: Int = 2
 
     def vec: Int = 3
+
+    def vperm: Int = 4
   }
 
   case class RsParam
@@ -76,7 +78,8 @@ package object issue {
     val isMemRs: Boolean = rsType == RsType.mem
     val isFpRs: Boolean = rsType == RsType.fp
     val isVecRs: Boolean = rsType == RsType.vec
-    val isLegal: Boolean = isIntRs || isMemRs || isFpRs || isVecRs
+    val isVpRs: Boolean = rsType == RsType.vperm
+    val isLegal: Boolean = isIntRs || isMemRs || isFpRs || isVecRs || isVpRs
 
     def TypeName: String = {
       require(isLegal)
