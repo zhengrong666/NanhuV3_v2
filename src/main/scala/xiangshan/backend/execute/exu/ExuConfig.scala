@@ -39,6 +39,7 @@ object ExuType{
   def vperm = 14
   def s2v = 15
   def sldu = 16
+  def vmask = 17
 
   private val mapping = Map(
     jmp -> "jmp",
@@ -57,7 +58,8 @@ object ExuType{
     vmac -> "vmac",
     vperm -> "vperm",
     s2v -> "s2v",
-    sldu -> "sldu"
+    sldu -> "sldu",
+    vmask -> "vmask"
   )
 
   def intTypes: Seq[Int] = Seq(jmp, alu, mul, div)
@@ -110,6 +112,8 @@ case class ExuConfig
   val bypassFpRegfile = ExuType.bypassFpList.contains(exuType)
   val trigger: Boolean = fuConfigs.map(_.trigger).reduce(_ || _)
   val hasException: Boolean = exceptionOut.nonEmpty || trigger
+
+  val hasFFlags: Boolean = fuConfigs.map(_.writeFflags).reduce(_ || _)
 
   override def toString = s"\n\t${name}: intSrcNum: ${intSrcNum} fpSrcNum: ${fpSrcNum} Type: ${ExuType.typeToString(exuType)} " +
     "\n\t\t Functions Units: " + fuConfigs.map(_.toString + " ").reduce(_++_)
