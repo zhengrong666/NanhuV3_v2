@@ -13,7 +13,9 @@ class VMac(implicit p: Parameters) extends VFuModule {
   })
 
   // Latency of MAC is 2 cycles plus
-  io.out.valid := RegNext(RegNext(io.in.valid))
+  val valid = io.in.valid
+  val validS1 = RegNext(valid)
+  io.out.valid := RegNext(validS1)
 
   val (funct6, funct3) = (io.in.bits.uop.ctrl.funct6, io.in.bits.uop.ctrl.funct3)
   val sew = SewOH(io.in.bits.uop.info.vsew)
@@ -41,6 +43,7 @@ class VMac(implicit p: Parameters) extends VFuModule {
 
   val vIMac64bs = Seq.fill(2)(Module(new VMac64b))
   for (i <- 0 until 2) {
+    vIMac64bs(i).io.valid := valid
     vIMac64bs(i).io.sew := sew
     vIMac64bs(i).io.uopIdx := uopIdx
     vIMac64bs(i).io.vxrm := io.in.bits.uop.info.vxrm
@@ -63,25 +66,35 @@ class VMac(implicit p: Parameters) extends VFuModule {
   /**
    * Output stage
    */
-  val eewVdS2 = RegNext(RegNext(eewVd))
+  val eewVdS1 = RegEnable(eewVd, valid)
+  val oldVdS1 = RegEnable(oldVd, valid)
+  val taS1 = RegEnable(io.in.bits.uop.info.ta, valid)
+  val maS1 = RegEnable(io.in.bits.uop.info.ma, valid)
+  val vmS1 = RegEnable(io.in.bits.uop.ctrl.vm, valid)
+  val vstart_gte_vl_S1 = RegEnable(vstart_gte_vl, valid)
+  val mask16bS1 = RegEnable(MaskExtract(mask, uopIdx, eewVd), valid)
+
+  val eewVdS2 = RegEnable(eewVdS1, validS1)
   val oldVdS2 = Wire(UInt(128.W))
-  oldVdS2 := RegNext(RegNext(oldVd))
-  val taS2 = RegNext(RegNext(io.in.bits.uop.info.ta))
-  val maS2 = RegNext(RegNext(io.in.bits.uop.info.ma))
-  val vmS2 = RegNext(RegNext(io.in.bits.uop.ctrl.vm))
+  oldVdS2 := RegEnable(oldVdS1, validS1)
+  val taS2 = RegEnable(taS1, validS1)
+  val maS2 = RegEnable(maS1, validS1)
+  val vmS2 = RegEnable(vmS1, validS1)
   // Output tail/prestart/mask handling
   //---- Tail gen ----
   val tail = TailGen(io.in.bits.uop.info.vl, uopIdx, eewVd)
-  val tailS2 = RegNext(RegNext(tail))
+  val tailS1 = RegEnable(tail, valid)
+  val tailS2 = RegEnable(tailS1, validS1)
   //---- Prestart gen ----
   val prestart = PrestartGen(io.in.bits.uop.info.vstart, uopIdx, eewVd)
-  val prestartS2 = RegNext(RegNext(prestart))
+  val prestartS1 = RegEnable(prestart, valid)
+  val prestartS2 = RegEnable(prestartS1, validS1)
   //---- vstart >= vl ----
-  val vstart_gte_vl_S2 = RegNext(RegNext(vstart_gte_vl))
+  val vstart_gte_vl_S2 = RegEnable(vstart_gte_vl_S1, validS1)
 
   val tailReorg = MaskReorg.splash(tailS2, eewVdS2)
   val prestartReorg = MaskReorg.splash(prestartS2, eewVdS2)
-  val mask16bS2 = RegNext(RegNext(MaskExtract(mask, uopIdx, eewVd)))
+  val mask16bS2 = RegEnable(mask16bS1, validS1)
   val mask16bReorg = MaskReorg.splash(mask16bS2, eewVdS2)
   val updateType = Wire(Vec(16, UInt(2.W))) // 00: keep result  10: old_vd  11: write 1s
   for (i <- 0 until 16) {

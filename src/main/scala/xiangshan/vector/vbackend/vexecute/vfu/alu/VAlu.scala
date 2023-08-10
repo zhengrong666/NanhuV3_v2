@@ -17,6 +17,9 @@
   *     12.2  vaadd, ...
   *     12.4  vssrl, ...
   *     12.5  vnclip, ...
+  *     16.1
+  *     16.2
+  *     16.6
   */
 package darecreek.exu.fu2.alu
 
@@ -35,6 +38,7 @@ class VIntFixpDecode extends Bundle {
 
 class VIntFixpAlu64b(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
+    val valid = Input(Bool())
     val funct6 = Input(UInt(6.W))
     val funct3 = Input(UInt(3.W))
     val vi = Input(Bool()) // OPIVI: vs2 op imm
@@ -94,27 +98,27 @@ class VIntFixpAlu64b(implicit p: Parameters) extends VFuModule {
   vIntMisc64b.io.vs2 := io.vs2_misc
   vIntMisc64b.io.vmask := io.vmask
 
-  val vdAdderS1 = RegNext(vIntAdder64b.io.vd)
-  val vdMiscS1 = RegNext(vIntMisc64b.io.vd)
-  val isMiscS1 = RegNext(io.isMisc)
-  val narrowVdMiscS1 = RegNext(vIntMisc64b.io.narrowVd)
-  val cmpOutS1 = RegNext(vIntAdder64b.io.cmpOut)
-  val isFixpS1 = RegNext(io.isFixp)
+  val vdAdderS1 = RegEnable(vIntAdder64b.io.vd, io.valid)
+  val vdMiscS1 = RegEnable(vIntMisc64b.io.vd, io.valid)
+  val isMiscS1 = RegEnable(io.isMisc, io.valid)
+  val narrowVdMiscS1 = RegEnable(vIntMisc64b.io.narrowVd, io.valid)
+  val cmpOutS1 = RegEnable(vIntAdder64b.io.cmpOut, io.valid)
+  val isFixpS1 = RegEnable(io.isFixp, io.valid)
 
   val vFixPoint64b = Module(new VFixPoint64b)
-  vFixPoint64b.io.funct6 := RegNext(io.funct6)
-  vFixPoint64b.io.sew := RegNext(io.sew)
-  vFixPoint64b.io.vxrm := RegNext(io.vxrm)
-  vFixPoint64b.io.isFixp := RegNext(io.isFixp)
-  vFixPoint64b.io.isSub := RegNext(io.isSub)
-  vFixPoint64b.io.fromAdder := RegNext(vIntAdder64b.io.toFixP)
-  vFixPoint64b.io.fromMisc := RegNext(vIntMisc64b.io.toFixP)
+  vFixPoint64b.io.funct6 := RegEnable(io.funct6, io.valid)
+  vFixPoint64b.io.sew := RegEnable(io.sew, io.valid)
+  vFixPoint64b.io.vxrm := RegEnable(io.vxrm, io.valid)
+  vFixPoint64b.io.isFixp := RegEnable(io.isFixp, io.valid)
+  vFixPoint64b.io.isSub := RegEnable(io.isSub, io.valid)
+  vFixPoint64b.io.fromAdder := RegEnable(vIntAdder64b.io.toFixP, io.valid)
+  vFixPoint64b.io.fromMisc := RegEnable(vIntMisc64b.io.toFixP, io.valid)
 
   io.vd := Mux(isFixpS1, vFixPoint64b.io.vd, Mux(isMiscS1, vdMiscS1, vdAdderS1))
   io.narrowVd := Mux(isFixpS1, vFixPoint64b.io.narrowVd, narrowVdMiscS1)
   io.cmpOut := cmpOutS1
   io.vxsat := vFixPoint64b.io.vxsat
-  io.rd := RegNext(vIntMisc64b.io.rd)
+  io.rd := RegEnable(vIntMisc64b.io.rd, io.valid)
 }
 
 
@@ -124,6 +128,7 @@ class VAlu(implicit p: Parameters) extends VFuModule {
     val out = ValidIO(new VAluOutput)
   })
 
+  val valid = io.in.valid
   val (funct6, funct3) = (io.in.bits.uop.ctrl.funct6, io.in.bits.uop.ctrl.funct3)
   val (vm, vs1_imm) = (io.in.bits.uop.ctrl.vm, io.in.bits.uop.ctrl.vs1_imm)
   val (widen, widen2) = (io.in.bits.uop.ctrl.widen, io.in.bits.uop.ctrl.widen2)
@@ -150,6 +155,7 @@ class VAlu(implicit p: Parameters) extends VFuModule {
   //------- Two 64b modules form one 128b unit ------
   val vIntFixpAlu64bs = Seq.fill(2)(Module(new VIntFixpAlu64b))
   for (i <- 0 until 2) {
+    vIntFixpAlu64bs(i).io.valid := io.in.valid
     vIntFixpAlu64bs(i).io.funct6 := io.in.bits.uop.ctrl.funct6
     vIntFixpAlu64bs(i).io.funct3 := io.in.bits.uop.ctrl.funct3
     vIntFixpAlu64bs(i).io.vi := io.in.bits.uop.ctrl.vi
@@ -219,21 +225,21 @@ class VAlu(implicit p: Parameters) extends VFuModule {
   /**
    * Output stage
    */
-  val funct6_S1 = RegNext(funct6)
-  val opi_S1 = RegNext(opi)
-  val uopIdxS1 = RegNext(uopIdx)
+  val funct6_S1 = RegEnable(funct6, valid)
+  val opi_S1 = RegEnable(opi, valid)
+  val uopIdxS1 = RegEnable(uopIdx, valid)
   val old_vd_S1 = Wire(UInt(128.W))
-  old_vd_S1 := RegNext(oldVd)
-  val eewVs1S1 = RegNext(sew)
-  val eewVdS1 = RegNext(eewVd)
-  val narrowS1 = RegNext(narrow)
-  val cmpFlagS1 = RegNext(eewVd_is_1b) // Compare and carry-out
-  val vmS1 = RegNext(vm)
-  val taS1 = RegNext(ta)
-  val maS1 = RegNext(ma)
-  val mask16bS1 = RegNext(mask16b)
-  val vl_S1 = RegNext(vl)
-  val vstartS1 = RegNext(vstart)
+  old_vd_S1 := RegEnable(oldVd, valid)
+  val eewVs1S1 = RegEnable(sew, valid)
+  val eewVdS1 = RegEnable(eewVd, valid)
+  val narrowS1 = RegEnable(narrow, valid)
+  val cmpFlagS1 = RegEnable(eewVd_is_1b, valid) // Compare and carry-out
+  val vmS1 = RegEnable(vm, valid)
+  val taS1 = RegEnable(ta, valid)
+  val maS1 = RegEnable(ma, valid)
+  val mask16bS1 = RegEnable(mask16b, valid)
+  val vl_S1 = RegEnable(vl, valid)
+  val vstartS1 = RegEnable(vstart, valid)
   //---- Narrowing vd rearrangement ----
   val catNarrowVd = Cat(vIntFixpAlu64bs(1).io.narrowVd, vIntFixpAlu64bs(0).io.narrowVd)
   val vdOfNarrow = Mux(uopIdxS1(0), Cat(catNarrowVd, old_vd_S1(63, 0)),
@@ -257,9 +263,11 @@ class VAlu(implicit p: Parameters) extends VFuModule {
    */
   val old_cmpOutResult = Reg(UInt(128.W))
   val cmpOutResult = old_cmpOutResult & cmpOutOff | cmpOutKeep // Compare and carry-out instrns
-  when (RegNext(io.in.valid)) {
-    old_cmpOutResult := Mux(RegNext(uopEnd), 0.U, cmpOutResult)
+  val uopEndS1 = RegEnable(uopEnd, valid)
+  when (RegNext(valid)) {
+    old_cmpOutResult := Mux(uopEndS1, 0.U, cmpOutResult)
   }
+  io.out.valid := RegNext(Mux(narrow_to_1, uopEnd && valid, valid), init = false.B)
 
   /**
    * Output tail/prestart/mask handling for eewVd >= 8
@@ -279,14 +287,14 @@ class VAlu(implicit p: Parameters) extends VFuModule {
   val isPermVmv = funct6 === "b010000".U && !opi
   val tail = TailGen(Mux(isPermVmv, 1.U, Mux(isWholeRegMv, evl, vl)), uopIdx, eewVd, narrow)
   // val tail = TailGen(vl, uopIdx, eewVd, narrow)
-  val tailS1 = RegNext(tail)
+  val tailS1 = RegEnable(tail, valid)
   //---- Prestart gen ----
   // val prestart = PrestartGen(vstart, uopIdx, Mux(narrow, eewVs2, eewVd))
   val prestart = PrestartGen(vstart, uopIdx, eewVd, narrow)
-  val prestartS1 = RegNext(prestart)
+  val prestartS1 = RegEnable(prestart, valid)
   //---- vstart >= vl ----
   val vstart_gte_vl = Mux(isWholeRegMv, vstart >= evl, vstart >= vl)
-  val vstart_gte_vl_S1 = RegNext(vstart_gte_vl)
+  val vstart_gte_vl_S1 = RegEnable(vstart_gte_vl, valid)
 
   val tailReorg = MaskReorg.splash(tailS1, eewVdS1)
   val prestartReorg = MaskReorg.splash(prestartS1, eewVdS1)
@@ -323,8 +331,8 @@ class VAlu(implicit p: Parameters) extends VFuModule {
   val bitsReplace_1b = Mux(vstart_gte_vl_S1, old_vd_S1, 
                        prestart_1b & old_vd_S1 | tail_1b)
 
-  val bitsKeepFinal = Mux(RegNext(eewVd_is_1b), bitsKeep_1b, bitsKeep)
-  val bitsReplaceFinal = Mux(RegNext(eewVd_is_1b), bitsReplace_1b, bitsReplace)
+  val bitsKeepFinal = Mux(cmpFlagS1, bitsKeep_1b, bitsKeep)
+  val bitsReplaceFinal = Mux(cmpFlagS1, bitsReplace_1b, bitsReplace)
 
   val vdResult = Mux(narrowS1, vdOfNarrow, 
               Mux(cmpFlagS1, cmpOutResult, Cat(vIntFixpAlu64bs.map(_.io.vd).reverse)))
@@ -340,7 +348,6 @@ class VAlu(implicit p: Parameters) extends VFuModule {
                      ).orR
   }
 
-  io.out.valid := RegNext(Mux(narrow_to_1, uopEnd && io.in.valid, io.in.valid))
 
   //---- Some methods ----
   def mask16_to_2x8(maskIn: UInt, sew: SewOH): Seq[UInt] = {

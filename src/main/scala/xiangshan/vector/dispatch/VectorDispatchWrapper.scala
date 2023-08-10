@@ -36,8 +36,7 @@ import xiangshan.backend.dispatch.MemDispatch2Rs
 
 class VectorDispatchReq(implicit p: Parameters) extends VectorBaseBundle {
     val canDispatch = Output(Bool())
-    val mask        = Input(UInt(VIRenameWidth.W))
-    val uop         = Input(Vec(VIRenameWidth, new MicroOp))
+    val uop         = Input(Vec(VIRenameWidth, ValidIO(new MicroOp)))
 }
 
 class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends VectorBaseModule {
@@ -59,15 +58,17 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
     val dqMem       = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, 4))
 
     //dispatch
-    dispatchNetwork.io.fromRename.bits   := io.req.uop
-    dispatchNetwork.io.fromRename.mask  := io.req.mask
+    for((dpNetPort, req) <- dispatchNetwork.io.fromRename.zip(io.req.uop)) {
+        dpNetPort.bits := req.bits
+        dpNetPort.valid := req.valid
+    }
 
     //handshake
     val dqCommonCanAccept   = dqCommon.io.enq.canAccept
     val dqPermuCanAccept    = dqPermu.io.enq.canAccept
     val dqMemCanAccept      = dqMem.io.enq.canAccept
 
-    io.req.canDispatch = dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept
+    io.req.canDispatch := dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept
 
     val dqCommonMask    = dispatchNetwork.io.commonMask.asBools
     val dqPermuMask     = dispatchNetwork.io.permutationMask.asBools
@@ -77,9 +78,9 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
     dqPermu.io.enq.needAlloc    := dqPermuMask
     dqMem.io.enq.needAlloc      := dqMemMask
 
-    deCommon.io.redirect <> io.redirect
-    dePermu.io.redirect <> io.redirect
-    deMem.io.redirect <> io.redirect
+    dqCommon.io.redirect <> io.redirect
+    dqPermu.io.redirect <> io.redirect
+    dqMem.io.redirect <> io.redirect
 
     for((uop, i) <- io.req.uop.zipWithIndex) {
         dqCommon.io.enq.req(i).bits := uop

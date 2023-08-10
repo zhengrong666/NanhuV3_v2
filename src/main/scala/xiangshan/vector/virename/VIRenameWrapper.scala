@@ -54,7 +54,9 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
 
     //rename
     val reqMask = Wire(UInt(VIRenameWidth.W))
-    reqMask := io.uopIn.map(req => req.valid).asUInt
+    val reqValidVec = Wire(Vec(VIRenameWidth, Bool()))
+    reqValidVec := io.uopIn.map(req => req.valid)
+    reqMask := reqValidVec.asUInt
 
     val robIdxForRename = Wire(Vec(VIRenameWidth, UInt(log2Up(RobSize).W)))
     robIdxForRename := io.uopIn.map(req => req.bits.robIdx.value)
@@ -68,10 +70,13 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
         req.robIdx      := io.uopIn(i).bits.robIdx.value
         req.needRename  := io.uopIn(i).bits.canRename
     }
-    rename.io.renameReq.req     := reqForRename
-    rename.io.renameReq.mask    := reqMask
+    for((port, i) <- rename.io.renameReq.zipWithIndex) {
+        port.bits := reqForRename(i)
+        port.valid := reqMask(i)
+    }
 
-    io.canAccept := rename.io.renameReq.canAccept && (!hasWalk) && (!io.redirect.valid)
+
+    io.canAccept := VecInit(rename.io.renameReq.map(_.fire())).asUInt.orR && (!hasWalk) && (!io.redirect.valid)
 
     (0 until VIRenameWidth).map(i => io.uopOut(i).bits  := io.uopIn(i).bits)
     (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i) & io.canAccept)
@@ -80,12 +85,12 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     reqSrcType := io.uopIn.map(req => req.bits.ctrl.srcType)
 
     for((port, i) <- io.uopOut.zipWithIndex) {
-        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).pvs1, io.uopIn(i).bits.psrc(0))
-        port.bits.psrc(1) := Mux(reqSrcType(i)(1) === SrcType.vec, rename.io.renameResp(i).pvs2, io.uopIn(i).bits.psrc(1))
-        port.bits.psrc(2) := Mux(reqSrcType(i)(2) === SrcType.vec, rename.io.renameResp(i).pvd, io.uopIn(i).bits.psrc(2))
+        port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).bits.pvs1, io.uopIn(i).bits.psrc(0))
+        port.bits.psrc(1) := Mux(reqSrcType(i)(1) === SrcType.vec, rename.io.renameResp(i).bits.pvs2, io.uopIn(i).bits.psrc(1))
+        port.bits.psrc(2) := Mux(reqSrcType(i)(2) === SrcType.vec, rename.io.renameResp(i).bits.pvd, io.uopIn(i).bits.psrc(2))
     }
 
-    (0 until VIRenameWidth).map(i => uopIn(i).ready := uopOut(i).ready)
+    (0 until VIRenameWidth).map(i => io.uopIn(i).ready := io.uopOut(i).ready)
 
     //commit
     rename.io.commitReq <> io.commit

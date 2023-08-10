@@ -45,7 +45,7 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val rs1 = io.in.bits.rs1
   val old_vd = io.in.bits.oldVd
   val vmask = io.in.bits.mask
-  val fire = io.in.valid
+  val fire = io.in.fire
 
   val vfredosum_vs = (funct6 === "b000011".U) && (funct3 === "b001".U)
   val vfredusum_vs = (funct6 === "b000001".U) && (funct3 === "b001".U)
@@ -488,9 +488,3 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   fpu_in_ready := fpu(0).io.in.ready
   fpu_out_valid := fpu(0).io.out.valid
 }
-
-// object VerilogFpuWrapper extends App {
-//   println("Generating the VPU FPU hardware")
-//   emitVerilog(new VFPUWrapper(), Array("--target-dir", "build/vifu"))
-// }
-

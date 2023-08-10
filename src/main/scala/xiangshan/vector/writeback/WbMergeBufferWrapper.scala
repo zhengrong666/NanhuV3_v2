@@ -35,27 +35,29 @@ import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
 import xiangshan.backend.execute.exu.ExuType
+import xiangshan.backend.writeback._
+import xiangshan.vector._
 
-class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter {
-    val wbNodeParam = WriteBackSinkParam(name = "MergeBuffer", sinkType = WriteBackSinkType.mergeBuffer)
+class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
+    val wbNodeParam = WriteBackSinkParam(name = "MergeBuffer", sinkType = WriteBackSinkType.vecMs)
     val writebackNode = new WriteBackSinkNode(wbNodeParam)
     lazy val module = new WbMergeBufferWrapperImp(this)
 }
 
-class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) {
+class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) with HasVectorParameters {
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
-    val vectorWbNodes = writebackIn.filter(ExuType.vecTypes exists (e => (e == _._1.exuType)))
+    val vectorWbNodes = writebackIn.filter(e => ExuType.vecTypes exists (t => t == e._1.exuType))
     val vectorWbNodeNum = vectorWbNodes.length
     
     val io = IO(new Bundle {
-        val allocate = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
+        val allocate = Vec(VectorMergeAllocateWidth, DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
         val redirect = Flipped(Valid(new Redirect))
-        val rob = Vec(vMergeWbWdith, ValidIO(new ExuOutput))
+        val rob = Vec(VectorMergeWbWidth, ValidIO(new ExuOutput))
     })
 
     io.allocate <> outer.module.io.allocate
 
-    val bufferImp = Module(new WbMergeBuffer(vMergeBufferDepth, vMergeBufferAllocateWidth, vMergeWidth, vMergeWbWdith))
+    val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, VectorMergeWidth, VectorMergeWbWidth))
 
     //write back from VectorExu, use Diplomacy
     val vectorWriteBack = vectorWbNodes.map(_._2)

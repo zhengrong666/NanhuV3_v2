@@ -32,9 +32,11 @@ import xiangshan._
 import xiangshan.vector._
 import utility.MaskedRegMap
 import xiangshan.backend.execute.fu.FUWithRedirect
-import scala.collection.Parallel
+import xs.utils._
+import xiangshan.backend.execute.fu.csr._
 
 class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
+    val vtype   = UInt(XLEN.W)
     val vstart  = UInt(XLEN.W)
     val vxsat   = UInt(XLEN.W)
     val vxrm    = UInt(XLEN.W)
@@ -44,8 +46,8 @@ class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRCons
 }
 
 class VCSRWIO(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
-    val vstartValue = UInt(XLEN.W)
-    val vstartWen = Bool()
+    val vstartW = Flipped(ValidIO(UInt(XLEN.W)))
+    val vxsatW  = Flipped(ValidIO(UInt(XLEN.W)))
 }
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
@@ -54,7 +56,9 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
 
     val vcsr_io = IO(new Bundle {
         val vcsrInfo = new VCSRInfo
-        val write = new VCSRWIO
+        val wbFromRob = new VCSRWIO
+        val vtypeWb = ValidIO(UInt(9.W))
+        val wen = Input(Bool())
     })
 
     //csr define
@@ -74,14 +78,9 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     vcsr_io.vcsrInfo.vl     := vl
     vcsr_io.vcsrInfo.vlenb  := vlenb
 
-    val vectorCSRMapping = Map(
-        MaskedRegMap(vstartAddr, vstart),
-        MaskedRegMap(vxsatAddr, vxsat),
-        MaskedRegMap(vxrmAddr, vxrm),
-        MaskedRegMap(vcsrAddr, vcsr),
-        MaskedRegMap(vlAddr, vl),
-        MaskedRegMap(vlenbAddr, vlenb)
-    )
+    val wbFromRob = vcsr_io.wbFromRob
+    vstart := Mux(wbFromRob.vstartW.valid, wbFromRob.vstartW.bits, vstart)
+    vxsat := Mux(wbFromRob.vxsatW.valid, wbFromRob.vxsatW.bits, vstart)
     
     //vsetvl
     val isVsetvl = cfIn.instr(31, 30) === "b10".U
@@ -99,7 +98,9 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
 
     val src0 = io.in.bits.src(0)
     val src1 = io.in.bits.src(1)
-    val imm = io.in.bit.uop.ctrl.imm
+    val imm = io.in.bits.uop.ctrl.imm
+
+    val func = io.in.bits.uop.ctrl.fuOpType
 
     //vtype
     val vtypeValue = Wire(UInt(8.W))
@@ -125,7 +126,38 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, vl))
     vl := Mux(isVsetivli, vlNewSetivli, vlNewOther)
 
-    vtype := Cat(0.U(56.W), vtypeValue)
+    val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
+    vtype := Cat(vill, 0.U(55.W), vtypeValue)
 
+    val vtypeWb = Cat(vill, vtypeValue)
+    vcsr_io.vtypeWb.bits := vtypeWb
+    vcsr_io.vtypeWb.valid := io.in.valid
+
+    val vectorCSRMapping = Map(
+        MaskedRegMap(vstartAddr, vstart),
+        MaskedRegMap(vxsatAddr, vxsat),
+        MaskedRegMap(vxrmAddr, vxrm),
+        MaskedRegMap(vcsrAddr, vcsr),
+        MaskedRegMap(vlAddr, vl),
+        MaskedRegMap(vlenbAddr, vlenb)
+    )
+    val addr = imm(11, 0)
+    val rdata = Wire(UInt(XLEN.W))
+    val csri = ZeroExt(imm(16, 12), XLEN)
+    val wdata = LookupTree(func, List(
+        CSROpType.wrt  -> src1,
+        CSROpType.set  -> (rdata | src0),
+        CSROpType.clr  -> (rdata & (~src0).asUInt),
+        CSROpType.wrti -> csri,
+        CSROpType.seti -> (rdata | csri),
+        CSROpType.clri -> (rdata & (~csri).asUInt)
+    ))
+    MaskedRegMap.generate(vectorCSRMapping, addr, rdata, vcsr_io.wen, wdata)
+
+    io.in.ready := true.B
     
+    io.out.bits.uop := io.in.bits.uop
+    io.out.bits.data := Mux((isVsetivli || isVsetvl || isVsetvli), Cat(vill, 0.U(55.W), vtypeValue), rdata)
+    io.out.valid := io.in.valid
+
 }

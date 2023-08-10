@@ -29,12 +29,15 @@ import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO}
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename._
+import xiangshan.vector.dispatch._
+import xiangshan.vector.writeback._
 import xiangshan.vector._
 import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.ExceptionNO._
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.mem.LsqEnqIO
 import xs.utils._
+
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -43,7 +46,7 @@ class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
 
 class CtrlBlock(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val rob = LazyModule(new Rob)
-  val vectorCtrlBlock = LazyModule(new VICtrlBlock)
+  val vectorCtrlBlock = LazyModule(new VectorCtrlBlock)
   val wbMergeBuffer = LazyModule(new WbMergeBufferWrapper)
   val dispatchNode = new DqDispatchNode
 
@@ -286,7 +289,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDispatch2Rs.io.lqCancelCnt := io.lqCancelCnt
   memDispatch2Rs.io.sqCancelCnt := io.sqCancelCnt
   memDispatch2Rs.io.enqLsq <> io.enqLsq
-  memDispatch2Rs.io.in <> memDqArb.toMem2RS //lsDq.io.deq
+  memDispatch2Rs.io.in <> memDqArb.io.toMem2RS //lsDq.io.deq
   lsDeq <> memDispatch2Rs.io.out
 
   rob.io.hartId := io.hartId

@@ -251,7 +251,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val isTail = Bool()
   val isPrestart = Bool()
   val canRename = Bool()
-  val mergeIdx = UInt(log2Up(VectorMergeStationDepth).W)
+  val mergeIdx = UInt(log2Up(VectorMergeBufferDepth).W)
   val loadStoreEnable = Bool()
   val vtypeRegIdx = UInt(4.W)
 
@@ -356,7 +356,9 @@ class RobDispatchData(implicit p: Parameters) extends XSBundle {
   val ldest = UInt(5.W)
   val rfWen = Bool()
   val fpWen = Bool()
+  val vecWen = Bool()
   val wflags = Bool()
+  val wvcsr = Bool()
   val commitType = CommitType()
   val pdest = UInt(PhyRegIdxWidth.W)
   val old_pdest = UInt(PhyRegIdxWidth.W)
@@ -373,6 +375,9 @@ class RobCommitInfo(implicit p: Parameters) extends RobDispatchData {
     rfWen := data.rfWen
     fpWen := data.fpWen
     wflags := data.wflags
+    //TODO: dispatch write it
+    wvcsr := data.wvcsr
+    vecWen := data.vecWen
     commitType := data.commitType
     pdest := data.pdest
     old_pdest := data.old_pdest

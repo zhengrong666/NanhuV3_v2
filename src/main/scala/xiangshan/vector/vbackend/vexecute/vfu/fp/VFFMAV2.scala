@@ -344,7 +344,7 @@ class VFADD_pipe(val addLat: Int = 2)(implicit val p: Parameters) extends VFPUPi
 
   def initPipeStages(ftype: VFPU.FType, src1: UInt, src2: UInt, mulProd: FMULToFADD) = {
       val s1 = Module(new FCMA_ADD_s1(ftype.expWidth, 2*ftype.precision, ftype.precision))
-      val s2 = Module(new FCMA_ADD_s2(ftype.expWidth, ftype.precision))
+      val s2 = Module(new FCMA_ADD_s2(ftype.expWidth, 2*ftype.precision, ftype.precision))
       val in1 = Mux(fma,
         mulProd.fp_prod.asUInt,
         Cat(src1(ftype.len - 1, 0), 0.U(ftype.precision.W))

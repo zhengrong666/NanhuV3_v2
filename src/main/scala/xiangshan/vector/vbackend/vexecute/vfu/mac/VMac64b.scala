@@ -10,6 +10,7 @@ import darecreek.exu.fu2._
  */
 class VMac64b extends Module {
   val io = IO(new Bundle {
+    val valid = Input(Bool())
     val sew = Input(new SewOH)
     val uopIdx = Input(UInt(3.W))
     val vxrm = Input(UInt(2.W))
@@ -35,6 +36,8 @@ class VMac64b extends Module {
   val vs1_is_signed = io.vs1_is_signed
   val sew = io.sew
   val uopIdx = io.uopIdx
+  val valid = io.valid
+  val validS1 = RegNext(valid)
 
   /**
    *  First pipeline stage:
@@ -162,16 +165,19 @@ class VMac64b extends Module {
   val wallaceOut_mid = wallaceStage(nAddendsSeq.size - 1 - 3)  // Seq(6)(UInt(128.W))
   
   //------ To alleviate timing, move last 3 steps of wallace into the second pipeline stage
-  val wallaceOut_mid_reg = RegNext(VecInit(wallaceOut_mid))
+  val wallaceOut_mid_reg = RegEnable(VecInit(wallaceOut_mid), valid)
   //-------------------------------------------------------------------------------------
 
   /**
    *  Second pipeline stage: 128 + 128
    */
-  val sewS1 = RegNext(sew)
-  val highHalfS1 = RegNext(io.highHalf)
-  val widenS1 = RegNext(io.widen)
-  val uopIdxS1 = RegNext(uopIdx)
+  val sewS1 = RegEnable(sew, valid)
+  val highHalfS1 = RegEnable(io.highHalf, valid)
+  val widenS1 = RegEnable(io.widen, valid)
+  val uopIdxS1 = RegEnable(uopIdx, valid)
+  val vxrmS1 = RegEnable(io.vxrm, valid)
+  val isSubS1 = RegEnable(io.isSub, valid)
+  val isFixPS1 = RegEnable(io.isFixP, valid)
   // val wallaceOutReg = wallaceOut map {x => RegNext(x)}
   val wallaceOutReg = reduce3to2(reduce3to2(reduce3to2(wallaceOut_mid_reg, sewS1), sewS1), sewS1) // Seq(2)(UInt(128.W))
 
@@ -204,14 +210,14 @@ class VMac64b extends Module {
    *    (1) get vd  (2) vsmul  (3) vs1*vs2-vd --> -vs1*vs2+vd (vnmsac/vnmsub)
    */
   val walOut = Wire(UInt(128.W))
-  walOut := RegNext(sum_wo.asUInt)
-  val sewS2 = RegNext(sewS1)
-  val highHalfS2 = RegNext(highHalfS1)
-  val widenS2 = RegNext(widenS1)
-  val uopIdxS2 = RegNext(uopIdxS1)
-  val vxrmS2 = RegNext(RegNext(io.vxrm))
-  val isSubS2 = RegNext(RegNext(io.isSub))
-  val isFixPS2 = RegNext(RegNext(io.isFixP))
+  walOut := RegEnable(sum_wo.asUInt, validS1)
+  val sewS2 = RegEnable(sewS1, validS1)
+  val highHalfS2 = RegEnable(highHalfS1, validS1)
+  val widenS2 = RegEnable(widenS1, validS1)
+  val uopIdxS2 = RegEnable(uopIdxS1, validS1)
+  val vxrmS2 = RegEnable(vxrmS1, validS1)
+  val isSubS2 = RegEnable(isSubS1, validS1)
+  val isFixPS2 = RegEnable(isFixPS1, validS1)
   val vdS2 = PriorityMux(Seq(
            (sewS2.is64 || widenS2) -> Mux(sewS2.is64 && highHalfS2 || widenS2 && uopIdxS2(0), 
                                           walOut(127, 64), walOut(63, 0)),
