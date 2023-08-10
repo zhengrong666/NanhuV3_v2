@@ -41,10 +41,10 @@ class VIRenameReqLr(implicit p: Parameters) extends VectorBaseBundle {
     val needRename  = Bool()
 }
 
-class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
-    val req         = Vec(VIRenameWidth, new VIRenameReqLr)
-    val mask        = UInt(VIRenameWidth.W)
-}
+// class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
+//     val req         = Vec(VIRenameWidth, new VIRenameReqLr)
+//     val mask        = UInt(VIRenameWidth.W)
+// }
 
 class VIRenameResp(implicit p: Parameters) extends VectorBaseBundle {
     val pvs1    = UInt(VIPhyRegIdxWidth.W)
@@ -57,8 +57,8 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle{
         val redirect    = Flipped(ValidIO(new Redirect))
         //rename, from waitqueue
-        val renameReq   = Flipped(DecoupledIO(new VIRenameReq))
-        val renameResp  = Output(Vec(VIRenameWidth, new VIRenameResp))
+        val renameReq   = Vec(VIRenameWidth, Flipped(DecoupledIO(new VIRenameReqLr)))
+        val renameResp  = Vec(VIRenameWidth, Flipped(DecoupledIO(new VIRenameResp)))
         //commit, from ROB
         val commitReq   = new VIRobIdxQueueEnqIO
         val hasWalk     = Output(Bool())
@@ -71,13 +71,15 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
 
     //-------------------------------------------- Rename --------------------------------------------
     
-    val renameReqNum = PopCount(io.renameReq.req.map(i => (i.needRename === true.B)))
+    val renameReqNum = PopCount(io.renameReq.map(port => port.valid && (port.bits.needRename === true.B)))
 
     //TODO: !redirect && !walk
-    io.renameReq.ready := (freeList.io.canAllocateNum >= renameReqNum)
+    for(i <- 0 until VIRenameWidth) {
+        io.renameReq(i).ready := (freeList.io.canAllocateNum > renameReqNum)
+    }
 
     val doRename = Wire(Bool())
-    doRename := io.renameReq.fire() && (!io.redirect.valid) && (!io.hasWalk)// & queue.hasWalk
+    doRename := (renameReqNum <= freeList.io.canAllocateNum) && (!io.redirect.valid) && (!io.hasWalk)// & queue.hasWalk
 
     //doRename, allocate FreeList Ptr, write rat and rollbackList
     freeList.io.doAllocate                  := doRename
@@ -87,41 +89,41 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     renameTable.io.renameWritePort.prIdx := freeList.io.allocatePhyReg
 
     //read RAT
-    val renameReqPort = io.renameReq.req
+    val renameReqPort = io.renameReq
     for((rdp, rp) <- renameTable.io.renameReadPorts.zip(renameReqPort)) {
-        rdp.vd.lrIdx    := rp.lvd
-        rdp.vs1.lrIdx   := rp.lvs1
-        rdp.vs2.lrIdx   := rp.lvs2
+        rdp.vd.lrIdx    := rp.bits.lvd
+        rdp.vs1.lrIdx   := rp.bits.lvs1
+        rdp.vs2.lrIdx   := rp.bits.lvs2
     }
 
     for((port, rdp) <- io.renameResp.zip(renameTable.io.renameReadPorts)) {
-        port.pvs1   := rdp.vs1.prIdx
-        port.pvs2   := rdp.vs2.prIdx
-        port.pvd    := rdp.vd.prIdx
-        port.pmask  := rdp.vmask
+        port.bits.pvs1   := rdp.vs1.prIdx
+        port.bits.pvs2   := rdp.vs2.prIdx
+        port.bits.pvd    := rdp.vd.prIdx
+        port.bits.pmask  := rdp.vmask
     }
 
     //read old value
     for((oldRdp, rp) <- renameTable.io.oldPhyRegIdxReadPorts.zip(renameReqPort)) {
-        oldRdp.lrIdx := rp.lvd
+        oldRdp.lrIdx := rp.bits.lvd
     }
 
     //write RAT
-    val renameMask = io.renamePort.map(_.fire())
+    val renameMask = VecInit(io.renameReq.map(_.fire()))
     val ratRenamePortW = renameTable.io.renameWritePort
     ratRenamePortW.doRename := doRename
     ratRenamePortW.mask     := renameMask.asUInt
-    ratRenamePortW.lrIdx    := io.renameReq.bits.req.map(_.lvd)
+    ratRenamePortW.lrIdx    := io.renameReq.map(_.bits.lvd)
     ratRenamePortW.prIdx    := freeList.io.allocatePhyReg
 
     //write roll back list
     for((wp, i) <- rollBackList.io.renamePort.writePorts.zipWithIndex) {
-        wp.lrIdx    := io.renameReq.req(i).lvd
+        wp.lrIdx    := io.renameReq(i).bits.lvd
         wp.newPrIdx := freeList.io.allocatePhyReg(i)
         wp.oldPrIdx := renameTable.io.oldPhyRegIdxReadPorts(i).prIdx
-        wp.robIdx   := io.renameReq.req(i).robIdx
+        wp.robIdx   := io.renameReq(i).bits.robIdx
     }
-    rollBackList.io.renamePort.mask := io.renameReq.req.map(e => e.needRename).asUInt
+    rollBackList.io.renamePort.mask := VecInit(io.renameReq.map(e => e.bits.needRename)).asUInt
 
     //-------------------------------------------- TODO: commit & walk --------------------------------------------
     robIdxQueue.io.in <> io.commitReq

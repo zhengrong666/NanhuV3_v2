@@ -87,20 +87,20 @@ class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule 
 
     //enq
     io.in.ready := freeEntryNum >= VICommitWidth.U
-    val enqNum = PopCount(io.in.mask)
+    val enqNum = PopCount(io.in.bits.mask)
 
-    val entryEnq = io.in.doCommit || io.in.doWalk
+    val entryEnq = io.in.bits.doCommit || io.in.bits.doWalk
 
     val headPtrNext = RegNext(headPtr + enqNum)
     headPtr := Mux(entryEnq, headPtrNext, headPtr)
 
-    walkNum     := Mux(io.in.doWalk, walkNum + enqNum, walkNum)
+    walkNum     := Mux(io.in.bits.doWalk, walkNum + enqNum, walkNum)
     io.hasWalk  := (walkNum === 0.U)
 
-    val enqType = Mux(io.in.doCommit, false.B, true.B)
-    for((e, i) <- io.in.robIdx.zipWithIndex) {
+    val enqType = Mux(io.in.bits.doCommit, false.B, true.B)
+    for((e, i) <- io.in.bits.robIdx.zipWithIndex) {
         val wPtr = headPtr + i.U
-        when(io.in.mask(i) === true.B && entryEnq) {
+        when(io.in.bits.mask(i) === true.B && entryEnq) {
             robIdxQueue(wPtr.value).robIdx      := e
             robIdxQueue(wPtr.value).commitType  := enqType
         }
