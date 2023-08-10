@@ -31,6 +31,7 @@ import xiangshan._
 import xiangshan.mem.mdp._
 
 import xiangshan.vector._
+import xiangshan.backend.rob._
 
 class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule {
     val io = IO(new Bundle {
@@ -62,25 +63,27 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
     }
 
     for((in, i) <- io.memIn.zipWithIndex) {
-        in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.orR)
+        in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.asUInt.orR)
     }
 
     for((in, out) <- io.vmemIn.zip(io.toMem2RS)) {
-        in.ready := (arbState === s_vmem) && io.toMem2RS.ready
+        in.ready := (arbState === s_vmem) && out.ready
     }
 
     val vRobIdx = Reg(new RobPtr)
     val vRobIdxValid = RegInit(Bool(), false.B)
 
-    when(arbState === s_mem && io.memIn.bits.fire() && io.memIn.bits.ctrl.isVector) {
+    when(arbState === s_mem && io.memIn(0).fire() && io.memIn(0).bits.ctrl.isVector) {
         arbState := s_vmem
-        vRobIdx := io.memIn.bits.robIdx
+        vRobIdx := io.memIn(0).bits.robIdx
     }
 
     when(arbState === s_vmem) {
-        arbState := Mux((io.vmemIn(vmemDeqNum).uopIdx + 1.U) === io.vmemIn(vmemDeqNum).uopNum, s_mem, s_vmem)
+        arbState := Mux((io.vmemIn(vmemDeqNum).bits.uopIdx + 1.U) === io.vmemIn(vmemDeqNum).bits.uopNum, s_mem, s_vmem)
     }
 
-    io.toMem2RS.bits := Mux(arbState === s_mem, io.memIn.bits, io.vmemIn.bits)
-    io.toMem2RS.valid := Mux(arbState === s_mem, memCanDeqVec, vmemCanDeqVec)
+    for(i <- 0 until arbWidth) {
+        io.toMem2RS(i).bits := Mux(arbState === s_mem, io.memIn(i).bits, io.vmemIn(i).bits)
+        io.toMem2RS(i).valid := Mux(arbState === s_mem, memCanDeqVec(i), vmemCanDeqVec(i))
+    }
 }

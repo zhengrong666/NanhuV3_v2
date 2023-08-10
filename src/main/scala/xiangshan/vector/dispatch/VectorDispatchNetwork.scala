@@ -34,7 +34,7 @@ import xiangshan.vector._
 
 class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
-        val fromRename      = Vec(VIRenameWidth, Flipped(DecoupledIO(new MicroOp)))
+        val fromRename      = Vec(VIRenameWidth, Flipped(ValidIO(new MicroOp)))
         val commonMask      = Output(UInt(VIRenameWidth.W))
         val permutationMask = Output(UInt(VIRenameWidth.W))
         val memMask         = Output(UInt(VIRenameWidth.W))
@@ -53,9 +53,12 @@ class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
     }
 
     val selNet = new VectorInstrSelectNetwork(VectorDispatchTypeNum)
-    selNet.io.req := io.fromRename.uop
+    selNet.io.req := io.fromRename.map(_.bits)
+
+    val validVec = Wire(Vec(VIRenameWidth, Bool()))
+    validVec := io.fromRename.map(_.valid)
     
-    io.commonMask       := selNet.io.toDqMask(0).asUInt & io.fromRename.mask
-    io.permutationMask  := selNet.io.toDqMask(1).asUInt & io.fromRename.mask
-    io.memMask          := selNet.io.toDqMask(2).asUInt & io.fromRename.mask
+    io.commonMask       := selNet.io.toDqMask(0).asUInt & validVec.asUInt
+    io.permutationMask  := selNet.io.toDqMask(1).asUInt & validVec.asUInt
+    io.memMask          := selNet.io.toDqMask(2).asUInt & validVec.asUInt
 }
