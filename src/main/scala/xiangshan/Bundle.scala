@@ -155,7 +155,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val isVLS = Bool()
   val funct6 = UInt(6.W)
   val funct3 = UInt(3.W)
-  val NFiled = UInt(2.W)
+  val NFiled = UInt(3.W)
   val vm = Bool()
   val isSeg = Bool()
 
