@@ -526,7 +526,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.dcacheReqResp.req.valid := (mmio_order_state === s_req_mmio) && (uop(deqPtr).ctrl.isOrder)
   io.dcacheReqResp.req.bits := DontCare
   io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XWR
-  io.dcacheReqResp.req.bits.addr := paddrModule.io.rdata(0)
+  io.dcacheReqResp.req.bits.addr := v_pAddrModule.io.rdata_p(0)
   io.dcacheReqResp.req.bits.data := dataModule.io.rdata(0).data
   io.dcacheReqResp.req.bits.mask := dataModule.io.rdata(0).mask
 
