@@ -113,9 +113,9 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   vectorBusyTable.io.read(3).req := enq.head.bits.vm
 
   arrayWrapper.io.enq.bits.srcState(0) := MuxCase(SrcState.rdy, Seq(
-    enq.head.bits.ctrl.srcType(0) === SrcType.reg -> integerBusyTable.io.read.head.resp,
-    enq.head.bits.ctrl.srcType(0) === SrcType.fp -> floatingBusyTable.io.read.head.resp,
-    enq.head.bits.ctrl.srcType(0) === SrcType.vec -> vectorBusyTable.io.read.head.resp
+    (enq.head.bits.ctrl.srcType(0) === SrcType.reg) -> integerBusyTable.io.read.head.resp,
+    (enq.head.bits.ctrl.srcType(0) === SrcType.fp) -> floatingBusyTable.io.read.head.resp,
+    (enq.head.bits.ctrl.srcType(0) === SrcType.vec) -> vectorBusyTable.io.read.head.resp
   ))
   arrayWrapper.io.enq.bits.srcState(1) := vectorBusyTable.io.read(1).resp
   arrayWrapper.io.enq.bits.srcState(2) := vectorBusyTable.io.read(2).resp

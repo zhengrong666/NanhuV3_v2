@@ -33,8 +33,8 @@ class VectorFuComplex(id: Int)(implicit p:Parameters) extends BasicExuComplex{
     fuSeq.foreach(_.module.redirectIn := Pipe(redirectIn))
 
     issueIn.issue.ready := MuxCase(true.B, Seq(
-      issueIn.issue.bits.uop.ctrl.fuType === FuType.vfp -> vfpIss.issue.ready,
-      issueIn.issue.bits.uop.ctrl.fuType === FuType.vdiv -> vdivIss.issue.ready,
+      (issueIn.issue.bits.uop.ctrl.fuType === FuType.vfp) -> vfpIss.issue.ready,
+      (issueIn.issue.bits.uop.ctrl.fuType === FuType.vdiv) -> vdivIss.issue.ready,
     ))
 
     private val issueFuHit = issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_|_)

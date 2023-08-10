@@ -63,7 +63,7 @@ class VprsSelector(entryNum:Int)(implicit p: Parameters) extends Module{
 class VprsSelectNetwork(entryNum:Int, name:Option[String] = None)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
-    val selectInfo = Input(Vec(entryNum, Valid(new VprsStatusArray)))
+    val selectInfo = Input(Vec(entryNum, Valid(new VprsStatusArrayEntry)))
     val issueInfo = Decoupled(new VprsSelectResp(entryNum))
   })
   override val desiredName:String = name.getOrElse("VprsSelectNetwork")

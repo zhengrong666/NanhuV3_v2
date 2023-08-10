@@ -48,10 +48,10 @@ object RegFileTop{
     val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 7,  idx * 32)))
     val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 7,  idx * 64)))
     res := MuxCase(0.U, Seq(
-      sew === 0.U -> ZeroExt(vsrcSplit8(uopIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
-      sew === 1.U -> ZeroExt(vsrcSplit16(uopIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
-      sew === 2.U -> ZeroExt(vsrcSplit32(uopIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
-      sew === 3.U -> ZeroExt(vsrcSplit64(uopIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
+      (sew === 0.U) -> ZeroExt(vsrcSplit8(uopIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
+      (sew === 1.U) -> ZeroExt(vsrcSplit16(uopIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
+      (sew === 2.U) -> ZeroExt(vsrcSplit32(uopIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
+      (sew === 3.U) -> ZeroExt(vsrcSplit64(uopIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
     ))
     res
   }

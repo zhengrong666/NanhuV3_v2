@@ -3,7 +3,7 @@ package darecreek.exu.fu2.fp
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.fp.fudian.FloatPoint
+import fudian.FloatPoint
 
 
 // cmp & minmax

@@ -674,7 +674,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   io.out.uop.info.frm := 0.U
   io.out.uop.uopIdx := 0.U
   io.out.uop.uopEnd := true.B
-  io.out.uop.sysUop.this_is_fake := true.B
+  io.out.uop.sysUop := RegEnable(io.in.uop.sysUop, uop_valid)
 
   io.out.rd_en := rd_mask_en || rd_vs_en || cmprs_rd_old_vd
   io.out.rd_preg_idx := rd_preg_idx

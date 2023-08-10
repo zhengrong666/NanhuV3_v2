@@ -138,7 +138,7 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
     v && e.robPtr === io.enq.bits.robIdx
   })
   private val mergeAuxVec = validsAux.zip(robIdxAux).map({ case (v, e) =>
-    v && e === io.enq.bits
+    v && e === io.enq.bits.robIdx
   })
 
   when(io.enq.valid){assert(PopCount(mergeVec) <= 1.U)}

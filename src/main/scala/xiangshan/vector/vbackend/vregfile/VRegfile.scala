@@ -75,16 +75,16 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
       val dst = io.moveOldValReqs(i).bits.dstAddr
       val srcData = WireInit(vrf.read(mReq.bits.srcAddr))
       val elmIdx = MuxCase(0.U, Seq(
-        mReq.bits.sew === 0.U -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 8) - 1, 0), log2Ceil(VLEN / 8)),
-        mReq.bits.sew === 1.U -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 16) - 1, 0), log2Ceil(VLEN / 8)),
-        mReq.bits.sew === 2.U -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 32) - 1, 0), log2Ceil(VLEN / 8)),
-        mReq.bits.sew === 3.U -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 64) - 1, 0), log2Ceil(VLEN / 8)),
+        (mReq.bits.sew === 0.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 8) - 1, 0), log2Ceil(VLEN / 8)),
+        (mReq.bits.sew === 1.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 16) - 1, 0), log2Ceil(VLEN / 8)),
+        (mReq.bits.sew === 2.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 32) - 1, 0), log2Ceil(VLEN / 8)),
+        (mReq.bits.sew === 3.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 64) - 1, 0), log2Ceil(VLEN / 8)),
       ))
       val wm = MuxCase(0.U, Seq(
-        mReq.bits.sew === 0.U -> (0x1.U << elmIdx)(maskWidth - 1, 0),
-        mReq.bits.sew === 1.U -> (0x3.U << elmIdx)(maskWidth - 1, 0),
-        mReq.bits.sew === 2.U -> (0xf.U << elmIdx)(maskWidth - 1, 0),
-        mReq.bits.sew === 3.U -> (0xff.U << elmIdx)(maskWidth - 1, 0),
+        (mReq.bits.sew === 0.U) -> (0x1.U << elmIdx)(maskWidth - 1, 0),
+        (mReq.bits.sew === 1.U) -> (0x3.U << elmIdx)(maskWidth - 1, 0),
+        (mReq.bits.sew === 2.U) -> (0xf.U << elmIdx)(maskWidth - 1, 0),
+        (mReq.bits.sew === 3.U) -> (0xff.U << elmIdx)(maskWidth - 1, 0),
       ))
       when(mReq.bits.agnostic && !mReq.bits.enable){
         srcData.foreach(_ := 0xff.U)

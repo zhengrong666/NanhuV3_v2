@@ -110,7 +110,9 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     id = 0,
     complexName = "MemComplex",
     fuConfigs = Seq(FuConfigs.specialLduCfg),
-    exuType = ExuType.sldu
+    exuType = ExuType.sldu,
+    writebackToRob = true,
+    writebackToVms = false
   )
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))
   val lduWritebackNodes: Seq[ExuOutputMultiSinkNode] = lduParams.map(e => new ExuOutputMultiSinkNode(Seq.fill(2)(e)))

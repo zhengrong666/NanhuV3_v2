@@ -25,6 +25,8 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     id = 0,
     complexName = "VectorPermuationComplex",
     fuConfigs = Seq(FuConfigs.vpermCfg),
+    writebackToRob = false,
+    writebackToVms = true,
     exuType = ExuType.vperm
   )
   val writebackNode = new ExuOutputNode(cfg)
@@ -96,7 +98,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
     wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
     when(wb.valid){
-      wbCounter := wbCounter + 1
+      wbCounter := wbCounter + 1.U
     }.elsewhen(wbCounter === wb.bits.uop.uopNum){
       wbCounter := 0.U
     }

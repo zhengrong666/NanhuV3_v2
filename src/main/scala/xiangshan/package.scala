@@ -106,8 +106,8 @@ package object xiangshan {
       s2v.litValue -> "s2v",
     )
 
-    val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou, i2v)
-    val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt, f2v)
+    val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou)
+    val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt)
     val memoryTypes: Seq[UInt] = Seq(ldu, stu)
     val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu, ldu, stu)
 
