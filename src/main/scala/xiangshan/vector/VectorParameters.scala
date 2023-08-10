@@ -84,5 +84,8 @@ trait HasVectorParameters extends HasXSParameter {
     val VectorSEWMin = 8
     val MemVectorInstructionMax = VLEN * VectorLMULMax / VectorSEWMin
 
-    val VectorMergeStationDepth = vectorParams.vMergeStationDepth
+    val VectorMergeBufferDepth = vectorParams.vMergeBufferDepth
+    val VectorMergeAllocateWidth = vectorParams.vMergeBufferAllocateWidth
+    val VectorMergeWbWidth = vectorParams.vMergeWbWdith
+    val VectorMergeWidth = vectorParams.vMergeWidth
 }

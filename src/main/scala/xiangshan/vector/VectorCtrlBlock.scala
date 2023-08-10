@@ -65,7 +65,7 @@ class VICtrlImp(outer: VectorCtrlBlock)(implicit p: Parameters) extends LazyModu
     //from ctrl rob
     val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
-    val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeStationDepth).W)))) //to wait queue
+    val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W)))) //to wait queue
     val commit = new VIRobIdxQueueEnqIO // to rename
     val redirect = Flipped(ValidIO(new Redirect))
     //from csr vstart
@@ -130,7 +130,12 @@ class VICtrlImp(outer: VectorCtrlBlock)(implicit p: Parameters) extends LazyModu
     rp.ready := dispatch.io.req.canDispatch
     dp := rp.bits
   }
-  dispatch.io.req.mask := virename.io.uopOut.map(_.valid).asUInt
+
+  val renameOutValidVec = Wire(Vec(VIRenameWidth, Bool()))
+  renameOutValidVec := virename.io.uopOut.map(_.valid)
+  for((dp, v) <- dispatch.io.req.uop zip renameOutValidVec) {
+    dp.valid := v
+  }
   
   dispatch.io.redirect <> io.redirect
 
