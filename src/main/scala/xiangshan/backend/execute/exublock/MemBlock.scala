@@ -115,13 +115,16 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     writebackToVms = false
   )
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))
-  val lduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
-  val vlduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
+
   val specialLduIssueNode: MemoryBlockIssueNode = new MemoryBlockIssueNode((specialLduParams,0))
   val staIssueNodes: Seq[ExuInputNode] = staParams.zipWithIndex.map(e => new ExuInputNode(e._1))
-  val staWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
+
   val stdIssueNodes: Seq[ExuInputNode] = stdParams.zipWithIndex.map(e => new ExuInputNode(e._1))
-  val stdWritebackNodes: Seq[ExuOutputNode] = stdParams.map(new ExuOutputNode(_))
+
+  val lduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
+  val vlduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
+  val stuWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
+  val vstuWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
 
   val memIssueRouters: Seq[MemIssueRouter] = Seq.fill(2)(LazyModule(new MemIssueRouter))
   memIssueRouters.zip(lduIssueNodes).zip(staIssueNodes).zip(stdIssueNodes).foreach({case(((mir, ldu), sta), std) =>
@@ -130,7 +133,7 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     std :*= mir.node
   })
 
-  private val allWritebackNodes = lduWritebackNodes ++ staWritebackNodes ++ stdWritebackNodes
+  private val allWritebackNodes = lduWritebackNodes ++ stuWritebackNodes
 
   memIssueRouters.foreach(mir => mir.node :*= issueNode)
   specialLduIssueNode :*= issueNode
@@ -167,6 +170,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     require(iss.in.length == 1)
     iss.in.head._1
   })
+
   private val lduWritebacks = outer.lduWritebackNodes.map(wb => {
     require(wb.out.length == 1)
     wb.out.head._1
@@ -175,14 +179,15 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     require(wb.out.length == 1)
     wb.out.head._1
   })
-  private val staWritebacks = outer.staWritebackNodes.map(wb => {
+  private val stuWritebacks = outer.stuWritebackNodes.map(wb => {
     require(wb.out.length == 1)
     wb.out.head._1
   })
-  private val stdWritebacks = outer.stdWritebackNodes.map(wb => {
+  private val vstuWritebacks = outer.stuWritebackNodes.map(wb => {
     require(wb.out.length == 1)
     wb.out.head._1
   })
+
   vlduWritebacks.zip(lduWritebacks).foreach({case(a, b) => a := b})
 
   val io = IO(new Bundle {
@@ -283,21 +288,15 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
   io.writebackFromMou <> atomicsUnit.io.out
   private val ldExeWbReqs = loadUnits.map(_.io.ldout)
-  private val staExeWbReqs = storeUnits.map(_.io.stout)
-  private val stdExeWbReqs = stdUnits.map(_.io.out)
-  (lduWritebacks ++ staWritebacks)
-    .zip(ldExeWbReqs ++ staExeWbReqs)
+  private val stuExeWbReqs = lsq.io.stout
+  (lduWritebacks ++ stuWritebacks)
+    .zip(ldExeWbReqs ++ stuExeWbReqs)
     .foreach({case(wb, out) =>
       wb.valid := out.valid
       wb.bits := out.bits
       out.ready := true.B
   })
-  stdWritebacks.zip(stdExeWbReqs)
-    .foreach({ case (wb, out) =>
-      wb.valid := RegNext(out.valid, false.B)
-      wb.bits := RegEnable(out.bits, out.valid)
-      out.ready := true.B
-    })
+
   lduWritebacks.zip(ldExeWbReqs).foreach({case(wb, out) =>
     val redirect_wb = wb.bits.redirect
     val uop_out = out.bits.uop
@@ -316,7 +315,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     redirect_wb.isFlushPipe := false.B
   })
 
-  private val stOut = staWritebacks
+  private val stOut = stuWritebacks
 
   // TODO: fast load wakeup
   val lsq     = Module(new LsqWrappper)
@@ -641,9 +640,9 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   lsq.io.rob            <> io.lsqio.rob
   lsq.io.enq            <> io.enqLsq
   lsq.io.brqRedirect    <> Pipe(redirectIn)
-  staWritebacks.head.bits.redirectValid := lsq.io.rollback.valid
-  staWritebacks.head.bits.redirect := lsq.io.rollback.bits
-  staWritebacks.tail.foreach(e => {
+  stuExeWbReqs.head.bits.redirectValid := lsq.io.rollback.valid
+  stuExeWbReqs.head.bits.redirect := lsq.io.rollback.bits
+  stuExeWbReqs.tail.foreach(e => {
     e.bits.redirectValid := false.B
     e.bits.redirect := DontCare
   })

@@ -68,7 +68,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   vectorBlock.issueNode :*= vRegFile.issueNode
 
   memoryBlock.vlduWritebackNodes.foreach(vldwb => vRegFile.writebackMergeNode :=* vldwb)
-  memoryBlock.staWritebackNodes.foreach(stwb => vRegFile.writebackMergeNode :=* stwb)
+  memoryBlock.vstuWritebackNodes.foreach(vstwb => vRegFile.writebackMergeNode :=* vstwb)
   vRegFile.writebackMergeNode :=* vectorPermutationBlock.writebackNode
   vRegFile.writebackMergeNode :=* vectorBlock.writebackNode
 
