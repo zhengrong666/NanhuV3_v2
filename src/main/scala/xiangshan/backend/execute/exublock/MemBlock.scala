@@ -115,7 +115,8 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     writebackToVms = false
   )
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))
-  val lduWritebackNodes: Seq[ExuOutputMultiSinkNode] = lduParams.map(e => new ExuOutputMultiSinkNode(Seq.fill(2)(e)))
+  val lduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
+  val vlduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
   val specialLduIssueNode: MemoryBlockIssueNode = new MemoryBlockIssueNode((specialLduParams,0))
   val staIssueNodes: Seq[ExuInputNode] = staParams.zipWithIndex.map(e => new ExuInputNode(e._1))
   val staWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
@@ -170,6 +171,10 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     require(wb.out.length == 1)
     wb.out.head._1
   })
+  private val vlduWritebacks = outer.vlduWritebackNodes.map(wb => {
+    require(wb.out.length == 1)
+    wb.out.head._1
+  })
   private val staWritebacks = outer.staWritebackNodes.map(wb => {
     require(wb.out.length == 1)
     wb.out.head._1
@@ -178,6 +183,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     require(wb.out.length == 1)
     wb.out.head._1
   })
+  vlduWritebacks.zip(lduWritebacks).foreach({case(a, b) => a := b})
 
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))
