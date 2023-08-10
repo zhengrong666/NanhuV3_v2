@@ -114,6 +114,41 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
     writebackToRob = true,
     writebackToVms = false
   )
+
+  private val stuParams = Seq.tabulate(exuParameters.StuCnt)(idx => {
+    ExuConfig(
+      name = "StuExu",
+      id = idx,
+      complexName = "MemComplex",
+      fuConfigs = Seq(FuConfigs.staCfg),
+      exuType = ExuType.sta,
+      writebackToRob = true,
+      writebackToVms = false
+    )
+  })
+  private val vstuParams = Seq.tabulate(exuParameters.StuCnt)(idx => {
+    ExuConfig(
+      name = "vStuExu",
+      id = idx,
+      complexName = "MemComplex",
+      fuConfigs = Seq(FuConfigs.staCfg),
+      exuType = ExuType.sta,
+      writebackToRob = false,
+      writebackToVms = true
+    )
+  })
+  private val vlduParams = Seq.tabulate(exuParameters.LduCnt)(idx => {
+    ExuConfig(
+      name = "vLduExu",
+      id = idx,
+      complexName = "MemComplex",
+      fuConfigs = Seq(FuConfigs.lduCfg),
+      exuType = ExuType.ldu,
+      writebackToRob = false,
+      writebackToVms = true
+    )
+  })
+
   val lduIssueNodes: Seq[ExuInputNode] = lduParams.zipWithIndex.map(e => new ExuInputNode(e._1))
 
   val specialLduIssueNode: MemoryBlockIssueNode = new MemoryBlockIssueNode((specialLduParams,0))
@@ -122,9 +157,9 @@ class MemBlock(val parentName:String = "Unknown")(implicit p: Parameters) extend
   val stdIssueNodes: Seq[ExuInputNode] = stdParams.zipWithIndex.map(e => new ExuInputNode(e._1))
 
   val lduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
-  val vlduWritebackNodes: Seq[ExuOutputNode] = lduParams.map(e => new ExuOutputNode(e))
-  val stuWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
-  val vstuWritebackNodes: Seq[ExuOutputNode] = staParams.map(new ExuOutputNode(_))
+  val vlduWritebackNodes: Seq[ExuOutputNode] = vlduParams.map(e => new ExuOutputNode(e))
+  val stuWritebackNodes: Seq[ExuOutputNode] = stuParams.map(new ExuOutputNode(_))
+  val vstuWritebackNodes: Seq[ExuOutputNode] = vstuParams.map(new ExuOutputNode(_))
 
   val memIssueRouters: Seq[MemIssueRouter] = Seq.fill(2)(LazyModule(new MemIssueRouter))
   memIssueRouters.zip(lduIssueNodes).zip(staIssueNodes).zip(stdIssueNodes).foreach({case(((mir, ldu), sta), std) =>
@@ -189,6 +224,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   })
 
   vlduWritebacks.zip(lduWritebacks).foreach({case(a, b) => a := b})
+  vstuWritebacks.zip(stuWritebacks).foreach({case(a, b) => a := b})
 
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))

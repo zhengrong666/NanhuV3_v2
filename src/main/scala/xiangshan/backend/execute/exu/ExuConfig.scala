@@ -94,13 +94,14 @@ case class ExuConfig
   val writeVecRf = fuConfigs.map(_.writeVecRf).reduce(_||_)
   val writeFFlags: Boolean = fuConfigs.map(_.writeFflags).reduce(_ || _)
 
-  private val isLdu = exuType == ExuType.ldu
-  val writebackToRegfile = if(isLdu) !throughVectorRf else (writeIntRf || writeFpRf)
-  val writebackToIntRs = if(isLdu) !throughVectorRf else writeIntRf
-  val writebackToFpRs = if(isLdu) !throughVectorRf else writeFpRf
-  val writebackToReorderQueue = if(isLdu) !throughVectorRf else writebackToRob
-  val writebackToVecRs = if(isLdu) throughVectorRf else writeVecRf
-  val writebackToMergeStation = if(isLdu) throughVectorRf else writebackToVms
+  private val isVector = throughVectorRf
+  private val isLs = exuType == ExuType.ldu || exuType == ExuType.sta || exuType == ExuType.std
+  val writebackToRegfile = if(isLs) !isVector && (writeIntRf || writeFpRf) else (writeIntRf || writeFpRf)
+  val writebackToIntRs = if(isLs) (!isVector && writeIntRf) else (writeIntRf && !hasFastWakeup)
+  val writebackToFpRs = if(isLs) (!isVector && writeFpRf) else writeFpRf
+  val writebackToReorderQueue = writebackToRob
+  val writebackToVecRs = writeVecRf || writeIntRf || writeFpRf
+  val writebackToMergeStation = writebackToVms
   val writebackToMemRs = writebackToIntRs || writebackToFpRs || writebackToVecRs
 
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
