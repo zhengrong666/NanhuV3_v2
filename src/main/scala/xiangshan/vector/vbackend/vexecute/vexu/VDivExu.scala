@@ -14,7 +14,7 @@ class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     id = id,
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.vdivCfg),
-    exuType = ExuType.vfp,
+    exuType = ExuType.vdiv,
     writebackToRob = false,
     writebackToVms = true
   )

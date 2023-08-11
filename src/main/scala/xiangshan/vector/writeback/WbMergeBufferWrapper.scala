@@ -38,13 +38,15 @@ import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
+import freechips.rocketchip.diplomacy._
+
 class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
     val wbNodeParam = WriteBackSinkParam(name = "MergeBuffer", sinkType = WriteBackSinkType.vecMs)
     val writebackNode = new WriteBackSinkNode(wbNodeParam)
     lazy val module = new WbMergeBufferWrapperImp(this)
 }
 
-class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) with HasVectorParameters {
+class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) with HasVectorParameters {
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
     val vectorWbNodes = writebackIn.filter(e => ExuType.vecTypes exists (t => t == e._1.exuType))
     val vectorWbNodeNum = vectorWbNodes.length
@@ -62,9 +64,10 @@ class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameter
         val rob = Vec(VectorMergeWbWidth, ValidIO(new ExuOutput))
     })
 
-    io.allocate <> outer.module.io.allocate
+    //io.allocate <> outer.module.io.allocate
 
-    val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, VectorMergeWidth, VectorMergeWbWidth))
+
+    val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, vectorWbNodeNum, VectorMergeWbWidth))
 
     //write back from VectorExu, use Diplomacy
     val vectorWriteBack = vectorWbNodes.map(_._2)
@@ -72,6 +75,8 @@ class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameter
         bufferImp.io.exu(i).valid := wb.valid
         bufferImp.io.exu(i).bits := wb.bits
     }
+
+    io.allocate <> bufferImp.io.waitqueue
 
     bufferImp.io.redirect <> io.redirect
     bufferImp.io.waitqueue <> io.allocate

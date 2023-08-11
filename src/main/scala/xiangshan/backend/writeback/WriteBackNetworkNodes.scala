@@ -54,7 +54,7 @@ case class WriteBackSinkParam
   def isVprs: Boolean = sinkType == WriteBackSinkType.vecPermRs
   def isVrs: Boolean = sinkType == WriteBackSinkType.vecRs
   def isVms: Boolean = sinkType == WriteBackSinkType.vecMs
-  def isLegal: Boolean = isRegFile ||isRob ||isIntRs ||isMemRs ||isFpRs
+  def isLegal: Boolean = isRegFile || isRob || isIntRs || isMemRs || isFpRs || isVprs || isVrs || isVms
   def needWriteback: Boolean = isRegFile || isRob
 }
 

@@ -161,6 +161,13 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       val exuComplexParam = in._2
       val bi = in._1
       val bo = out._1
+
+      intRfReadIdx = 0
+      fpRfReadIdx = 0
+      pcReadPortIdx = 0
+      vecReadPortIdx = 0
+      vecMoveReqPortIdx = 0
+
       prefix(s"${exuComplexParam.name}_${exuComplexParam.id}") {
         val exuInBundle = WireInit(bi.issue.bits)
         exuInBundle.src := DontCare

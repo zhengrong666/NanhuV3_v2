@@ -40,7 +40,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
 
   // read vector register file
   for (r <- io.readPorts) {
-    r.data := vrf(r.addr)
+    r.data := vrf(r.addr).asUInt
   }
   // write vector register file
   for (i <- 0 until wbWkpNum) {

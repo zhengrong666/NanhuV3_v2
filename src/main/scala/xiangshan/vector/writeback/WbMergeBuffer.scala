@@ -42,11 +42,11 @@ class WbMergeEntry(implicit p: Parameters) extends XSBundle {
     val canWb   = Bool()
     val valid   = Bool()
 
-    def init: Unit = {
-        wbmask := 0.U
-        canWb := false.B
-        valid := false.B
-    }
+    // def init: Unit = {
+    //     wbmask := 0.U
+    //     canWb := false.B
+    //     valid := false.B
+    // }
 }
 
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
@@ -95,16 +95,12 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
 
     val ptrHelper = Module(new WbMergeBufferPtrHelper(size, allocateWidth, wbWidth))
 
-    val mergeTable = RegInit(VecInit(Seq.tabulate(size)(i => {
-        val entry = new WbMergeEntry
-        entry.init
-        entry
-    })))
+    val mergeTable = Reg(Vec(size, new WbMergeEntry))
 
     //allocate, connect with WaitQueue
     //TODO: bypass Merge
     io.waitqueue <> ptrHelper.io.allocate
-    val allocateVec = Vec(allocateWidth, Bool())
+    val allocateVec = Wire(Vec(allocateWidth, Bool()))
     allocateVec := io.waitqueue.map(_.fire)
     for((ptr, en) <- ptrHelper.io.allocate.map(_.bits.value).zip(allocateVec)) {
         when(en) {
@@ -148,7 +144,8 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
         port.valid := wbVec(i)
     }
 
-    ptrHelper.io.release := PopCount(wbVec)
+    ptrHelper.io.release.bits := PopCount(wbVec)
+    ptrHelper.io.release.valid := true.B
 
     //redirect
     val cancelVec = Wire(Vec(size, Bool()))

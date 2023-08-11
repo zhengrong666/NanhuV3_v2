@@ -23,7 +23,7 @@ class VectorFuComplex(id: Int)(implicit p:Parameters) extends BasicExuComplex{
 
   lazy val module = new BasicExuComplexImp(this, 0){
     require(issueNode.in.length == 1)
-    require(issueNode.out.length == 2)
+    require(issueNode.out.length == fuSeq.length)
     private val issueIn = issueNode.in.head._1
     private val fuIssPorts = issueNode.out.map(_._1)
     private val vfpIss = issueNode.out.filter(_._2._2.exuType == ExuType.vfp).head._1

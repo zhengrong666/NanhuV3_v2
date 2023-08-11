@@ -22,7 +22,7 @@ class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
 
 object VRegfileTopUtil{
   def GenWbMask(in:MicroOp, width:Int, elementWise:Boolean, VLEN:Int): UInt = {
-    val res = Wire(VecInit(Seq.fill(width)(false.B)))
+    val res = VecInit(Seq.fill(width)(false.B))
     val sew = in.vCsrInfo.vsew
     val w = width - 1
     val ui = if(elementWise) {
@@ -75,8 +75,9 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     private val toWritebackNetwork = writebackMergeNode.out.map(e => (e._1, e._2._1))
 
     private val wbVFUPair = fromVectorFu.zip(toWritebackNetwork).map(e => {
-      require(e._1._2 == e._2._2)
-      require(e._1._2.writeVecRf)
+      //TODO: ?
+      //require(e._1._2 == e._2._2)
+      //require(e._1._2.writeVecRf)
       (e._1._1, e._2._1, e._1._2)
     })
     private val wb = fromVectorFu

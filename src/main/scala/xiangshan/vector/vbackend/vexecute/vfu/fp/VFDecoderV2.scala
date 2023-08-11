@@ -108,7 +108,7 @@ class VFCvtDecode extends VFPDecodeConstants {
 class VFMiscDecode extends VFPDecodeConstants {
   //  isMisc, MiscCmd, MiscSubCmd
   //  In fact, these bits can be extracted from inst32 directly
-  val default: List[BitPat] = List(N, BitPat("b??"),BitPat("b???"))
+  val default: List[BitPat] = List(N, BitPat("b?????"),BitPat("b???"))
 
   // 21 misc ops
   override val table: Array[(BitPat, List[BitPat])] = Array(
