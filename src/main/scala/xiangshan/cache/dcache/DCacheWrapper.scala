@@ -618,10 +618,24 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
 
   //todo
   ldu.head.io.lsu <> io.lsu.load.head
-  val loadArb = Module(new Arbiter(new DCacheLoadIO,2))
-  loadArb.io.in(0) <> io.lsu.load(1)
-  loadArb.io.in(1) <> io.lsu.load(2)
-  loadArb.io.out <> ldu(1).io.lsu
+
+  val choose_n = RegInit(0.U(1.W))  //default connect loadUnit
+  ldu(1).io.lsu <> io.lsu.load(1)
+
+  when(io.lsu.load(2).req.valid && !io.lsu.load(1).req.valid){
+    choose_n := 1.U
+    ldu(1).io.lsu := DontCare
+    ldu(1).io.lsu.req <> io.lsu.load(2).req
+  }
+
+  when(io.lsu.load(1).req.valid){
+    choose_n := 0.U
+  }
+
+  when(choose_n === 1.U){
+    ldu(1).io.lsu.resp <> io.lsu.load(2).resp
+  }
+
 
   //----------------------------------------
   // atomics

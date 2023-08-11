@@ -140,7 +140,7 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.out.bits.vaddr := s0_vaddr
   io.out.bits.mask := s0_mask
   io.out.bits.uop := s0_uop
-  io.out.bits.uop.cf.exceptionVec(loadAddrMisaligned) := Mux(EnableMem, 0.U.asTypeOf(ExceptionVec()), !addrAligned)
+  io.out.bits.uop.cf.exceptionVec(loadAddrMisaligned) := Mux(EnableMem, false.B, !addrAligned)
   io.out.bits.rsIdx := io.rsIdx
   io.out.bits.isFirstIssue := io.isFirstIssue
   io.out.bits.isSoftPrefetch := isSoftPrefetch
