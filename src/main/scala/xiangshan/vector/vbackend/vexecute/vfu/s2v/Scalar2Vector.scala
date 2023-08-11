@@ -5,10 +5,10 @@ import chipsalliance.rocketchip.config.Parameters
 import darecreek.exu.fu2.{VAluOutput, VFuInput}
 import xiangshan.XSModule
 class Scalar2Vector(implicit p: Parameters) extends XSModule{
-  val io = new Bundle{
-    val in = Input(ValidIO(new VFuInput))
+  val io = IO(new Bundle{
+    val in = Flipped(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)
-  }
+  })
   private val validReg_s1 = RegNext(io.in.valid, false.B)
   private val outWires = Wire(new VAluOutput)
   private val ta = io.in.bits.uop.info.ta

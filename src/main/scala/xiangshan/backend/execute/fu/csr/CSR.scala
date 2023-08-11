@@ -554,14 +554,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
     perfCnts(i) := Mux(mcountinhibit(i+3) | !perfEventscounten(i), perfCnts(i), perfCnts(i) + perf_events(i).value)
   }
 
-  //vcsr
-  val vcsr = Module(new VCSR)
-  vcsr.io.in.bits := io.in.bits
-  vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector
-  csrio.vtypeWb <> vcsr.vcsr_io.vtypeWb
-  vcsr.vcsr_io.wbFromRob <> csrio.vcsrWbFromRob
-  vcsr.vcsr_io.wen := wen && permitted
-
   // CSR reg map
   val basicPrivMapping = Map(
 
@@ -759,6 +751,14 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   }
   csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
+  
+  //vcsr
+  val vcsr = Module(new VCSR)
+  vcsr.io.in.bits := io.in.bits
+  vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector
+  csrio.vtypeWb <> vcsr.vcsr_io.vtypeWb
+  vcsr.vcsr_io.wbFromRob <> csrio.vcsrWbFromRob
+  vcsr.vcsr_io.wen := wen && permitted
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>

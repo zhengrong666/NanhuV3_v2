@@ -10,10 +10,10 @@ import xiangshan.vector.HasVectorParameters
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicExu{
   private val cfg = ExuConfig(
-    name = "VFpExu",
+    name = "VDivExu",
     id = id,
     complexName = complexName,
-    fuConfigs = Seq(FuConfigs.vfpCfg),
+    fuConfigs = Seq(FuConfigs.vdivCfg),
     exuType = ExuType.vfp,
     writebackToRob = false,
     writebackToVms = true

@@ -37,7 +37,7 @@ import xiangshan.ExceptionNO._
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.mem.LsqEnqIO
 import xs.utils._
-
+import xiangshan.vector.VectorCtrlBlock
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -46,10 +46,8 @@ class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
 
 class CtrlBlock(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val rob = LazyModule(new Rob)
-  val vectorCtrlBlock = LazyModule(new VectorCtrlBlock)
   val wbMergeBuffer = LazyModule(new WbMergeBufferWrapper)
   val dispatchNode = new DqDispatchNode
-
   lazy val module = new CtrlBlockImp(this)
 }
 
@@ -89,9 +87,6 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
         val lsdqFull  = Input(Bool())
       }
     })
-    // to vector
-    val SIRenameInfo = Vec(RenameWidth, ValidIO(new SIRenameInfo))
-    val vtypeout = Vec(RenameWidth, ValidIO(new VtypeReg))
 
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
@@ -105,6 +100,15 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val intDeq = intDispatch._1
   private val fpDeq = fpDispatch._1
   private val lsDeq = lsDispatch._1
+  
+  //vector
+  private val vDispatch = outer.dispatchNode.out.filter(_._2._1.isVecRs).map(e => (e._1, e._2._1)).head
+  private val vpDispatch = outer.dispatchNode.out.filter(_._2._1.isVpRs).map(e => (e._1, e._2._1)).head
+  private val vDeq = vDispatch._1
+  private val vpDeq = vpDispatch._1
+  private val vdWidth = vDispatch._2.bankNum
+  private val vpdWidth = vpDispatch._2.bankNum
+  private val mempdWidth = coreParams.rsBankNum
 
   private val decode = Module(new DecodeStage)
   private val fusionDecoder = Module(new FusionDecoder)
@@ -119,7 +123,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val rob = outer.rob.module
   private val memDispatch2Rs = Module(new MemDispatch2Rs)
   //vector module
-  private val vCtrlBlock = outer.vectorCtrlBlock.module
+  private val vCtrlBlock = Module(new VectorCtrlBlock(vdWidth, vpdWidth, mempdWidth))
   private val memDqArb = Module(new MemDispatchArbiter(coreParams.rsBankNum))
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 
@@ -259,9 +263,18 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
   }
 
-  //to vector
-  io.SIRenameInfo <> rename.io.SIRenameOUT
-  io.vtypeout <> rename.io.vtypeout
+  //vector instr from scalar
+  vCtrlBlock.io.SIRenameIn <> rename.io.SIRenameOUT
+  vCtrlBlock.io.vtypein <> rename.io.vtypeout
+
+  //vectorCtrlBlock
+  vCtrlBlock.io.hartId := io.hartId
+  vCtrlBlock.io.cpu_halt := io.cpu_halt
+  //TODO: vCtrlBlock.io.in 
+  
+  //diplomacy connects issue with vCtrl
+  vDeq <> vCtrlBlock.io.vDispatch
+  vpDeq <> vCtrlBlock.io.vpDispatch
 
   dispatch.io.hartId := io.hartId
   dispatch.io.redirect := io.redirectIn
@@ -281,7 +294,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //mem and vmem dispatch merge
   memDqArb.io.memIn <> lsDq.io.deq
-  memDqArb.io.vmemIn <> vCtrlBlock.io.vecDispatch2Rs
+  memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispath
 
   memDispatch2Rs.io.redirect := Pipe(io.redirectIn)
   memDispatch2Rs.io.lcommit := rob.io.lsq.lcommit

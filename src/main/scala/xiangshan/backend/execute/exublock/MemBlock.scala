@@ -323,6 +323,22 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   private val atomicsUnit = Module(new AtomicsUnit)
 
   io.writebackFromMou <> atomicsUnit.io.out
+
+  private val stOut = stuWritebacks
+
+  // TODO: fast load wakeup
+  val lsq     = Module(new LsqWrappper)
+  val sbuffer = Module(new Sbuffer)
+  // if you wants to stress test dcache store, use FakeSbuffer
+  // val sbuffer = Module(new FakeSbuffer)
+  lsq.io.stout <> io.sqWbout
+  io.stIssuePtr := lsq.io.issuePtrExt
+
+  dcache.io.hartId := io.hartId
+  lsq.io.hartId := io.hartId
+  sbuffer.io.hartId := io.hartId
+  atomicsUnit.io.hartId := io.hartId
+
   private val ldExeWbReqs = loadUnits.map(_.io.ldout)
   private val stuExeWbReqs = lsq.io.stout
   (lduWritebacks ++ stuWritebacks)
@@ -350,21 +366,6 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     redirect_wb.isXRet := false.B
     redirect_wb.isFlushPipe := false.B
   })
-
-  private val stOut = stuWritebacks
-
-  // TODO: fast load wakeup
-  val lsq     = Module(new LsqWrappper)
-  val sbuffer = Module(new Sbuffer)
-  // if you wants to stress test dcache store, use FakeSbuffer
-  // val sbuffer = Module(new FakeSbuffer)
-  lsq.io.stout <> io.sqWbout
-  io.stIssuePtr := lsq.io.issuePtrExt
-
-  dcache.io.hartId := io.hartId
-  lsq.io.hartId := io.hartId
-  sbuffer.io.hartId := io.hartId
-  atomicsUnit.io.hartId := io.hartId
 
   // dtlb
   val total_tlb_ports = ld_tlb_ports + exuParameters.StuCnt
@@ -676,9 +677,9 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   lsq.io.rob            <> io.lsqio.rob
   lsq.io.enq            <> io.enqLsq
   lsq.io.brqRedirect    <> Pipe(redirectIn)
-  stuExeWbReqs.head.bits.redirectValid := lsq.io.rollback.valid
-  stuExeWbReqs.head.bits.redirect := lsq.io.rollback.bits
-  stuExeWbReqs.tail.foreach(e => {
+  stuWritebacks.head.bits.redirectValid := lsq.io.rollback.valid
+  stuWritebacks.head.bits.redirect := lsq.io.rollback.bits
+  stuWritebacks.tail.foreach(e => {
     e.bits.redirectValid := false.B
     e.bits.redirect := DontCare
   })
@@ -722,8 +723,6 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   dcache.io.lsu.load(exuParameters.LduCnt) := DontCare
   dcache.io.lsu.load(exuParameters.LduCnt).req <> lsq.io.loadQueueDcache.req
   dcache.io.lsu.load(exuParameters.LduCnt).resp <> lsq.io.loadQueueDcache.resp
-
-
 
 //  sbuffer.io.dcache     <> dcache.io.lsu.store
 

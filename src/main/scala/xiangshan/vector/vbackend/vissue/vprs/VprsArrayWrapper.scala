@@ -20,7 +20,7 @@ class VprsArrayWrapper(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) ext
   private val statusArray = Module(new VprsStatusArray(sWkpWidth, vWkpWidth))
   private val payloadArray = Module(new PayloadArray(new MicroOp, size, 1, "VprsPayloadArray"))
 
-  statusArray.io.enq := io.enq
+  statusArray.io.enq <> io.enq
   statusArray.io.issueOH := io.issueOH
   statusArray.io.scalarWakeUps := io.scalarWakeUps
   statusArray.io.vectorWakeUps := io.vectorWakeUps

@@ -250,6 +250,9 @@ case class XSCoreParameters
   L2NBanks: Int = 1,
   usePTWRepeater: Boolean = false,
   softPTW: Boolean = false, // dpi-c debug only
+
+  //vector
+  hasVector: Boolean = true,
   vectorParameters: VectorParameters = VectorParameters(
     vLen               = 128, //maybe 64、256、512...
     vDecodeWidth       = 4,
@@ -411,7 +414,9 @@ trait HasXSParameter {
   val icacheParameters = coreParams.icacheParameters
   val dcacheParameters = coreParams.dcacheParametersOpt.getOrElse(DCacheParameters())
 
+  val hasVector = coreParams.hasVector
   val vectorParameters = coreParams.vectorParameters
+  
   val PhyRegIdxWidth = max(log2Up(NRPhyRegs), log2Up(vectorParameters.vPhyRegIdxWidth))
 
   // dcache block cacheline when lr for LRSCCycles - LRSCBackOff cycles

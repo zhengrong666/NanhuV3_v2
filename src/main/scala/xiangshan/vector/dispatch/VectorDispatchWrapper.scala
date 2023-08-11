@@ -39,23 +39,23 @@ class VectorDispatchReq(implicit p: Parameters) extends VectorBaseBundle {
     val uop         = Input(Vec(VIRenameWidth, ValidIO(new MicroOp)))
 }
 
-class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends VectorBaseModule {
+class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(implicit p: Parameters) extends VectorBaseModule {
     val io = IO(new Bundle {
         //req, from Rename
         val req = new VectorDispatchReq
         //dispatch port, connect with RS
-        val toVectorCommonRS    = Vec(dqDeqNum, DecoupledIO(new MicroOp))
-        val toVectorPermuRS     = Vec(dqDeqNum, DecoupledIO(new MicroOp))
-        val toMem2RS            = Vec(dqDeqNum, DecoupledIO(new MicroOp))
+        val toVectorCommonRS    = Vec(vecDeqNum, DecoupledIO(new MicroOp))
+        val toVectorPermuRS     = Vec(vpDeqNum, DecoupledIO(new MicroOp))
+        val toMem2RS            = Vec(memDeqNum, DecoupledIO(new MicroOp))
         
         val redirect = Flipped(ValidIO(new Redirect))
     })
 
     val dispatchNetwork = Module(new VectorDispatchNetwork)
     //TODO: RS Input Width align
-    val dqCommon    = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, 4))
-    val dqPermu     = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, 4))
-    val dqMem       = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, 4))
+    val dqCommon    = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, vecDeqNum))
+    val dqPermu     = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, vpDeqNum))
+    val dqMem       = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, memDeqNum))
 
     //dispatch
     for((dpNetPort, req) <- dispatchNetwork.io.fromRename.zip(io.req.uop)) {

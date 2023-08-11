@@ -55,7 +55,7 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val cfOut = Wire(new CtrlFlow)
 
     val vcsr_io = IO(new Bundle {
-        val vcsrInfo = new VCSRInfo
+        val vcsrInfo = Output(new VCSRInfo)
         val wbFromRob = new VCSRWIO
         val vtypeWb = ValidIO(UInt(9.W))
         val wen = Input(Bool())

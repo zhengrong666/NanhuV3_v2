@@ -36,6 +36,8 @@ import coupledL2._
 import coupledL3._
 import xiangshan.mem.prefetch.SMSParams
 
+import darecreek.exu.fu2._
+
 class BaseConfig(n: Int) extends Config((site, here, up) => {
   case XLen => 64
   case DebugOptionsKey => DebugOptions()
@@ -50,6 +52,8 @@ class BaseConfig(n: Int) extends Config((site, here, up) => {
   case JtagDTMKey => JtagDTMKey
   case MaxHartIdBits => 2
   case EnableJtag => true.B
+
+  case VFuParamsKey => VFuParameters()
 })
 
 // Synthesizable minimal XiangShan

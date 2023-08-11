@@ -332,7 +332,7 @@ object FuConfigs{
   )
 
   val vdivCfg = FuConfig(
-    name = "vmask",
+    name = "vdiv",
     fuType = FuType.vdiv,
     numIntSrc = 1,
     numFpSrc = 1,
@@ -349,7 +349,7 @@ object FuConfigs{
   )
 
   val vmacCfg = FuConfig(
-    name = "vmask",
+    name = "vmac",
     fuType = FuType.vmac,
     numIntSrc = 1,
     numFpSrc = 1,
@@ -366,7 +366,7 @@ object FuConfigs{
   )
 
   val vredCfg = FuConfig(
-    name = "vmask",
+    name = "vred",
     fuType = FuType.vreduc,
     numIntSrc = 1,
     numFpSrc = 1,

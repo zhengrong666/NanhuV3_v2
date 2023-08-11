@@ -63,7 +63,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pov(0) := io.enq.bits.psrc(2)
       enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
       enqEntryNext.bits.pvm := io.enq.bits.vm
-      enqEntryNext.bits.pvmState(0) := Mux(io.enq.bits.ctrl.vm, io.enq.bits.vmState, SrcState.rdy)
+      enqEntryNext.bits.pvmState := Mux(io.enq.bits.ctrl.vm, io.enq.bits.vmState, SrcState.rdy)
       enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 0.U
       enqEntryNext.valid := true.B
 
