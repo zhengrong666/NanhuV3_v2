@@ -82,6 +82,8 @@ class VICtrlImp(outer: VectorCtrlBlock)(implicit p: Parameters) extends LazyModu
 
   private val vecDispatch = outer.dispatchNode.out.filter(_._2._1.isVecRs).map(e => (e._1, e._2._1)).head
   private val vecDeq = vecDispatch._1
+  private val vecPermDispatch = outer.dispatchNode.out.filter(_._2._1.isVecPermRs).map(e => (e._1, e._2._1)).head
+  private val vecPermDeq = vecPermDispatch._1
 
   val videcode = Module(new VIDecodeUnit)
   val waitqueue = Module(new VIWaitQueue)

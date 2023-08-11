@@ -48,6 +48,13 @@ class WbMergeBufferWrapperImp(outer: WbMergeBufferWrapper)(implicit p: Parameter
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
     val vectorWbNodes = writebackIn.filter(e => ExuType.vecTypes exists (t => t == e._1.exuType))
     val vectorWbNodeNum = vectorWbNodes.length
+
+    println(s"wbMergePortsNum: $vectorWbNodeNum")
+    for(wb <- vectorWbNodes) {
+        val name: String = wb._1.name
+        val id = wb._1.id
+        println(s"wbMergeNodes: $name, id: $id")
+    }
     
     val io = IO(new Bundle {
         val allocate = Vec(VectorMergeAllocateWidth, DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))

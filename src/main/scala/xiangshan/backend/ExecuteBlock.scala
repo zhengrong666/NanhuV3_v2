@@ -75,11 +75,11 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   writebackNetwork.node :=* vRegFile.writebackMergeNode
 
   regFile.writebackNode :=* writebackNetwork.node
-  floatingReservationStation.wakeupNode := writebackNetwork.node
-  integerReservationStation.wakeupNode := writebackNetwork.node
-  memoryReservationStation.wakeupNode := writebackNetwork.node
-  vectorPermutationBlock.vprs.wakeupNode := writebackNetwork.node
-  vectorReservationStation.wakeupNode := writebackNetwork.node
+  floatingReservationStation.wakeupNode   := writebackNetwork.node
+  integerReservationStation.wakeupNode    := writebackNetwork.node
+  memoryReservationStation.wakeupNode     := writebackNetwork.node
+  vectorPermutationBlock.vprs.wakeupNode  := writebackNetwork.node
+  vectorReservationStation.wakeupNode     := writebackNetwork.node
   lazy val module = new LazyModuleImp(this) with HasSoCParameter{
     val io = IO(new Bundle {
       val hartId = Input(UInt(64.W))

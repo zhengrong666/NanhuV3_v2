@@ -60,7 +60,7 @@ class VectorDispatchWrapper(dqDeqNum: Int)(implicit p: Parameters) extends Vecto
     //dispatch
     for((dpNetPort, req) <- dispatchNetwork.io.fromRename.zip(io.req.uop)) {
         dpNetPort.bits := req.bits
-        dpNetPort.valid := req.valid
+        dpNetPort.valid := req.valid   
     }
 
     //handshake

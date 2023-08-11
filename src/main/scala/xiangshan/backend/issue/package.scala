@@ -89,6 +89,8 @@ package object issue {
         "Floating RS "
       } else if (isVecRs) {
         "Vector RS "
+      } else if(isVpRs) {
+        "VectorPermutation RS"
       } else {
         "Memory RS"
       }
