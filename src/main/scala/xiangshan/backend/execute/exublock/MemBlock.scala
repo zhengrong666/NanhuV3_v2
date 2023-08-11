@@ -704,12 +704,25 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
 
-  val dcacheArb = Module(new Arbiter(new DCacheToSbufferIO,2))
-  dcacheArb.io.in(0) <> sbuffer.io.dcache
-  dcacheArb.io.in(1) <> lsq.io.storeQueueDcache
-  dcache.io.lsu.store <> dcacheArb.io.out
+  val SbSq2Dcache = RegInit(0.U(1.W)) //default connect sbuffer
+  dcache.io.lsu.store <> sbuffer.io.dcache
 
-  lsq.io.loadQueueDcache <> dcache.io.lsu.load(exuParameters.LduCnt)
+  when(SbSq2Dcache === 1.U){
+    dcache.io.lsu.store <> lsq.io.storeQueueDcache
+  }
+
+  when(!sbuffer.io.dcache.req.valid && lsq.io.storeQueueDcache.req.valid){
+    SbSq2Dcache := 1.U
+  }
+
+  when(sbuffer.io.dcache.req.valid){
+    SbSq2Dcache := 0.U
+  }
+
+  dcache.io.lsu.load(exuParameters.LduCnt) := DontCare
+  dcache.io.lsu.load(exuParameters.LduCnt).req <> lsq.io.loadQueueDcache.req
+  dcache.io.lsu.load(exuParameters.LduCnt).resp <> lsq.io.loadQueueDcache.resp
+
 
 
 //  sbuffer.io.dcache     <> dcache.io.lsu.store
