@@ -94,8 +94,8 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
     bt.bits := wb.bits.pdest
   })
   private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, vecWkps.length, vectorParameters.vRenameWidth))
-  integerBusyTable.io.allocPregs := io.vecAllocPregs
-  integerBusyTable.io.wbPregs.zip(vectorWakeupSignals).foreach({ case (bt, wb) =>
+  vectorBusyTable.io.allocPregs := io.vecAllocPregs
+  vectorBusyTable.io.wbPregs.zip(vectorWakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec
     bt.bits := wb.bits.pdest
   })
