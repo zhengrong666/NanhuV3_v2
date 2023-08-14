@@ -90,8 +90,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         CurrentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
         CurrentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
         CurrentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
-        CurrentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.vCsrInfo
-        CurrentData.MicroOp.robIdx := io.vtypein(i).bits.robIdx
+        CurrentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.uop.vCsrInfo
+        CurrentData.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
         CurrentData.state := io.vtypein(i).bits.state
         waitqueue.io.enq.req(i).bits := CurrentData
         }

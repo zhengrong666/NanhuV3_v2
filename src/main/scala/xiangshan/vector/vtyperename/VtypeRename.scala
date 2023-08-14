@@ -35,7 +35,8 @@ import xs.utils._
 //  val state = 0.U(2.W)
 //}
 
-class VtypeReg(implicit p: Parameters) extends MicroOp{
+class VtypeReg(implicit p: Parameters) extends VectorBaseBundle {
+  val uop = new MicroOp
   val state = UInt(2.W)
   val vtypeIdx = new VtypePtr
 }
@@ -69,7 +70,8 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
   })
 
   //TODO:
-  val VtypeRegTable = RegInit(VecInit(Seq.tabulate(size - 1)(i => new VtypeReg)))
+  //val VtypeRegTable = RegInit(VecInit(Seq.tabulate(size - 1)(i => new VtypeReg)))
+  val VtypeRegTable = RegInit(VecInit(Seq.fill(VIWaitQueueWidth)(0.U.asTypeOf(new VtypeReg))))
 
   class VtypePtr extends CircularQueuePtr[VtypePtr](size)
 
@@ -93,24 +95,26 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       val tempVtype = VtypeRegTable(tailPtr.value)
       //TODO: 
       //io.out(i).bits <> tempVtype.cf
-      val CurrentVL = tempVtype.vCsrInfo.vl
-      val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
+      val CurrentVL = tempVtype.uop.vCsrInfo.vl
+      val CurrentVLMAX = tempVtype.uop.vCsrInfo.VLMAXGen()
       io.out(i).valid := io.canAllocate
-      val tempvtype = Wire(new VtypeReg)
+      val tempvtype = WireInit((0.U.asTypeOf(new VtypeReg)))
       val freePtr = tailPtr + 1.U
       //TODO:
-      tempvtype <> io.in(i).bits
+      tempvtype.uop := io.in(i).bits
       tempvtype.vtypeIdx := freePtr
-      tempvtype.vCsrInfo.oldvl := CurrentVL
-      tempvtype.vCsrInfo.vma := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(30), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(29), 0.U))
-      tempvtype.vCsrInfo.vta := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(29), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(28), 0.U))
-      tempvtype.vCsrInfo.vsew := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(28, 26), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(27, 25), 0.U))
-      tempvtype.vCsrInfo.vlmul := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(25, 23), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(24, 22), 0.U))
-      tempvtype.vCsrInfo.vlmax := Mux(io.in(i).bits.cf.instr(31) === 0.U, tempvtype.vCsrInfo.VLMAXGen().U, Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, tempvtype.vCsrInfo.VLMAXGen().U, 0.U))
+      tempvtype.uop.vCsrInfo.oldvl := CurrentVL
+      tempvtype.uop.vCsrInfo.vma := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(30), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(29), 0.U))
+      tempvtype.uop.vCsrInfo.vta := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(29), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(28), 0.U))
+      tempvtype.uop.vCsrInfo.vsew := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(28, 26), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(27, 25), 0.U))
+      tempvtype.uop.vCsrInfo.vlmul := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(25, 23), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(24, 22), 0.U))
+      tempvtype.uop.vCsrInfo.vlmax := Mux(io.in(i).bits.cf.instr(31) === 0.U, tempvtype.uop.vCsrInfo.VLMAXGen().U, Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, tempvtype.uop.vCsrInfo.VLMAXGen().U, 0.U))
       //TODO:---
-      tempvtype.vCsrInfo.vl := Mux(io.in(i).bits.cf.instr(31) === 0.U,
-        Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, Mux(io.in(i).bits.ctrl.lsrc(3) === 0.U, CurrentVL, CurrentVLMAX.U), 0.U),
+//      println(s"vtype index:$i")
+      tempvtype.uop.vCsrInfo.vl := Mux(io.in(i).bits.cf.instr(31) === 0.U,
+        Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, Mux(io.in(i).bits.ctrl.lsrc(2) === 0.U, CurrentVL, CurrentVLMAX.U), 0.U),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(19, 15), 0.U))
+//      tempvtype.uop.vCsrInfo.vl := 0.U
       tempvtype.state := Mux(io.in(i).bits.cf.instr(31) === 0.U,
         Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, s_valid, s_busy),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, s_valid, s_busy))
@@ -152,7 +156,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
    */
   for (i <- 0 until CommitWidth) {
     val tempvtype = VtypeRegTable(headPtr.value)
-    val selectDeqEntry = tempvtype.cf.ftqPtr === io.robCommits.info(i).ftqIdx && tempvtype.cf.ftqOffset === io.robCommits.info(i).ftqOffset
+    val selectDeqEntry = tempvtype.uop.cf.ftqPtr === io.robCommits.info(i).ftqIdx && tempvtype.uop.cf.ftqOffset === io.robCommits.info(i).ftqOffset
     when(io.robCommits.isCommit && selectDeqEntry) {
       VtypeRegTable(headPtr.value).state := s_invalid
       val headNextPtr = headPtr + 1.U
@@ -175,14 +179,14 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
   for (i <- 0 until numWbPorts) {
     when(io.writeback(i).valid) {
       for ((v, w) <- VtypeRegTable.zip(io.writeback)) {
-        val selectEntry = v.robIdx === w.bits.uop.robIdx && v.vtypeRegIdx === w.bits.uop.vtypeRegIdx
+        val selectEntry = v.uop.robIdx === w.bits.uop.robIdx && v.uop.vtypeRegIdx === w.bits.uop.vtypeRegIdx
         v.state := Mux(selectEntry, s_valid, v.state)
-        v.vCsrInfo.vma := Mux(selectEntry, w.bits.data(7), 0.U)
-        v.vCsrInfo.vta := Mux(selectEntry, w.bits.data(6), 0.U)
-        v.vCsrInfo.vsew := Mux(selectEntry, w.bits.data(5, 3), 0.U)
-        v.vCsrInfo.vlmul := Mux(selectEntry, w.bits.data(2, 0), 0.U)
-        v.vCsrInfo.vl := Mux(selectEntry, w.bits.data(15, 8), 0.U)
-        v.vCsrInfo.vlmax := v.vCsrInfo.VLMAXGen().U
+        v.uop.vCsrInfo.vma := Mux(selectEntry, w.bits.data(7), 0.U)
+        v.uop.vCsrInfo.vta := Mux(selectEntry, w.bits.data(6), 0.U)
+        v.uop.vCsrInfo.vsew := Mux(selectEntry, w.bits.data(5, 3), 0.U)
+        v.uop.vCsrInfo.vlmul := Mux(selectEntry, w.bits.data(2, 0), 0.U)
+        v.uop.vCsrInfo.vl := Mux(selectEntry, w.bits.data(15, 8), 0.U)
+        v.uop.vCsrInfo.vlmax := v.uop.vCsrInfo.VLMAXGen().U
       }
     }
   }
