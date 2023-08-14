@@ -131,6 +131,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
     private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum + extraScalarRfReadPort
     private val fpReadNum = needFpSrc.map(_._2.fpSrcNum).sum + extraScalarRfReadPort
 
+    println(s"intReadNum: $intReadNum, fpReadNum: $fpReadNum")
+
     private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, intReadNum, XLEN, "IntegerRegFile", true))
     private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, XLEN, "FloatingRegFile", false))
 
