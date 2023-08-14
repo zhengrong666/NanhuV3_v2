@@ -49,8 +49,8 @@ class VIRobIdxQueueEnqIO(implicit p: Parameters) extends VectorBaseBundle {
     //val canEnq      = Output(Bool())
     val doCommit    = Input(Bool())
     val doWalk      = Input(Bool())
-    val mask        = Input(Vec(VICommitWidth, Bool()))
-    val robIdx      = Input(Vec(VICommitWidth, UInt(log2Up(RobSize).W)))
+    val mask        = Input(Vec(CommitWidth, Bool()))
+    val robIdx      = Input(Vec(CommitWidth, UInt(log2Up(RobSize).W)))
 }
 
 class VICommitReqEntry(implicit p: Parameters) extends VectorBaseBundle {

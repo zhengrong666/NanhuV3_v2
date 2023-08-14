@@ -94,7 +94,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     when(io.in(i).valid) {
       val tempVtype = VtypeRegTable(tailPtr.value)
       //TODO: 
-      //io.out(i).bits <> tempVtype.cf
+      io.out(i).bits <> tempVtype
       val CurrentVL = tempVtype.uop.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.uop.vCsrInfo.VLMAXGen()
       io.out(i).valid := io.canAllocate

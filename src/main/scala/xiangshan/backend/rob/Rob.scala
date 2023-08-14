@@ -761,6 +761,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.ftqOffset := req.cf.ftqOffset
   }
   dispatchData.io.raddr := commitReadAddr_next
+  
+  for((crp, value) <- io.commits.robIdx.zip(commitReadAddr_next)) {
+    crp := value
+  }
 
   exceptionGen.io.redirect <> io.redirect
   for (i <- 0 until RenameWidth) {

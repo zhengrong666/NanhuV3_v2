@@ -8,6 +8,7 @@ import xiangshan.vector._
 import xs.utils._
 import utils._
 import xiangshan.backend.rob._
+import xiangshan.vector.writeback._
 
 
 class VIMop(implicit p: Parameters) extends VectorBaseBundle {
@@ -53,7 +54,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val vstart = Input(UInt(7.W))
     val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W))))
+    val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
     val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
@@ -268,12 +269,12 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     */
 
   for (i <- 0 until VIDecodeWidth) {
-    when(io.MergeId(i).valid && WqStateAraay(mergePtr.value).mergeidEn === false.B) {
+    when(io.mergeId(i).valid && WqStateAraay(mergePtr.value).mergeidEn === false.B) {
       WqStateAraay(mergePtr.value).mergeidEn := true.B
-      WqStateAraay(mergePtr.value).mergeIdx := io.MergeId(i).bits
+      WqStateAraay(mergePtr.value).mergeIdx := io.mergeId(i).bits.value
       mergePtr := mergePtr + 1.U
     }
-    io.MergeId(i).ready := !((mergePtr + 1.U) === enqPtr)
+    io.mergeId(i).ready := !((mergePtr + 1.U) === enqPtr)
   }
 
   /**

@@ -113,6 +113,7 @@ class CSRFileIO(implicit p: Parameters) extends XSBundle {
   val vtypeWb = ValidIO(UInt(9.W))
   //vcsr wb from Rob
   val vcsrWbFromRob = new VCSRWIO
+  val vstart = Output(UInt(7.W))
 }
 
 class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with PMPMethod with PMAMethod with HasTriggerConst
