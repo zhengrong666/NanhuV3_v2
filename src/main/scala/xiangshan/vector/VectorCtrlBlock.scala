@@ -37,6 +37,7 @@ import xiangshan.vector.vtyperename._
 import xiangshan.vector.viwaitqueue._
 import xiangshan.vector.virename._
 import xiangshan.vector.dispatch._
+import xiangshan.vector.writeback._
 
 class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
     val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
@@ -46,17 +47,16 @@ class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle  {
 
 class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit p: Parameters) extends VectorBaseModule with HasXSParameter {
     val io = IO(new Bundle {
-        val hartId = Input(UInt(8.W))
-        val cpu_halt = Output(Bool())
+        //val hartId = Input(UInt(8.W))
         //from ctrl decode
         val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
         //from ctrl rename
         val vtypein = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeReg))) //to waitqueue
         val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
         //from ctrl rob
-        val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
+        val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
         val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
-        val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W)))) //to wait queue
+        val mergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))) //to wait queue
         val commit = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO)) // to rename
         val redirect = Flipped(ValidIO(new Redirect))
         //from csr vstart
@@ -67,12 +67,12 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         val vmemDispath = Vec(memDpWidth, DecoupledIO(new MicroOp))
     })
 
-    val videcode = Module(new VIDecodeUnit)
-    val waitqueue = Module(new VIWaitQueue)
-    val virename = Module(new VIRenameWrapper)
-    val dispatch = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
+    val videcode    = Module(new VIDecodeUnit)
+    val waitqueue   = Module(new VIWaitQueue)
+    val virename    = Module(new VIRenameWrapper)
+    val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
 
-      for (i <- 0 until VIDecodeWidth) {
+    for (i <- 0 until VIDecodeWidth) {
         val DecodePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
         io.redirect.valid)
         DecodePipe.ready := videcode.io.in(i).ready
@@ -80,52 +80,45 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         videcode.io.in(i).bits := DecodePipe.bits
     }
 
+    waitqueue.io.enq <> DontCare
+
     videcode.io.canOut := waitqueue.io.enq.canAccept
     for (i <- 0 until VIDecodeWidth) {
         when(io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid) {
-        waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
-        waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
-        val CurrentData = Wire(new VIMop)
-        CurrentData.MicroOp <> videcode.io.out(i).bits
-        CurrentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
-        CurrentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
-        CurrentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
-        CurrentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.uop.vCsrInfo
-        CurrentData.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
-        CurrentData.state := io.vtypein(i).bits.state
-        waitqueue.io.enq.req(i).bits := CurrentData
+            waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
+            waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
+            val currentData = Wire(new VIMop)
+            currentData.MicroOp <> videcode.io.out(i).bits
+            currentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
+            currentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
+            currentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
+            currentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.uop.vCsrInfo
+            currentData.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
+            currentData.state := io.vtypein(i).bits.state
+            waitqueue.io.enq.req(i).bits := currentData
         }
     }
 
-    waitqueue.io.vstart <> io.vstart
-    waitqueue.io.vtypeWbData <> io.vtypewriteback
-    waitqueue.io.robin <> io.allowdeq
-    waitqueue.io.MergeId <> io.MergeIdAllocate
-    waitqueue.io.canRename <> virename.io.canAccept
-    waitqueue.io.redirect <> io.redirect
+    
+    waitqueue.io.vstart         <> io.vstart
+    waitqueue.io.vtypeWbData    <> io.vtypewriteback
+    waitqueue.io.robin          <> io.robPtr
+    waitqueue.io.mergeId        <> io.mergeIdAllocate
+    waitqueue.io.canRename      <> virename.io.canAccept
+    waitqueue.io.redirect       <> io.redirect
 
-    virename.io.uopIn <> waitqueue.io.out
-    virename.io.redirect <> io.redirect
-    virename.io.commit <> io.commit
-    virename.io.redirect <> io.redirect
-
-    dispatch.io.req.uop := virename.io.uopOut
+    virename.io.redirect    <> io.redirect
+    virename.io.uopIn       <> waitqueue.io.out
+    virename.io.commit      <> io.commit
+    
     for((rp, dp) <- virename.io.uopOut zip dispatch.io.req.uop) {
         rp.ready := dispatch.io.req.canDispatch
         dp.bits := rp.bits
-        dp.valid := true.B
+        dp.valid := rp.valid
     }
-
-    val renameOutValidVec = Wire(Vec(VIRenameWidth, Bool()))
-    renameOutValidVec := virename.io.uopOut.map(_.valid)
-    for((dp, v) <- dispatch.io.req.uop zip renameOutValidVec) {
-        dp.valid := v
-    }
-    
     dispatch.io.redirect <> io.redirect
 
     io.vDispatch <> dispatch.io.toVectorCommonRS
     io.vpDispatch <> dispatch.io.toVectorPermuRS
     io.vmemDispath <> dispatch.io.toMem2RS
-
 }

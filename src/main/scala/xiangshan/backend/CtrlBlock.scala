@@ -55,6 +55,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   with HasXSParameter
   with HasCircularQueuePtrHelper
   with HasPerfEvents
+  with HasVectorParameters
 {
 
   val io = IO(new Bundle {
@@ -264,16 +265,18 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   }
 
   //vector instr from scalar
-  vCtrlBlock.io.SIRenameIn <> rename.io.SIRenameOUT
-  vCtrlBlock.io.vtypein <> rename.io.vtypeout
+  require(RenameWidth == VIDecodeWidth)
+  vCtrlBlock.io.SIRenameIn  <> rename.io.SIRenameOUT
+  vCtrlBlock.io.vtypein     <> rename.io.vtypeout
+  // vCtrlBlock.io.robPtr      <> 
+
 
   //vectorCtrlBlock
-  vCtrlBlock.io.hartId := io.hartId
-  vCtrlBlock.io.cpu_halt := io.cpu_halt
+  //vCtrlBlock.io.hartId := io.hartId
   //TODO: vCtrlBlock.io.in 
   
   //diplomacy connects issue with vCtrl
-  vDeq <> vCtrlBlock.io.vDispatch
+  vDeq  <> vCtrlBlock.io.vDispatch
   vpDeq <> vCtrlBlock.io.vpDispatch
 
   dispatch.io.hartId := io.hartId

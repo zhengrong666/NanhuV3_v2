@@ -76,8 +76,8 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
 
     private val wbVFUPair = fromVectorFu.zip(toWritebackNetwork).map(e => {
       //TODO: ?
-      //require(e._1._2 == e._2._2)
-      //require(e._1._2.writeVecRf)
+      require(e._1._2.name == e._2._2.name && e._1._2.id == e._2._2.id)
+      require(e._1._2.writeVecRf || e._1._2.exuType == ExuType.sta)
       (e._1._1, e._2._1, e._1._2)
     })
     private val wb = fromVectorFu
@@ -116,7 +116,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       rfwb.bits := wbin.bits
       wbout.valid := rfwkp.valid && !rfwkp.bits.uop.robIdx.needFlush(io.redirect)
       wbout.bits := rfwkp.bits
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 8, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 7, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
@@ -126,7 +126,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val bitsReg = RegEnable(wbin.bits, wbin.valid && validCond)
       wbout.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
       wbout.bits := bitsReg
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 8, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
     })
     vrf.io.moveOldValReqs := io.moveOldValReqs
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>

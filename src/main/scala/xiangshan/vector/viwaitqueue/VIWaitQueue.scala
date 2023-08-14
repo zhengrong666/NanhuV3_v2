@@ -49,16 +49,16 @@ class WqEnqIO(implicit p: Parameters) extends VectorBaseBundle  {
 class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
 
   val io = IO(new Bundle() {
-    val hartId = Input(UInt(8.W))
+    //val hartId = Input(UInt(8.W))
+    val vstart = Input(UInt(7.W))
+    val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
+    val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
+    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W))))
+    val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
-    val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
-    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W))))
-    val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val out = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
-    val vstart = Input(UInt(7.W))
-    val WqFull = Output(Bool())
-    val canRename = Input(Bool())
+    //val WqFull = Output(Bool())
   })
 
   // pointers

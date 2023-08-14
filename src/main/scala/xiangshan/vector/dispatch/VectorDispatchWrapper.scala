@@ -36,7 +36,7 @@ import xiangshan.backend.dispatch.MemDispatch2Rs
 
 class VectorDispatchReq(implicit p: Parameters) extends VectorBaseBundle {
     val canDispatch = Output(Bool())
-    val uop         = Input(Vec(VIRenameWidth, ValidIO(new MicroOp)))
+    val uop         = Vec(VIRenameWidth, Flipped(ValidIO(new MicroOp)))
 }
 
 class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(implicit p: Parameters) extends VectorBaseModule {
