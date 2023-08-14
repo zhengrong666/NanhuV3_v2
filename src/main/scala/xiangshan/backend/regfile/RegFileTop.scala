@@ -162,12 +162,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       val bi = in._1
       val bo = out._1
 
-      intRfReadIdx = 0
-      fpRfReadIdx = 0
-      pcReadPortIdx = 0
-      vecReadPortIdx = 0
-      vecMoveReqPortIdx = 0
-
       prefix(s"${exuComplexParam.name}_${exuComplexParam.id}") {
         val exuInBundle = WireInit(bi.issue.bits)
         exuInBundle.src := DontCare
@@ -254,12 +248,14 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
               val baseAddrReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.valid && bi.hold)
               val strideReg = RegEnable(intRf.io.read(intRfReadIdx + 1).data, bi.issue.valid && bi.hold)
               val offsetReg = RegEnable(io.vectorReads(vecReadPortIdx).data, bi.issue.valid && bi.hold)
+              val uopReg = RegEnable(bi.issue.bits.uop, bi.issue.valid && bi.hold)
               val addrGen = Module(new AddrGen)
               addrGen.io.base := baseAddrReg
               addrGen.io.stride := strideReg
               addrGen.io.offset := offsetReg
-              addrGen.io.sew := bi.issue.bits.uop.vCsrInfo.vsew
-              addrGen.io.isStride := bi.issue.bits.uop.ctrl.srcType(1) === SrcType.reg
+              addrGen.io.sew := uopReg.vCsrInfo.vsew
+              addrGen.io.isStride := uopReg.ctrl.srcType(1) === SrcType.reg
+              addrGen.io.uopIdx := uopReg.uopIdx
               exuInBundle.src(0) := addrGen.io.target
               exuInBundle.uop.ctrl.imm := addrGen.io.imm
             }

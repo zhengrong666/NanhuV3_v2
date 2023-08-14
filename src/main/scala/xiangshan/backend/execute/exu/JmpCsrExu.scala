@@ -55,6 +55,7 @@ class FakeMou()(implicit p:Parameters) extends FunctionUnit(p(XSCoreParamsKey).X
   issueToMou.valid := io.in.valid
   issueToMou.bits.src := io.in.bits.src
   issueToMou.bits.uop := io.in.bits.uop
+  issueToMou.bits.vm := DontCare
   io.out.valid := writebackFromMou.valid
   io.out.bits := writebackFromMou.bits
   writebackFromMou.ready := io.out.ready

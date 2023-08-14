@@ -40,6 +40,7 @@ abstract class BasicExuImpl(outer:BasicExu) extends LazyModuleImp(outer){
     finalIssueSignals.valid := issuePort.issue.valid && !issuePort.issue.bits.uop.robIdx.needFlush(redirectIn)
     finalIssueSignals.bits.uop := issuePort.issue.bits.uop
     finalIssueSignals.bits.src := issuePort.issue.bits.src
+    finalIssueSignals.bits.vm := issuePort.issue.bits.vm
     if(hasBypass) {
       val bypass = bypassIn
       val bypassData = bypass.map(_.bits.data)
