@@ -103,7 +103,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     waitqueue.io.vstart         <> io.vstart
     waitqueue.io.vtypeWbData    <> io.vtypewriteback
     waitqueue.io.robin          <> io.robPtr
-    waitqueue.io.MergeId        <> io.mergeIdAllocate
+    waitqueue.io.mergeId        <> io.mergeIdAllocate
     waitqueue.io.canRename      <> virename.io.canAccept
     waitqueue.io.redirect       <> io.redirect
 
