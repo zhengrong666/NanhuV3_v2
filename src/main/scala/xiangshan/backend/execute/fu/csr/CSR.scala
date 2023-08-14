@@ -29,6 +29,7 @@ import xiangshan.cache._
 import xs.utils.MaskedRegMap.WritableMask
 import xs.utils._
 import xiangshan.backend.execute.fu.csr.vcsr._
+import xiangshan.backend.execute.fu.FuOutput
 
 // Trigger Tdata1 bundles
 trait HasTriggerConst {
@@ -110,7 +111,7 @@ class CSRFileIO(implicit p: Parameters) extends XSBundle {
   // distributed csr write
   val distributedUpdate = Vec(2, Flipped(new DistributedCSRUpdateReq))
   //vcsr to VectorCtrlPipeline
-  val vtypeWb = ValidIO(UInt(9.W))
+  val vtypeWb = ValidIO(new FuOutput(64))
   //vcsr wb from Rob
   val vcsrWbFromRob = new VCSRWIO
   val vstart = Output(UInt(7.W))

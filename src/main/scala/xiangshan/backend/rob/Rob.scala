@@ -206,7 +206,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     //mergeBuffer wb
     val wbFromMergeBuffer = Vec(VectorMergeWbWidth, Flipped(ValidIO(new ExuOutput)))
     //store wb
-    val wbFromStoreQueue = Flipped(Vec(2,Decoupled(new ExuOutput)))
+    //val wbFromStoreQueue = Flipped(Vec(2,Decoupled(new ExuOutput)))
   })
 
   val stdWb = writebackIn.filter(wb => wb._1.exuType == ExuType.std)
@@ -796,12 +796,12 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   private val fflags_wb = wbWithFFlag.map(_._2)
-  private val sq_wb = io.wbFromStoreQueue
+  //private val sq_wb = io.wbFromStoreQueue
 
   val fflagsWbNums = fflags_wb.length
 
   val csrDataModule = Module(new SyncDataModuleTemplate(
-    new CSRDataEntry, RobSize, CommitWidth, fflagsWbNums + 2, "csrEntry"
+    new CSRDataEntry, RobSize, CommitWidth, fflagsWbNums, "csrEntry"
   ))
 
   for(i <- 0 until fflagsWbNums) {
@@ -812,13 +812,13 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     csrDataModule.io.wdata(i).vxsat    := 0.U
   }
 
-  for(i <- 0 until 2){
-    csrDataModule.io.wen(fflagsWbNums + i)            := sq_wb(i).valid
-    csrDataModule.io.waddr(fflagsWbNums + i)          := sq_wb(i).bits.uop.robIdx.value
-    csrDataModule.io.wdata(fflagsWbNums + i).vstart   := sq_wb(i).bits.uop.uopIdx
-    csrDataModule.io.wdata(fflagsWbNums + i).vxsat    := sq_wb(i).bits.vxsat
-    csrDataModule.io.wdata(fflagsWbNums + i).fflags  := 0.U
-  }
+  // for(i <- 0 until 2){
+  //   csrDataModule.io.wen(fflagsWbNums + i)            := sq_wb(i).valid
+  //   csrDataModule.io.waddr(fflagsWbNums + i)          := sq_wb(i).bits.uop.robIdx.value
+  //   csrDataModule.io.wdata(fflagsWbNums + i).vstart   := sq_wb(i).bits.uop.uopIdx
+  //   csrDataModule.io.wdata(fflagsWbNums + i).vxsat    := sq_wb(i).bits.vxsat
+  //   csrDataModule.io.wdata(fflagsWbNums + i).fflags  := 0.U
+  // }
 
   csrDataModule.io.raddr := VecInit(deqPtrVec_next.map(_.value))
   csrDataRead := csrDataModule.io.rdata

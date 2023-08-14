@@ -90,7 +90,7 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
         dqCommon.io.enq.req(i).valid    := dqCommonMask(i)
         dqMem.io.enq.req(i).valid       := dqMemMask(i)
         dqPermu.io.enq.req(i).valid     := dqPermuMask(i)
-        }
+    }
 
     io.toVectorCommonRS <> dqCommon.io.deq
     io.toVectorPermuRS  <> dqPermu.io.deq

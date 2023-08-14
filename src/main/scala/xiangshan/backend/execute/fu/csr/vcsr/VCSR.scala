@@ -34,6 +34,7 @@ import utility.MaskedRegMap
 import xiangshan.backend.execute.fu.FUWithRedirect
 import xs.utils._
 import xiangshan.backend.execute.fu.csr._
+import xiangshan.backend.execute.fu.FuOutput
 
 class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
     val vtype   = UInt(XLEN.W)
@@ -57,7 +58,7 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vcsr_io = IO(new Bundle {
         val vcsrInfo = Output(new VCSRInfo)
         val wbFromRob = new VCSRWIO
-        val vtypeWb = ValidIO(UInt(9.W))
+        val vtypeWb = ValidIO(new FuOutput(64))
         val wen = Input(Bool())
     })
 
@@ -129,9 +130,10 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
     vtype := Cat(vill, 0.U(55.W), vtypeValue)
 
-    val vtypeWb = Cat(vill, vtypeValue)
-    vcsr_io.vtypeWb.bits := vtypeWb
-    vcsr_io.vtypeWb.valid := io.in.valid
+    //val vtypeWb = Cat(vill, vtypeValue)
+    vcsr_io.vtypeWb.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
+    vcsr_io.vtypeWb.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
+    // vcsr_io.vtypeWb.valid := io.in.valid
 
     val vectorCSRMapping = Map(
         MaskedRegMap(vstartAddr, vstart),

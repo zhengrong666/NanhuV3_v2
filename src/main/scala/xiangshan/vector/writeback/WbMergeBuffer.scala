@@ -112,17 +112,17 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
 
     //merge, connect with EXU
     for((merge, i) <- io.exu.zipWithIndex) {
-        val entry       = mergeTable(merge.bits.uop.mergeIdx)
+        val entry       = mergeTable(merge.bits.uop.mergeIdx.value)
         val mergeId     = merge.bits.uop.mergeIdx
         val wbmaskNext  = entry.wbmask | merge.bits.wbmask
         when(merge.valid && wbmaskNext.andR) {
-            mergeTable(mergeId).canWb   := true.B
-            mergeTable(mergeId).wbmask  := wbmaskNext
+            mergeTable(mergeId.value).canWb   := true.B
+            mergeTable(mergeId.value).wbmask  := wbmaskNext
         }.elsewhen(merge.valid && (merge.bits.uop.robIdx === entry.robIdx)) {
-            mergeTable(mergeId).wbmask := wbmaskNext
+            mergeTable(mergeId.value).wbmask := wbmaskNext
         }.elsewhen(merge.valid && (merge.bits.uop.robIdx =/= entry.robIdx)) {
-            mergeTable(mergeId).wbmask := wbmaskNext
-            mergeTable(mergeId).robIdx := merge.bits.uop.robIdx
+            mergeTable(mergeId.value).wbmask := wbmaskNext
+            mergeTable(mergeId.value).robIdx := merge.bits.uop.robIdx
         }
     }
 

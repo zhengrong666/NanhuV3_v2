@@ -42,8 +42,9 @@ import xiangshan.backend.decode.{DecodeStage, FusionDecoder}
 import xiangshan.backend.dispatch.{Dispatch, MemDispatch2Rs, DispatchQueue}
 import xiangshan.backend.execute.fu.csr.PFEvent
 import xiangshan.backend.rename.{Rename, RenameTableWrapper}
-import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO}
+import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
+import xiangshan.backend.execute.fu.FuOutput
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -95,6 +96,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     })
     //to waitQueue
     val vstart = Input(UInt(7.W))
+    val vtypeWb = Vec(4, Flipped(ValidIO(new FuOutput(64))))
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
@@ -283,6 +285,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.redirect := io.redirectIn
   rename.io.robCommits := rob.io.commits
   rename.io.ssit := ssit.io.rdata
+  rename.io.robEnq <> rob.io.enq
+  rename.io.vtypeWb <> io.vtypeWb
 
   // pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
@@ -291,11 +295,23 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
+  val vCtrlBlockRobPtrAlloc = Wire(Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))))
+  for((vCAlloc, i) <- vCtrlBlockRobPtrAlloc.zipWithIndex) {
+    vCAlloc.bits := rob.io.enq.resp(i)
+    vCAlloc.valid := rename.io.vtypeout(i).valid
+  }
   vCtrlBlock.io.SIRenameIn  <> rename.io.SIRenameOUT
   vCtrlBlock.io.vtypein     <> rename.io.vtypeout
-  vCtrlBlock.io.robPtr      <> DontCare
+  // for(i <- 0 until VIRenameWidth) {
+  //   vCtrlBlock.io.robPtr(i).bits := rob.io.enq.resp(i)
+  //   vCtrlBlock.io.robPtr(i).valid := rename.io.out(i).valid && rename.io.out.bits
+  // }
   vCtrlBlock.io.vtypewriteback <> DontCare
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
+
+  rob.io.wbFromMergeBuffer <> outer.wbMergeBuffer.module.io.rob
+  outer.wbMergeBuffer.module.io.redirect <> io.redirectIn
+  
   
   //TODO: select to vCtrl
   vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
@@ -317,7 +333,6 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   dispatch.io.hartId := io.hartId
   dispatch.io.redirect := io.redirectIn
-  dispatch.io.enqRob <> rob.io.enq
   dispatch.io.toIntDq <> intDq.io.enq
   dispatch.io.toFpDq <> fpDq.io.enq
   dispatch.io.toLsDq <> lsDq.io.enq

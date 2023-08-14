@@ -272,7 +272,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   for (i <- 0 until VIDecodeWidth) {
     when(io.mergeId(i).valid && WqStateAraay(mergePtr.value).mergeidEn === false.B) {
       WqStateAraay(mergePtr.value).mergeidEn := true.B
-      WqStateAraay(mergePtr.value).mergeIdx := io.mergeId(i).bits.value
+      WqStateAraay(mergePtr.value).mergeIdx := io.mergeId(i).bits
       mergePtr := mergePtr + 1.U
     }
     io.mergeId(i).ready := !((mergePtr + 1.U) === enqPtr)

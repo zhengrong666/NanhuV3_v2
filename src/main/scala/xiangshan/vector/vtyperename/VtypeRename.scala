@@ -24,6 +24,7 @@ import xiangshan._
 import xiangshan.vector._
 import xiangshan.backend.rob._
 import xs.utils._
+import xiangshan.backend.execute.fu.FuOutput
 
 //class VtypeInfo(implicit p: Parameters) extends CfCtrl{
 //  val robIdx = new RobPtr
@@ -66,7 +67,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val in = Vec(enqnum, Flipped(ValidIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeReg))
     val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
-    val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
+    val writeback = Vec(4, Flipped(ValidIO(new FuOutput(64))))
   })
 
   //TODO:

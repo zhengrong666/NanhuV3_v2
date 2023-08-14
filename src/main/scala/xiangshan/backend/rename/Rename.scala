@@ -23,16 +23,18 @@ import xiangshan._
 import utils._
 import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.execute.fu.jmp.JumpOpType
-import xiangshan.backend.rob.RobPtr
+import xiangshan.backend.rob.{RobPtr, RobEnqIO}
 import xiangshan.backend.rename.freelist._
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename.{VtypeRename, VtypeReg}
 import xiangshan.mem.mdp._
 import xs.utils.GTimer
+import xiangshan.backend.execute.fu.FuOutput
 
 class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
     val redirect = Flipped(ValidIO(new Redirect))
+    val robEnq = Flipped(new RobEnqIO)
     val robCommits = Flipped(new RobCommitIO)
     // from decode
     val in = Vec(RenameWidth, Flipped(DecoupledIO(new CfCtrl)))
@@ -51,6 +53,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // to vector
     val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
     val vtypeout = Vec(VIDecodeWidth, ValidIO(new VtypeReg))
+    val vtypeWb = Vec(4, Flipped(ValidIO(new FuOutput(64))))
   })
 
   // create free list and rat
@@ -58,7 +61,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val intRefCounter = Module(new RefCounter(NRPhyRegs))
   val fpFreeList = Module(new StdFreeList(NRPhyRegs - 32))
   val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
-
+  vtyperename.io.writeback <> io.vtypeWb
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
     {if(fp) x.ctrl.fpWen else x.ctrl.rfWen && (x.ctrl.ldest =/= 0.U)}
@@ -165,8 +168,13 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // Assign performance counters
     uops(i).debugInfo.renameTime := GTimer()
 
-    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
+    //out
+    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && io.robEnq.canAccept
     io.out(i).bits := uops(i)
+    io.robEnq.needAlloc(i) := io.out(i).valid
+    io.robEnq.req(i).bits := uops(i)
+    io.robEnq.req(i).valid := io.out(i).valid
+    uops(i).robIdx := io.robEnq.resp(i)
 
     vtyperename.io.in <> DontCare
     vtyperename.io.in(i).bits := uops(i)
