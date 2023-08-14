@@ -44,7 +44,7 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
         val uopOut = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
         
         //commit, from ROB via RobIdxQueue
-        val commit = new VIRobIdxQueueEnqIO
+        val commit = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO))
     })
 
     val rename = Module(new VIRename)

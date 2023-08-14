@@ -49,6 +49,9 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
     val memDeqNum = PopCount(io.memIn.map(_.fire()))
     val vmemDeqNum = PopCount(io.vmemIn.map(_.fire()))
 
+    val vRobIdx = Reg(new RobPtr)
+    val vRobIdxValid = RegInit(Bool(), false.B)
+
     memCanDeqVec(0) := io.memIn(0).valid && (!io.memIn(0).bits.ctrl.isVector)
     for(i <- 1 until arbWidth) {
         memCanDeqVec(i) := io.memIn(i).valid && (!io.memIn(i).bits.ctrl.isVector) && memCanDeqVec(i-1)
@@ -70,8 +73,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
         in.ready := (arbState === s_vmem) && out.ready
     }
 
-    val vRobIdx = Reg(new RobPtr)
-    val vRobIdxValid = RegInit(Bool(), false.B)
+    
 
     when(arbState === s_mem && io.memIn(0).fire() && io.memIn(0).bits.ctrl.isVector) {
         arbState := s_vmem

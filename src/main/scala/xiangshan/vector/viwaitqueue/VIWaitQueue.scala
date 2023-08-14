@@ -55,7 +55,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
     val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W))))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val out = Vec(VIRenameWidth, ValidIO(new MicroOp))
+    val out = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
     val vstart = Input(UInt(7.W))
     val WqFull = Output(Bool())
     val canRename = Input(Bool())
