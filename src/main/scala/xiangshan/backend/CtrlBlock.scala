@@ -16,28 +16,34 @@
 
 package xiangshan.backend
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+
+import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
+
 import utils._
+import xs.utils._
+
 import xiangshan._
+import xiangshan.ExceptionNO._
+
+import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
+import xiangshan.mem.LsqEnqIO
+
+import xiangshan.vector._
+import xiangshan.vector.SIRenameInfo
+import xiangshan.vector.vtyperename._
+import xiangshan.vector.dispatch._
+import xiangshan.vector.writeback._
+import xiangshan.vector.VectorCtrlBlock
+
 import xiangshan.backend.decode.{DecodeStage, FusionDecoder}
 import xiangshan.backend.dispatch.{Dispatch, MemDispatch2Rs, DispatchQueue}
 import xiangshan.backend.execute.fu.csr.PFEvent
 import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO}
-import xiangshan.vector.SIRenameInfo
-import xiangshan.vector.vtyperename._
-import xiangshan.vector.dispatch._
-import xiangshan.vector.writeback._
-import xiangshan.vector._
-import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
-import xiangshan.ExceptionNO._
 import xiangshan.backend.issue.DqDispatchNode
-import xiangshan.mem.LsqEnqIO
-import xs.utils._
-import xiangshan.vector.VectorCtrlBlock
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -53,11 +59,10 @@ class CtrlBlock(implicit p: Parameters) extends LazyModule with HasXSParameter {
 
 class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasXSParameter
+  with HasVectorParameters
   with HasCircularQueuePtrHelper
   with HasPerfEvents
-  with HasVectorParameters
 {
-
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))
     val cpu_halt = Output(Bool())
@@ -88,7 +93,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
         val lsdqFull  = Input(Bool())
       }
     })
-
+    //to waitQueue
+    val vstart = Input(UInt(7.W))
+    //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
   })
@@ -96,38 +103,52 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   require(outer.dispatchNode.out.count(_._2._1.isFpRs) == 1)
   require(outer.dispatchNode.out.count(_._2._1.isMemRs) == 1)
   private val intDispatch = outer.dispatchNode.out.filter(_._2._1.isIntRs).map(e => (e._1, e._2._1)).head
-  private val fpDispatch = outer.dispatchNode.out.filter(_._2._1.isFpRs).map(e => (e._1, e._2._1)).head
-  private val lsDispatch = outer.dispatchNode.out.filter(_._2._1.isMemRs).map(e => (e._1, e._2._1)).head
-  private val intDeq = intDispatch._1
-  private val fpDeq = fpDispatch._1
-  private val lsDeq = lsDispatch._1
+  private val fpDispatch  = outer.dispatchNode.out.filter(_._2._1.isFpRs).map(e => (e._1, e._2._1)).head
+  private val lsDispatch  = outer.dispatchNode.out.filter(_._2._1.isMemRs).map(e => (e._1, e._2._1)).head
+  private val intDeq  = intDispatch._1
+  private val fpDeq   = fpDispatch._1
+  private val lsDeq   = lsDispatch._1
   
   //vector
-  private val vDispatch = outer.dispatchNode.out.filter(_._2._1.isVecRs).map(e => (e._1, e._2._1)).head
-  private val vpDispatch = outer.dispatchNode.out.filter(_._2._1.isVpRs).map(e => (e._1, e._2._1)).head
-  private val vDeq = vDispatch._1
+  private val vDispatch   = outer.dispatchNode.out.filter(_._2._1.isVecRs).map(e => (e._1, e._2._1)).head
+  private val vpDispatch  = outer.dispatchNode.out.filter(_._2._1.isVpRs).map(e => (e._1, e._2._1)).head
+  private val vDeq  = vDispatch._1
   private val vpDeq = vpDispatch._1
-  private val vdWidth = vDispatch._2.bankNum
-  private val vpdWidth = vpDispatch._2.bankNum
-  private val mempdWidth = coreParams.rsBankNum
+  private val vdWidth     = vDispatch._2.bankNum
+  private val vpdWidth    = vpDispatch._2.bankNum
+  private val mempdWidth  = coreParams.rsBankNum
 
-  private val decode = Module(new DecodeStage)
+  //Decode
+  private val decode        = Module(new DecodeStage)
   private val fusionDecoder = Module(new FusionDecoder)
+
+  //Rename
+  private val rename = Module(new Rename)
   private val rat = Module(new RenameTableWrapper)
+
+  //memory
   private val ssit = Module(new SSIT)
   private val waittable = Module(new WaitTable)
-  private val rename = Module(new Rename)
+  private val lfst = Module(new LFST)
+  
+  //Dispatch
   private val dispatch = Module(new Dispatch)
+  private val memDispatch2Rs = Module(new MemDispatch2Rs)
+
+  //DispatchQueue
   private val intDq = Module(new DispatchQueue(dpParams.IntDqSize, RenameWidth, intDispatch._2.bankNum))
   private val fpDq = Module(new DispatchQueue(dpParams.FpDqSize, RenameWidth, fpDispatch._2.bankNum))
   private val lsDq = Module(new DispatchQueue(dpParams.LsDqSize, RenameWidth, lsDispatch._2.bankNum))
+
+  //ROB
   private val rob = outer.rob.module
-  private val memDispatch2Rs = Module(new MemDispatch2Rs)
-  //vector module
+
+  //Vector
   private val vCtrlBlock = Module(new VectorCtrlBlock(vdWidth, vpdWidth, mempdWidth))
   private val memDqArb = Module(new MemDispatchArbiter(coreParams.rsBankNum))
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 
+  //Redirect
   for (i <- 0 until CommitWidth) {
     val is_commit = rob.io.commits.commitValid(i) && rob.io.commits.isCommit
     io.frontend.toFtq.rob_commits(i).valid := RegNext(is_commit)
@@ -175,10 +196,11 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     XSPerfAccumulate("s2Redirect_pend_cycles", stage2Redirect_valid_when_pending)
   }
 
-  decode.io.in <> io.frontend.cfVec
+  //Decode
+  decode.io.in      <> io.frontend.cfVec
+  decode.io.intRat  <> rat.io.intReadPorts
+  decode.io.fpRat   <> rat.io.fpReadPorts
   decode.io.csrCtrl := RegNext(io.csrCtrl)
-  decode.io.intRat <> rat.io.intReadPorts
-  decode.io.fpRat <> rat.io.fpReadPorts
 
   // memory dependency predict
   // when decode, send fold pc to mdp
@@ -198,17 +220,20 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   waittable.io.csrCtrl := RegNext(io.csrCtrl)
 
   // LFST lookup and update
-  private val lfst = Module(new LFST)
   lfst.io.redirect := Pipe(io.redirectIn)
   lfst.io.storeIssue.zip(io.stIn).foreach({case(a, b) => a := Pipe(b)})
   lfst.io.csrCtrl <> RegNext(io.csrCtrl)
   lfst.io.dispatch <> dispatch.io.lfst
 
-  rat.io.robCommits := rob.io.commits
+  //rename(only int and fp)
+  //TODO: rob deq need to select
+  rat.io.robCommits     := rob.io.commits
   rat.io.intRenamePorts := rename.io.intRenamePorts
-  rat.io.fpRenamePorts := rename.io.fpRenamePorts
-  io.debug_int_rat := rat.io.debug_int_rat
-  io.debug_fp_rat := rat.io.debug_fp_rat
+  rat.io.fpRenamePorts  := rename.io.fpRenamePorts
+
+  //for debug
+  io.debug_int_rat  := rat.io.debug_int_rat
+  io.debug_fp_rat   := rat.io.debug_fp_rat
 
   // pipeline between decode and rename
   for (i <- 0 until RenameWidth) {
@@ -268,14 +293,25 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   require(RenameWidth == VIDecodeWidth)
   vCtrlBlock.io.SIRenameIn  <> rename.io.SIRenameOUT
   vCtrlBlock.io.vtypein     <> rename.io.vtypeout
-  // vCtrlBlock.io.robPtr      <> 
-
+  vCtrlBlock.io.robPtr      <> DontCare
+  vCtrlBlock.io.vtypewriteback <> DontCare
+  vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
+  
+  //TODO: select to vCtrl
+  vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
+  vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
+  vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
+  vCtrlBlock.io.commit.bits.mask := rob.io.commits.commitValid
+  for(i <- 0 until CommitWidth) {
+    vCtrlBlock.io.commit.bits.robIdx(i) := rob.io.commits.robIdx(i)
+  }
+  vCtrlBlock.io.redirect <> io.redirectIn
+  vCtrlBlock.io.vstart := io.vstart
 
   //vectorCtrlBlock
   //vCtrlBlock.io.hartId := io.hartId
   //TODO: vCtrlBlock.io.in 
   
-  //diplomacy connects issue with vCtrl
   vDeq  <> vCtrlBlock.io.vDispatch
   vpDeq <> vCtrlBlock.io.vpDispatch
 

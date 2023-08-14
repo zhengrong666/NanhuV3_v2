@@ -96,12 +96,16 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     when(io.in(i).valid && io.in(i).bits.ctrl.isVector) {
       val tempVtype = VtypeRegTable(tailPtr.value)
       //TODO: 
+<<<<<<< HEAD
       //io.out(i).bits <> tempVtype.cf
       io.out(i).bits.uop := io.in(i).bits
       io.out(i).bits.state := tempVtype.state
       io.out(i).bits.vtypeIdx := tempVtype.vtypeIdx
       io.out(i).bits.uop.vCsrInfo := tempVtype.uop.vCsrInfo
       io.out(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVector
+=======
+      io.out(i).bits <> tempVtype
+>>>>>>> 76add635b4875158edcc38314bb6a2736f62bff6
       val CurrentVL = tempVtype.uop.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.uop.vCsrInfo.VLMAXGen()
       val tempvtype = WireInit((0.U.asTypeOf(new VtypeReg)))
