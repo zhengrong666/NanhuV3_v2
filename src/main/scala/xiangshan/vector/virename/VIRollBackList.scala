@@ -215,7 +215,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     walkLogicIdx    := walkEntry.map(entry => entry.logicRegIdx)
 
     io.commitPort.resp.lrIdx    := Mux(io.commitPort.req.doCommit, commitLogicIdx, walkLogicIdx)
-    io.commitPort.resp.mask     := Mux(io.commitPort.req.doCommit, commitMask, walkMask)
+    io.commitPort.resp.mask     := Mux(io.commitPort.req.doCommit, commitMask.asUInt, walkMask.asUInt)
     io.commitPort.resp.prIdxOld := Mux(io.commitPort.req.doCommit, commitPhyIdxOld, walkPhyIdxOld)
     io.commitPort.resp.prIdxNew := Mux(io.commitPort.req.doCommit, commitPhyIdxNew, walkPhyIdxNew)
     io.commitPort.resp.doCommit := io.commitPort.req.doCommit

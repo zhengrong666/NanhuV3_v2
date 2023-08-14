@@ -58,9 +58,9 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
         val redirect    = Flipped(ValidIO(new Redirect))
         //rename, from waitqueue
         val renameReq   = Vec(VIRenameWidth, Flipped(DecoupledIO(new VIRenameReqLr)))
-        val renameResp  = Vec(VIRenameWidth, Flipped(DecoupledIO(new VIRenameResp)))
+        val renameResp  = Vec(VIRenameWidth, DecoupledIO(new VIRenameResp))
         //commit, from ROB
-        val commitReq   = new VIRobIdxQueueEnqIO
+        val commitReq   = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO))
         val hasWalk     = Output(Bool())
     })
 

@@ -52,7 +52,7 @@ class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
         io.toDqMask(2) := io.req.map(r => FuType.isVecPermutation(r.ctrl.fuType))
     }
 
-    val selNet = new VectorInstrSelectNetwork(VectorDispatchTypeNum)
+    val selNet = Module(new VectorInstrSelectNetwork(VectorDispatchTypeNum))
     selNet.io.req := io.fromRename.map(_.bits)
 
     val validVec = Wire(Vec(VIRenameWidth, Bool()))

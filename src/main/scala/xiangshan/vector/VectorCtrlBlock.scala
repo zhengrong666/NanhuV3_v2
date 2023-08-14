@@ -57,7 +57,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         val allowdeq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
         val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
         val MergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(UInt(log2Up(VectorMergeBufferDepth).W)))) //to wait queue
-        val commit = new VIRobIdxQueueEnqIO // to rename
+        val commit = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO)) // to rename
         val redirect = Flipped(ValidIO(new Redirect))
         //from csr vstart
         val vstart = Input(UInt(7.W))
@@ -112,7 +112,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     dispatch.io.req.uop := virename.io.uopOut
     for((rp, dp) <- virename.io.uopOut zip dispatch.io.req.uop) {
         rp.ready := dispatch.io.req.canDispatch
-        dp := rp.bits
+        dp.bits := rp.bits
+        dp.valid := true.B
     }
 
     val renameOutValidVec = Wire(Vec(VIRenameWidth, Bool()))

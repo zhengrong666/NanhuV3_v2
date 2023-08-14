@@ -83,9 +83,9 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
     dqMem.io.redirect <> io.redirect
 
     for((uop, i) <- io.req.uop.zipWithIndex) {
-        dqCommon.io.enq.req(i).bits := uop
-        dqMem.io.enq.req(i).bits    := uop
-        dqPermu.io.enq.req(i).bits  := uop
+        dqCommon.io.enq.req(i).bits := uop.bits
+        dqMem.io.enq.req(i).bits    := uop.bits
+        dqPermu.io.enq.req(i).bits  := uop.bits
         
         dqCommon.io.enq.req(i).valid    := dqCommonMask(i)
         dqMem.io.enq.req(i).valid       := dqMemMask(i)
