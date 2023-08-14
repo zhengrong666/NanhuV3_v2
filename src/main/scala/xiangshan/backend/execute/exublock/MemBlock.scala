@@ -705,6 +705,8 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
 
+  lsq.io.storeQueueDcache := DontCare
+
   val SbSq2Dcache = RegInit(0.U(1.W)) //default connect sbuffer
   dcache.io.lsu.store <> sbuffer.io.dcache
 

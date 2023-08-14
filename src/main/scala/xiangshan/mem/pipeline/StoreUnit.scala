@@ -190,6 +190,7 @@ class StoreUnit_S3(implicit p: Parameters) extends XSModule {
   val wbIsEnable = io.in.bits.uop.loadStoreEnable
   io.in.ready := true.B
 
+  io.stout := DontCare
   io.stout.valid := io.in.valid && !io.in.bits.uop.robIdx.needFlush(io.redirect)
   io.stout.bits.uop := io.in.bits.uop
   io.stout.bits.data := DontCare
