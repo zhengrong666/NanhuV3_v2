@@ -68,6 +68,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val writeback = Vec(numWbPorts, Flipped(ValidIO(new ExuOutput)))
   })
 
+  //TODO:
   val VtypeRegTable = RegInit(VecInit(Seq.tabulate(size - 1)(i => new VtypeReg)))
 
   class VtypePtr extends CircularQueuePtr[VtypePtr](size)
@@ -90,12 +91,14 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
   for (i <- 0 until enqnum) {
     when(io.in(i).valid) {
       val tempVtype = VtypeRegTable(tailPtr.value)
-      io.out(i).bits <> tempVtype.cf
+      //TODO: 
+      //io.out(i).bits <> tempVtype.cf
       val CurrentVL = tempVtype.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.vCsrInfo.VLMAXGen()
       io.out(i).valid := io.canAllocate
-      val tempvtype = new VtypeReg
+      val tempvtype = Wire(new VtypeReg)
       val freePtr = tailPtr + 1.U
+      //TODO:
       tempvtype <> io.in(i).bits
       tempvtype.vtypeIdx := freePtr
       tempvtype.vCsrInfo.oldvl := CurrentVL
@@ -104,13 +107,14 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       tempvtype.vCsrInfo.vsew := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(28, 26), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(27, 25), 0.U))
       tempvtype.vCsrInfo.vlmul := Mux(io.in(i).bits.cf.instr(31) === 0.U, io.in(i).bits.cf.instr(25, 23), Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(24, 22), 0.U))
       tempvtype.vCsrInfo.vlmax := Mux(io.in(i).bits.cf.instr(31) === 0.U, tempvtype.vCsrInfo.VLMAXGen().U, Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, tempvtype.vCsrInfo.VLMAXGen().U, 0.U))
+      //TODO:---
       tempvtype.vCsrInfo.vl := Mux(io.in(i).bits.cf.instr(31) === 0.U,
         Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, Mux(io.in(i).bits.ctrl.lsrc(3) === 0.U, CurrentVL, CurrentVLMAX.U), 0.U),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(19, 15), 0.U))
       tempvtype.state := Mux(io.in(i).bits.cf.instr(31) === 0.U,
         Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, s_valid, s_busy),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, s_valid, s_busy))
-
+      //---------
       //        if (io.in(i).bits.cf.instr(31) == 0) {
       //          tempvtype.vCsrInfo.vma := io.in(i).bits.cf.instr(30)
       //          tempvtype.vCsrInfo.vta := io.in(i).bits.cf.instr(29)
