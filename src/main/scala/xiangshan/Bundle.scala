@@ -39,8 +39,9 @@ import xiangshan.backend.execute.fu.fpu.FPUCtrlSignals
 import xiangshan.frontend.Ftq_Redirect_SRAMEntry
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
 import xs.utils.DataChanged
-
 import xiangshan.vector._
+import xiangshan.vector.writeback.WbMergeBufferPtr
+
 import scala.math.max
 
 class ValidUndirectioned[T <: Data](gen: T) extends Bundle {
@@ -251,7 +252,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val isTail = Bool()
   val isPrestart = Bool()
   val canRename = Bool()
-  val mergeIdx = UInt(log2Up(VectorMergeBufferDepth).W)
+  val mergeIdx = new WbMergeBufferPtr(VectorMergeBufferDepth)
   val loadStoreEnable = Bool()
   val vtypeRegIdx = UInt(4.W)
 

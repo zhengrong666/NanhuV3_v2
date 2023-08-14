@@ -91,13 +91,19 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
    */
 
   for (i <- 0 until enqnum) {
-    when(io.in(i).valid) {
+    io.out(i).valid := false.B
+    io.out(i).bits := DontCare
+    when(io.in(i).valid && io.in(i).bits.ctrl.isVector) {
       val tempVtype = VtypeRegTable(tailPtr.value)
       //TODO: 
       //io.out(i).bits <> tempVtype.cf
+      io.out(i).bits.uop := io.in(i).bits
+      io.out(i).bits.state := tempVtype.state
+      io.out(i).bits.vtypeIdx := tempVtype.vtypeIdx
+      io.out(i).bits.uop.vCsrInfo := tempVtype.uop.vCsrInfo
+      io.out(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVector
       val CurrentVL = tempVtype.uop.vCsrInfo.vl
       val CurrentVLMAX = tempVtype.uop.vCsrInfo.VLMAXGen()
-      io.out(i).valid := io.canAllocate
       val tempvtype = WireInit((0.U.asTypeOf(new VtypeReg)))
       val freePtr = tailPtr + 1.U
       //TODO:
@@ -114,7 +120,6 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       tempvtype.uop.vCsrInfo.vl := Mux(io.in(i).bits.cf.instr(31) === 0.U,
         Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, Mux(io.in(i).bits.ctrl.lsrc(2) === 0.U, CurrentVL, CurrentVLMAX.U), 0.U),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, io.in(i).bits.cf.instr(19, 15), 0.U))
-//      tempvtype.uop.vCsrInfo.vl := 0.U
       tempvtype.state := Mux(io.in(i).bits.cf.instr(31) === 0.U,
         Mux(io.in(i).bits.ctrl.lsrc(0) === 0.U, s_valid, s_busy),
         Mux(io.in(i).bits.cf.instr(31, 30) === 11.U, s_valid, s_busy))
@@ -147,7 +152,6 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
       //        }
       VtypeRegTable(freePtr.value) := tempvtype
       tailPtr := Mux(doRename, freePtr, tailPtr)
-
     }
   }
 
