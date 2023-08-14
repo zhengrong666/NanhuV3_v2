@@ -8,11 +8,8 @@ import xiangshan.vector._
 import xs.utils._
 import utils._
 import xiangshan.backend.rob._
-<<<<<<< HEAD
 import xiangshan.vector.writeback.WbMergeBufferPtr
-=======
 import xiangshan.vector.writeback._
->>>>>>> 76add635b4875158edcc38314bb6a2736f62bff6
 
 
 class VIMop(implicit p: Parameters) extends VectorBaseBundle {
@@ -58,11 +55,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val vstart = Input(UInt(7.W))
     val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-<<<<<<< HEAD
-    val MergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
-=======
     val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
->>>>>>> 76add635b4875158edcc38314bb6a2736f62bff6
     val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
     val enq = new WqEnqIO
