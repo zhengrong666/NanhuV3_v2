@@ -79,6 +79,5 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
     io.allocate <> bufferImp.io.waitqueue
 
     bufferImp.io.redirect <> io.redirect
-    bufferImp.io.waitqueue <> io.allocate
     io.rob <> bufferImp.io.rob
 }

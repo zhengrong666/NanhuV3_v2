@@ -624,7 +624,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
     // Lsq to std unit's rs
     lsq.io.storeDataIn(i) := stData(i)
-
+    stData(i).ready := true.B
 
     // 1. sync issue info to store set LFST
     // 2. when store issue, broadcast issued sqPtr to wake up the following insts
@@ -704,6 +704,8 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
+
+  lsq.io.storeQueueDcache := DontCare
 
   val SbSq2Dcache = RegInit(0.U(1.W)) //default connect sbuffer
   dcache.io.lsu.store <> sbuffer.io.dcache

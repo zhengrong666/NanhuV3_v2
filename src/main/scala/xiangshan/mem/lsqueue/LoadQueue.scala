@@ -521,6 +521,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val wbIsOrder = uop(loadWbIdx).ctrl.isOrder
     val wbIsEnable = uop(loadWbIdx).loadStoreEnable
 
+    io.ldout := DontCare
     io.ldout(i).bits.uop := seluop
     io.ldout(i).bits.uop.lqIdx := loadWbSel(i).asTypeOf(new LqPtr)
     io.ldout(i).bits.data := rdataPartialLoad // not used
@@ -909,6 +910,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.uncache.req.bits.instrtype := DontCare
 
   io.uncache.resp.ready := true.B
+  io.dcacheReqResp.resp.ready := true.B
 
   io.dcacheReqResp.req.valid := (uncache_Order_State === s_req) && (uop(deqPtr).ctrl.isOrder)
   io.dcacheReqResp.req.bits := DontCare

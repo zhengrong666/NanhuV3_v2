@@ -179,6 +179,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.sqDeq <> io.sqDeq
   storeQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
   storeQueue.io.dcacheReqResp <> io.storeQueueDcache
+  storeQueue.io.stout <> io.stout
   io.lsqVecDeqCnt.storeVectorDeqCnt := storeQueue.io.storeVectorDeqCnt
 
   io.vectorOrderedFlushSBuffer.valid := (loadQueue.io.vectorOrderedFlushSBuffer.valid || storeQueue.io.vectorOrderedFlushSBuffer.valid)

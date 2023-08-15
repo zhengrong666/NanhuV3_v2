@@ -30,6 +30,7 @@ import xiangshan.vector.vtyperename.{VtypeRename, VtypeReg}
 import xiangshan.mem.mdp._
 import xs.utils.GTimer
 import xiangshan.backend.execute.fu.FuOutput
+import freechips.rocketchip.rocket.CSRs
 
 class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
@@ -62,6 +63,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val fpFreeList = Module(new StdFreeList(NRPhyRegs - 32))
   val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
   vtyperename.io.writeback <> io.vtypeWb
+  vtyperename.io.redirect <> io.redirect
+  vtyperename.io.robCommits <> io.robCommits
+  
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
     {if(fp) x.ctrl.fpWen else x.ctrl.rfWen && (x.ctrl.ldest =/= 0.U)}

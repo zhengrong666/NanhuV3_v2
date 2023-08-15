@@ -308,6 +308,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   // }
   vCtrlBlock.io.vtypewriteback <> DontCare
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
+  for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {
+    port.bits := robId
+    port.valid := true.B
+  }
 
   rob.io.wbFromMergeBuffer <> outer.wbMergeBuffer.module.io.rob
   outer.wbMergeBuffer.module.io.redirect <> io.redirectIn
@@ -327,6 +331,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   //vectorCtrlBlock
   //vCtrlBlock.io.hartId := io.hartId
   //TODO: vCtrlBlock.io.in 
+  vCtrlBlock.io.in <> decode.io.out
   
   vDeq  <> vCtrlBlock.io.vDispatch
   vpDeq <> vCtrlBlock.io.vpDispatch

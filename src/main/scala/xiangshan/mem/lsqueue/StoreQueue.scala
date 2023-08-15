@@ -568,6 +568,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val order_wbmask = Mux(wb_bit_rem === 0.U, UIntToMask(wbmask_bit, 8), 0.U)
   val wbIsOrder = uop(orderStoreWbIdx).ctrl.isOrder
 
+  io.mmioStout := DontCare
   // (4) writeback to ROB (and other units): mark as writebacked
   io.mmioStout.valid := (mmio_order_state === s_wb_mmio)
   io.mmioStout.bits.uop := uop(deqPtr)

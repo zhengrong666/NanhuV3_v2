@@ -71,13 +71,11 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
       val redirectValidReg = RegNext(redirectValid, false.B)
       val uopBitsReg = RegEnable(in.bits.uop, uopValid)
       val redirectBitsReg = RegEnable(in.bits.redirect, redirectValid)
+      res := DontCare
       res.valid := uopValidReg
       res.bits.redirectValid := redirectValidReg
       res.bits.uop := uopBitsReg
       res.bits.redirect := redirectBitsReg
-      res.bits.data := DontCare
-      res.bits.fflags := DontCare
-      res.bits.debug := DontCare
       when(in.valid){assert(in.bits.uop.robIdx.needFlush(localRedirectReg))}
       res
     }

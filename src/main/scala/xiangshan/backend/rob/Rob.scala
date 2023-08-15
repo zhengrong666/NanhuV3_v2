@@ -759,6 +759,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.old_pdest := req.old_pdest
       wdata.ftqIdx := req.cf.ftqPtr
       wdata.ftqOffset := req.cf.ftqOffset
+      //TODO:
+      wdata.vecWen := false.B
+      wdata.wvcsr := false.B
   }
   dispatchData.io.raddr := commitReadAddr_next
   

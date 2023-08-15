@@ -103,6 +103,11 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
         port.bits.pmask  := rdp.vmask
     }
 
+    for((resp, req) <- io.renameResp.zip(io.renameReq)) {
+        resp.valid := req.valid
+        req.ready := resp.ready
+    }
+
     //read old value
     for((oldRdp, rp) <- renameTable.io.oldPhyRegIdxReadPorts.zip(renameReqPort)) {
         oldRdp.lrIdx := rp.bits.lvd

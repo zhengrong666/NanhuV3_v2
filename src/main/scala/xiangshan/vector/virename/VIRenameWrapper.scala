@@ -91,7 +91,10 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     }
 
     (0 until VIRenameWidth).map(i => io.uopIn(i).ready := io.uopOut(i).ready)
+    (0 until VIRenameWidth).map(i => rename.io.renameResp(i).ready := io.uopOut(i).ready)
+    
 
     //commit
     rename.io.commitReq <> io.commit
+    rename.io.redirect <> io.redirect
 }
