@@ -140,6 +140,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
 
     for((port, i) <- io.rob.zipWithIndex) {
         val entry = mergeTable(wbPtr.value + i.U)
+        port.bits := DontCare
         port.bits.uop.robIdx := entry.robIdx
         port.valid := wbVec(i)
     }

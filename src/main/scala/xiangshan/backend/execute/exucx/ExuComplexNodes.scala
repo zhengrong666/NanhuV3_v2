@@ -64,7 +64,7 @@ case class ExuComplexParam
 
   val needToken:Boolean = exuConfigs.map(_.needToken).reduce(_||_)
 
-  val readIntegerRegfile:Boolean = isAluDiv || isAluJmp || isAluMul || hasSta || hasStd || hasLoad || hasVmisc || hasValu
+  val readIntegerRegfile:Boolean = isAluDiv || isAluJmp || isAluMul || hasSta || hasStd || hasLoad || hasVmisc || hasValu || hasSpecialLoad
   val readFloatingRegfile:Boolean = isFmac || isFmaDiv || isFmaMisc || hasStd || hasVfp
   val readVectorRegfile:Boolean = isVecType || hasLoad || hasStd || hasSta
 

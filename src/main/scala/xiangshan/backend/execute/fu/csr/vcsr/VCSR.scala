@@ -53,7 +53,9 @@ class VCSRWIO(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val cfIn = io.in.bits.uop.cf
-    val cfOut = Wire(new CtrlFlow)
+    //val cfOut = Wire(new CtrlFlow)
+    redirectOutValid := DontCare
+    redirectOut := DontCare
 
     val vcsr_io = IO(new Bundle {
         val vcsrInfo = Output(new VCSRInfo)
@@ -132,6 +134,7 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
 
     //val vtypeWb = Cat(vill, vtypeValue)
     vcsr_io.vtypeWb.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
+    vcsr_io.vtypeWb.bits.uop := io.in.bits.uop
     vcsr_io.vtypeWb.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
     // vcsr_io.vtypeWb.valid := io.in.valid
 

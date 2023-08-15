@@ -11,6 +11,7 @@ import xiangshan.FuType.{valu, vdiv, vectorTypes, vfp, vmac, vmask, vpermu, vred
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
+import darecreek.exu.fu2.BitsExtend
 
 class VectorReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
   private val entryNum = vectorParameters.vRsDepth
@@ -84,8 +85,8 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     bt.bits := wb.bits.pdest
   })
   private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, wakeupVec.length, vectorParameters.vRenameWidth))
-  integerBusyTable.io.allocPregs := io.vecAllocPregs
-  integerBusyTable.io.wbPregs.zip(wakeupVec).foreach({ case (bt, wb) =>
+  vectorBusyTable.io.allocPregs := io.vecAllocPregs
+  vectorBusyTable.io.wbPregs.zip(wakeupVec).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec
     bt.bits := wb.bits.pdest
   })

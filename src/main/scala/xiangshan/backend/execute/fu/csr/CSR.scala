@@ -761,6 +761,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   csrio.vtypeWb <> vcsr.vcsr_io.vtypeWb
   vcsr.vcsr_io.wbFromRob <> csrio.vcsrWbFromRob
   vcsr.vcsr_io.wen := wen && permitted
+  vcsr.io.redirectIn <> io.redirectIn
+  vcsr.io.out.ready := io.out.ready
+
+  csrio.vstart := vcsr.vcsr_io.vcsrInfo.vstart
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>
