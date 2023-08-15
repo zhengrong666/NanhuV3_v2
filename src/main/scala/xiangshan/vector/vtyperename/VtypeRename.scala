@@ -196,9 +196,6 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     }
   }
 
-  val perfEvents = Seq(
-    ("dispatchq_out", PopCount(io.deq.map(_.fire))),
-    ("dispatchq_out_try", PopCount(io.deq.map(_.valid)))
-  )
+  val perfEvents = Seq()
   generatePerfEvent()
 }
