@@ -707,7 +707,7 @@ class DecodeUnitIO(implicit p: Parameters) extends VectorBaseBundle {
 class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeUnitConstants {
     val io = IO(new DecodeUnitIO)
 
-    val cf_ctrl = Wire(new MicroOp)
+    val cf_ctrl = Wire(0.U.asTypeOf(new MicroOp))
 
     for ( i <- 0 until VIDecodeWidth ) {
 

@@ -331,7 +331,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     intRefCounter.io.deallocate(i).bits := Mux(io.robCommits.isWalk, io.robCommits.info(i).pdest, io.robCommits.info(i).old_pdest)
   }
 
-  vtyperename.io.redirect <> io.redirect
   io.vtypeout <> vtyperename.io.out
 
 
