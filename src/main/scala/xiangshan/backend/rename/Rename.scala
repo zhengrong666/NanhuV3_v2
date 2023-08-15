@@ -110,6 +110,15 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     uop.lqIdx := DontCare
     uop.sqIdx := DontCare
     uop.lpv := DontCare
+    uop.vCsrInfo := DontCare
+    uop.uopIdx := DontCare
+    uop.vmState := DontCare
+    uop.isTail := DontCare
+    uop.isPrestart := DontCare
+    uop.vtypeRegIdx := DontCare
+    uop.uopNum := DontCare
+    uop.vm := DontCare
+    uop.canRename := DontCare
   })
 
   val needFpDest = Wire(Vec(RenameWidth, Bool()))
@@ -318,8 +327,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     intRefCounter.io.deallocate(i).bits := Mux(io.robCommits.isWalk, io.robCommits.info(i).pdest, io.robCommits.info(i).old_pdest)
   }
 
-
+  vtyperename.io.redirect <> io.redirect
   io.vtypeout <> vtyperename.io.out
+
 
   /*
   Debug and performance counters

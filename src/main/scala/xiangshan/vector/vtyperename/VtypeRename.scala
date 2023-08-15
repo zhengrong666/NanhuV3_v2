@@ -66,7 +66,7 @@ class VtypeRename(size: Int, enqnum: Int, deqnum: Int, numWbPorts: Int)(implicit
     val doAllocate = Input(Bool())
     val in = Vec(enqnum, Flipped(ValidIO(new MicroOp)))
     val out = Vec(enqnum, ValidIO(new VtypeReg))
-    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
+//    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Vec(4, Flipped(ValidIO(new FuOutput(64))))
   })
 
