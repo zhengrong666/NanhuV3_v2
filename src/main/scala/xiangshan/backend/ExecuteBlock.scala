@@ -42,6 +42,7 @@ import xiangshan.vector.vbackend.vexecute.{VectorBlock, VectorPermutationBlock}
 import xiangshan.vector.vbackend.vissue.vrs.VectorReservationStation
 import xiangshan.vector.vbackend.vregfile.VRegfileTop
 import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
+import xiangshan.mem._
 class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
   val integerReservationStation: IntegerReservationStation = LazyModule(new IntegerReservationStation)
   val floatingReservationStation: FloatingReservationStation = LazyModule(new FloatingReservationStation)
@@ -92,6 +93,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
       val enqLsq = new LsqEnqIO
       val ptw = new BTlbPtwIO(ld_tlb_ports + exuParameters.StuCnt)
       val rob = Flipped(new RobLsqIO) // rob to lsq
+      val lsqVecDeqCnt = Output(new LsqVecDeqIO)
 
       //Rename
       val integerAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
@@ -181,6 +183,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     memBlk.io.fenceToSbuffer <> intBlk.io.fenceio.sbuffer
     memBlk.io.sfence := intBlk.io.fenceio.sfence
     memBlk.io.tlbCsr <> intBlk.io.csrio.tlb
+    io.lsqVecDeqCnt <> memBlk.io.lsqVecDeqCnt
 
     memBlk.io.perfEventsPTW := io.perfEventsPTW
     io.ptw <> memBlk.io.ptw

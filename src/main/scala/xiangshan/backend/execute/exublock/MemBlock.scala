@@ -264,6 +264,8 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
     val sqWbout = Vec(2,Decoupled(new ExuOutput))
+
+    val lsqVecDeqCnt = Output(new LsqVecDeqIO)
   })
 
   val dcache = outer.dcache.module
@@ -329,6 +331,8 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // TODO: fast load wakeup
   val lsq     = Module(new LsqWrappper)
   val sbuffer = Module(new Sbuffer)
+
+  io.lsqVecDeqCnt <> lsq.io.lsqVecDeqCnt
   // if you wants to stress test dcache store, use FakeSbuffer
   // val sbuffer = Module(new FakeSbuffer)
   lsq.io.stout <> io.sqWbout

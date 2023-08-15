@@ -451,7 +451,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     v & info.wvcsr
   })
 
-  val vcsr = Wire(ValidIO(new CSRDataEntry))
+  //val vcsr = Wire(ValidIO(new CSRDataEntry))
   val fflags = Wire(ValidIO(UInt(5.W)))
   val vxsat = Wire(ValidIO(Bool()))
 

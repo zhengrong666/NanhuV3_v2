@@ -65,7 +65,10 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   vtyperename.io.writeback <> io.vtypeWb
   vtyperename.io.redirect <> io.redirect
   vtyperename.io.robCommits <> io.robCommits
-  
+  val vtypeVec = Wire(Vec(RenameWidth, Bool()))
+  vtypeVec := io.in.map(_.bits.ctrl.isVtype)
+  vtyperename.io.doAllocate := vtypeVec.asUInt.orR
+
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
     {if(fp) x.ctrl.fpWen else x.ctrl.rfWen && (x.ctrl.ldest =/= 0.U)}
@@ -123,6 +126,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     uop.uopNum := DontCare
     uop.vm := DontCare
     uop.canRename := DontCare
+    uop.mergeIdx := DontCare
+    uop.loadStoreEnable := DontCare
   })
 
   val needFpDest = Wire(Vec(RenameWidth, Bool()))
@@ -192,6 +197,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     vtyperename.io.in <> DontCare
     vtyperename.io.in(i).bits := uops(i)
     vtyperename.io.in(i).valid := io.in(i).valid
+    
 
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
@@ -284,7 +290,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
       io.out(i).bits.psrc(0) := lui_imm(lui_imm_in_imm + psrcWidth - 1, lui_imm_in_imm)
       io.out(i).bits.psrc(1) := lui_imm(lui_imm.getWidth - 1, lui_imm_in_imm + psrcWidth)
     }
+  }
 
+  for(i <- 0 until RenameWidth) {
     io.SIRenameOUT(i).valid := io.out(i).valid
     io.SIRenameOUT(i).bits.psrc := io.out(i).bits.psrc
     io.SIRenameOUT(i).bits.pdest := io.out(i).bits.pdest

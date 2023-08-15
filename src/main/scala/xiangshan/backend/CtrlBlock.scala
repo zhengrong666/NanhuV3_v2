@@ -45,6 +45,7 @@ import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.mem._
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -100,6 +101,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
+
+    val lsqVecDeqCnt = Input(new LsqVecDeqIO)
   })
   require(outer.dispatchNode.out.count(_._2._1.isIntRs) == 1)
   require(outer.dispatchNode.out.count(_._2._1.isFpRs) == 1)
@@ -362,6 +365,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDispatch2Rs.io.sqCancelCnt := io.sqCancelCnt
   memDispatch2Rs.io.enqLsq <> io.enqLsq
   memDispatch2Rs.io.in <> memDqArb.io.toMem2RS //lsDq.io.deq
+  memDispatch2Rs.io.lsqVecDeqCnt <> io.lsqVecDeqCnt
   lsDeq <> memDispatch2Rs.io.out
 
   rob.io.hartId := io.hartId

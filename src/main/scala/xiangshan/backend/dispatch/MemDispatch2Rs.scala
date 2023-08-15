@@ -21,7 +21,7 @@ package xiangshan.backend.dispatch
 import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config.Parameters
-import xiangshan.mem.{LsqEnqCtrl, LsqEnqIO}
+import xiangshan.mem.{LsqEnqCtrl, LsqEnqIO, LsqVecDeqIO}
 import xiangshan.{FuType, MicroOp, Redirect, XSModule}
 
 class MemDispatch2Rs(implicit p: Parameters) extends XSModule{
@@ -34,6 +34,7 @@ class MemDispatch2Rs(implicit p: Parameters) extends XSModule{
     val sqCancelCnt: UInt               = Input(UInt(log2Up(StoreQueueSize + 1).W))
     val enqLsq: LsqEnqIO                = Flipped(new LsqEnqIO)
     val redirect: Valid[Redirect]       = Flipped(ValidIO(new Redirect))
+    val lsqVecDeqCnt = Input(new LsqVecDeqIO)
   })
 
   private val is_blocked = WireInit(VecInit(Seq.fill(io.in.length)(false.B)))
@@ -44,6 +45,8 @@ class MemDispatch2Rs(implicit p: Parameters) extends XSModule{
   lsqCtrl.io.lqCancelCnt := io.lqCancelCnt
   lsqCtrl.io.sqCancelCnt := io.sqCancelCnt
   io.enqLsq <> lsqCtrl.io.enqLsq
+
+  lsqCtrl.io.lsqVecDeqIO <> io.lsqVecDeqCnt
 
   private val enqCtrl = lsqCtrl.io.enq
   private val fuType = io.in.map(_.bits.ctrl.fuType)

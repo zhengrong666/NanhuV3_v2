@@ -130,6 +130,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.csrCtrl <> csrioIn.customCtrl
   ctrlBlock.io.vstart := csrioIn.vstart
   ctrlBlock.io.vtypeWb(0) <> csrioIn.vtypeWb
+
   for(i <- 1 until 4) {
     ctrlBlock.io.vtypeWb(i) <> DontCare
   }
@@ -140,6 +141,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.stIn := exuBlock.io.stIn
   exuBlock.io.enqLsq <> ctrlBlock.io.enqLsq
   ctrlBlock.io.redirectIn := exuBlock.io.redirectOut
+  ctrlBlock.io.lsqVecDeqCnt <> exuBlock.io.lsqVecDeqCnt
   exuBlock.io.floatingAllocPregs.zip(exuBlock.io.integerAllocPregs).zip(ctrlBlock.io.allocPregs).foreach({case((f, i), r) =>
     f.valid := r.isFp
     f.bits := r.preg
