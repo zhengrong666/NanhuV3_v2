@@ -64,11 +64,16 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
     na := !needMerge
   }
 
-  private val actualEnqs = WireInit(io.enq)
-  actualEnqs.zip(enqNeedAllocate).foreach({case(e, na) =>
-    e.valid := e.valid && na
+  private val actualEnqs = WireInit(Vec(enqNum, Valid(new OIQEntry)))
+  for((e, i) <- actualEnqs.zipWithIndex) {
+    e.valid := io.enq(i).valid && enqNeedAllocate(i)
+    e.bits <> io.enq(i).bits
     e.bits.uopIdx := 0.U
-  })
+  }
+  // actualEnqs.zip(enqNeedAllocate).foreach({case(e, na) =>
+  //   e.valid := e.valid && na
+  //   e.bits.uopIdx := 0.U
+  // })
 
   io.enqCanAccept := PopCount(actualEnqs.map(_.valid)) <= emptyEntriesNum && !io.redirect.valid
 
