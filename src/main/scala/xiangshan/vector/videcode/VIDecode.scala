@@ -711,6 +711,8 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
 
     for ( i <- 0 until VIDecodeWidth ) {
 
+        io.in(i).ready := io.canOut
+
         val decode_table = VectorArithDecode.table ++
           VectorStoreDecode.table ++
           VectorLoadDecode.table ++
