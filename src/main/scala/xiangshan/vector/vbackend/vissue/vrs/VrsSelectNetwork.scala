@@ -3,9 +3,9 @@ package xiangshan.vector.vbackend.vissue.vrs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
+import xiangshan.backend.issue.SelectPolicy
 import xiangshan.backend.rob.RobPtr
 import xiangshan.{ExuOutput, FuType, Redirect, XSBundle, XSModule}
-import xs.utils.{LogicShiftRight, ParallelOperation}
 
 class VrsSelectInfo(implicit p: Parameters) extends XSBundle{
   val fuType = FuType()
@@ -20,71 +20,18 @@ class VrsSelectResp(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Paramet
   val bankIdxOH = UInt(bankIdxWidth.W)
 }
 
-class VrsSelectMux(bankIdxWidth:Int, entryIdxWidth:Int, isOrdered:Boolean)(implicit p: Parameters) extends Module{
-  val io = IO(new Bundle{
-    val in0 = Input(Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
-    val in1 = Input(Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
-    val out = Output(Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
-  })
-  private val valid0 = io.in0.valid
-  private val valid1 = io.in1.valid
-  private val ptr0 = io.in0.bits.info.robPtr
-  private val ptr1 = io.in1.bits.info.robPtr
-  private val idx0 = io.in0.bits.info.uopIdx
-  private val idx1 = io.in1.bits.info.uopIdx
-  private val validVec = Cat(valid1, valid0)
-  private val sel = WireInit(true.B)
-  if(isOrdered) {
-    when(validVec === "b01".U) {
-      sel := true.B
-    }.elsewhen(validVec === "b10".U) {
-      sel := false.B
-    }.elsewhen(validVec === "b11".U) {
-      when(ptr0 < ptr1) {
-        sel := true.B
-      }.elsewhen(ptr0 > ptr1) {
-        sel := false.B
-      }.otherwise {
-        sel := Mux(idx0 < idx1, true.B, false.B)
-      }
-    }
-  } else {
-    when(validVec === "b01".U) {
-      sel := true.B
-    }.elsewhen(validVec === "b10".U) {
-      sel := false.B
-    }.elsewhen(validVec === "b11".U) {
-      when(ptr0 <= ptr1){
-        sel := true.B
-      }.otherwise{
-        sel := false.B
-      }
-    }
+object VecSelectPolicy {
+  def apply(in:Seq[Valid[VrsSelectResp]], bankNum:Int, entryNum:Int, p:Parameters) :Valid[VrsSelectResp] = {
+    val selector = Module(new SelectPolicy(in.length, false, true)(p))
+    selector.io.in.zip(in).foreach({case(a, b) =>
+      a.valid := b.valid
+      a.bits := b.bits.info.robPtr
+    })
+    val res = Wire(Valid(new VrsSelectResp(bankNum, entryNum)(p)))
+    res.valid := selector.io.out.valid
+    res.bits := Mux1H(selector.io.out.bits, in.map(_.bits))
+    res
   }
-
-  private val res = Mux(sel, io.in0, io.in1)
-  io.out := res
-}
-
-object VrsSelectMux{
-  def apply(in0: Valid[VrsSelectResp], in1: Valid[VrsSelectResp], bankIdxWidth:Int, entryIdxWidth:Int, isOrdered:Boolean, p: Parameters):Valid[VrsSelectResp] = {
-    val smux = Module(new VrsSelectMux(bankIdxWidth, entryIdxWidth, isOrdered)(p))
-    smux.io.in0 := in0
-    smux.io.in1 := in1
-    smux.io.out
-  }
-}
-
-class VrsSelector(bankNum:Int, entryNum:Int, inputWidth:Int, isOrdered:Boolean)(implicit p: Parameters) extends Module{
-  private val bankIdxWidth = bankNum
-  private val entryIdxWidth = entryNum
-  val io = IO(new Bundle{
-    val in = Input(Vec(inputWidth, Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth))))
-    val out = Output(Valid(new VrsSelectResp(bankIdxWidth, entryIdxWidth)))
-  })
-  private val operationFunction = VrsSelectMux(_, _, bankIdxWidth, entryIdxWidth, isOrdered, p)
-  private val res  = ParallelOperation(io.in, operationFunction)
-  io.out := res
 }
 
 class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolean, needToken:Boolean = false, tokenNum:Int = 0, val fuTypeList:Seq[UInt], name:Option[String] = None)(implicit p: Parameters) extends XSModule {
@@ -97,63 +44,45 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
   })
   override val desiredName:String = name.getOrElse("VrsSelectNetwork")
 
-  private val issueValidBitVecList = if(isOrdered){
-    io.selectInfo.map(_.map(info => info.valid && info.bits.isOrdered && Cat(fuTypeList.map(_ === info.bits.fuType)).orR))
-  } else {
-    io.selectInfo.map(_.map(info => info.valid && !info.bits.isOrdered && Cat(fuTypeList.map(_ === info.bits.fuType)).orR))
-  }
-  private val issueDataVecList = io.selectInfo.map(_.map(_.bits))
-  private val issueBankIdxVecList = io.selectInfo.indices.map(idx => Seq.fill(entryNum)((1<<idx).U(bankNum.W)))
-  private val issueEntryIdxVecList = io.selectInfo.indices.map(_ => Seq.tabulate(entryNum)(idx0 => (1<<idx0).U(entryNum.W)))
-  private val issueAllDataList = issueValidBitVecList.zip(issueDataVecList).zip(issueBankIdxVecList).zip(issueEntryIdxVecList).map({
-    case(((v, d),bi),ei) => v.zip(d).zip(bi).zip(ei)
-  })
-
-  private val bankNumPerSelector = bankNum / issueNum
-  private val selectorSeq = Seq.fill(issueNum)(Module(new VrsSelector(bankNum, entryNum, bankNumPerSelector * entryNum, isOrdered)))
-
-  private val selectorInput = Seq.tabulate(issueNum)({idx =>
-    issueAllDataList.slice(idx*bankNumPerSelector, idx*bankNumPerSelector + bankNumPerSelector).reduce(_++_)
-  })
-
-  for((s, si) <- selectorSeq zip selectorInput){
-    s.io.in.zip(si).foreach({case(inPort, driver) =>
-      inPort.valid := driver._1._1._1
-      inPort.bits.info := driver._1._1._2
-      inPort.bits.bankIdxOH := driver._1._2
-      inPort.bits.entryIdxOH := driver._2
+  private val selectInputPerBank = io.selectInfo.zipWithIndex.map({ case (si, bidx) =>
+    si.zipWithIndex.map({ case (in, eidx) =>
+      val selInfo = Wire(Valid(new VrsSelectResp(bankNum, entryNum)))
+      val orderCond = if(isOrdered) in.bits.isOrdered else !in.bits.isOrdered
+      selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond
+      selInfo.bits.info := in.bits
+      selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
+      selInfo.bits.entryIdxOH := (1 << eidx).U(entryNum.W)
+      selInfo
     })
-  }
-
-  for ((outPort, driver) <- io.issueInfo.zip(selectorSeq)) {
-    val shouldBeFlushed = driver.io.out.bits.info.robPtr.needFlush(io.redirect)
-    outPort.valid := driver.io.out.valid && !shouldBeFlushed
-    outPort.bits.bankIdxOH := driver.io.out.bits.bankIdxOH
-    outPort.bits.entryIdxOH := driver.io.out.bits.entryIdxOH
-    outPort.bits.info := driver.io.out.bits.info
-  }
+  })
+  private val finalSelectResult = Wire(Vec(issueNum, Valid(new VrsSelectResp(bankNum, entryNum))))
+  private val bankNumPerIss = bankNum / issueNum
+  finalSelectResult.zipWithIndex.foreach({ case (res, i) =>
+    val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
+    res := VecSelectPolicy(selBanks, bankNum, entryNum, p)
+  })
 
   if (needToken) {
     val tokenAllocators = Seq.fill(issueNum)(Module(new VectorTokenAllocator(tokenNum)))
-    for ((((outPort, driver), ta), tr) <- io.issueInfo.zip(selectorSeq).zip(tokenAllocators).zip(io.tokenRelease.get)) {
+    for ((((outPort, driver), ta), tr) <- io.issueInfo.zip(finalSelectResult).zip(tokenAllocators).zip(io.tokenRelease.get)) {
       ta.io.redirect := io.redirect
       ta.io.alloc.valid := outPort.fire
-      ta.io.alloc.bits.uopIdx := driver.io.out.bits.info.uopIdx
-      ta.io.alloc.bits.robPtr := driver.io.out.bits.info.robPtr
+      ta.io.alloc.bits.uopIdx := driver.bits.info.uopIdx
+      ta.io.alloc.bits.robPtr := driver.bits.info.robPtr
       ta.io.release := tr
-      val shouldBeFlushed = driver.io.out.bits.info.robPtr.needFlush(io.redirect)
-      outPort.valid := driver.io.out.valid && ta.io.allow && !shouldBeFlushed
-      outPort.bits.bankIdxOH := driver.io.out.bits.bankIdxOH
-      outPort.bits.entryIdxOH := driver.io.out.bits.entryIdxOH
-      outPort.bits.info := driver.io.out.bits.info
+      val shouldBeFlushed = driver.bits.info.robPtr.needFlush(io.redirect)
+      outPort.valid := driver.valid && ta.io.allow && !shouldBeFlushed
+      outPort.bits.bankIdxOH := driver.bits.bankIdxOH
+      outPort.bits.entryIdxOH := driver.bits.entryIdxOH
+      outPort.bits.info := driver.bits.info
     }
   } else {
-    for ((outPort, driver) <- io.issueInfo.zip(selectorSeq)) {
-      val shouldBeFlushed = driver.io.out.bits.info.robPtr.needFlush(io.redirect)
-      outPort.valid := driver.io.out.valid && !shouldBeFlushed
-      outPort.bits.bankIdxOH := driver.io.out.bits.bankIdxOH
-      outPort.bits.entryIdxOH := driver.io.out.bits.entryIdxOH
-      outPort.bits.info := driver.io.out.bits.info
+    for ((outPort, driver) <- io.issueInfo.zip(finalSelectResult)) {
+      val shouldBeFlushed = driver.bits.info.robPtr.needFlush(io.redirect)
+      outPort.valid := driver.valid && !shouldBeFlushed
+      outPort.bits.bankIdxOH := driver.bits.bankIdxOH
+      outPort.bits.entryIdxOH := driver.bits.entryIdxOH
+      outPort.bits.info := driver.bits.info
     }
   }
 
