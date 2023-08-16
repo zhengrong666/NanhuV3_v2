@@ -4,6 +4,8 @@ import chisel3._
 import chisel3.util._
 import chipsalliance.rocketchip.config._
 
+import xiangshan._
+
 case object VFuParamsKey extends Field[VFuParameters]
 
 case class VFuParameters
@@ -17,20 +19,20 @@ trait HasVFuParameters {
   
   val vfuParams = p(VFuParamsKey)
 
-  val XLEN = vfuParams.XLEN
-  val VLEN = vfuParams.VLEN
-  val bVL = log2Up(VLEN) + 1
+  val XLEN_VFU = vfuParams.XLEN
+  val VLEN_VFU = vfuParams.VLEN
+  val bVL = log2Up(VLEN_VFU) + 1
   val bVSTART = bVL - 1
   val LaneWidth = 64  // constant
   def laneWidth = LaneWidth
-  val NLanes = VLEN / LaneWidth  // must be power of 2
-  val vlenb = VLEN / 8  //CSR
+  val NLanes = VLEN_VFU / LaneWidth  // must be power of 2
+  val vlenb = VLEN_VFU / 8  //CSR
   def VLENB = vlenb
   val vlenbWidth = log2Up(vlenb)
 }
 
-abstract class VFuModule(implicit val p: Parameters) extends Module with HasVFuParameters
-abstract class VFuBundle(implicit val p: Parameters) extends Bundle with HasVFuParameters
+abstract class VFuModule(implicit p: Parameters) extends XSModule with HasVFuParameters
+abstract class VFuBundle(implicit p: Parameters) extends XSBundle with HasVFuParameters
 
 // object VFUParam {
 //   val XLEN = 64

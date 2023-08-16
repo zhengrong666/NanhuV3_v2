@@ -8,7 +8,7 @@ import chisel3.util.{Arbiter, Cat, DecoupledIO}
 import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import darecreek.exu.fu2.MaskTailData
 
-class VFPUTop(implicit val p: Parameters)
+class VFPUTop(implicit p: Parameters)
   extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
@@ -65,7 +65,7 @@ class VFPUTop(implicit val p: Parameters)
 }
 
 // comb logic
-class VFInputGen(implicit val p: Parameters) extends VFPUBaseModule {
+class VFInputGen(implicit p: Parameters) extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val in = Input(new LaneFUInput)
     val out = Output(new LaneFloatFUIn)

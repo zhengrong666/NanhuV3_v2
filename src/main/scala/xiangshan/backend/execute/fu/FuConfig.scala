@@ -9,7 +9,7 @@ case class FuConfig
   fuType: UInt,
   numIntSrc: Int,
   numFpSrc: Int,
-  numVecSrc:Int,
+  numVecSrc: Int,
   writeIntRf: Boolean,
   writeFpRf: Boolean,
   writeVecRf: Boolean,

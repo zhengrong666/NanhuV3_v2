@@ -6,7 +6,7 @@ import fudian._
 import fudian.utils.CLZ
 import freechips.rocketchip.config._
 
-class VFRec(implicit val p: Parameters) extends VFPUSubModule {
+class VFRec(implicit p: Parameters) extends VFPUSubModule {
   val module = Module(new VFRecDataModule)
 
   module.io.in <> io.in
@@ -60,7 +60,7 @@ object OutTypeClassify {
   }
 }
 
-class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
+class VFRecDataModule(implicit p: Parameters) extends VFPUPipelineModule {
   def getElements(t: VFPU.FType, in: UInt) = {
     val repCnt = laneWidth / t.len
     val rawIn = Seq.range(0, repCnt).map(i => in((i + 1) * t.len-1, i * t.len))

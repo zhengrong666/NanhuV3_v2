@@ -74,8 +74,10 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     val renameReqNum = PopCount(io.renameReq.map(port => port.valid && (port.bits.needRename === true.B)))
 
     //TODO: !redirect && !walk
+    val canAllocateNum = Wire(UInt(log2Up(VIRenameWidth + 1).W))
+    canAllocateNum := freeList.io.canAllocateNum
     for(i <- 0 until VIRenameWidth) {
-        io.renameReq(i).ready := (freeList.io.canAllocateNum > renameReqNum)
+        io.renameReq(i).ready := (i.U < canAllocateNum)
     }
 
     val doRename = Wire(Bool())
@@ -105,7 +107,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
 
     for((resp, req) <- io.renameResp.zip(io.renameReq)) {
         resp.valid := req.valid
-        req.ready := resp.ready
+        //req.ready := resp.ready
     }
 
     //read old value

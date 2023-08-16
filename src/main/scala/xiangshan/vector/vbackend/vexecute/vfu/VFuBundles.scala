@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 // import darecreek.exu.fu2.VFUParam._
 import chipsalliance.rocketchip.config.Parameters
-import xiangshan.MicroOp
+import xiangshan._
 
 // Temporary. Will replaced by system Uop class.
 class VUopCtrl extends Bundle {
@@ -203,7 +203,7 @@ class LaneFUOutput(implicit p: Parameters) extends Bundle {
   val vxsat = Bool() // Fixed-point accrued saturation flag
 }
 
-class LaneUnit(implicit p: Parameters) extends Module {
+class LaneUnit(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
     val out = DecoupledIO(new LaneFUOutput)

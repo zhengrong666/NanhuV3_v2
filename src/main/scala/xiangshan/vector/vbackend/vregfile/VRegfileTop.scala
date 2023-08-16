@@ -75,7 +75,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     private val toWritebackNetwork = writebackMergeNode.out.map(e => (e._1, e._2._1))
 
     private val wbVFUPair = fromVectorFu.zip(toWritebackNetwork).map(e => {
-      //TODO: ?
       require(e._1._2.name == e._2._2.name && e._1._2.id == e._2._2.id)
       require(e._1._2.writeVecRf || e._1._2.exuType == ExuType.sta)
       (e._1._1, e._2._1, e._1._2)

@@ -353,7 +353,7 @@ class ExceptionInfo(implicit p: Parameters) extends XSBundle {
   val isInterrupt = Bool()
 }
 
-class RobDispatchData(implicit p: Parameters) extends XSBundle {
+class RobEntryData(implicit p: Parameters) extends XSBundle {
   val ldest = UInt(5.W)
   val rfWen = Bool()
   val fpWen = Bool()
@@ -367,16 +367,15 @@ class RobDispatchData(implicit p: Parameters) extends XSBundle {
   val ftqOffset = UInt(log2Up(PredictWidth).W)
 }
 
-class RobCommitInfo(implicit p: Parameters) extends RobDispatchData {
+class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
   // these should be optimized for synthesis verilog
   val pc = UInt(VAddrBits.W)
 
-  def connectDispatchData(data: RobDispatchData) {
+  def connectEntryData(data: RobEntryData) {
     ldest := data.ldest
     rfWen := data.rfWen
     fpWen := data.fpWen
     wflags := data.wflags
-    //TODO: dispatch write it
     wvcsr := data.wvcsr
     vecWen := data.vecWen
     commitType := data.commitType

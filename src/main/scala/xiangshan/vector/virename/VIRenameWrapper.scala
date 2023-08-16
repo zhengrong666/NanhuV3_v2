@@ -76,11 +76,16 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     }
 
 
-    io.canAccept := VecInit(rename.io.renameReq.map(_.fire())).asUInt.orR && (!hasWalk) && (!io.redirect.valid)
+    //io.canAccept := VecInit(rename.io.renameReq.map(_.ready)).asUInt.orR && (!hasWalk) && (!io.redirect.valid)
+    val canReanmeVec = Wire(Vec(VIRenameWidth, Bool()))
+    canReanmeVec := rename.io.renameReq.map(_.ready)
+    val canToDispatch = Wire(Vec(VIRenameWidth, Bool()))
+    canToDispatch := io.uopOut.map(_.ready)
+    io.canAccept := (!hasWalk) && (!io.redirect.valid) && canReanmeVec.asUInt.andR && canToDispatch.asUInt.andR
+    //io.canAccept := (!hasWalk) && (!io.redirect.valid)
 
     (0 until VIRenameWidth).map(i => io.uopOut(i).bits  := io.uopIn(i).bits)
-    (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i) & io.canAccept)
-
+    (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i))
     val reqSrcType = Wire(Vec(VIRenameWidth, Vec(3, SrcType())))
     reqSrcType := io.uopIn.map(req => req.bits.ctrl.srcType)
 
@@ -88,6 +93,9 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
         port.bits.psrc(0) := Mux(reqSrcType(i)(0) === SrcType.vec, rename.io.renameResp(i).bits.pvs1, io.uopIn(i).bits.psrc(0))
         port.bits.psrc(1) := Mux(reqSrcType(i)(1) === SrcType.vec, rename.io.renameResp(i).bits.pvs2, io.uopIn(i).bits.psrc(1))
         port.bits.psrc(2) := Mux(reqSrcType(i)(2) === SrcType.vec, rename.io.renameResp(i).bits.pvd, io.uopIn(i).bits.psrc(2))
+    }
+    for((port, i) <- rename.io.renameResp.zipWithIndex) {
+        port.ready := io.uopOut(i).ready
     }
 
     (0 until VIRenameWidth).map(i => io.uopIn(i).ready := io.uopOut(i).ready)

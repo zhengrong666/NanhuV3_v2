@@ -21,7 +21,7 @@ import chisel3.util._
  *  64b (u)int  -> 64b float
  *  32b (u)int  -> 64b float  widen
  */
-class VFCVT(implicit val p: Parameters) extends VFPUSubModule {
+class VFCVT(implicit p: Parameters) extends VFPUSubModule {
   val module = Module(new VFCVTDataModule)
 
   module.io.in <> io.in
@@ -30,7 +30,7 @@ class VFCVT(implicit val p: Parameters) extends VFPUSubModule {
   module.io.in.valid := io.in.valid && io.in.bits.uop.vfpCtrl.isCvt
 }
 
-class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
+class VFCVTDataModule(implicit p: Parameters) extends VFPUPipelineModule {
 
   override def latency = 2 //  2 stage register
 

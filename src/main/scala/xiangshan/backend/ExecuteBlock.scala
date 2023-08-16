@@ -47,25 +47,30 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   val integerReservationStation: IntegerReservationStation = LazyModule(new IntegerReservationStation)
   val floatingReservationStation: FloatingReservationStation = LazyModule(new FloatingReservationStation)
   val memoryReservationStation: MemoryReservationStation = LazyModule(new MemoryReservationStation)
-  val vectorPermutationBlock: VectorPermutationBlock = LazyModule(new VectorPermutationBlock)
   val vectorReservationStation: VectorReservationStation = LazyModule(new VectorReservationStation)
-  private val integerBlock = LazyModule(new IntegerBlock)
-  private val floatingBlock = LazyModule(new FloatingBlock)
-  val memoryBlock: MemBlock = LazyModule(new MemBlock(parentName + "memBlock_"))
-  private val vectorBlock = LazyModule(new VectorBlock)
-  private val regFile = LazyModule(new RegFileTop(2))
-  private val vRegFile = LazyModule(new VRegfileTop(loadUnitNum * 2 + 1))
-  val writebackNetwork: WriteBackNetwork = LazyModule(new WriteBackNetwork)
-  private val exuBlocks = integerBlock :: floatingBlock :: memoryBlock :: Nil
 
-  regFile.issueNode :*= integerReservationStation.issueNode
-  regFile.issueNode :*= floatingReservationStation.issueNode
-  regFile.issueNode :*= memoryReservationStation.issueNode
-  vRegFile.issueNode :*= vectorReservationStation.issueNode
+  val integerBlock: IntegerBlock                      = LazyModule(new IntegerBlock)
+  val floatingBlock: FloatingBlock                    = LazyModule(new FloatingBlock)
+  val vectorBlock: VectorBlock                        = LazyModule(new VectorBlock)
+  val vectorPermutationBlock: VectorPermutationBlock  = LazyModule(new VectorPermutationBlock)
+  val memoryBlock: MemBlock                           = LazyModule(new MemBlock(parentName + "memBlock_"))
+  private val exuBlocks = integerBlock :: floatingBlock :: memoryBlock :: Nil
+  
+  private val regFile   = LazyModule(new RegFileTop(2))
+  private val vRegFile  = LazyModule(new VRegfileTop(loadUnitNum * 2 + 1))
+
+  val writebackNetwork: WriteBackNetwork = LazyModule(new WriteBackNetwork)
+
+  regFile.issueNode   :*= integerReservationStation.issueNode
+  regFile.issueNode   :*= floatingReservationStation.issueNode
+  regFile.issueNode   :*= memoryReservationStation.issueNode
+  vRegFile.issueNode  :*= vectorReservationStation.issueNode
+
   for (eb <- exuBlocks) {
     eb.issueNode :*= regFile.issueNode
     writebackNetwork.node :=* eb.writebackNode
   }
+
   vectorBlock.issueNode :*= vRegFile.issueNode
 
   memoryBlock.vlduWritebackNodes.foreach(vldwb => vRegFile.writebackMergeNode :=* vldwb)
@@ -76,6 +81,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   writebackNetwork.node :=* vRegFile.writebackMergeNode
 
   regFile.writebackNode :=* writebackNetwork.node
+
   floatingReservationStation.wakeupNode   := writebackNetwork.node
   integerReservationStation.wakeupNode    := writebackNetwork.node
   memoryReservationStation.wakeupNode     := writebackNetwork.node
@@ -122,12 +128,17 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     private val fpRs = floatingReservationStation.module
     private val memRs = memoryReservationStation.module
     private val vRs = vectorReservationStation.module
-    private val vpBlk = vectorPermutationBlock.module
+    private val vpRs = vectorPermutationBlock.vprs.module
+    
     private val intBlk = integerBlock.module
     private val fpBlk = floatingBlock.module
     private val memBlk = memoryBlock.module
-    private val rf = regFile.module
+    private val vecBlk = vectorBlock.module
+    private val vpBlk = vectorPermutationBlock.module
+
+    private val rf  = regFile.module
     private val vrf = vRegFile.module
+
     private val writeback = writebackNetwork.module
 
     private val localRedirect = writeback.io.redirectOut
@@ -221,6 +232,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     memBlk.redirectIn := localRedirect
     intBlk.redirectIn := localRedirect
     fpBlk.redirectIn := localRedirect
+    vecBlk.redirectIn := localRedirect
 
     io.redirectOut := writeback.io.redirectOut
     io.memPredUpdate := writeback.io.memPredUpdate
@@ -233,10 +245,15 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
         ModuleNode(intRs),
         ModuleNode(fpRs),
         ModuleNode(memRs),
+        ModuleNode(vRs),
+        //ModuleNode(vpRs),
         ModuleNode(rf),
+        ModuleNode(vrf),
         ModuleNode(writeback),
         ModuleNode(intBlk),
         ModuleNode(fpBlk),
+        ModuleNode(vpBlk),
+        ModuleNode(vecBlk),
         ModuleNode(memBlk),
         ModuleNode(pcMem)
       )

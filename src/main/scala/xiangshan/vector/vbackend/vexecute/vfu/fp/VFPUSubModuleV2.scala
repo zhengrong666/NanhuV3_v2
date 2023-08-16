@@ -7,7 +7,9 @@ import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import freechips.rocketchip.config.Parameters
 import darecreek.exu.fu2._
 
-abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFuParameters
+import xiangshan._
+
+abstract class VFPUBaseModule(implicit p: Parameters) extends XSModule with HasVFuParameters
 
 // a module that has decoupled interfaces
 abstract class VFPUSubModule(implicit p: Parameters) extends VFPUBaseModule with HasVFuParameters {

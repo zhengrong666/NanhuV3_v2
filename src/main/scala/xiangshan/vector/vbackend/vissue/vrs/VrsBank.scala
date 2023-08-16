@@ -33,7 +33,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
     enqEntry.psrc.take(2).zip(in.psrc.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcType.take(2).zip(in.ctrl.srcType.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcState.take(2).zip(in.srcState.take(2)).zip(in.ctrl.srcType.take(2)).foreach(elm =>
-      elm._1._1 := Mux(SrcType.needWakeup(elm._2), elm._1._1, SrcState.rdy)
+      elm._1._1 := Mux(SrcType.needWakeup(elm._2), elm._1._2, SrcState.rdy)
     )
 
     enqEntry.psrc(2) := in.psrc(2)

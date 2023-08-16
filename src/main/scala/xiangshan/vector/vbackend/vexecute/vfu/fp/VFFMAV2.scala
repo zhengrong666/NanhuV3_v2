@@ -27,7 +27,7 @@ import fudian.utils.Multiplier
  * for widening insts and various fma ops
  * latency = 1
  */
-class VFMASrcPreprocessPipe(implicit val p: Parameters) extends VFPUBaseModule {
+class VFMASrcPreprocessPipe(implicit p: Parameters) extends VFPUBaseModule {
 
   def invert(x: UInt, len: Int) = {
     Cat(!x(len-1), x(len-2, 0))
@@ -209,7 +209,7 @@ class MulToAddIOVec(val ftypes: Seq[VFPU.FType])(implicit val p: Parameters) ext
 //}
 
 
-class VFMUL_pipe(val mulLat: Int = 2)(implicit val p: Parameters)
+class VFMUL_pipe(val mulLat: Int = 2)(implicit p: Parameters)
   extends VFPUPipelineModule
 {
   override def latency: Int = mulLat
@@ -299,7 +299,7 @@ class VFMUL_pipe(val mulLat: Int = 2)(implicit val p: Parameters)
 
 
 
-class VFADD_pipe(val addLat: Int = 2)(implicit val p: Parameters) extends VFPUPipelineModule {
+class VFADD_pipe(val addLat: Int = 2)(implicit p: Parameters) extends VFPUPipelineModule {
 
   override def latency: Int = addLat
 
@@ -363,7 +363,7 @@ class VFADD_pipe(val addLat: Int = 2)(implicit val p: Parameters) extends VFPUPi
   }
 }
 
-class VFFMA(implicit val p: Parameters) extends VFPUSubModule {
+class VFFMA(implicit p: Parameters) extends VFPUSubModule {
 
   val sourcePrepare = Module(new VFMASrcPreprocessPipe)
   sourcePrepare.io.in <> io.in
