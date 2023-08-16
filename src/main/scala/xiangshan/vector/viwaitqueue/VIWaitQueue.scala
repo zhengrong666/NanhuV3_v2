@@ -73,7 +73,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val allowEnqueue = RegInit(true.B)
   val isEmpty = enqPtr === deqPtr
   io.enq.isEmpty := isEmpty
-  val isReplaying = io.redirect.valid && !io.canRename
+  val isReplaying = io.redirect.valid
 
   /**
     * data module and states module of Wq
@@ -168,10 +168,12 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 //  val tailidx = vl % elementInRegGroup.U
   val prestartreg = prestartelement / elementInRegGroup.U
 //  val prestartIdx = prestartelement % elementInRegGroup.U
-  val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn)
+  val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn && io.canRename)
   when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
       val cansplit = Mux(countnum(i) < splitnum, true.B, false.B)
+      io.out(i).bits := deqUop(i)
+      io.out(i).valid := !isReplaying && cansplit
       when(cansplit) {
         deqUop(i) <> currentdata
         deqUop(i).isTail := Mux(countnum(i) === tailreg, true.B, false.B)
@@ -232,10 +234,10 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   }
 
   //To VIRename
-  for (i <- 0 until VIRenameWidth) {
-    io.out(i).bits := deqUop(i)
-    io.out(i).valid := !isReplaying
-  }
+//  for (i <- 0 until VIRenameWidth) {
+//    io.out(i).bits := deqUop(i)
+//    io.out(i).valid := !isReplaying
+//  }
 
   /**
     * vtype writeback
