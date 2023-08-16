@@ -169,11 +169,10 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val prestartreg = prestartelement / elementInRegGroup.U
 //  val prestartIdx = prestartelement % elementInRegGroup.U
   val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn && io.canRename)
+  val cansplit = RegInit(true.B)
   when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
-      val cansplit = Mux(countnum(i) < splitnum, true.B, false.B)
-      io.out(i).bits := deqUop(i)
-      io.out(i).valid := !isReplaying && cansplit
+      cansplit := Mux(countnum(i) < splitnum, true.B, false.B)
       when(cansplit) {
         deqUop(i) <> currentdata
         deqUop(i).isTail := Mux(countnum(i) === tailreg, true.B, false.B)
@@ -234,10 +233,10 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   }
 
   //To VIRename
-//  for (i <- 0 until VIRenameWidth) {
-//    io.out(i).bits := deqUop(i)
-//    io.out(i).valid := !isReplaying
-//  }
+  for (i <- 0 until VIRenameWidth) {
+    io.out(i).bits := deqUop(i)
+    io.out(i).valid := !isReplaying && cansplit
+  }
 
   /**
     * vtype writeback
