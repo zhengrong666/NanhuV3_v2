@@ -104,8 +104,8 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     val hasRobIdx           = RegInit(Bool(), false.B)
     val hasRobCommitType    = Reg(Bool())
 
-    val hasRobIdxHead = RegInit(Bool(), false.B)
-    val hasRobIdxTail = RegInit(Bool(), false.B)
+    //val hasRobIdxHead = RegInit(Bool(), false.B)
+    //val hasRobIdxTail = RegInit(Bool(), false.B)
 
     val RobIdxHead = Reg(UInt(log2Up(RobSize).W))
     val RobIdxTail = Reg(UInt(log2Up(RobSize).W))
@@ -117,6 +117,10 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     val entryNum = Wire(UInt(VIPhyRegIdxWidth.W))
     entryNum := distanceBetween(tailPtr, headPtr)
 
+    val hasPendingRobIdx    = RegInit(Bool(), false.B)
+    val pendingRobIdx       = Reg(UInt(log2Up(RobSize).W))
+    val pendingType         = Reg(Bool())
+
     for(i <- 1 until VICommitWidth) {
         entryEqualTail(i-1) := (rollBackList((tailPtr - i.U).value).robIdx === rollBackList((tailPtr - (i-1).U).value).robIdx) & (entryNum >= i.U)
         entryEqualHead(i-1) := (rollBackList((headPtr + i.U).value).robIdx === rollBackList((tailPtr + (i-1).U).value).robIdx) & (entryNum >= i.U)
@@ -127,14 +131,10 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
         io.commitPort.req.canRollBackRobIdxNum := 0.U
     }.otherwise {
         val entryEqualHeadNum = PopCount(entryEqualHead)
-        val entryEqualTailNum = PopCount(entryEqualHead)
-        io.commitPort.req.canCommitRobIdxNum    := Mux(hasRobIdxTail === true.B, entryEqualHeadNum, (entryEqualHeadNum + 1.U))
-        io.commitPort.req.canRollBackRobIdxNum  := Mux(hasRobIdxHead === true.B, entryEqualTailNum, (entryEqualTailNum + 1.U))
-    }
-
-    val hasPendingRobIdx    = RegInit(Bool(), false.B)
-    val pendingRobIdx       = Reg(UInt(log2Up(RobSize).W))
-    val pendingType         = Reg(Bool())
+        val entryEqualTailNum = PopCount(entryEqualTail)
+        io.commitPort.req.canCommitRobIdxNum    := Mux(hasPendingRobIdx === true.B, entryEqualHeadNum, (entryEqualHeadNum + 1.U))
+        io.commitPort.req.canRollBackRobIdxNum  := Mux(hasPendingRobIdx === true.B, entryEqualTailNum, (entryEqualTailNum + 1.U))
+    }    
 
     //commit, tailPtr -> tailPtr+n
     val commitEntry     = Wire(Vec(VICommitWidth, new RollBackListEntry))
