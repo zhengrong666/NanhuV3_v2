@@ -135,6 +135,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 //  vaddrTriggerResultModule.io := DontCare
   val vaddrTriggerResultModule = Module(new vaddrTriggerResultDataModule(Vec(TriggerNum, Bool()), LoadQueueSize, numRead = LoadPipelineWidth, numWrite = LoadPipelineWidth, "LqTrigger"))
   vaddrTriggerResultModule.io := DontCare
+
+
   val allocated = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // lq entry has been allocated
   val datavalid = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // data is valid
   val writebacked = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // inst has been writebacked to CDB
@@ -223,6 +225,9 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     io.enq.resp(i) := lqIdx
   }
   XSDebug(p"(ready, valid): ${io.enq.canAccept}, ${Binary(Cat(io.enq.req.map(_.valid)))}\n")
+
+//  val lastCycleRedirect = RegNext(io.brqRedirect)
+//  val lastlastCycleRedirect = RegNext(lastCycleRedirect)
 
   val lastCycleRedirect_valid = RegNext(io.brqRedirect.valid)
   val lastCycleRedirect_bits = RegEnable(io.brqRedirect.bits, io.brqRedirect.valid)
@@ -464,7 +469,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     getFirstOne(toVec(loadEvenSelVecFire), evenDeqMask),
     getFirstOne(toVec(loadEvenSelVecNotFire), evenDeqMask)
   )
-  val loadOddSel= Mux(
+  val loadOddSel = Mux(
     io.ldout(1).fire(),
     getFirstOne(toVec(loadOddSelVecFire), oddDeqMask),
     getFirstOne(toVec(loadOddSelVecNotFire), oddDeqMask)
@@ -899,7 +904,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   }
   io.uncache.req.valid := (uncache_Order_State === s_req) && (!uop(deqPtr).ctrl.isOrder)
 
-  dataModule.io.uncache.raddr := deqPtrExtNext.value
+  dataModule.io.uncache.raddr := deqPtrExtNext.value  //todo
 
   io.uncache.req.bits.cmd  := MemoryOpConstants.M_XRD
   io.uncache.req.bits.addr := dataModule.io.uncache.rdata.paddr

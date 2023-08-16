@@ -255,9 +255,22 @@ class WithNKBL2
         )),
         reqField = Seq(utility.ReqSourceField()),
         echoField = Seq(coupledL2.DirtyField()),
-        // prefetch = Some(coupledL2.prefetch.PrefetchReceiverParams()),
-        prefetch = Some(coupledL2.prefetch.PrefetchReceiverParams()),
-        elaboratedTopDown = false
+        elaboratedTopDown = false,
+        prefetch = Some(coupledL2.prefetch.HyperPrefetchParams()), /*
+        del L2 prefetche recv option, move into: prefetch =  PrefetchReceiverParams
+        prefetch options:
+          SPPParameters          => spp only
+          BOPParameters          => bop only
+          PrefetchReceiverParams => sms+bop
+          HyperPrefetchParams    => spp+bop+sms
+        */
+        sppMultiLevelRefill = None,//Some(coupledL2.prefetch.PrefetchReceiverParams()),
+        /*must has spp, otherwise Assert Fail
+        sppMultiLevelRefill options:
+        PrefetchReceiverParams() => spp has cross level refill
+        None                     => spp only refill L2
+        */
+        // prefetch = None
         // enablePerf = true,
         // sramDepthDiv = 2,
         // tagECC = None,
@@ -270,7 +283,7 @@ class WithNKBL2
     ))
 })
 
-class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1) extends Config((site, here, up) => {
+class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1, core_num: Int = 1) extends Config((site, here, up) => {
   case SoCParamsKey =>
     val sets = n * 1024 / banks / ways / 64
     val tiles = site(XSTileKey)
@@ -310,14 +323,12 @@ class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1
         clientCaches = tiles.map{ core =>
           val l2params = core.L2CacheParamsOpt.get.toCacheParams
           l2params.copy(
-            sets = clientDirBytes / core.L2NBanks / l2params.ways / 64,
-            ways = l2params.ways * 2,
+            sets = sets,
+            ways = 2 * core_num,
             blockGranularity = log2Ceil(clientDirBytes / core.L2NBanks / l2params.ways / 64 / tiles.size)
           )
         },
-        enablePerf = false,
-        tagEccCode = None,
-        dataEccCode = None
+        enablePerf = false
       ))
     )
 })
@@ -342,8 +353,9 @@ class MediumConfig(n: Int = 1) extends Config(
 )
 
 class DefaultConfig(n: Int = 1) extends Config(
-  new WithNKBL3(4 * 1024, inclusive = false, banks = 4, ways = 8)
+  new WithNKBL3(4 * 1024, inclusive = false, banks = 4, ways = 8, core_num = n)
     ++ new WithNKBL2(256, inclusive = false, banks = 4, alwaysReleaseData = true)
     ++ new WithNKBL1D(64)
     ++ new BaseConfig(n)
 )
+
