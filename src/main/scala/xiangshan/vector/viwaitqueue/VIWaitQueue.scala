@@ -74,7 +74,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val allowEnqueue = RegInit(true.B)
   val isEmpty = enqPtr === deqPtr
   io.enq.isEmpty := isEmpty
-  val isReplaying = io.redirect.valid
+  val isReplaying = io.redirect.valid && !io.canRename
 
   /**
     * data module and states module of Wq
@@ -252,5 +252,19 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     io.mergeId(i).ready := !((mergePtr + 1.U) === enqPtr)
   }
 
+  /**
+    * update pointers
+    */
+
+//  val ren = PopCount(canEnqueue).orR
+//  when(ren){
+//    WqData.io.raddr := waitPtr.value
+//    val tempdata_wait = WqData.io.rdata(0)
+//    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1.U, waitPtr)
+//
+//    WqData.io.raddr := vtypePtr.value
+//    val tempdata_vtype = WqData.io.rdata(0)
+//    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1.U)
+//  }
 
 }
