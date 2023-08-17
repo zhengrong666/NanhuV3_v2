@@ -168,12 +168,13 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 //  val tailidx = vl % elementInRegGroup.U
   val prestartreg = prestartelement / elementInRegGroup.U
 //  val prestartIdx = prestartelement % elementInRegGroup.U
-  val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn && io.canRename)
-  val cansplit = RegInit(true.B)
+  val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn)
+//  val cansplit = VecInit(VIRenameWidth, RegInit(true.B))
+  val cansplit = Wire(Vec(VIDecodeWidth, true.B))
   when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
-      cansplit := Mux(countnum(i) < splitnum, true.B, false.B)
-      when(cansplit) {
+      cansplit(i) := Mux(countnum(i) < splitnum, true.B, false.B)
+      when(cansplit(i)) {
         deqUop(i) <> currentdata
         deqUop(i).isTail := Mux(countnum(i) === tailreg, true.B, false.B)
         deqUop(i).isPrestart := Mux(vstartInterrupt && (prestartreg === countnum(i)), true.B, false.B)
@@ -184,58 +185,16 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         deqUop(i).ctrl.lsrc(0) := currentdata.ctrl.lsrc(0) + tempnum
         deqUop(i).ctrl.lsrc(1) := currentdata.ctrl.lsrc(1) + tempnum
         deqUop(i).ctrl.lsrc(2) := currentdata.ctrl.lsrc(2) + tempnum
-        isComplete := Mux(vstartInterrupt, true.B, Mux(!cansplit, false.B, true.B))
-        countnum(i) := countnum(i) + 1.U
+        isComplete := Mux(vstartInterrupt, true.B, Mux(!cansplit(i), false.B, true.B))
+        countnum(i) := Mux(io.canRename, countnum(i) + VIRenameWidth.U, countnum(i))
       }
-      //      if (cansplit == true.B) {
-      //        deqUop(i) <> currentdata
-      //        deqUop(i).tailMask := Mux(countnum.U === tailreg, 0xffff.U >> ((elementInRegGroup.U - tailidx) * 16.U / elementInRegGroup.U),
-      //          Mux(countnum.U > tailreg, 0.U, 0xffff.U))
-      //        deqUop(i).preStartMask := Mux(vstartInterrupt && (prestartreg === countnum.U), 0xffff.U << prestartIdx, 0.U)
-      //        deqUop(i).uopIdx := countnum.U
-      //        deqUop(i).uopNum := splitnum
-      //        if (deqUop(i).ctrl.isSeg == true.B) {
-      //          val nf = currentdata.ctrl.NFToInt()
-      //          val tempnum = countnum % nf
-      //          deqUop(i).canRename := Mux(countnum.U > nf.U, false.B, true.B)
-      //          deqUop(i).ctrl.lsrc(0) := currentdata.ctrl.lsrc(0) + tempnum.U
-      //          deqUop(i).ctrl.lsrc(1) := currentdata.ctrl.lsrc(1) + tempnum.U
-      //          deqUop(i).ctrl.lsrc(2) := currentdata.ctrl.lsrc(2) + tempnum.U
-      //          deqUop(i).ctrl.ldest := currentdata.ctrl.ldest + tempnum.U
-      //        } else if (isLS == true.B) {
-      //          val tempnum = countnum % elementInRegGroup
-      //          deqUop(i).canRename := Mux(tempnum.U === 0.U, true.B, false.B)
-      //          deqUop(i).ctrl.lsrc(0) := currentdata.ctrl.lsrc(0) + tempnum.U
-      //          deqUop(i).ctrl.lsrc(1) := currentdata.ctrl.lsrc(1) + tempnum.U
-      //          deqUop(i).ctrl.lsrc(2) := currentdata.ctrl.lsrc(2) + tempnum.U
-      //          deqUop(i).ctrl.ldest := currentdata.ctrl.ldest + tempnum.U
-      //        } else {
-      //          deqUop(i).canRename := true.B
-      //          deqUop(i).ctrl.lsrc(0) := currentdata.ctrl.lsrc(0) + countnum.U
-      //          deqUop(i).ctrl.lsrc(1) := currentdata.ctrl.lsrc(1) + countnum.U
-      //          deqUop(i).ctrl.lsrc(2) := currentdata.ctrl.lsrc(2) + countnum.U
-      //          deqUop(i).ctrl.ldest := currentdata.ctrl.ldest + countnum.U
-      //        }
-      //        countnum = countnum + 1
-      //      } else {
-      //        deqUop(i) := DontCare
-      //        countnum = 0
-      //        if (vstartInterrupt == true) {
-      //          isComplete := false.B
-      //          WqData.io.wen := isComplete
-      //          WqData.io.waddr := deqPtr_next.value
-      //          WqData.io.wdata := currentdata
-      //        } else {
-      //          isComplete := true.B
-      //        }
-      //      }
     }
   }
 
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
     io.out(i).bits := deqUop(i)
-    io.out(i).valid := !isReplaying && cansplit
+    io.out(i).valid := !isReplaying && cansplit(i)
   }
 
   /**
@@ -279,19 +238,5 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     io.mergeId(i).ready := !((mergePtr + 1.U) === enqPtr)
   }
 
-  /**
-    * update pointers
-    */
-
-//  val ren = PopCount(canEnqueue).orR
-//  when(ren){
-//    WqData.io.raddr := waitPtr.value
-//    val tempdata_wait = WqData.io.rdata(0)
-//    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1.U, waitPtr)
-//
-//    WqData.io.raddr := vtypePtr.value
-//    val tempdata_vtype = WqData.io.rdata(0)
-//    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1.U)
-//  }
 
 }
