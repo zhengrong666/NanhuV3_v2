@@ -7,6 +7,7 @@ import xiangshan._
 import xiangshan.vector._
 import xs.utils._
 import utils._
+import xiangshan.backend.dispatch.DispatchQueue
 import xiangshan.backend.rob._
 import xiangshan.vector.writeback.WbMergeBufferPtr
 import xiangshan.vector.writeback._
@@ -86,10 +87,12 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     * pointers and counters
     */
   // dequeue pointers
-  val isComplete = RegInit(false.B)
-  isComplete := RegEnable(false.B, isComplete)
+//  val isComplete = RegInit(false.B)
+  val isComplete = RegInit(VecInit(Seq.fill(VIDecodeWidth)(false.B)))
+  isComplete := RegEnable(false.B, isComplete.asTypeOf(false.B))
+  val deqPtrCanMove = PopCount(isComplete).orR
   val deqPtr_temp = deqPtr + 1.U
-  val deqPtr_next = Mux(isComplete, deqPtr, deqPtr_temp)
+  val deqPtr_next = Mux(deqPtrCanMove, deqPtr, deqPtr_temp)
   deqPtr := deqPtr_next
 
   // enqueue pointers
@@ -170,11 +173,11 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 //  val prestartIdx = prestartelement % elementInRegGroup.U
   val globalcanSplit = Mux(vstartInterrupt, false.B, WqStateAraay(deqPtr_next.value).vtypeEn && WqStateAraay(deqPtr_next.value).robenqEn && WqStateAraay(deqPtr_next.value).mergeidEn)
 //  val cansplit = VecInit(VIRenameWidth, RegInit(true.B))
-  val cansplit = Wire(Vec(VIDecodeWidth, true.B))
-  when(globalcanSplit && !isReplaying) {
+  val cansplit = RegInit(VecInit(Seq.fill(VIDecodeWidth)(true.B)))
+//  when(globalcanSplit && !isReplaying) {
     for (i <- 0 until VIRenameWidth) {
       cansplit(i) := Mux(countnum(i) < splitnum, true.B, false.B)
-      when(cansplit(i)) {
+      when(cansplit(i) && globalcanSplit && !isReplaying) {
         deqUop(i) <> currentdata
         deqUop(i).isTail := Mux(countnum(i) === tailreg, true.B, false.B)
         deqUop(i).isPrestart := Mux(vstartInterrupt && (prestartreg === countnum(i)), true.B, false.B)
@@ -185,16 +188,27 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
         deqUop(i).ctrl.lsrc(0) := currentdata.ctrl.lsrc(0) + tempnum
         deqUop(i).ctrl.lsrc(1) := currentdata.ctrl.lsrc(1) + tempnum
         deqUop(i).ctrl.lsrc(2) := currentdata.ctrl.lsrc(2) + tempnum
-        isComplete := Mux(vstartInterrupt, true.B, Mux(!cansplit(i), false.B, true.B))
+        isComplete(i) := Mux(vstartInterrupt, true.B, Mux(!cansplit(i), false.B, true.B))
         countnum(i) := Mux(io.canRename, countnum(i) + VIRenameWidth.U, countnum(i))
       }
     }
+//  }
+
+  val dqSplitToRename = Module(new DispatchQueue(VIWaitQueueWidth, VIDecodeWidth, VIRenameWidth))
+  val dqnSplitCanAccept   = dqSplitToRename.io.enq.canAccept
+  val dqSplitMask = cansplit
+  dqSplitToRename.io.enq.needAlloc   := dqSplitMask
+  dqSplitToRename.io.redirect := io.redirect
+  for ((uop, i) <- deqUop.zipWithIndex) {
+    dqSplitToRename.io.enq.req(i).bits := uop
+    dqSplitToRename.io.enq.req(i).valid := dqSplitMask(i)
   }
 
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
-    io.out(i).bits := deqUop(i)
-    io.out(i).valid := !isReplaying && cansplit(i)
+    dqSplitToRename.io.deq(i).ready := io.canRename
+    io.out(i).bits := dqSplitToRename.io.deq(i).bits
+    io.out(i).valid := dqSplitToRename.io.deq(i).valid
   }
 
   /**
