@@ -81,8 +81,8 @@ class VIRenameWrapper(implicit p: Parameters) extends VectorBaseModule {
     canReanmeVec := rename.io.renameReq.map(_.ready)
     val canToDispatch = Wire(Vec(VIRenameWidth, Bool()))
     canToDispatch := io.uopOut.map(_.ready)
-    //io.canAccept := (!hasWalk) && (!io.redirect.valid) && canReanmeVec.asUInt.andR && canToDispatch.asUInt.andR
-    io.canAccept := (!hasWalk) && (!io.redirect.valid)
+    io.canAccept := (!hasWalk) && (!io.redirect.valid) && canReanmeVec.asUInt.andR && canToDispatch.asUInt.andR
+    //io.canAccept := (!hasWalk) && (!io.redirect.valid)
 
     (0 until VIRenameWidth).map(i => io.uopOut(i).bits  := io.uopIn(i).bits)
     (0 until VIRenameWidth).map(i => io.uopOut(i).valid := reqMask(i))
