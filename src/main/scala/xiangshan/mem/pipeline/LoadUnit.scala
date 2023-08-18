@@ -63,6 +63,7 @@ class LoadUnitTriggerIO(implicit p: Parameters) extends XSBundle {
 class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParameters{
   val io = IO(new Bundle() {
     val in = Flipped(Decoupled(new ExuInput))
+    val auxValid = Input(Bool())
     val out = Decoupled(new LsPipelineBundle)
     val dtlbReq = DecoupledIO(new TlbReq)
     val dcacheReq = DecoupledIO(new DCacheWordReq)
@@ -97,7 +98,7 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   val EnableMem = io.in.bits.uop.loadStoreEnable
 
   // query DTLB
-  io.dtlbReq.valid := (io.in.valid || tryFastpath) && EnableMem
+  io.dtlbReq.valid := (io.auxValid || tryFastpath) && EnableMem
   io.dtlbReq.bits.vaddr := s0_vaddr
   io.dtlbReq.bits.cmd := TlbCmd.read
   io.dtlbReq.bits.size := LSUOpType.size(s0_uop.ctrl.fuOpType)
@@ -106,7 +107,7 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
   io.dtlbReq.bits.debug.isFirstIssue := io.isFirstIssue
 
   // query DCache
-  io.dcacheReq.valid := (io.in.valid || tryFastpath) && EnableMem
+  io.dcacheReq.valid := (io.auxValid || tryFastpath) && EnableMem
   when (isSoftPrefetchRead) {
     io.dcacheReq.bits.cmd  := MemoryOpConstants.M_PFR
   }.elsewhen (isSoftPrefetchWrite) {
@@ -505,6 +506,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
 class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with HasPerfEvents with SdtrigExt {
   val io = IO(new Bundle() {
     val ldin = Flipped(Decoupled(new ExuInput))
+    val auxValid = Input(Bool())
     val ldout = Decoupled(new ExuOutput)
     val redirect = Flipped(ValidIO(new Redirect))
     val feedbackSlow = ValidIO(new RSFeedback)
@@ -543,6 +545,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
 
   // load s0
   load_s0.io.in <> io.ldin
+  load_s0.io.auxValid := io.auxValid
   load_s0.io.dtlbReq <> io.tlb.req
   load_s0.io.dcacheReq <> io.dcache.req
   load_s0.io.rsIdx := io.rsIdx

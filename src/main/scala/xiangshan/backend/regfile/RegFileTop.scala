@@ -295,6 +295,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         }
 
         val issueValidReg = RegInit(false.B)
+        val auxValidReg = RegInit(false.B)
         val issueExuInReg = Reg(new ExuInput)
         val rsIdxReg = Reg(new RsIdx)
 
@@ -302,8 +303,10 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         bo.issue.valid := issueValidReg && !issueExuInReg.uop.robIdx.needFlush(io.redirect)
         bo.issue.bits := issueExuInReg
         bo.rsIdx := rsIdxReg
+        bo.auxValid := auxValidReg
         when(allowPipe) {
           issueValidReg := bi.issue.valid && !bi.hold
+          auxValidReg := bi.auxValid && !bi.hold
         }
         when(bi.issue.fire && !bi.hold) {
           issueExuInReg := exuInBundle
