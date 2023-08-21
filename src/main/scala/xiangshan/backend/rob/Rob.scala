@@ -172,7 +172,7 @@ class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   lazy val module = new RobImp(this)
 }
 
-class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer) 
+class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasXSParameter
   with HasVectorParameters
   with HasCircularQueuePtrHelper
@@ -197,6 +197,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val redirect = Input(Valid(new Redirect))
     val enq = new RobEnqIO
     val exception = ValidIO(new ExceptionInfo)
+    val mmuEnable = Input(Bool())
     val commits = new RobCommitIO
     val lsq = new RobLsqIO
     val robDeqPtr = Output(new RobPtr)
@@ -351,7 +352,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   when (!io.wfi_enable) {
     hasWFI := false.B
   }
-  
+
   when (RegNext(RegNext(io.csr.wfiEvent)) || wfi_timeout) {
     hasWFI := false.B
   }
@@ -400,7 +401,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   /**
     * ************************Writeback (from wbNet and MergeBuffer)************************
     */
-  // diplomacy port wb and 
+  // diplomacy port wb and
   // writeback logic set numWbPorts writebacked to true
   for ((cfg, wb) <- exuWb) {
     when (wb.valid) {
@@ -444,7 +445,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       writebacked(wbIdx) := true.B
     }
   }
-  
+
   for(wb <- io.wbFromMergeBuffer) {
     when(wb.valid) {
       val wbIdx = wb.bits.uop.robIdx.value
@@ -504,7 +505,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     * ************************Commits (and walk)************************
     * They share the same width.
     */
-  
+
 
   // extra space is used when rob has no enough space, but mispredict recovery needs such info to walk regmap
   require(RenameWidth <= CommitWidth)
@@ -580,7 +581,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     io.commits.walkValid(i)   := shouldWalkVec(i)
     io.commits.info(i).pc     := debug_microOp(deqPtrVec(i).value).cf.pc
     io.commits.info(i).connectEntryData(entryDataRead(i))
-    
+
     when (io.commits.isWalk && state === s_walk && shouldWalkVec(i)) {
       XSError(!walk_v(i), s"why not $i???\n")
     }
@@ -748,14 +749,14 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   /**
     * States
     * We put all the stage bits changes here.
-    * 
+    *
     * ----------------------------------------
     * |All events: (1) enqueue (rename);     |
     * |            (2) writeback;            |
     * |            (3) cancel;               |
     * |            (4) dequeue (commit);     |
     * ----------------------------------------
-    * 
+    *
     * ----------------------------------------
     * |All states: (1) valid;                |
     * |            (2) writebacked;          |
@@ -823,7 +824,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   /*
   * read and write of data modules
-  * 
+  *
   * Read:
       if(commit)           -->  rob.entry.read(deqPtrVec_next)
       else, state is walk, -->  rob.entry.read(walkPtrVec_next)
@@ -872,13 +873,13 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   /*
   * Exception
-  * 
+  *
   * writeback connect io.wb---
   *                           |
   *                           ---> ExceptionGen ---> (writebacked(io.out.XXX.robIdx) := true.B)
   *                           |
   * rename connect io.enq-----
-  * 
+  *
   */
   exceptionGen.io.redirect <> io.redirect
   for (i <- 0 until RenameWidth) {
@@ -1027,7 +1028,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val exuOut = debug_exuDebug(ptr)
       val exuData = debug_exuData(ptr)
       difftest.io.valid    := RegNext(RegNext(RegNext(io.commits.commitValid(i) && io.commits.isCommit)))
-      difftest.io.pc       := RegNext(RegNext(RegNext(SignExt(uop.cf.pc, XLEN))))
+      difftest.io.pc       := RegNext(RegNext(RegNext(Mux(io.mmuEnable, SignExt(uop.cf.pc, XLEN), ZeroExt(uop.cf.pc, XLEN)))))
       difftest.io.instr    := RegNext(RegNext(RegNext(uop.cf.instr)))
       difftest.io.special  := RegNext(RegNext(RegNext(CommitType.isFused(io.commits.info(i).commitType))))
       // when committing an eliminated move instruction,
@@ -1074,7 +1075,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val exuOut = dt_exuDebug(ptr)
       val eliminatedMove = dt_eliminatedMove(ptr)
       val isRVC = dt_isRVC(ptr)
-      
+
       val difftest = Module(new DifftestBasicInstrCommit)
       difftest.io.clock   := clock
       difftest.io.coreid  := io.hartId

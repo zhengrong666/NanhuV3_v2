@@ -55,7 +55,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
   val vectorPermutationBlock: VectorPermutationBlock  = LazyModule(new VectorPermutationBlock)
   val memoryBlock: MemBlock                           = LazyModule(new MemBlock(parentName + "memBlock_"))
   private val exuBlocks = integerBlock :: floatingBlock :: memoryBlock :: Nil
-  
+
   private val regFile   = LazyModule(new RegFileTop(2))
   private val vRegFile  = LazyModule(new VRegfileTop(loadUnitNum * 2 + 1))
 
@@ -129,7 +129,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     private val memRs = memoryReservationStation.module
     private val vRs = vectorReservationStation.module
     private val vpRs = vectorPermutationBlock.vprs.module
-    
+
     private val intBlk = integerBlock.module
     private val fpBlk = floatingBlock.module
     private val memBlk = memoryBlock.module
@@ -148,6 +148,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     rf.io.extraReads.take(vrf.rfReadNum).zip(vrf.io.scalarReads).foreach({case(a, b) => a <> b})
     rf.io.extraReads.last <> vpBlk.io.rfReadPort.srf
     rf.io.redirect := Pipe(localRedirect)
+    rf.io.mmuEnable := intBlk.io.csrio.tlb.satp.mode =/= 0.U
 
     vrf.io.hartId := io.hartId
     vrf.io.debug_vec_rat := io.debug_vec_rat
