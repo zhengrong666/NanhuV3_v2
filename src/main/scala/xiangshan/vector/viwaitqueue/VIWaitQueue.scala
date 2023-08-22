@@ -74,7 +74,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val allowEnqueue = RegInit(true.B)
   val isEmpty = enqPtr === deqPtr
   io.enq.isEmpty := isEmpty
-  val isReplaying = io.redirect.valid
+  val isReplaying = io.redirect.valid && !io.canRename
 
   /**
     * data module and states module of Wq
@@ -199,16 +199,19 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val dqSplitToRename = Module(new DispatchQueue(VIWaitQueueWidth, VIDecodeWidth, VIRenameWidth))
   val dqnSplitCanAccept   = dqSplitToRename.io.enq.canAccept
   val dqSplitMask = cansplit
-  dqSplitToRename.io.enq.needAlloc   := dqSplitMask
+  //dqSplitToRename.io.enq.needAlloc   := dqSplitMask
+  dqSplitToRename.io.enq.needAlloc   := VecInit(Seq.tabulate(VIDecodeWidth)(x => false.B))
   dqSplitToRename.io.redirect := io.redirect
   for ((uop, i) <- deqUop.zipWithIndex) {
     dqSplitToRename.io.enq.req(i).bits := uop
-    dqSplitToRename.io.enq.req(i).valid := dqSplitMask(i)
+    //dqSplitToRename.io.enq.req(i).valid := dqSplitMask(i)
+    dqSplitToRename.io.enq.req(i).valid := false.B
   }
 
   //To VIRename
   for (i <- 0 until VIRenameWidth) {
-    dqSplitToRename.io.deq(i).ready := io.canRename
+    //dqSplitToRename.io.deq(i).ready := io.canRename
+    dqSplitToRename.io.deq(i).ready := false.B
     io.out(i).bits := dqSplitToRename.io.deq(i).bits
     io.out(i).valid := dqSplitToRename.io.deq(i).valid
   }
@@ -254,5 +257,19 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
     io.mergeId(i).ready := !((mergePtr + 1.U) === enqPtr)
   }
 
+  /**
+    * update pointers
+    */
+
+//  val ren = PopCount(canEnqueue).orR
+//  when(ren){
+//    WqData.io.raddr := waitPtr.value
+//    val tempdata_wait = WqData.io.rdata(0)
+//    waitPtr := Mux(tempdata_wait.state === s_valid, waitPtr + 1.U, waitPtr)
+//
+//    WqData.io.raddr := vtypePtr.value
+//    val tempdata_vtype = WqData.io.rdata(0)
+//    vtypePtr := Mux(tempdata_vtype.state === s_vtypewb, vtypePtr, vtypePtr + 1.U)
+//  }
 
 }
