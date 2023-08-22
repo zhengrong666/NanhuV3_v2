@@ -202,8 +202,11 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     fpBusyTableReadIdx = fpBusyTableReadIdx + 1
     intBusyTableReadIdx = intBusyTableReadIdx + 2
     vectorBusyTableReadIdx = vectorBusyTableReadIdx + 3
-    assert(type0 === SrcType.reg)
-    when(source.valid){assert(FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))}
+    //assert(type0 === SrcType.reg)
+    when(source.valid) {
+      assert(type0 === SrcType.reg)
+      assert(FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))
+    }
   })
 
   for(((fromAllocate, toAllocate), rsBank) <- allocateNetwork.io.enqToRs

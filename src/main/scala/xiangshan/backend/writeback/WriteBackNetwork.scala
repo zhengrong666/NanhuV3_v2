@@ -66,14 +66,18 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     private var jmpRedirectIdx = 0
     private var aluRedirectIdx = 0
     private var memRedirectIdx = 0
+    println("Redirect Info:")
     wbSources.filter(_._2.hasRedirectOut).foreach(source => {
       if(source._2.exuType == ExuType.jmp){
+        println(source._2)
         redirectGen.io.jmpWbIn(jmpRedirectIdx) := source._1
         jmpRedirectIdx = jmpRedirectIdx + 1
       } else if(source._2.exuType == ExuType.alu){
+        println(source._2)
         redirectGen.io.aluWbIn(aluRedirectIdx) := source._1
         aluRedirectIdx = aluRedirectIdx + 1
       } else if (source._2.exuType == ExuType.sta || source._2.exuType == ExuType.ldu) {
+        println(source._2)
         redirectGen.io.memWbIn(memRedirectIdx) := source._1
         memRedirectIdx = memRedirectIdx + 1
       } else {

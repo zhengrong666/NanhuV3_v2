@@ -634,7 +634,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   val vstart_bytes = Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
   val vstart_bits = Cat(vstart_bytes, 0.U(3.W))
   val vmask_vstart_bits = Wire(UInt(VLEN.W))
-  vmask_vstart_bits := vd_mask << vstart_bits
+  vmask_vstart_bits := vd_mask << vstart_bits(7, 0)
   val vstart_old_vd = old_vd & (~vmask_vstart_bits)
 
   when(flush) {

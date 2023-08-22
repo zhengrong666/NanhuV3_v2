@@ -240,7 +240,7 @@ class VMask(implicit p: Parameters) extends VFuModule {
   val vstart_bytes = Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
   val vstart_bits = Cat(vstart_bytes, 0.U(3.W))
   val vmask_vstart_bits = Wire(UInt(VLEN.W))
-  vmask_vstart_bits := all_one << vstart_bits
+  vmask_vstart_bits := all_one << vstart_bits(6, 0)
   val vstart_old_vd = old_vd_reg & (~vmask_vstart_bits)
 
   val tail_bytes = Mux((vlRemainBytes_reg >= VLENB.U), 0.U, VLENB.U - vlRemainBytes_reg)

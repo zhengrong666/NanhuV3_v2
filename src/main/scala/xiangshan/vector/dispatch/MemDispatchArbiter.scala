@@ -62,11 +62,12 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
         vmemCanDeqVec(i) := io.vmemIn(i).valid && vmemCanDeqVec(i-1) && (io.vmemIn(i).bits.robIdx === vRobIdx)
     }
     for((v, port) <- hasVVec.zip(io.memIn)) {
-        v := port.bits.ctrl.isVector
+        v := port.bits.ctrl.isVector & port.valid
     }
 
     for((in, i) <- io.memIn.zipWithIndex) {
-        in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.asUInt.orR)
+        in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && (memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.asUInt.orR))
+        //in.ready := (arbState === s_mem) && io.toMem2RS(i).ready && memCanDeqVec(i) || ((i.U === PopCount(memCanDeqVec)) && hasVVec.asUInt.orR)
     }
 
     for((in, out) <- io.vmemIn.zip(io.toMem2RS)) {
