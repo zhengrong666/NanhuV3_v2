@@ -5,7 +5,7 @@ import chisel3.util._
 import darecreek.exu.fu2.VUop
 import xiangshan.{MicroOp, Narrow, Widen}
 package object vfu {
-  def uopToVuop(src:MicroOp, p:Parameters):VUop = {
+  def uopToVuop(src:MicroOp, valid:Bool, p:Parameters):VUop = {
     val res = Wire(new VUop()(p))
     res.ctrl.funct6 := src.ctrl.funct6
     res.ctrl.funct3 := src.ctrl.funct3
@@ -26,8 +26,8 @@ package object vfu {
     res.uopIdx := src.uopIdx(2,0)
     res.uopEnd := src.uopIdx(2,0) === src.uopNum
     res.sysUop := src
-    assert(src.uopIdx <= 7.U)
-    assert(src.uopNum <= 7.U)
+    when(valid){assert(src.uopIdx <= 7.U)}
+    when(valid){assert(src.uopNum <= 7.U)}
     res
   }
 }
