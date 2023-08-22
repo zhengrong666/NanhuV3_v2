@@ -48,7 +48,6 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
     enqEntry.robIdx := in.robIdx
     enqEntry.isOrdered := in.ctrl.isOrder
     enqEntry.uopIdx := in.uopIdx(2, 0)
-    assert(in.uopIdx <= 7.U)
     enqEntry
   }
 
@@ -58,6 +57,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
   statusArray.io.enq.valid := io.enq.valid
   statusArray.io.enq.bits.addrOH := io.enq.bits.addrOH
   statusArray.io.enq.bits.data := EnqToEntry(io.enq.bits.data)
+  when(io.enq.valid){assert(statusArray.io.enq.bits.data.uopIdx <= 7.U)}
   statusArray.io.issue := io.issueAddr
   statusArray.io.wakeup := io.wakeup
 

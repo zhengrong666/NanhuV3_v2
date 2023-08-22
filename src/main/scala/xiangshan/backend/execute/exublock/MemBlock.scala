@@ -42,12 +42,15 @@ class Std(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
     val in = Flipped(DecoupledIO(new ExuInput))
     val out = DecoupledIO(new ExuOutput)
+    val redirect = Input(Valid(new Redirect))
   })
+  private val validReg = RegNext(io.in.valid, false.B)
+  private val bitsReg = RegEnable(io.in.bits, io.in.valid)
   io.in.ready := true.B
-  io.out.valid := io.in.valid
+  io.out.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
   io.out.bits := DontCare
-  io.out.bits.uop := io.in.bits.uop
-  io.out.bits.data := io.in.bits.src(0)
+  io.out.bits.uop := bitsReg.uop
+  io.out.bits.data := bitsReg.src(0)
 }
 class MemIssueRouter(implicit p: Parameters) extends LazyModule{
   val node = new ExuComplexIssueNode
@@ -614,6 +617,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     val stu = storeUnits(i)
 
     stdUnits(i).io.in <> stdIssues(i).issue
+    stdUnits(i).io.redirect := Pipe(redirectIn)
 
     stu.io.redirect     <> Pipe(redirectIn)
     staIssues(i).rsFeedback.feedbackSlowStore := stu.io.feedbackSlow
