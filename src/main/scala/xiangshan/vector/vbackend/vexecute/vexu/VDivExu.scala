@@ -30,7 +30,7 @@ class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
 
     private val vdiv = Module(new VDiv)
 
-    private val vuop = uopToVuop(iss.bits.uop, p)
+    private val vuop = uopToVuop(iss.bits.uop, iss.valid, p)
     private val src0 = iss.bits.src(0)
     private val src1 = iss.bits.src(1)
     private val src2 = iss.bits.src(2)
