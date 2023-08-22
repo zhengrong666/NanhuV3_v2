@@ -198,7 +198,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val dqnSplitCanAccept   = dqSplitToRename.io.enq.canAccept
   val dqSplitMask = cansplit
   //dqSplitToRename.io.enq.needAlloc   := dqSplitMask
-  dqSplitToRename.io.enq.needAlloc   := VecInit(Seq.tabulate(VIDecodeWidth)(false.B))
+  dqSplitToRename.io.enq.needAlloc   := VecInit(Seq.tabulate(VIDecodeWidth)(x => false.B))
   dqSplitToRename.io.redirect := io.redirect
   for ((uop, i) <- deqUop.zipWithIndex) {
     dqSplitToRename.io.enq.req(i).bits := uop
