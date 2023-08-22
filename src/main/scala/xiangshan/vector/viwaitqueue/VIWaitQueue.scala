@@ -83,6 +83,8 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val WqData = Module(new SyncDataModuleTemplate(new MicroOp, VIWaitQueueWidth, 1, VIDecodeWidth, "VIWaitqueue", concatData = true))
   val WqStateAraay = RegInit(VecInit(Seq.fill(VIWaitQueueWidth)(0.U.asTypeOf(new WaitQueueState))))
 
+//  val WqStateAraay = VecInit(RegInit(Seq.fill(VIWaitQueueWidth)(0.U.asTypeOf(new WaitQueueState))))
+
   /**
     * pointers and counters
     */
@@ -156,8 +158,8 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val currentdata = WqDataRead
   val currentstate = WqStateAraay(deqPtr_next.value)
   val deqUop = WireInit(VecInit(Seq.fill(VIRenameWidth)(0.U.asTypeOf(new MicroOp))))
-  val isLS = Mux(currentdata.ctrl.isVLS, true.B, false.B)
-  val isWiden = Mux(currentdata.ctrl.widen === Widen.NotWiden, false.B, true.B)
+  val isLS = Mux(currentdata.ctrl.isVLS, true.B, false.B)  && !isEmpty
+  val isWiden = Mux(currentdata.ctrl.widen === Widen.NotWiden, false.B, true.B) && !isEmpty
   val countnum = RegInit(VecInit.tabulate(VIDecodeWidth)(_.U))
   val lmul = currentstate.vtypeInfo.LmulToInt()
   val vl = currentstate.vtypeInfo.vl
