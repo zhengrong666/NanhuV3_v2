@@ -33,7 +33,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
       when(i.fire){
         b := i.bits
       }
-      i.ready := allowIns
+      i.ready := en
     }
   }
 
