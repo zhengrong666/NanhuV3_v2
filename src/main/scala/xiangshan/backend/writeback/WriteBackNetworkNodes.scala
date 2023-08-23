@@ -88,7 +88,27 @@ object WriteBackNetworkNodeOutwardImpl extends OutwardNodeImp[Seq[ExuConfig], Wr
   override def bundleO(eo: (WriteBackSinkParam, Seq[ExuConfig], Parameters)): Vec[ValidIO[ExuOutput]] = Vec(eo._2.length, Valid(new ExuOutput()(eo._3)))
 }
 object WriteBackSinkNodeImpl extends SimpleNodeImp[Seq[ExuConfig], WriteBackSinkParam, (Seq[ExuConfig], Parameters), Vec[Valid[ExuOutput]]]{
-  override def edge(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (Seq[ExuConfig], Parameters) = (pd,p)
+  override def edge(pd: Seq[ExuConfig], pu: WriteBackSinkParam, p: Parameters, sourceInfo: SourceInfo): (Seq[ExuConfig], Parameters) = {
+    require(pu.isLegal)
+    val resPd = if (pu.isRegFile) {
+      pd.filter(_.writebackToRegfile)
+    } else if (pu.isIntRs) {
+      pd.filter(_.writebackToIntRs)
+    } else if (pu.isMemRs) {
+      pd.filter(_.writebackToMemRs)
+    } else if (pu.isFpRs) {
+      pd.filter(_.writebackToFpRs)
+    } else if (pu.isVprs || pu.isVrs) {
+      pd.filter(_.writebackToVecRs)
+    } else if (pu.isVms) {
+      pd.filter(_.writebackToMergeStation)
+    } else if (pu.isRob) {
+      pd.filter(_.writebackToReorderQueue)
+    } else {
+      pd
+    }
+    (resPd, p)
+  }
   override def bundle(e: (Seq[ExuConfig], Parameters)): Vec[ValidIO[ExuOutput]] = Vec(e._1.length, Valid(new ExuOutput()(e._2)))
   override def render(e: (Seq[ExuConfig], Parameters)): RenderedEdge = RenderedEdge(colour = "#0000ff",label = "writeback")
 }

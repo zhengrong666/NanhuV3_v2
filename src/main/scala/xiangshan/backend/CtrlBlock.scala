@@ -128,6 +128,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val decode        = Module(new DecodeStage)
   private val fusionDecoder = Module(new FusionDecoder)
 
+  //Dec-Rename Pipeline
+  private val decPipe = Module(new PipelineRouter(new CfCtrl, DecodeWidth, 2))
+
   //Rename
   private val rename = Module(new Rename)
   private val rat = Module(new RenameTableWrapper)
@@ -241,6 +244,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   io.debug_int_rat  := rat.io.debug_int_rat
   io.debug_fp_rat   := rat.io.debug_fp_rat
 
+  decPipe.io.flush := io.redirectIn.valid || pendingRedirect
+  decPipe.io.in <> decode.io.out
+
   // pipeline between decode and rename
   for (i <- 0 until RenameWidth) {
     // fusion decoder
@@ -253,8 +259,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     }
 
     // Pipeline
-    val renamePipe = PipelineNext(decode.io.out(i), rename.io.in(i).ready,
-      io.redirectIn.valid || pendingRedirect)
+    val renamePipe = decPipe.io.out(0)(i)
     renamePipe.ready := rename.io.in(i).ready
     rename.io.in(i).valid := renamePipe.valid && !fusionDecoder.io.clear(i)
     rename.io.in(i).bits := renamePipe.bits
@@ -335,7 +340,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   //vectorCtrlBlock
   //vCtrlBlock.io.hartId := io.hartId
   //TODO: vCtrlBlock.io.in 
-  vCtrlBlock.io.in <> decode.io.out
+  vCtrlBlock.io.in <> decPipe.io.out(1)
   
   vDeq  <> vCtrlBlock.io.vDispatch
   vpDeq <> vCtrlBlock.io.vpDispatch
