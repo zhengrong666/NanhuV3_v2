@@ -21,7 +21,7 @@ class PermutationRegfileReadPort(implicit p: Parameters) extends XSBundle{
 
 class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
   private val cfg = ExuConfig(
-    name = "VectorPermutationExu",
+    name = "VPermExu",
     id = 0,
     complexName = "VectorPermuationComplex",
     fuConfigs = Seq(FuConfigs.vpermCfg),
