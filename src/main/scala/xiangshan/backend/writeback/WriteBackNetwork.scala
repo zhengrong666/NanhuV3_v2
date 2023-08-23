@@ -116,6 +116,8 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
           } else {
             dst := realSrc
           }
+        } else if(s._2._1.isVprs || s._2._1.isVrs) {
+          dst := PipeWithRedirect(realSrc, 3, p)
         } else {
           dst := realSrc
         }
