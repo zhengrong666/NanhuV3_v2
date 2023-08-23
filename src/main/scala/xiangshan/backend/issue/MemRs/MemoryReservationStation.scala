@@ -368,7 +368,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }
-  println(s"Issue Port ${issue.length} ${specialLoadIssue.head._2}")
+
   println("\nMemory Reservation Wake Up Ports Config:")
   wakeup.zipWithIndex.foreach({ case ((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
