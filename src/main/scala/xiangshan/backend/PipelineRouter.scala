@@ -13,11 +13,11 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
 
   private val validRegs = Seq.tabulate(outNum, vecLen)((_,_) => RegInit(false.B))
   private val bitsRegs = Seq.tabulate(outNum, vecLen)((_,_) => Reg(gen))
-  private val suppress = Seq.tabulate(outNum, vecLen)((_,_) => Wire(Bool()))
+  private val allowOuts = Seq.tabulate(outNum, vecLen)((_,_) => Wire(Bool()))
   private val allowIns = Wire(Vec(vecLen,Bool()))
   private val auxValids = RegInit(VecInit(Seq.tabulate(vecLen)(_ => false.B)))
 
-    for((sl, oidx) <- suppress.zipWithIndex) {
+    for((sl, oidx) <- allowOuts.zipWithIndex) {
     val otherReadies = io.out.zipWithIndex.filterNot(_._2 == oidx).map(_._1).map(_.map(_.ready)).transpose
     for((s, rl) <- sl.zip(otherReadies)){
       s := rl.reduce(_&_)
@@ -43,9 +43,9 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
     }
   }
 
-  for ((((ol, vl), bl), sl) <- io.out.zip(validRegs).zip(bitsRegs).zip(suppress)) {
-    for ((((o, v), b), s) <- ol.zip(vl).zip(bl).zip(sl)) {
-      o.valid := v && !io.flush && !s
+  for ((((ol, vl), bl), el) <- io.out.zip(validRegs).zip(bitsRegs).zip(allowOuts)) {
+    for ((((o, v), b), e) <- ol.zip(vl).zip(bl).zip(el)) {
+      o.valid := v && !io.flush && e
       o.bits := b
     }
   }
