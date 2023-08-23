@@ -41,13 +41,20 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
     val selectInfo = Input(Vec(bankNum,Vec(entryNum, Valid(new VrsSelectInfo))))
     val issueInfo = Vec(issueNum, Decoupled(new VrsSelectResp(bankNum, entryNum)))
     val tokenRelease = if(needToken) Some(Input(Vec(issueNum, Valid(new ExuOutput)))) else None
+    val orderedCtrl = if(isOrdered) Some(Input(Valid(new OIQEntry))) else None
   })
   override val desiredName:String = name.getOrElse("VrsSelectNetwork")
 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({ case (si, bidx) =>
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new VrsSelectResp(bankNum, entryNum)))
-      val orderCond = if(isOrdered) in.bits.isOrdered else !in.bits.isOrdered
+      val orderCond = if(isOrdered) {
+        in.bits.isOrdered && io.orderedCtrl.get.valid &&
+          io.orderedCtrl.get.bits.uopIdx === in.bits.uopIdx &&
+          io.orderedCtrl.get.bits.robIdx === in.bits.robPtr
+      } else {
+        !in.bits.isOrdered
+      }
       selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)

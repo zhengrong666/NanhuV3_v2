@@ -98,7 +98,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private val orderedSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, true, false, 0, fuTypeList, Some(s"VectorOrderedSelectNetwork")))
   private val unorderedSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, false, false, 0, fuTypeList, Some(s"VectorUnorderedSelectNetwork")))
   private val divSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, false, true, vdivWb.length, Seq(vdiv), Some(s"VectorDivSelectNetwork")))
-
+  orderedSelectNetwork.io.orderedCtrl.get := oiq.io.ctrl
   private val selectNetworkSeq = Seq(orderedSelectNetwork, unorderedSelectNetwork, divSelectNetwork)
   selectNetworkSeq.foreach(sn => {
     sn.io.selectInfo.zip(rsBankSeq).foreach({ case (sink, source) =>
@@ -159,18 +159,17 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     prefix(iss._2.name + "_" + iss._2.id) {
       val issueDriver = Module(new VDecoupledPipeline)
       issueDriver.io.redirect := io.redirect
-      val orderedArbiter = Module(new VrsIssueArbiter(param.bankNum, entriesNumPerBank))
-      orderedArbiter.io.orderedIn <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
-      orderedArbiter.io.unorderedIn <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
-      orderedArbiter.io.orderedCtrl := oiq.io.ctrl
-      oiq.io.issued := orderedArbiter.io.orderedChosen
+
+      val finalIssueArbiter = Module(new Arbiter(new VrsSelectResp(param.bankNum, entriesNumPerBank), 3))
+      finalIssueArbiter.io.in(0) <> orderedSelectNetwork.io.issueInfo(orderedPortIdx)
+      finalIssueArbiter.io.in(1) <> unorderedSelectNetwork.io.issueInfo(unorderedPortIdx)
+      finalIssueArbiter.io.in(2) <> divSelectNetwork.io.issueInfo(divPortIdx)
+
+      oiq.io.issued := orderedSelectNetwork.io.issueInfo(orderedPortIdx).fire
 
       orderedPortIdx = orderedPortIdx + 1
       unorderedPortIdx = unorderedPortIdx + 1
-
-      val finalIssueArbiter = Module(new Arbiter(new VrsSelectResp(param.bankNum, entriesNumPerBank), 2))
-      finalIssueArbiter.io.in(0) <> orderedArbiter.io.out
-      finalIssueArbiter.io.in(1) <> divSelectNetwork.io.issueInfo(divPortIdx)
+      divPortIdx = divPortIdx + 1
 
       val finalSelectInfo = finalIssueArbiter.io.out
       val rsBankRen = Mux(issueDriver.io.enq.fire, finalSelectInfo.bits.bankIdxOH, 0.U)
