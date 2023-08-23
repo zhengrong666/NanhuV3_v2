@@ -229,9 +229,6 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     wb.out.head._1
   })
 
-  vlduWritebacks.zip(lduWritebacks).foreach({case(a, b) => a := b})
-  vstuWritebacks.zip(stuWritebacks).foreach({case(a, b) => a := b})
-
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))
     // in
@@ -354,15 +351,23 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   (lduWritebacks ++ stuWritebacks)
     .zip(ldExeWbReqs ++ stuExeWbReqs)
     .foreach({case(wb, out) =>
-      wb.valid := out.valid
+      wb.valid := out.valid && !out.bits.uop.ctrl.isVector
       wb.bits := out.bits
       out.ready := true.B
   })
 
+  (vlduWritebacks ++ stuWritebacks)
+    .zip(ldExeWbReqs ++ stuExeWbReqs)
+    .foreach({case(vwb, vout) =>
+      vwb.valid := vout.valid && vout.bits.uop.ctrl.isVector
+      vwb.bits := vout.bits
+      vout.ready := true.B
+    })
+
   lduWritebacks.zip(ldExeWbReqs).foreach({case(wb, out) =>
     val redirect_wb = wb.bits.redirect
     val uop_out = out.bits.uop
-    wb.bits.redirectValid := out.fire && out.bits.uop.ctrl.replayInst
+    wb.bits.redirectValid := out.fire && out.bits.uop.ctrl.replayInst && !out.bits.uop.ctrl.isVector
     redirect_wb.robIdx := uop_out.robIdx
     redirect_wb.ftqIdx := uop_out.cf.ftqPtr
     redirect_wb.ftqOffset := uop_out.cf.ftqOffset
@@ -376,6 +381,26 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     redirect_wb.isXRet := false.B
     redirect_wb.isFlushPipe := false.B
   })
+
+
+  vlduWritebacks.zip(ldExeWbReqs).foreach({ case (vwb, vout) =>
+    val redirect_wb = vwb.bits.redirect
+    val uop_out = vout.bits.uop
+    vwb.bits.redirectValid := vout.fire && vout.bits.uop.ctrl.replayInst && vout.bits.uop.ctrl.isVector
+    redirect_wb.robIdx := uop_out.robIdx
+    redirect_wb.ftqIdx := uop_out.cf.ftqPtr
+    redirect_wb.ftqOffset := uop_out.cf.ftqOffset
+    redirect_wb.level := RedirectLevel.flush
+    redirect_wb.interrupt := false.B
+    redirect_wb.cfiUpdate := DontCare
+    redirect_wb.cfiUpdate.isMisPred := false.B
+    redirect_wb.isException := false.B
+    redirect_wb.isLoadStore := false.B
+    redirect_wb.isLoadLoad := true.B
+    redirect_wb.isXRet := false.B
+    redirect_wb.isFlushPipe := false.B
+  })
+
 
   // dtlb
   val total_tlb_ports = ld_tlb_ports + exuParameters.StuCnt
