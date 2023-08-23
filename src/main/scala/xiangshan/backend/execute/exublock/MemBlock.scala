@@ -356,7 +356,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
       out.ready := true.B
   })
 
-  (vlduWritebacks ++ stuWritebacks)
+  (vlduWritebacks ++ vstuWritebacks)
     .zip(ldExeWbReqs ++ stuExeWbReqs)
     .foreach({case(vwb, vout) =>
       vwb.valid := vout.valid && vout.bits.uop.ctrl.isVector
