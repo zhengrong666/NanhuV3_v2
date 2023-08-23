@@ -102,7 +102,7 @@ case class ExuConfig
   val writebackToReorderQueue = writebackToRob
   val writebackToVecRs = writeVecRf || writeIntRf || writeFpRf
   val writebackToMergeStation = writebackToVms
-  val writebackToMemRs = writebackToIntRs || writebackToFpRs || writebackToVecRs
+  val writebackToMemRs = ((writeIntRf || writeFpRf) && !hasFastWakeup) || writeVecRf
 
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
   val isIntType = ExuType.intTypes.contains(exuType)
