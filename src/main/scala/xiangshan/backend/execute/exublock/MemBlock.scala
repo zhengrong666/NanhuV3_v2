@@ -720,6 +720,10 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     e.bits.redirectValid := false.B
     e.bits.redirect := DontCare
   })
+  vstuWritebacks.foreach(e => {
+    e.bits.redirectValid := false.B
+    e.bits.redirect := DontCare
+  })
   // lsq.io.uncache        <> uncache.io.lsq
   AddPipelineReg(lsq.io.uncache.req, uncache.io.lsq.req, false.B)
   AddPipelineReg(uncache.io.lsq.resp, lsq.io.uncache.resp, false.B)
