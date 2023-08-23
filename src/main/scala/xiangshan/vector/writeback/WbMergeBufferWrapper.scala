@@ -48,7 +48,7 @@ class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXS
 
 class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters) extends LazyModuleImp(outer) with HasVectorParameters {
     val writebackIn = outer.writebackNode.in.head._2._1 zip outer.writebackNode.in.head._1
-    val vectorWbNodes = writebackIn.filter(e => ExuType.vecTypes exists (t => t == e._1.exuType))
+    val vectorWbNodes = writebackIn
     val vectorWbNodeNum = vectorWbNodes.length
 
     println(s"wbMergePortsNum: $vectorWbNodeNum")
