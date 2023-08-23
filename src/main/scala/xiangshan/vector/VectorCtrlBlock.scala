@@ -71,14 +71,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val waitqueue   = Module(new VIWaitQueue)
     val virename    = Module(new VIRenameWrapper)
     val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
-
-    for (i <- 0 until VIDecodeWidth) {
-        val DecodePipe = PipelineNext(io.in(i), videcode.io.in(i).ready,
-        io.redirect.valid)
-        DecodePipe.ready := videcode.io.in(i).ready
-        videcode.io.in(i).valid := DecodePipe.valid
-        videcode.io.in(i).bits := DecodePipe.bits
-    }
+    
+    videcode.io.in <> io.in
 
     waitqueue.io.enq <> DontCare
 
