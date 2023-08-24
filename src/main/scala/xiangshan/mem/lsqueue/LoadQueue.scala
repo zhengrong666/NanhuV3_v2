@@ -518,13 +518,6 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // writeback missed int/fp load
     //
     // Int load writeback will finish (if not blocked) in one cycle
-    val loadWbPtr = loadWbSel(i).asTypeOf(new LqPtr)
-    val loadWbIdx = loadWbPtr.value
-    val wbmask_bit = (uop(loadWbIdx).uopIdx / (uop(loadWbIdx).uopNum >> 3).asUInt) + 1.U
-    val wb_bit_rem = (uop(loadWbIdx).uopIdx + 1.U) % (uop(loadWbIdx).uopNum >> 3).asUInt
-    val order_wbmask = Mux(wb_bit_rem === 0.U,UIntToMask(wbmask_bit,8),0.U)
-    val wbIsOrder = uop(loadWbIdx).ctrl.isOrder
-    val wbIsEnable = uop(loadWbIdx).loadStoreEnable
 
     io.ldout := DontCare
     io.ldout(i).bits.uop := seluop
@@ -538,7 +531,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     io.ldout(i).bits.debug.vaddr := vaddrModule.io.rdata(i+1)
     io.ldout(i).bits.fflags := DontCare
     io.ldout(i).valid := loadWbSelV(i) && !io.ldout(i).bits.uop.robIdx.needFlush(lastCycleRedirect)
-    io.ldout(i).bits.wbmask := Mux(!wbIsEnable,0.U,Mux(wbIsOrder,order_wbmask,"hff".U))
+    io.ldout(i).bits.wbmask := DontCare
 
     // merged data, uop and offset for data sel in load_s3
     io.ldRawDataOut(i).lqData := dataModule.io.wb.rdata(i).data
