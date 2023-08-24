@@ -637,7 +637,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     io.stout(i).bits := DontCare
     io.stout(i).bits.uop := uop(ptr)
     io.stout(i).bits.data := dataModule.io.rdata(i).data
-    io.stout(i).bits.wbmask := "hff".U
+    io.stout(i).bits.wbmask := DontCare
   }
 
   // Send data stored in sbufferReqBitsReg to sbuffer

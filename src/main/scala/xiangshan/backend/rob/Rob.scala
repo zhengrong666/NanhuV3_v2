@@ -1,85 +1,33 @@
 /***************************************************************************************
-* Copyright (c) 2020-2021 Institute of Computing Technology, Chinese Academy of Sciences
-* Copyright (c) 2020-2021 Peng Cheng Laboratory
-*
-* XiangShan is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-***************************************************************************************/
+ * Copyright (c) 2020-2023 Institute of Computing Technology, Chinese Academy of Sciences
+ *
+ * XiangShan is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ *
+ * See the Mulan PSL v2 for more details.
+ ***************************************************************************************/
 
 package xiangshan.backend.rob
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import difftest._
-import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
+import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
+
+import difftest._
 import utils._
-import xiangshan._
-import xiangshan.backend.writeback._
-import xiangshan.frontend.FtqPtr
 import xs.utils._
+import xiangshan._
+import xiangshan.frontend.FtqPtr
+import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
+import xiangshan.backend.writeback._
 import xiangshan.vector._
-
-class RobPtr(implicit p: Parameters) extends CircularQueuePtr[RobPtr](
-  p => p(XSCoreParamsKey).RobSize
-) with HasCircularQueuePtrHelper {
-
-  def needFlush(redirect: Valid[Redirect]): Bool = {
-    val flushItself = redirect.bits.flushItself() && this === redirect.bits.robIdx
-    redirect.valid && (flushItself || isAfter(this, redirect.bits.robIdx))
-  }
-
-  def needFlush(redirect: Seq[Valid[Redirect]]): Bool = VecInit(redirect.map(needFlush)).asUInt.orR
-}
-
-object RobPtr {
-  def apply(f: Bool, v: UInt)(implicit p: Parameters): RobPtr = {
-    val ptr = Wire(new RobPtr)
-    ptr.flag := f
-    ptr.value := v
-    ptr
-  }
-}
-
-class RobCSRIO(implicit p: Parameters) extends XSBundle {
-  val intrBitSet = Input(Bool())
-  val wfiEvent   = Input(Bool())
-
-  val fflags     = Output(Valid(UInt(5.W)))
-  val vstart     = Output(Valid(UInt(7.W)))
-  val vxsat      = Output(ValidIO(Bool()))
-  val dirty_fs   = Output(Bool())
-  val perfinfo   = new Bundle {
-    val retiredInstr = Output(UInt(3.W))
-  }
-}
-
-class RobLsqIO(implicit p: Parameters) extends XSBundle {
-  val lcommit = Output(UInt(log2Up(CommitWidth + 1).W))
-  val scommit = Output(UInt(log2Up(CommitWidth + 1).W))
-  val pendingld = Output(Bool())
-  val pendingst = Output(Bool())
-  val commit = Output(Bool())
-  val pendingOrdered = Output(Bool())
-}
-
-class RobEnqIO(implicit p: Parameters) extends XSBundle {
-  val canAccept = Output(Bool())
-  val isEmpty = Output(Bool())
-  // valid vector, for robIdx gen and walk
-  val needAlloc = Vec(RenameWidth, Input(Bool()))
-  val req = Vec(RenameWidth, Flipped(ValidIO(new MicroOp)))
-  val resp = Vec(RenameWidth, Output(new RobPtr))
-}
 
 class RobDeqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
@@ -159,13 +107,6 @@ class RobEnqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircular
 
 }
 
-class RobFlushInfo(implicit p: Parameters) extends XSBundle {
-  val ftqIdx = new FtqPtr
-  val robIdx = new RobPtr
-  val ftqOffset = UInt(log2Up(PredictWidth).W)
-  val replayInst = Bool()
-}
-
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
   val writebackNode = new WriteBackSinkNode(wbNodeParam)
@@ -208,18 +149,20 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val wbFromMergeBuffer = Vec(VectorMergeWbWidth, Flipped(ValidIO(new ExuOutput)))
   })
 
-  val stdWb = writebackIn.filter(wb => wb._1.exuType == ExuType.std)
-  val exuWb = writebackIn.filter(wb => wb._1.exuType != ExuType.std)
+  // val stdWb = writebackIn.filter(wb => wb._1.exuType == ExuType.std)
+  // val exuWb = writebackIn.filter(wb => wb._1.exuType != ExuType.std)
   val wbWithFFlag = writebackIn.filter(wb => wb._1.writeFFlags)
   val wbWithException = writebackIn.filter(_._1.hasException)
 
   //params exclude
-  val exuWriteback = exuWb.map(_._2)
-  val stdWriteback = stdWb.map(_._2)
+  // val exuWriteback = exuWb.map(_._2)
+  // val stdWriteback = stdWb.map(_._2)
+  val wbPorts = writebackIn.map(_._2)
 
   println(s"Rob     : size: $RobSize, numWbPorts: $numWbPorts, commitwidth: $CommitWidth")
-  println(s"exuPorts: ${exuWb.map(_._1.name)}")
-  println(s"stdPorts: ${stdWb.map(_._1.name)}")
+  // println(s"exuPorts: ${exuWb.map(_._1.name)}")
+  // println(s"stdPorts: ${stdWb.map(_._1.name)}")
+
   println(s"fflags  : ${wbWithFFlag.map(_._1.name)}")
   println(s"exception from exu: ${wbWithException.map(_._1.name)}")
   writebackIn.zipWithIndex.foreach({
@@ -403,7 +346,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     */
   // diplomacy port wb and
   // writeback logic set numWbPorts writebacked to true
-  for ((cfg, wb) <- exuWb) {
+  for ((cfg, wb) <- writebackIn) {
     when (wb.valid) {
       val wbIdx = wb.bits.uop.robIdx.value
       val wbHasException = ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, cfg).asUInt.orR
@@ -413,7 +356,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     }
   }
 
-  for (wb <- exuWriteback) {
+  for (wb <- wbPorts) {
     when (wb.valid) {
       val wbIdx = wb.bits.uop.robIdx.value
       debug_exuData(wbIdx) := wb.bits.data
@@ -431,7 +374,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       )
     }
   }
-  val writebackNumFromEXU = PopCount(exuWriteback.map(_.valid))
+  val writebackNumFromEXU = PopCount(wbPorts.map(_.valid))
   XSInfo(writebackNumFromEXU =/= 0.U, "exu writebacked %d insts\n", writebackNumFromEXU)
 
   // From MergeBuffer writeback, vmem/vpBlock/valu/vdiv/vfp/vmac
@@ -842,17 +785,17 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   entryDataModule.io.waddr  := allocatePtrVec.map(_.value)
   entryDataModule.io.wdata.zip(io.enq.req.map(_.bits)).foreach {
     case (wdata, req) =>
-      wdata.ldest := req.ctrl.ldest
-      wdata.rfWen := req.ctrl.rfWen
-      wdata.fpWen := req.ctrl.fpWen
-      wdata.wflags := req.ctrl.fpu.wflags
-      wdata.commitType := req.ctrl.commitType
-      wdata.pdest := req.pdest
-      wdata.old_pdest := req.old_pdest
-      wdata.ftqIdx := req.cf.ftqPtr
-      wdata.ftqOffset := req.cf.ftqOffset
-      wdata.vecWen := req.ctrl.isVector
-      wdata.wvcsr := false.B
+      wdata.ldest       := req.ctrl.ldest
+      wdata.rfWen       := req.ctrl.rfWen
+      wdata.fpWen       := req.ctrl.fpWen
+      wdata.wflags      := req.ctrl.fpu.wflags
+      wdata.commitType  := req.ctrl.commitType
+      wdata.pdest       := req.pdest
+      wdata.old_pdest   := req.old_pdest
+      wdata.ftqIdx      := req.cf.ftqPtr
+      wdata.ftqOffset   := req.cf.ftqOffset
+      wdata.vecWen      := req.ctrl.isVector
+      wdata.wvcsr       := false.B
   }
 
   for(i <- 0 until fflagsWbNums) {
@@ -887,7 +830,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     exceptionGen.io.enq(i).bits.robIdx := io.enq.req(i).bits.robIdx
     exceptionGen.io.enq(i).bits.exceptionVec := ExceptionNO.selectFrontend(io.enq.req(i).bits.cf.exceptionVec)
     XSError(canEnqueue(i) && io.enq.req(i).bits.ctrl.replayInst, "enq should not set replayInst")
-    exceptionGen.io.enq(i).bits.singleStep := io.enq.req(i).bits.ctrl.singleStep
+    exceptionGen.io.enq(i).bits.singleStep      := io.enq.req(i).bits.ctrl.singleStep
     exceptionGen.io.enq(i).bits.crossPageIPFFix := io.enq.req(i).bits.cf.crossPageIPFFix
     exceptionGen.io.enq(i).bits.trigger.clear() // Don't care frontend timing and chain, backend hit and canFire
     exceptionGen.io.enq(i).bits.trigger.frontendHit := io.enq.req(i).bits.cf.trigger.frontendHit
@@ -1062,7 +1005,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
         dt_isRVC(allocatePtrVec(i).value) := io.enq.req(i).bits.cf.pd.isRVC
       }
     }
-    for (wb <- exuWriteback) {
+    for (wb <- wbPorts) {
       when (wb.valid) {
         val wbIdx = wb.bits.uop.robIdx.value
         dt_exuDebug(wbIdx) := wb.bits.debug

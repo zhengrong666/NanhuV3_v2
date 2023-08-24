@@ -139,7 +139,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val ssit = Module(new SSIT)
   private val waittable = Module(new WaitTable)
   private val lfst = Module(new LFST)
-  
+
   //Dispatch
   private val dispatch = Module(new Dispatch)
   private val memDispatch2Rs = Module(new MemDispatch2Rs)
@@ -222,6 +222,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     ssit.io.raddr(i) := mdp_foldpc
     waittable.io.raddr(i) := mdp_foldpc
   }
+  
   // currently, we only update mdp info when isReplay
   ssit.io.update := Pipe(io.memPredUpdate)
   ssit.io.csrCtrl := RegNext(io.csrCtrl)
@@ -351,6 +352,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   dispatch.io.toLsDq <> lsDq.io.enq
   dispatch.io.allocPregs <> io.allocPregs
   dispatch.io.singleStep := RegNext(io.csrCtrl.singlestep)
+  dispatch.io.enqRob <> rob.io.enq
 
   intDq.io.redirect := Pipe(io.redirectIn)
   fpDq.io.redirect := Pipe(io.redirectIn)
