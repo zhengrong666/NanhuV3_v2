@@ -263,10 +263,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     val renamePipe = decPipe.io.out(0)(i)
     renamePipe.ready := rename.io.in(i).ready
     rename.io.in(i).valid := renamePipe.valid && !fusionDecoder.io.clear(i)
-    rename.io.in(i).bits := renamePipe.bits
+    rename.io.in(i).bits  := renamePipe.bits
     rename.io.intReadPorts(i) := rat.io.intReadPorts(i).map(_.data)
-    rename.io.fpReadPorts(i) := rat.io.fpReadPorts(i).map(_.data)
-    rename.io.waittable(i) := RegEnable(waittable.io.rdata(i), decode.io.out(i).fire)
+    rename.io.fpReadPorts(i)  := rat.io.fpReadPorts(i).map(_.data)
+    rename.io.waittable(i)    := RegEnable(waittable.io.rdata(i), decode.io.out(i).fire)
 
     if (i < RenameWidth - 1) {
       // fusion decoder sees the raw decode info
@@ -292,10 +292,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     }
   }
 
-  rename.io.redirect := io.redirectIn
-  rename.io.robCommits := rob.io.commits
-  rename.io.ssit := ssit.io.rdata
-  rename.io.vtypeWb <> io.vtypeWb
+  rename.io.redirect    := io.redirectIn
+  rename.io.robCommits  := rob.io.commits
+  rename.io.ssit        := ssit.io.rdata
+  rename.io.vtypeWb     <> io.vtypeWb
 
   // pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
@@ -304,17 +304,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
-  val vCtrlBlockRobPtrAlloc = Wire(Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))))
-  for((vCAlloc, i) <- vCtrlBlockRobPtrAlloc.zipWithIndex) {
-    vCAlloc.bits := rob.io.enq.resp(i)
-    vCAlloc.valid := rename.io.vtypeout(i).valid
-  }
   vCtrlBlock.io.SIRenameIn  <> rename.io.SIRenameOUT
-  vCtrlBlock.io.vtypein     <> rename.io.vtypeout
-  // for(i <- 0 until VIRenameWidth) {
-  //   vCtrlBlock.io.robPtr(i).bits := rob.io.enq.resp(i)
-  //   vCtrlBlock.io.robPtr(i).valid := rename.io.out(i).valid && rename.io.out.bits
-  // }
+  vCtrlBlock.io.vtypein       <> rename.io.vtypeout
   vCtrlBlock.io.vtypewriteback <> DontCare
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
   for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {

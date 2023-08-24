@@ -149,20 +149,13 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val wbFromMergeBuffer = Vec(VectorMergeWbWidth, Flipped(ValidIO(new ExuOutput)))
   })
 
-  // val stdWb = writebackIn.filter(wb => wb._1.exuType == ExuType.std)
-  // val exuWb = writebackIn.filter(wb => wb._1.exuType != ExuType.std)
   val wbWithFFlag = writebackIn.filter(wb => wb._1.writeFFlags)
   val wbWithException = writebackIn.filter(_._1.hasException)
 
   //params exclude
-  // val exuWriteback = exuWb.map(_._2)
-  // val stdWriteback = stdWb.map(_._2)
   val wbPorts = writebackIn.map(_._2)
 
   println(s"Rob     : size: $RobSize, numWbPorts: $numWbPorts, commitwidth: $CommitWidth")
-  // println(s"exuPorts: ${exuWb.map(_._1.name)}")
-  // println(s"stdPorts: ${stdWb.map(_._1.name)}")
-
   println(s"fflags  : ${wbWithFFlag.map(_._1.name)}")
   println(s"exception from exu: ${wbWithException.map(_._1.name)}")
   writebackIn.zipWithIndex.foreach({
