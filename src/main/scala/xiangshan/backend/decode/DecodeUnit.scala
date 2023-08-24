@@ -897,9 +897,9 @@ object VectorStoreDecode extends VIDecodeConstants {
 object VectorConfDecode extends DecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
-    VSETIVLI ->List(SrcType.imm,  SrcType.imm, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.IMM_CI),
-    VSETVL ->List(SrcType.reg,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.X),
-    VSETVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, FuOpType.X, Y, N, N, N, N, N, SelImm.IMM_C),
+    VSETIVLI ->List(SrcType.imm,  SrcType.imm, SrcType.X, FuType.csr, CSROpType.vsetivli, Y, N, N, N, N, N, SelImm.IMM_CI),
+    VSETVL ->List(SrcType.reg,  SrcType.reg, SrcType.X, FuType.csr, CSROpType.vsetvl, Y, N, N, N, N, N, SelImm.X),
+    VSETVLI ->List(SrcType.imm,  SrcType.reg, SrcType.X, FuType.csr, CSROpType.vsetvli, Y, N, N, N, N, N, SelImm.IMM_C),
 
   )
 }
