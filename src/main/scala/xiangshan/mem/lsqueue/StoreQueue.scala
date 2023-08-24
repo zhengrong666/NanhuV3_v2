@@ -633,20 +633,11 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     dataBuffer.io.enq(i).bits.wline := v_pAddrModule.io.rlineflag_v_p(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
 
-    val storeWbIdx = ptr
-    val wbMask_bit = (uop(storeWbIdx).uopIdx / (uop(storeWbIdx).uopNum >> 3).asUInt) + 1.U
-    val wb_bit_rem = (uop(storeWbIdx).uopIdx + 1.U) % (uop(storeWbIdx).uopNum >> 3).asUInt
-    val order_wbmask = Mux(wb_bit_rem === 0.U,UIntToMask(wbMask_bit,8),0.U)
-    val wbIsOrder = uop(storeWbIdx).ctrl.isOrder
-    val wbIsEnable = uop(storeWbIdx).loadStoreEnable
-    val wbStoreMask = Mux(!wbIsEnable,0.U,Mux(wbIsOrder,order_wbmask,"hff".U))
-
-
     io.stout(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
     io.stout(i).bits := DontCare
     io.stout(i).bits.uop := uop(ptr)
     io.stout(i).bits.data := dataModule.io.rdata(i).data
-    io.stout(i).bits.wbmask := wbStoreMask
+    io.stout(i).bits.wbmask := DontCare
   }
 
   // Send data stored in sbufferReqBitsReg to sbuffer
