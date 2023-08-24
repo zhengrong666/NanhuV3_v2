@@ -318,12 +318,12 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
       val lduIssueInfo = lduSelectNetwork.io.issueInfo(issuePortIdx)
       val earlyWakeupQueue = Module(new WakeupQueue(3))
-      earlyWakeupQueue.io.in.valid := lduIssueInfo.fire
+      earlyWakeupQueue.io.in.valid := lduIssueInfo.fire && lduIssueInfo.bits.info.rfWen
       earlyWakeupQueue.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       earlyWakeupQueue.io.in.bits.robPtr := lduIssueInfo.bits.info.robPtr
       earlyWakeupQueue.io.in.bits.lpv := lduIssueInfo.bits.info.lpv
       earlyWakeupQueue.io.in.bits.pdest := lduIssueInfo.bits.info.pdest
-      earlyWakeupQueue.io.in.bits.destType := Mux(lduIssueInfo.bits.info.fpWen, SrcType.fp, Mux(lduIssueInfo.bits.info.rfWen, SrcType.reg, SrcType.default))
+      earlyWakeupQueue.io.in.bits.destType := SrcType.reg
       earlyWakeupQueue.io.redirect := io.redirect
 
       earlyWakeupQueue.io.in.bits.lpv(issuePortIdx) := lduIssueInfo.bits.info.lpv(issuePortIdx) | (1 << (LpvLength - 1)).U

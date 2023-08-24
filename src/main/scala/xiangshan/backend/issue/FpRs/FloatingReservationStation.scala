@@ -86,7 +86,10 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     val mod = Module(new FloatingReservationBank(entriesNumPerBank, issueWidth, wakeup.length, loadUnitNum))
     mod.io.redirect := io.redirect
     mod.io.wakeup := wakeupSignals
-    mod.io.loadEarlyWakeup := io.loadEarlyWakeup
+    mod.io.loadEarlyWakeup.foreach({a =>
+      a.valid := false.B
+      a.bits := DontCare
+    })
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod
   })

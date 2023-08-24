@@ -68,7 +68,7 @@ object ExuType{
   def vecTypes: Seq[Int] = Seq(vfp, valu, vperm, vmac, vdiv, s2v)
   def typeToString(in:Int):String = mapping(in)
   def bypassIntList: Seq[Int] = Seq(alu, mul, ldu)
-  def bypassFpList: Seq[Int] = Seq(ldu)
+  def bypassFpList: Seq[Int] = Seq()
 }
 
 case class ExuConfig
