@@ -74,23 +74,19 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     
     videcode.io.in <> io.in
 
-    waitqueue.io.enq <> DontCare
+    waitqueue.io.enq := DontCare
 
     videcode.io.canOut := waitqueue.io.enq.canAccept
     for (i <- 0 until VIDecodeWidth) {
-        when(io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid) {
-            waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid
-            waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid
-            val currentData = Wire(new VIMop)
-            currentData.MicroOp <> videcode.io.out(i).bits
-            currentData.MicroOp.pdest <> io.SIRenameIn(i).bits.pdest
-            currentData.MicroOp.psrc <> io.SIRenameIn(i).bits.psrc
-            currentData.MicroOp.old_pdest <> io.SIRenameIn(i).bits.old_pdest
-            currentData.MicroOp.vCsrInfo <> io.vtypein(i).bits.uop.vCsrInfo
-            currentData.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
-            currentData.state := io.vtypein(i).bits.state
-            waitqueue.io.enq.req(i).bits := currentData
-        }
+        waitqueue.io.enq.req(i).valid := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
+        waitqueue.io.enq.needAlloc(i) := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
+        waitqueue.io.enq.req(i).bits.MicroOp := videcode.io.out(i).bits
+        waitqueue.io.enq.req(i).bits.MicroOp.pdest := io.SIRenameIn(i).bits.pdest
+        waitqueue.io.enq.req(i).bits.MicroOp.psrc := io.SIRenameIn(i).bits.psrc
+        waitqueue.io.enq.req(i).bits.MicroOp.old_pdest := io.SIRenameIn(i).bits.old_pdest
+        waitqueue.io.enq.req(i).bits.MicroOp.vCsrInfo := io.vtypein(i).bits.uop.vCsrInfo
+        waitqueue.io.enq.req(i).bits.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
+        waitqueue.io.enq.req(i).bits.state := io.vtypein(i).bits.state
     }
 
     
