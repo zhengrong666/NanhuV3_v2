@@ -80,11 +80,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       (e._1._1, e._2._1, e._1._2)
     })
     private val wb = fromVectorFu
-    println("Vector Regfile Info:")
-    wb.zipWithIndex.foreach({ case ((_, cfg), idx) =>
-      println(s"port $idx ${cfg.name} #${cfg.id} need merge: ${cfg.willTriggerVrfWkp}")
-    })
-    println("")
     require(issueNode.in.length == 1)
 
     private val wbPairNeedMerge = wbVFUPair.filter(_._3.willTriggerVrfWkp)
@@ -97,7 +92,9 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
 
     private val vrf = Module(new VRegfile(wbPairNeedMerge.length, wbPairDontNeedMerge.length, readPortsNum))
 
+    println("VRF wake up port info:")
     vrf.io.wbWakeup.zip(vrf.io.wakeups).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
+      println(cfg)
       if(cfg.exuType == ExuType.ldu){
         val sew = wbin.bits.uop.vCsrInfo.vsew
         val bitsWire = WireInit(wbin.bits)
@@ -127,7 +124,9 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits.redirect := rfwkp.bits.redirect
       wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 7, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
     })
+    println("VRF No wake up port info:")
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
+      println(cfg)
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
       rfwb.bits := wbin.bits
       val validCond = wbin.valid
