@@ -1131,6 +1131,17 @@ case class Imm_B6() extends Imm(6){
   }
 }
 
+case class Imm_C() extends Imm(11) {
+  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
+
+  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(30, 20))
+}
+
+case class Imm_CI() extends Imm(16) {
+  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
+  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(29, 20), instr(19,15))
+}
+
 object ImmUnion {
   val I = Imm_I()
   val S = Imm_S()
@@ -1139,7 +1150,9 @@ object ImmUnion {
   val J = Imm_J()
   val Z = Imm_Z()
   val B6 = Imm_B6()
-  val imms = Seq(I, S, B, U, J, Z, B6)
+  val VC = Imm_C()
+  val VCI = Imm_CI()
+  val imms = Seq(I, S, B, U, J, Z, B6, VC, VCI)
   val maxLen = imms.maxBy(_.len).len
   val immSelMap = Seq(
     SelImm.IMM_I,
@@ -1148,7 +1161,9 @@ object ImmUnion {
     SelImm.IMM_U,
     SelImm.IMM_UJ,
     SelImm.IMM_Z,
-    SelImm.IMM_B6
+    SelImm.IMM_B6,
+    SelImm.IMM_C,
+    SelImm.IMM_CI
   ).zip(imms)
   println(s"ImmUnion max len: $maxLen")
 }
