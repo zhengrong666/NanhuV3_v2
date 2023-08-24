@@ -80,11 +80,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       (e._1._1, e._2._1, e._1._2)
     })
     private val wb = fromVectorFu
-    println("Vector Regfile Info:")
-    wb.zipWithIndex.foreach({ case ((_, cfg), idx) =>
-      println(s"port $idx ${cfg.name} #${cfg.id} need merge: ${cfg.willTriggerVrfWkp}")
-    })
-    println("")
     require(issueNode.in.length == 1)
 
     private val wbPairNeedMerge = wbVFUPair.filter(_._3.willTriggerVrfWkp)
@@ -97,6 +92,10 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
 
     private val vrf = Module(new VRegfile(wbPairNeedMerge.length, wbPairDontNeedMerge.length, readPortsNum))
 
+    println("VRF writeback port need merged:")
+    wbPairNeedMerge.foreach(e => print(e._3))
+    println("VRF writeback port not need merged:")
+    wbPairDontNeedMerge.foreach(e => print(e._3))
     vrf.io.wbWakeup.zip(vrf.io.wakeups).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
       if(cfg.exuType == ExuType.ldu){
         val sew = wbin.bits.uop.vCsrInfo.vsew

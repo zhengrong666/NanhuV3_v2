@@ -36,19 +36,6 @@ import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
 
-class WbMergeEntry(implicit p: Parameters) extends XSBundle {
-    val wbmask  = UInt(8.W)
-    val robIdx  = new RobPtr
-    val canWb   = Bool()
-    val valid   = Bool()
-
-    // def init: Unit = {
-    //     wbmask := 0.U
-    //     canWb := false.B
-    //     valid := false.B
-    // }
-}
-
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
 object WbMergeBufferPtr {
     def apply(f: Boolean, v: Int, size: Int): WbMergeBufferPtr = {
@@ -90,39 +77,36 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
         val waitqueue   = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
         val rob         = Vec(wbWidth, ValidIO(new ExuOutput))
         val exu         = Vec(mergeWidth, Flipped(ValidIO(new ExuOutput)))
-        //val wbMSFull    = Output(Bool())
     })
 
     val ptrHelper = Module(new WbMergeBufferPtrHelper(size, allocateWidth, wbWidth))
 
-    val mergeTable = Reg(Vec(size, new WbMergeEntry))
+    val mergeTable = Reg(Vec(size, new ExuOutput))
 
     //allocate, connect with WaitQueue
     //TODO: bypass Merge
     io.waitqueue <> ptrHelper.io.allocate
-    val allocateVec = Wire(Vec(allocateWidth, Bool()))
-    allocateVec := io.waitqueue.map(_.fire)
-    for((ptr, en) <- ptrHelper.io.allocate.map(_.bits.value).zip(allocateVec)) {
-        when(en) {
-            mergeTable(ptr).wbmask  := 0.U
-            mergeTable(ptr).canWb   := false.B
-            mergeTable(ptr).valid   := true.B
-        }
-    }
 
-    //merge, connect with EXU
-    for((merge, i) <- io.exu.zipWithIndex) {
-        val entry       = mergeTable(merge.bits.uop.mergeIdx.value)
-        val mergeId     = merge.bits.uop.mergeIdx
-        val wbmaskNext  = entry.wbmask | merge.bits.wbmask
-        when(merge.valid && wbmaskNext.andR) {
-            mergeTable(mergeId.value).canWb   := true.B
-            mergeTable(mergeId.value).wbmask  := wbmaskNext
-        }.elsewhen(merge.valid && (merge.bits.uop.robIdx === entry.robIdx)) {
-            mergeTable(mergeId.value).wbmask := wbmaskNext
-        }.elsewhen(merge.valid && (merge.bits.uop.robIdx =/= entry.robIdx)) {
-            mergeTable(mergeId.value).wbmask := wbmaskNext
-            mergeTable(mergeId.value).robIdx := merge.bits.uop.robIdx
+    for((e, i) <- mergeTable.zipWithIndex) {
+        val mergeVec = Wire(Vec(mergeWidth, Bool()))
+        mergeVec := io.exu.map(w => w.valid && (w.bits.uop.mergeIdx.value === i.U))
+        val mergeWen = mergeVec.asUInt.orR
+
+        val allocateVec = Wire(Vec(allocateWidth, Bool()))
+        allocateVec := io.waitqueue.map(w => w.fire() && (w.bits.value === i.U))
+        val allocateWen = allocateVec.asUInt.orR
+        
+        when(mergeWen) {
+            assert(e.wbmask === 0.U || Mux1H(mergeVec, io.exu.map(_.bits.uop.robIdx)) === e.uop.robIdx)
+            e.wbmask                := e.wbmask | Mux1H(mergeVec, io.exu.map(_.bits.wbmask))
+            e.uop.robIdx            := Mux1H(mergeVec, io.exu.map(_.bits.uop.robIdx))
+            e.vxsat                 := e.vxsat | Mux1H(mergeVec, io.exu.map(_.bits.vxsat))
+            e.uop.cf.exceptionVec   := Mux1H(mergeVec, io.exu.map(_.bits.uop.cf.exceptionVec))
+        }.elsewhen(allocateWen) {
+            e.wbmask := 0.U
+            e.vxsat := false.B
+        }.otherwise {
+            e.wbmask := e.wbmask
         }
     }
 
@@ -132,17 +116,16 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val wbPtr = Wire(new WbMergeBufferPtr(size))
     wbPtr := ptrHelper.io.releasePtrValue
 
-    wbVec(0) := mergeTable(wbPtr.value).canWb
+    wbVec(0) := mergeTable(wbPtr.value).wbmask.andR
     for(i <- 1 until wbWidth) {
         val entry = mergeTable(wbPtr.value + i.U)
-        wbVec(i) := wbVec(i-1) & entry.canWb
+        wbVec(i) := wbVec(i-1) & entry.wbmask.andR
     }
 
     for((port, i) <- io.rob.zipWithIndex) {
         val entry = mergeTable(wbPtr.value + i.U)
-        port.bits := DontCare
-        port.bits.uop.robIdx := entry.robIdx
-        port.valid := wbVec(i)
+        port.bits   := entry
+        port.valid  := wbVec(i)
     }
 
     ptrHelper.io.release.bits := PopCount(wbVec)
@@ -152,7 +135,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val cancelVec = Wire(Vec(size, Bool()))
     val cancelNum = Wire(UInt(log2Up(size + 1).W))
     for((entry, i) <- mergeTable.zipWithIndex) {
-        cancelVec(i) := entry.valid && io.redirect.valid && (io.redirect.bits.robIdx <= entry.robIdx)
+        cancelVec(i) := io.redirect.valid && (io.redirect.bits.robIdx <= entry.uop.robIdx)
     }
     cancelNum := PopCount(cancelVec)
     ptrHelper.io.release.bits := cancelNum
