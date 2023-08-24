@@ -178,7 +178,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
     vdWen, isOrder, widen, narrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
-    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table)
+    val decoder = freechips.rocketchip.rocket.DecodeLogic(inst, VectorArithDecode.decodeDefault, table, QMC = false)
     VallSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare
     this
