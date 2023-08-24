@@ -371,7 +371,7 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
   // these should be optimized for synthesis verilog
   val pc = UInt(VAddrBits.W)
 
-  def connectEntryData(data: RobEntryData) {
+  def connectEntryData(data: RobEntryData) = {
     ldest := data.ldest
     rfWen := data.rfWen
     fpWen := data.fpWen
