@@ -98,7 +98,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     })
     //to waitQueue
     val vstart = Input(UInt(7.W))
-    val vtypeWb = Vec(4, Flipped(ValidIO(new FuOutput(64))))
+    val vtypeWb = Flipped(ValidIO(new FuOutput(64)))
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
@@ -295,7 +295,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.redirect    := io.redirectIn
   rename.io.robCommits  := rob.io.commits
   rename.io.ssit        := ssit.io.rdata
-  rename.io.vtypeWb     <> io.vtypeWb
+  rename.io.vtypeWb     := io.vtypeWb
 
   // pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
@@ -304,9 +304,11 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
-  vCtrlBlock.io.SIRenameIn  <> rename.io.SIRenameOUT
-  vCtrlBlock.io.vtypein       <> rename.io.vtypeout
+  vCtrlBlock.io.SIRenameIn  := rename.io.SIRenameOUT
+  vCtrlBlock.io.vtypein       := rename.io.vtypeout
+  //TODO: vtype writeback here.
   vCtrlBlock.io.vtypewriteback <> DontCare
+  vCtrlBlock.io.vtypewriteback.foreach(_.valid := false.B)
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
   for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {
     port.bits := robId

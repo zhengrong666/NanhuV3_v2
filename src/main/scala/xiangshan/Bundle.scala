@@ -20,8 +20,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.CtrlToFtqIO
-import xiangshan.backend.decode.{ImmUnion, XDecode}
-import xiangshan.vector.videcode._
+import xiangshan.backend.decode.{ImmUnion, VectorArithDecode, XDecode}
 import xiangshan.mem.{LqPtr, SqPtr}
 import xiangshan.frontend.PreDecodeInfo
 import xiangshan.frontend.HasBPUParameter
@@ -254,7 +253,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val canRename = Bool()
   val mergeIdx = new WbMergeBufferPtr(VectorMergeBufferDepth)
   val loadStoreEnable = Bool()
-  val vtypeRegIdx = UInt(4.W)
+  val vtypeRegIdx = UInt(log2Ceil(VIVtypeRegsNum).W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
@@ -470,18 +469,17 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
   val frm = UInt(3.W)
   val vlmax = UInt(8.W)
 
-  def VLMAXGen() = {
-    var VLMAX = 0
-    val sew = SewToInt()
-    switch(vlmul) {
-      is(0.U) { VLMAX = VLEN / sew }
-      is(1.U) { VLMAX = VLEN / sew * 2 }
-      is(2.U) { VLMAX = VLEN / sew * 4 }
-      is(3.U) { VLMAX = VLEN / sew * 8 }
-      is(5.U) { VLMAX = VLEN / sew / 8 }
-      is(6.U) { VLMAX = VLEN / sew / 4 }
-      is(7.U) { VLMAX = VLEN / sew / 2 }
-    }
+  def VLMAXGen():UInt = {
+    val VLMAX = Wire(UInt(7.W))
+    VLMAX := MuxCase(0.U, Seq(
+      (vlmul === 0.U) -> ((VLEN >> 3).U >> vsew),
+      (vlmul === 1.U) -> ((VLEN >> 2).U >> vsew),
+      (vlmul === 2.U) -> ((VLEN >> 1).U >> vsew),
+      (vlmul === 3.U) -> (VLEN.U >> vsew),
+      (vlmul === 5.U) -> ((VLEN >> 6).U >> vsew),
+      (vlmul === 6.U) -> ((VLEN >> 5).U >> vsew),
+      (vlmul === 7.U) -> ((VLEN >> 4).U >> vsew)
+    ))
     VLMAX
   }
 
