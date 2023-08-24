@@ -52,7 +52,7 @@ class VCSRWIO(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst
 }
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
-    val cfIn = io.in.bits.uop.cf
+    val uop = io.in.bits.uop
     //val cfOut = Wire(new CtrlFlow)
     redirectOutValid := DontCare
     redirectOut := DontCare
@@ -86,11 +86,11 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     vxsat := Mux(wbFromRob.vxsatW.valid, wbFromRob.vxsatW.bits, vstart)
     
     //vsetvl
-    val isVsetvl = cfIn.instr(31, 30) === "b10".U
+    val isVsetvl = uop.ctrl.fuOpType === CSROpType.vsetvl
     //vsetvl{i}
-    val isVsetvli = cfIn.instr(31) === "b0".U
+    val isVsetvli = uop.ctrl.fuOpType === CSROpType.vsetvli
     //vset{i}vl{i}
-    val isVsetivli = cfIn.instr(31, 30) === "b11".U
+    val isVsetivli = uop.ctrl.fuOpType === CSROpType.vsetivli
 
     //src1 -> AVL, src2 ->
     val valid = io.in.valid
