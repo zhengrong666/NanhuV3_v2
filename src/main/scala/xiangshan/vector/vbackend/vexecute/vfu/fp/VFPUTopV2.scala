@@ -2,16 +2,16 @@ package darecreek.exu.fu2.fp
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.util.{Arbiter, Cat, DecoupledIO}
-// import darecreek.{LaneFUInput, LaneFUOutput}
-// import darecreek.exu.fu.alu.MaskTailData
+import chisel3.util._
 import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import darecreek.exu.fu2.MaskTailData
+import xiangshan.Redirect
 
-class VFPUTop(implicit p: Parameters)
+class VFPUTop(implicit val p: Parameters)
   extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
+    val redirect = Input(ValidIO(new Redirect))
     val out = DecoupledIO(new LaneFUOutput)
   })
   val inputGen = Module(new VFInputGen)
@@ -24,6 +24,7 @@ class VFPUTop(implicit p: Parameters)
   val subModules = Seq(fma, cvt, misc, rec)
   subModules.foreach(m => {
     m.io.in.bits := inputGen.io.out
+    m.io.redirect := io.redirect
     m.io.in.valid := io.in.valid
   })
 
@@ -65,7 +66,7 @@ class VFPUTop(implicit p: Parameters)
 }
 
 // comb logic
-class VFInputGen(implicit p: Parameters) extends VFPUBaseModule {
+class VFInputGen(implicit val p: Parameters) extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val in = Input(new LaneFUInput)
     val out = Output(new LaneFloatFUIn)
@@ -82,10 +83,15 @@ class VFInputGen(implicit p: Parameters) extends VFPUBaseModule {
     io.in.vs1
   )
 
+  //---- vstart >= vl ----
+  val vstart_gte_vl = io.in.uop.info.vstart >= io.in.uop.info.vl
+
   // mask data generation for inactive elements
   val maskGen = Module(new MaskTailData)
   maskGen.io.mask := io.in.mask
   maskGen.io.tail := io.in.tail
+  maskGen.io.prestart := io.in.prestart
+  maskGen.io.vstart_gte_vl := vstart_gte_vl
   maskGen.io.oldVd := io.in.old_vd
   maskGen.io.uop := io.in.uop
   maskGen.io.opi := false.B

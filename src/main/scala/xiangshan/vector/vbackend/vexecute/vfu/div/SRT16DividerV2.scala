@@ -23,11 +23,9 @@ package darecreek.exu.fu2.div
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-
-import xiangshan._
 // import darecreek.exu.LaneUnit
 
-class SRT16DividerDataModule(len: Int, VSupport: Boolean = false)(implicit p: Parameters) extends XSModule {
+class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module {
   val io = IO(new Bundle() {
     val src = Vec(2, Input(UInt(len.W)))
     val valid, sign, kill_w, kill_r, isHi, isW = Input(Bool())
@@ -50,8 +48,7 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false)(implicit p: Pa
   val quot_neg_2 :: quot_neg_1 :: quot_0 :: quot_pos_1 :: quot_pos_2 :: Nil = Enum(5)
 
 
-  //val state = RegInit(UInt(7.W), UIntToOH(s_idle, 7))
-  val state = RegInit(UInt(7.W), "b0000001".asUInt)
+  val state = RegInit(UIntToOH(s_idle, 7))
 
   // reused wires
   //  val aNormAbs = Wire(UInt((len + 1).W)) // Inputs of xNormAbs regs below

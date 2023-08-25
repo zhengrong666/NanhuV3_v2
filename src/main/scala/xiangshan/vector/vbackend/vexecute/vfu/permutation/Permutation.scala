@@ -5,10 +5,12 @@ import chisel3.util._
 import darecreek.exu.fu2._
 // import darecreek.exu.fu2.VFUParam._
 import chipsalliance.rocketchip.config._
+import xiangshan.Redirect
 
 class Permutation(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Input(new VPermInput)
+    val redirect = Input(ValidIO(new Redirect))
     val out = Output(new VPermOutput)
   })
 
@@ -27,13 +29,8 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   val vl = io.in.uop.info.vl
   val vlmul = io.in.uop.info.vlmul
   val uop_valid = io.in.uop_valid
-  val uop_rob_flag = io.in.uop_rob_flag
-  val uop_rob_idx = io.in.uop_rob_idx
   val rdata = io.in.rdata
   val rvalid = io.in.rvalid
-  val flush_vld = io.in.flush_vld
-  val flush_rob_flag = io.in.flush_rob_flag
-  val flush_rob_idx = io.in.flush_rob_idx
 
   val vslideup_vx = (funct6 === "b001110".U) && (funct3 === "b100".U)
   val vslideup_vi = (funct6 === "b001110".U) && (funct3 === "b011".U)
@@ -78,7 +75,6 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   val vl_reg = RegInit(0.U(8.W))
   val rd_vlmul = RegInit(0.U(3.W))
   val vlmul_reg = RegInit(0.U(3.W))
-  val uop_rob_idx_reg = RegInit(0.U(9.W))
 
   val vl_reg_bytes = vl_reg << vsew_reg
 
@@ -114,7 +110,8 @@ class Permutation(implicit p: Parameters) extends VFuModule {
 
   val vlRemain = RegInit(0.U(8.W))
   val vlRemainBytes = vlRemain << vsew_reg
-  val vd_mask = (~0.U(VLEN.W))
+  val vd_mask = Wire(UInt(VLEN.W))
+  vd_mask := (~0.U(VLEN.W))
 
   val vlRemain_reg = RegNext(vlRemain)
   val vlRemainBytes_reg = vlRemain_reg << vsew_reg
@@ -173,9 +170,15 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   val rd_done = (wb_idx === rd_vlmul) && wb_vld
   val calc_done = RegInit(false.B)
 
-  val differentFlag = uop_rob_flag ^ flush_rob_flag
-  val compare = uop_rob_idx > flush_rob_idx
-  val flush = flush_vld && (differentFlag ^ compare)
+  val flush = RegInit(false.B)
+
+  val in_robIdx = io.in.uop.sysUop.robIdx
+  val currentRobIdx = RegEnable(in_robIdx, uop_valid)
+  when(uop_valid) {
+    flush := in_robIdx.needFlush(io.redirect)
+  }.otherwise {
+    flush := flush || currentRobIdx.needFlush(io.redirect)
+  }
 
   when(flush) {
     funct6_reg := 0.U
@@ -193,7 +196,6 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     vl_reg := 0.U
     vlmul_reg := 0.U
     rd_vlmul := 0.U
-    uop_rob_idx_reg := 0.U
   }.elsewhen(uop_valid) {
     funct6_reg := funct6
     funct3_reg := funct3
@@ -210,7 +212,6 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     vl_reg := vl
     vlmul_reg := vlmul
     rd_vlmul := (1.U << Mux(vlmul(2), 0.U, Cat(0.U(1.W), vlmul(1, 0)))) - 1.U
-    uop_rob_idx_reg := uop_rob_idx
   }
 
   // vslide read
@@ -629,12 +630,14 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     vd_reg := vrgather_vd
   }
 
-  val vstartRemain = RegInit(0.U(8.W))
-  val vstartRemainBytes = vstartRemain << vsew_reg
-  val vstart_bytes = Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
+  val vstartRemain = RegInit(0.U(7.W))
+  val vstartRemainBytes = Wire(UInt(7.W))
+  val vstart_bytes = Wire(UInt(5.W))
   val vstart_bits = Cat(vstart_bytes, 0.U(3.W))
   val vmask_vstart_bits = Wire(UInt(VLEN.W))
-  vmask_vstart_bits := vd_mask << vstart_bits(7, 0)
+  vstartRemainBytes := vstartRemain << vsew_reg
+  vstart_bytes := Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
+  vmask_vstart_bits := vd_mask << vstart_bits
   val vstart_old_vd = old_vd & (~vmask_vstart_bits)
 
   when(flush) {
@@ -678,14 +681,16 @@ class Permutation(implicit p: Parameters) extends VFuModule {
 
   io.out.rd_en := rd_mask_en || rd_vs_en || cmprs_rd_old_vd
   io.out.rd_preg_idx := rd_preg_idx
-  io.out.wb_vld := wb_vld
+  io.out.wb_vld := wb_vld & !flush
   io.out.wb_data := perm_vd
   io.out.perm_busy := perm_busy
 }
 
-// object VerilogPer extends App {
-//   println("Generating the VPU Permutation FSM hardware")
-//   emitVerilog(new Permutation(), Array("--target-dir", "build/vifu"))
-// }
-
+import xiangshan._
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
+  emitVerilog(new Permutation()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
+    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}
 

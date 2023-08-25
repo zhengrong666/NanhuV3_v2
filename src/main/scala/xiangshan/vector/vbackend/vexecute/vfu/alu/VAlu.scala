@@ -361,3 +361,12 @@ class VAlu(implicit p: Parameters) extends VFuModule {
     Seq(result16(7, 0), result16(15, 8))
   }
 }
+
+
+import xiangshan._
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({case XSCoreParamsKey => XSCoreParameters()})
+  emitVerilog(new VAlu()(p.alterPartial({case VFuParamsKey => VFuParameters()})), Array("--target-dir", "generated",
+              "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}

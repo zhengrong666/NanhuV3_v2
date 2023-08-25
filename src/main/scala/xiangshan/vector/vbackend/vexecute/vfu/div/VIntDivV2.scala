@@ -8,11 +8,9 @@ import chisel3.util._
 import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import darecreek.exu.fu2.fp.{LaneFUWithMaskIn, LaneFUWithMaskOut}
 
-import xiangshan._
-
 // time multiplex vector divider
 // vs2 / vs1
-class VIntSRT16TimeplexDivider(implicit p: Parameters) extends XSModule {
+class VIntSRT16TimeplexDivider(implicit p: Parameters) extends Module {
 
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUWithMaskIn))
@@ -121,7 +119,7 @@ class VIntSRT16TimeplexDivider(implicit p: Parameters) extends XSModule {
 }
 
 // width=64
-class VIntSRT16SpacePlexDivider(implicit p: Parameters) extends XSModule {
+class VIntSRT16SpacePlexDivider(implicit p: Parameters) extends Module {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUWithMaskIn))
     val out = DecoupledIO(new LaneFUWithMaskOut)

@@ -72,7 +72,7 @@ class VFCMP(val expWidth: Int, val precision: Int) extends Module {
   io.minmaxInvalid := hasSNaN
 }
 
-class VFMiscDataModule(implicit p: Parameters) extends VFPUPipelineModule {
+class VFMiscDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   def latency = 2  // 2 stages
   class DataOut extends Bundle {
     val result = UInt(laneWidth.W)
@@ -178,16 +178,17 @@ class VFMiscDataModule(implicit p: Parameters) extends VFPUPipelineModule {
 
 }
 
-class VFMisc(implicit p: Parameters) extends VFPUSubModule {
+class VFMisc (implicit val p: Parameters) extends VFPUSubModule {
   val module = Module(new VFMiscDataModule)
   module.io.in <> io.in
+  module.io.redirect := io.redirect
   // block if is not misc,
   module.io.in.valid := io.in.valid && io.in.bits.uop.vfpCtrl.isMisc  // idle when inst is not misc
 
   io.out <> module.io.out
   // IMPORTANT: compose results of compare uop when LMUL > 1. This is required from VPU Control/Issue design
   val outUop = module.io.out.bits.uop
-  val compareReg = RegInit(UInt(64.W), "hffffffffffffffff".asUInt)  // init all 1
+  val compareReg = RegInit(~0.U(64.W))  // init all 1
   val compareResult = Wire(UInt(64.W))
   compareResult := (compareReg << 8)(63,0) | Cat(0.U(56.W), module.io.out.bits.vd(7,0))
   when(outUop.vfpCtrl.miscCmd(3) & module.io.out.valid) {
