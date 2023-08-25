@@ -158,11 +158,13 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     table.io.r(1).data.info.vsew,
     table.io.r(1).data.info.vlmul
   ))
+  io.vcsr.vlRead.data.valid := io.canAllocate
+  io.vcsr.vlRead.data.valid := io.canAllocate
   when(io.vcsr.vlRead.readEn){
-    io.vcsr.vlRead.data := actualVl
+    io.vcsr.vlRead.data.bits := actualVl
   }
   when(io.vcsr.vtypeRead.readEn) {
-    io.vcsr.vtypeRead.data := actualVtype
+    io.vcsr.vtypeRead.data.bits := actualVtype
   }
 
   private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {

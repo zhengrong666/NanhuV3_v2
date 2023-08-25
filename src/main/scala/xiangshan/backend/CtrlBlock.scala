@@ -18,33 +18,28 @@ package xiangshan.backend
 
 import chisel3._
 import chisel3.util._
-
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-
 import utils._
 import xs.utils._
-
 import xiangshan._
 import xiangshan.ExceptionNO._
-
 import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.mem.LsqEnqIO
-
 import xiangshan.vector._
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename._
 import xiangshan.vector.dispatch._
 import xiangshan.vector.writeback._
 import xiangshan.vector.VectorCtrlBlock
-
 import xiangshan.backend.decode.{DecodeStage, FusionDecoder}
-import xiangshan.backend.dispatch.{Dispatch, MemDispatch2Rs, DispatchQueue}
+import xiangshan.backend.dispatch.{Dispatch, DispatchQueue, MemDispatch2Rs}
 import xiangshan.backend.execute.fu.csr.PFEvent
 import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 import xiangshan.mem._
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
@@ -98,7 +93,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     })
     //to waitQueue
     val vstart = Input(UInt(7.W))
-    val vtypeWb = Flipped(ValidIO(new FuOutput(64)))
+    val vcsrio  = Flipped(new VCSRWithVtypeRenameIO)
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
@@ -295,7 +290,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.redirect    := io.redirectIn
   rename.io.robCommits  := rob.io.commits
   rename.io.ssit        := ssit.io.rdata
-  rename.io.vtypeWb     := io.vtypeWb
+  rename.io.vcsrio    := io.vcsrio
 
   // pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
