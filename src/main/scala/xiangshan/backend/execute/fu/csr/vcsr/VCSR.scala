@@ -119,12 +119,15 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
 
     val avl = Mux(isVsetivli, Cat(0.U(59.W), imm(4, 0)), src0)
     val vlNewSetivli = Mux(vlmax >= avl, avl, vlmax)
-    val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, uop.vCsrInfo.vl))
+    val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, src0))
 
     val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
 
+    vcsr_io.vtype.vtypeWbToRename.bits.uop := io.in.bits.uop
     vcsr_io.vtype.vtypeWbToRename.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
     vcsr_io.vtype.vtypeWbToRename.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
+    vcsr_io.vtype.vlRead.readEn := false.B
+    vcsr_io.vtype.vtypeRead.readEn := false.B
 
     // CSRRW
 
@@ -137,6 +140,8 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     )
     val addr = imm(11, 0)
     val rdata = Wire(UInt(XLEN.W))
+    //TODO: fill rdata
+    rdata := 0.U
     val csri = ZeroExt(imm(16, 12), XLEN)
     val wdata = LookupTree(func, List(
         CSROpType.wrt  -> src1,

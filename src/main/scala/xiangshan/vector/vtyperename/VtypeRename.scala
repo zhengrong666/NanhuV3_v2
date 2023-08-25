@@ -128,6 +128,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   table.io.w.last.data.writebacked := true.B
   table.io.w.last.data.robIdx := io.vcsr.vtypeWbToRename.bits.uop.robIdx
   table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.uop.vtypeRegIdx
+  table.io.w.last.data.pdest := io.vcsr.vtypeWbToRename.bits.uop.pdest
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))
@@ -150,21 +151,16 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   ))
   private val actualVtype = Cat(Seq(
     table.io.r(1).data.vill,
-    0.U((XLEN - 17).W),
-    table.io.r(1).data.info.vl,
+    0.U((XLEN - 9).W),
     table.io.r(1).data.info.vma,
     table.io.r(1).data.info.vta,
     table.io.r(1).data.info.vsew,
     table.io.r(1).data.info.vlmul
   ))
-  io.vcsr.vlRead.data.valid := io.canAllocate
-  io.vcsr.vlRead.data.valid := io.canAllocate
-  when(io.vcsr.vlRead.readEn){
-    io.vcsr.vlRead.data.bits := actualVl
-  }
-  when(io.vcsr.vtypeRead.readEn) {
-    io.vcsr.vtypeRead.data.bits := actualVtype
-  }
+  io.vcsr.vlRead.data.valid := io.vcsr.vlRead.readEn
+  io.vcsr.vlRead.data.bits := actualVl
+  io.vcsr.vtypeRead.data.valid := io.vcsr.vtypeRead.readEn
+  io.vcsr.vtypeRead.data.bits := actualVtype
 
   private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
     val res = Wire(new VTypeEntry())
@@ -227,7 +223,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     enqPtr := enqPtr + actualEnqNum
   }
 
-  private val setVlCommSeq = io.robCommits.commitValid.zip(io.robCommits.info).map({case(a, b) => a && b.wvcsr})
+  private val setVlCommSeq = io.robCommits.commitValid.zip(io.robCommits.info).map({case(a, b) => a && b.vtypeWb})
   private val setVlCommitted = io.robCommits.isCommit && setVlCommSeq.reduce(_|_)
   private val commmitNum = PopCount(setVlCommSeq)
   private val comValidReg = RegNext(setVlCommitted, false.B)
