@@ -178,6 +178,11 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
     vdWen, isOrder, widen, narrow, selImm)
 
   def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
+    this := DontCare
+    this.isXSTrap := false.B
+    this.noSpecExec := false.B
+    this.blockBackward := false.B
+    this.flushPipe := false.B
     val decoder = xiangshan.backend.decode.DecodeLogic(inst, VectorArithDecode.decodeDefault, table, QMC = false)
     VallSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare
@@ -188,6 +193,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
     isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
+    this := DontCare
     val decoder = xiangshan.backend.decode.DecodeLogic(inst, XDecode.decodeDefault, table)
     allSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare

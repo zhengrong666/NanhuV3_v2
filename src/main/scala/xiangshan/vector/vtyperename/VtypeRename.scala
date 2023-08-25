@@ -105,12 +105,13 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   private val setVlSeq = io.in.map(i => i.valid && i.bits.ctrl.isVtype)
   private val setVlNum = PopCount(setVlSeq)
-  io.canAllocate := setVlNum <= emptyEntiresNum
+  io.canAllocate := setVlNum <= emptyEntiresNum && !io.redirect.valid
 
   private val realValids = setVlSeq.map(_ && io.canAllocate)
   table.io.redirect := io.redirect
 
   table.io.w.last.en := io.writeback.valid
+  table.io.w.last.data.info := DontCare
   table.io.w.last.data.info.vma := io.writeback.bits.data(7)
   table.io.w.last.data.info.vta := io.writeback.bits.data(6)
   table.io.w.last.data.info.vsew := io.writeback.bits.data(5, 3)
@@ -158,7 +159,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     }
   })
 
-  for((((w, addr), data), en) <- table.io.w.zip(enqAddrEnqSeq).zip(vtypeEnqSeq).zip(realValids)){
+  for((((w, addr), data), en) <- table.io.w.init.zip(enqAddrEnqSeq).zip(vtypeEnqSeq).zip(realValids)){
     w.en := en
     w.data := data
     w.addr := addr.value
