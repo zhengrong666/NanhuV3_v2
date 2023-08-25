@@ -25,6 +25,7 @@ import xiangshan.vector._
 import xiangshan.backend.rob._
 import xs.utils._
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.backend.execute.fu.csr.CSROpType
 
 class VTypeEntry(implicit p: Parameters) extends VectorBaseBundle {
   val vill = Bool()
@@ -140,16 +141,32 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     table.io.r(1).data.info.vlmul
   ))
 
-  private def GenVType(in:MicroOp):VTypeEntry = {
+  private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
     val res = Wire(new VTypeEntry())
     //TODO:Fill this Function
-    res := DontCare
+    val oldvlmax = oldvtype.VLMAXGen()
+    val oldvl = oldvtype.vl
+    res.info.oldvl := oldvl
+    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
+    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
+    res.info.vta := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(29), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(28), 0.U))
+    res.info.vsew := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(28, 26), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(27, 25), 0.U))
+    res.info.vlmul := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(25, 23), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(24, 22), 0.U))
+    res.info.vlmax := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, res.info.VLMAXGen(), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, res.info.VLMAXGen(), 0.U))
+    //TODO:---
+    //      println(s"vtype index:$i")
+    res.info.vl := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
+      Mux(in.ctrl.lsrc(0) === 0.U, Mux(in.ctrl.lsrc(2) === 0.U, oldvl, oldvlmax), 0.U),
+      Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(19, 15), 0.U))
+    res.writebacked := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
+      Mux(in.ctrl.lsrc(0) === 0.U, true.B, false.B),
+      Mux(in.ctrl.fuOpType === CSROpType.vsetvli, true.B, false.B))
     res.robIdx := in.robIdx
     res
   }
 
   realValids.zipWithIndex.foreach({case(s, idx) =>
-    val newVType = GenVType(io.in(idx).bits)
+    val newVType = GenVType(io.in(idx).bits, oldVType.info)
     if(idx == 0){
       enqAddrEnqSeq(idx) := enqPtr
       vtypeEnqSeq(idx) := Mux(s, newVType, oldVType)
