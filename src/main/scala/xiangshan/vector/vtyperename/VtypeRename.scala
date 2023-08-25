@@ -26,12 +26,14 @@ import xiangshan.backend.rob._
 import xs.utils._
 import xiangshan.backend.execute.fu.FuOutput
 import xiangshan.backend.execute.fu.csr.CSROpType
+import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 
 class VTypeEntry(implicit p: Parameters) extends VectorBaseBundle {
   val vill = Bool()
   val info = new VICsrInfo()
   val robIdx = new RobPtr
   val writebacked = Bool()
+  val pdest = UInt(5.W)
 }
 
 class VTypeResp(implicit p: Parameters) extends VectorBaseBundle{
@@ -82,9 +84,11 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val robCommits = Flipped(new RobCommitIO)
     val canAllocate = Output(Bool())
     val in = Vec(RenameWidth, Flipped(ValidIO(new MicroOp)))
+    val renameResp = Vec(RenameWidth, ValidIO(new MicroOp))
     val out = Vec(RenameWidth, ValidIO(new VTypeResp))
 //    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
     val writeback = Flipped(ValidIO(new FuOutput(64)))
+    val vcsr  = Flipped(new VCSRWithVtypeRenameIO)
   })
 
   private val enqPtrInit = Wire(new VtypePtr)
@@ -113,18 +117,18 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val realValids = setVlSeq.map(_ && io.canAllocate)
   table.io.redirect := io.redirect
 
-  table.io.w.last.en := io.writeback.valid
+  table.io.w.last.en := io.vcsr.vtypeWbToRename.valid
   table.io.w.last.data.info := DontCare
-  table.io.w.last.data.info.vma := io.writeback.bits.data(7)
-  table.io.w.last.data.info.vta := io.writeback.bits.data(6)
-  table.io.w.last.data.info.vsew := io.writeback.bits.data(5, 3)
-  table.io.w.last.data.info.vlmul := io.writeback.bits.data(2, 0)
-  table.io.w.last.data.info.vl := io.writeback.bits.data(15, 8)
-  table.io.w.last.data.vill := io.writeback.bits.data(XLEN - 1)
+  table.io.w.last.data.info.vma := io.vcsr.vtypeWbToRename.bits.data(7)
+  table.io.w.last.data.info.vta := io.vcsr.vtypeWbToRename.bits.data(6)
+  table.io.w.last.data.info.vsew := io.vcsr.vtypeWbToRename.bits.data(5, 3)
+  table.io.w.last.data.info.vlmul := io.vcsr.vtypeWbToRename.bits.data(2, 0)
+  table.io.w.last.data.info.vl := io.vcsr.vtypeWbToRename.bits.data(15, 8)
+  table.io.w.last.data.vill := io.vcsr.vtypeWbToRename.bits.data(XLEN - 1)
   table.io.w.last.data.info.vlmax := table.io.w.last.data.info.VLMAXGen()
   table.io.w.last.data.writebacked := true.B
-  table.io.w.last.data.robIdx := io.writeback.bits.uop.robIdx
-  table.io.w.last.addr := io.writeback.bits.uop.vtypeRegIdx
+  table.io.w.last.data.robIdx := io.vcsr.vtypeWbToRename.bits.uop.robIdx
+  table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.uop.vtypeRegIdx
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))
@@ -142,6 +146,10 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   table.io.r(1).addr := deqPtr.value
   private val actualVl = Cat(Seq(
+    0.U((XLEN - 8).W),
+    table.io.r(1).data.info.vl
+  ))
+  private val actualVtype = Cat(Seq(
     table.io.r(1).data.vill,
     0.U((XLEN - 17).W),
     table.io.r(1).data.info.vl,
@@ -150,6 +158,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     table.io.r(1).data.info.vsew,
     table.io.r(1).data.info.vlmul
   ))
+  io.vcsr.vlRead.data.valid := io.canAllocate
+  io.vcsr.vlRead.data.valid := io.canAllocate
+  when(io.vcsr.vlRead.readEn){
+    io.vcsr.vlRead.data.bits := actualVl
+  }
+  when(io.vcsr.vtypeRead.readEn) {
+    io.vcsr.vtypeRead.data.bits := actualVtype
+  }
 
   private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
     val res = Wire(new VTypeEntry())
@@ -157,19 +173,17 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val oldvlmax = oldvtype.VLMAXGen()
     val oldvl = oldvtype.vl
     res.info.oldvl := oldvl
-    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
-    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
-    res.info.vta := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(29), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(28), 0.U))
-    res.info.vsew := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(28, 26), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(27, 25), 0.U))
-    res.info.vlmul := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(25, 23), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(24, 22), 0.U))
-    res.info.vlmax := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, res.info.VLMAXGen(), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, res.info.VLMAXGen(), 0.U))
+    res.info.vma := in.ctrl.imm(7)
+    res.info.vta := in.ctrl.imm(6)
+    res.info.vsew := in.ctrl.imm(5, 3)
+    res.info.vlmul := in.ctrl.imm(2, 0)
+    res.info.vlmax := res.info.VLMAXGen()
     //TODO:---
     //      println(s"vtype index:$i")
-    res.info.vl := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
-      Mux(in.ctrl.lsrc(0) === 0.U, Mux(in.ctrl.lsrc(2) === 0.U, oldvl, oldvlmax), 0.U),
-      Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(19, 15), 0.U))
+    res.info.vl := in.ctrl.imm(4, 0)
     res.writebacked := in.ctrl.fuOpType === CSROpType.vsetivli
     res.robIdx := in.robIdx
+    res.pdest := in.pdest
     res
   }
 
@@ -180,6 +194,24 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
       vtypeEnqSeq(idx) := Mux(s, newVType, oldVType)
     } else {
       vtypeEnqSeq(idx) := Mux(s, newVType, vtypeEnqSeq(idx - 1))
+    }
+  })
+
+
+  private val uop = WireInit(io.in)
+  private val pdestSeq = Wire(Vec(RenameWidth,UInt(5.W)))
+  for (i <- 0 until RenameWidth) {
+    if(i == 0){
+      pdestSeq(i) := oldVType.pdest
+    } else {
+      pdestSeq(i) := vtypeEnqSeq(i - 1).pdest
+    }
+  }
+  private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) => i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v})
+  private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAllocate)
+  needRenameValids.zipWithIndex.foreach({case(n, idx) =>
+    when(n) {
+      uop(idx).bits.psrc(0) := pdestSeq(idx)
     }
   })
 
@@ -205,11 +237,18 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     deqPtr := deqPtr + comNumReg
   }
 
+
   for (i <- 0 until RenameWidth) {
     io.out(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVector && io.in(i).bits.ctrl.isVtype
     io.out(i).bits.vtype := vtypeEnqSeq(i).info
     io.out(i).bits.vtypeIdx := enqAddrEnqSeq(i).value
     io.out(i).bits.state := vtypeEnqSeq(i).writebacked
     io.out(i).bits.robIdx := io.in(i).bits.robIdx
+  }
+
+  for (i <- 0 until RenameWidth) {
+    io.renameResp(i).bits := uop(i).bits
+    io.renameResp(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value
+    io.renameResp(i).valid := uop(i).valid
   }
 }

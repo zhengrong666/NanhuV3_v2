@@ -27,6 +27,7 @@ import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.rename.freelist._
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.mdp._
 import xiangshan.vector.SIRenameInfo
@@ -53,7 +54,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // to vector
     val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
     val vtypeout = Vec(VIDecodeWidth, ValidIO(new VTypeResp))
-    val vtypeWb = Flipped(ValidIO(new FuOutput(64)))
+    val vcsrio  = Flipped(new VCSRWithVtypeRenameIO)
   })
 
   // create free list and rat
@@ -61,7 +62,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val intRefCounter = Module(new RefCounter(NRPhyRegs))
   val fpFreeList = Module(new StdFreeList(NRPhyRegs - 32))
   val vtyperename = Module(new VtypeRename)
-  vtyperename.io.writeback := io.vtypeWb
   vtyperename.io.redirect := io.redirect
   vtyperename.io.robCommits := io.robCommits
 
@@ -109,6 +109,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     * Rename: allocate free physical register and update rename table
     */
   val uops = Wire(Vec(RenameWidth, new MicroOp))
+  val vtypeuops = Wire(Vec(RenameWidth, new MicroOp))
   uops.foreach( uop => {
     uop.srcState(0) := DontCare
     uop.srcState(1) := DontCare
@@ -185,14 +186,14 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // Assign performance counters
     uops(i).debugInfo.renameTime := GTimer()
 
+    vtyperename.io.in(i).bits := uops(i)
+    vtyperename.io.in(i).valid := io.in(i).valid
+    vtyperename.io.vcsr := io.vcsrio
+    vtypeuops(i) := vtyperename.io.renameResp(i)
+
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
-    io.out(i).bits  := uops(i)
-
-    vtyperename.io.in(i).bits   := uops(i)
-    vtyperename.io.in(i).valid  := io.in(i).valid
-    uops(i).vtypeRegIdx := vtyperename.io.out(i).bits.vtypeIdx
-    
+    io.out(i).bits  := vtypeuops(i)
 
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
