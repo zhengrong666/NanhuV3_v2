@@ -128,6 +128,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))
+  private val enqAddrDeltas = Wire(Vec(RenameWidth, UInt(log2Ceil(RenameWidth).W)))
+  enqAddrDeltas.zipWithIndex.foreach({case(d, i) =>
+    if(i == 0){
+      d := 0.U
+    } else {
+      d := PopCount(realValids.take(i))
+    }
+  })
 
   table.io.r(0).addr := (enqPtr - 1.U).value
   private val oldVType = WireInit(table.io.r(0).data)
@@ -145,7 +153,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
     val res = Wire(new VTypeEntry())
-    //TODO:Fill this Function
+    res := DontCare
     val oldvlmax = oldvtype.VLMAXGen()
     val oldvl = oldvtype.vl
     res.info.oldvl := oldvl
@@ -160,20 +168,17 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     res.info.vl := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
       Mux(in.ctrl.lsrc(0) === 0.U, Mux(in.ctrl.lsrc(2) === 0.U, oldvl, oldvlmax), 0.U),
       Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(19, 15), 0.U))
-    res.writebacked := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
-      Mux(in.ctrl.lsrc(0) === 0.U, true.B, false.B),
-      Mux(in.ctrl.fuOpType === CSROpType.vsetvli, true.B, false.B))
+    res.writebacked := in.ctrl.fuOpType === CSROpType.vsetivli
     res.robIdx := in.robIdx
     res
   }
 
   realValids.zipWithIndex.foreach({case(s, idx) =>
     val newVType = GenVType(io.in(idx).bits, oldVType.info)
+    enqAddrEnqSeq(idx) := enqPtr + enqAddrDeltas(idx)
     if(idx == 0){
-      enqAddrEnqSeq(idx) := enqPtr
       vtypeEnqSeq(idx) := Mux(s, newVType, oldVType)
     } else {
-      enqAddrEnqSeq(idx) := Mux(s, enqAddrEnqSeq(idx - 1) + 1.U, enqAddrEnqSeq(idx - 1))
       vtypeEnqSeq(idx) := Mux(s, newVType, vtypeEnqSeq(idx - 1))
     }
   })
