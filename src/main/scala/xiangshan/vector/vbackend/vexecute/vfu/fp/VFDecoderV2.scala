@@ -168,7 +168,7 @@ object VFDecoder {
     d
   }
 }
-class VFDecoder(implicit p: Parameters) extends VFPUBaseModule {
+class VFDecoder(implicit val p: Parameters) extends VFPUBaseModule {
   val io = IO(new Bundle() {
     val instr = Input(UInt(25.W))
     val fpCtrl = Output(new VFPUCtrlSigs)

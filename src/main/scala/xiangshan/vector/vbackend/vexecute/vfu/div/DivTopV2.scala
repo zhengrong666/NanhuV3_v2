@@ -43,10 +43,15 @@ class VDivInputGen(implicit val p: Parameters) extends Module {
   )))
   val rs1Expd = Mux(ctrl.vx, Mux1H(sewOH, expdSigs), io.in.vs1)
 
+  //---- vstart >= vl ----
+  val vstart_gte_vl = io.in.uop.info.vstart >= io.in.uop.info.vl
+
 //   mask data generation for inactive elements
   val maskGen = Module(new MaskTailData)
   maskGen.io.mask := io.in.mask
   maskGen.io.tail := io.in.tail
+  maskGen.io.prestart := io.in.prestart
+  maskGen.io.vstart_gte_vl := vstart_gte_vl
   maskGen.io.oldVd := io.in.old_vd
   maskGen.io.uop := io.in.uop
   maskGen.io.opi := false.B

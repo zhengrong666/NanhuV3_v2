@@ -5,20 +5,15 @@ import chisel3.util._
 import chisel3.util.experimental.decode._
 import chipsalliance.rocketchip.config.Parameters
 import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import xiangshan.Redirect
 
 class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
     val in = Flipped(DecoupledIO(new VFuInput))
+    val redirect = Input(ValidIO(new Redirect))
     val out = DecoupledIO(new VFpuOutput)
   })
 
-
-  // val xlen = darecreek.exu.fu2.VFUParam.XLEN
-  // val LaneWidth = 64 // constant
-  // val NLanes = VLEN / LaneWidth
-  // val vlenb = VLEN / 8
-  // val vlenbWidth = log2Up(vlenb)
   val ctrl = io.in.bits.uop.ctrl
   val info = io.in.bits.uop.info
   val funct6 = io.in.bits.uop.ctrl.funct6
@@ -251,7 +246,7 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val vd_vsew = Mux(widen, vsew + 1.U, vsew)
   val eewVd = SewOH(vd_vsew)
   val vs1_zero = Wire(UInt(64.W))
-   vs1_zero := Mux1H(eewVd.oneHot, Seq(8, 16, 32).map(n => Cat(Fill(XLEN - n, 0.U), vs1(n - 1, 0))) :+ vs1(63, 0))
+  vs1_zero := Mux1H(eewVd.oneHot, Seq(8, 16, 32).map(n => Cat(Fill(XLEN - n, 0.U), vs1(n - 1, 0))) :+ vs1(63, 0))
   // vs1_zero := vs1(63, 0)
 
   val red_zero = RegEnable(red_out_bits(63, 0), (red_state === calc_vs1) && red_out_valid && red_out_ready)
@@ -368,6 +363,17 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
     output_data := red_vd_tail_vd
   }
 
+  //---- Tail gen ----
+  val tail = TailGen(io.in.bits.uop.info.vl, uopIdx, eewVd)
+  //---- Prestart gen ----
+  val prestart = PrestartGen(io.in.bits.uop.info.vstart, uopIdx, eewVd)
+  //---- Mask gen ----
+  val mask16b = MaskExtract(io.in.bits.mask, uopIdx, eewVd)
+
+  val tailReorg = MaskReorg(tail, eewVd)
+  val prestartReorg = MaskReorg(prestart, eewVd)
+  val mask16bReorg = MaskReorg(mask16b, eewVd)
+
 
   val fpu = Seq.fill(NLanes)(Module(new VFPUTop))
   for (i <- 0 until NLanes / 2) {
@@ -400,10 +406,12 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
     fpu(i).io.in.bits.vs2 := Mux(fpu_in_valid, red_in(i).vs2, vs2(VLEN / 2, 0))
     fpu(i).io.in.bits.old_vd := Mux(fpu_in_valid, red_in(i).old_vd, old_vd(VLEN / 2, 0))
     fpu(i).io.in.bits.rs1 := rs1
-    fpu(i).io.in.bits.prestart := 0.U
-    fpu(i).io.in.bits.mask := vmask(7, 0)
-    fpu(i).io.in.bits.tail := 0.U
+    fpu(i).io.in.bits.prestart := UIntSplit(prestartReorg, 8)(i)
+    fpu(i).io.in.bits.mask := UIntSplit(mask16bReorg, 8)(i)
+    fpu(i).io.in.bits.tail := UIntSplit(tailReorg, 8)(i)
+    fpu(i).io.in.bits.prestart := UIntSplit(prestartReorg, 8)(i)
     fpu(i).io.out.ready := io.out.ready
+    fpu(i).io.redirect := io.redirect
     vd(i) := fpu(i).io.out.bits.vd
     fpu_out(i) := fpu(i).io.out.bits
   }
@@ -449,9 +457,10 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
     fpu(i).io.in.bits.vs2 := vs2(VLEN - 1, VLEN / 2)
     fpu(i).io.in.bits.old_vd := old_vd(VLEN - 1, VLEN / 2)
     fpu(i).io.in.bits.rs1 := rs1
-    fpu(i).io.in.bits.prestart := 0.U
-    fpu(i).io.in.bits.mask := vmask2
-    fpu(i).io.in.bits.tail := 0.U
+    fpu(i).io.in.bits.prestart := UIntSplit(prestartReorg, 8)(i)
+    fpu(i).io.in.bits.mask := UIntSplit(mask16bReorg, 8)(i)
+    fpu(i).io.in.bits.tail := UIntSplit(tailReorg, 8)(i)
+    fpu(i).io.redirect := io.redirect
     fpu(i).io.out.ready := io.out.ready
     vd(i) := fpu(i).io.out.bits.vd
   }
@@ -479,12 +488,41 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   //  io.in.ready := (!io.in.valid || io.out.ready) && !red_busy
   //  io.out.valid := output_valid
   //  io.out.bits.vd := VecInit(Seq.tabulate(NLanes)(i => output_data((i + 1) * LaneWidth - 1, i * LaneWidth)))
+  // compare output (narrow-to-1)
 
+  val o_eew = SewOH(io.out.bits.uop.info.vsew)
+  //---- Compare vd rearrangement ----
+  val cmpOuts = fpu.map(_.io.out.bits.vd)
+  val cmpOut128b = Mux1H(o_eew.oneHot, Seq(8, 4, 2, 1).map(
+    k => Cat(0.U((128 - 2 * k).W), cmpOuts(1)(k - 1, 0), cmpOuts(0)(k - 1, 0))))
+  val cmpOutOff128b = Mux1H(o_eew.oneHot, Seq(8, 4, 2, 1).map(
+    k => Cat(0.U((128 - 2 * k).W), ~0.U((2 * k).W))))
+  val shiftCmpOut = Wire(UInt(7.W))
+  shiftCmpOut := Mux1H(o_eew.oneHot, Seq(4, 3, 2, 1).map(i => io.out.bits.uop.uopIdx(2, 0) << i))
+  val cmpOutKeep = Wire(UInt(128.W))
+  cmpOutKeep := cmpOut128b << shiftCmpOut
+  val cmpOutOff = Wire(UInt(128.W))
+  cmpOutOff := ~(cmpOutOff128b << shiftCmpOut)
 
-  io.out.bits.vd := Cat(vd.reverse)
+  val old_cmpOutResult = RegInit(0.U(128.W))
+  val cmpOutResult = old_cmpOutResult & cmpOutOff | cmpOutKeep // Compare
+  when(fpu(0).io.out.valid) {
+    old_cmpOutResult := Mux(io.out.bits.uop.uopEnd, 0.U, cmpOutResult)
+  }
+
+  io.out.bits.vd := Mux(io.out.bits.uop.ctrl.narrow_to_1, cmpOutResult, Cat(vd.reverse))
   io.in.ready := fpu(0).io.in.ready & fpu(1).io.in.ready & io.out.ready
   io.out.bits.fflags := fpu(0).io.out.bits.fflags | fpu(1).io.out.bits.fflags
-  io.out.valid := fpu(0).io.out.valid
+  io.out.valid := Mux(io.out.bits.uop.ctrl.narrow_to_1, io.out.bits.uop.uopEnd & fpu(0).io.out.valid, fpu(0).io.out.valid)
   fpu_in_ready := fpu(0).io.in.ready
   fpu_out_valid := fpu(0).io.out.valid
+}
+
+
+import xiangshan._
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
+  emitVerilog(new VFPUWrapper()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
+    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }

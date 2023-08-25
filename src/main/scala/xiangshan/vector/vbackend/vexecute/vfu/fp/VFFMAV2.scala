@@ -22,12 +22,13 @@ import chisel3._
 import freechips.rocketchip.config._
 import fudian._
 import fudian.utils.Multiplier
+import xiangshan.Redirect
 
 /*
  * for widening insts and various fma ops
  * latency = 1
  */
-class VFMASrcPreprocessPipe(implicit p: Parameters) extends VFPUBaseModule {
+class VFMASrcPreprocessPipe(implicit val p: Parameters) extends VFPUBaseModule {
 
   def invert(x: UInt, len: Int) = {
     Cat(!x(len-1), x(len-2, 0))
@@ -44,7 +45,9 @@ class VFMASrcPreprocessPipe(implicit p: Parameters) extends VFPUBaseModule {
 
   val io = IO(new Bundle() {
     val in = Flipped(Decoupled(new LaneFloatFUIn))
+    val redirectIn = Input(ValidIO(new Redirect))
     val out = Decoupled(new LaneFloatFUIn)
+    val redirectOut = Output(ValidIO(new Redirect))
   })
   val uop = io.in.bits.uop
   val fpCtrl = uop.vfpCtrl
@@ -85,6 +88,7 @@ class VFMASrcPreprocessPipe(implicit p: Parameters) extends VFPUBaseModule {
   fcvt2.io.rm := 0.U
 
   io.out.bits := RegEnable(io.in.bits,transfer)
+  io.redirectOut := RegEnable(io.redirectIn,transfer)
   io.out.bits.vs1 := RegEnable(
     Mux(uop.ctrl.widen || uop.ctrl.widen2, fcvt1.io.result, vs1StageFinal),
     transfer
@@ -209,7 +213,7 @@ class MulToAddIOVec(val ftypes: Seq[VFPU.FType])(implicit val p: Parameters) ext
 //}
 
 
-class VFMUL_pipe(val mulLat: Int = 2)(implicit p: Parameters)
+class VFMUL_pipe(val mulLat: Int = 2)(implicit val p: Parameters)
   extends VFPUPipelineModule
 {
   override def latency: Int = mulLat
@@ -299,7 +303,7 @@ class VFMUL_pipe(val mulLat: Int = 2)(implicit p: Parameters)
 
 
 
-class VFADD_pipe(val addLat: Int = 2)(implicit p: Parameters) extends VFPUPipelineModule {
+class VFADD_pipe(val addLat: Int = 2)(implicit val p: Parameters) extends VFPUPipelineModule {
 
   override def latency: Int = addLat
 
@@ -350,8 +354,8 @@ class VFADD_pipe(val addLat: Int = 2)(implicit p: Parameters) extends VFPUPipeli
         Cat(src1(ftype.len - 1, 0), 0.U(ftype.precision.W))
       )
       val in2 = Cat(src2(ftype.len - 1, 0), 0.U(ftype.precision.W))
-      s1.io.a := in1
-      s1.io.b := in2
+      s1.io.a := in2
+      s1.io.b := in1
       s1.io.b_inter_valid := fma
       s1.io.b_inter_flags := Mux(fma,
         mulProd.inter_flags,
@@ -363,15 +367,17 @@ class VFADD_pipe(val addLat: Int = 2)(implicit p: Parameters) extends VFPUPipeli
   }
 }
 
-class VFFMA(implicit p: Parameters) extends VFPUSubModule {
+class VFFMA(implicit val p: Parameters) extends VFPUSubModule {
 
   val sourcePrepare = Module(new VFMASrcPreprocessPipe)
   sourcePrepare.io.in <> io.in
+  sourcePrepare.io.redirectIn := io.redirect
   val mul_pipe = Module(new VFMUL_pipe())
   val add_pipe = Module(new VFADD_pipe())
 
   val fpCtrl = sourcePrepare.io.out.bits.uop.vfpCtrl
   mul_pipe.io.in <> sourcePrepare.io.out
+  mul_pipe.io.redirect <> sourcePrepare.io.redirectOut
   mul_pipe.io.in.valid := sourcePrepare.io.out.valid && fpCtrl.fmaCmd(0) // override
 
   // Note: current version does not support pipeline flush
@@ -387,6 +393,7 @@ class VFFMA(implicit p: Parameters) extends VFPUSubModule {
   // Since FADD gets FMUL data from add_pipe.mulToAdd, only uop needs Mux.
   add_pipe.io.in.valid := sourcePrepare.io.out.valid && isAddSub || mulOutIsFMAReg // isAddSub or FMAfromMulPipe
   add_pipe.io.in.bits := sourcePrepare.io.out.bits
+  add_pipe.io.redirect := sourcePrepare.io.redirectOut
   add_pipe.io.in.bits.uop := Mux(mulOutIsFMAReg, add_pipe.mulToAddVec.uop, sourcePrepare.io.out.bits.uop)
   add_pipe.isFMA := mulOutIsFMAReg
 

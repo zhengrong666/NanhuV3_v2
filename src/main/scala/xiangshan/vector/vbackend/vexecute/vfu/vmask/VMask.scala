@@ -236,11 +236,13 @@ class VMask(implicit p: Parameters) extends VFuModule {
   val vmask_vd = Mux(ma_reg, vmask_ones_vd, vmask_old_vd)
   val vid_mask_vd = (Cat(vid_vd.reverse) & vmask_vd_bits) | vmask_vd
 
-  val vstartRemainBytes = vstartRemain_reg << vsew_reg
-  val vstart_bytes = Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
+  val vstartRemainBytes = Wire(UInt(7.W))
+  val vstart_bytes = Wire(UInt(5.W))
+  vstartRemainBytes := vstartRemain_reg << vsew_reg
+  vstart_bytes := Mux(vstartRemainBytes >= VLENB.U, VLENB.U, vstartRemainBytes)
   val vstart_bits = Cat(vstart_bytes, 0.U(3.W))
   val vmask_vstart_bits = Wire(UInt(VLEN.W))
-  vmask_vstart_bits := all_one << vstart_bits(6, 0)
+  vmask_vstart_bits := all_one << vstart_bits
   val vstart_old_vd = old_vd_reg & (~vmask_vstart_bits)
 
   val tail_bytes = Mux((vlRemainBytes_reg >= VLENB.U), 0.U, VLENB.U - vlRemainBytes_reg)
@@ -343,7 +345,11 @@ class VMask(implicit p: Parameters) extends VFuModule {
   io.out.bits.vxsat := false.B
 }
 
-// object VerilogVmask extends App {
-//   println("Generating the VPU VMask hardware")
-//   emitVerilog(new VMask(), Array("--target-dir", "build/vifu"))
-// }
+import xiangshan._
+
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
+  emitVerilog(new VMask()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
+    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}
