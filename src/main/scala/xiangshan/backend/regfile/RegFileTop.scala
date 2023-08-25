@@ -210,7 +210,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val isMaskDisabled = bi.issue.bits.uop.ctrl.vm && vmVal(uopIdx) === 0.U
           val isTailDisabled = bi.issue.bits.uop.isTail
           val isPrestartDisabled = bi.issue.bits.uop.isPrestart
-          exuInBundle.uop.loadStoreEnable := !(isMaskDisabled || isTailDisabled || isPrestartDisabled)
+          exuInBundle.uop.loadStoreEnable := !(bi.issue.bits.uop.ctrl.isVector && (isMaskDisabled || isTailDisabled || isPrestartDisabled))
 
           //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
@@ -288,6 +288,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           issueBundle.uop.cf.pc := io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset)
           issueBundle.src(0) := intRf.io.read(intRfReadIdx).data
           exuInBundle := ImmExtractor(exuComplexParam, issueBundle)
+          exuInBundle.uop.loadStoreEnable := true.B
           intRfReadIdx = intRfReadIdx + 1
           pcReadPortIdx = pcReadPortIdx + 1
         } else {
