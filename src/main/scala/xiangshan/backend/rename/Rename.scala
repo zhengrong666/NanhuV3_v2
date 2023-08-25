@@ -109,6 +109,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     * Rename: allocate free physical register and update rename table
     */
   val uops = Wire(Vec(RenameWidth, new MicroOp))
+  val vtypeuops = Wire(Vec(RenameWidth, new MicroOp))
   uops.foreach( uop => {
     uop.srcState(0) := DontCare
     uop.srcState(1) := DontCare
@@ -185,14 +186,14 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // Assign performance counters
     uops(i).debugInfo.renameTime := GTimer()
 
+    vtyperename.io.in(i).bits := uops(i)
+    vtyperename.io.in(i).valid := io.in(i).valid
+    vtypeuops(i) := vtyperename.io.renameResp(i)
+    vtypeuops(i).vtypeRegIdx := vtyperename.io.out(i).bits.vtypeIdx
+
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
-    io.out(i).bits  := uops(i)
-
-    vtyperename.io.in(i).bits   := uops(i)
-    vtyperename.io.in(i).valid  := io.in(i).valid
-    uops(i).vtypeRegIdx := vtyperename.io.out(i).bits.vtypeIdx
-    
+    io.out(i).bits  := vtypeuops(i)
 
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
