@@ -92,7 +92,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   private val enqPtrInit = Wire(new VtypePtr)
   enqPtrInit.value := 1.U
-  enqPtrInit.flag := 1.U
+  enqPtrInit.flag := 0.U
   private val table = Module(new VTypeRenameTable(VIVtypeRegsNum))
   private val enqPtr = RegInit(enqPtrInit)
   private val deqPtr = RegInit(0.U.asTypeOf(new VtypePtr))
