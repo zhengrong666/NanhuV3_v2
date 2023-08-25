@@ -370,6 +370,7 @@ class RobEntryData(implicit p: Parameters) extends XSBundle {
   val old_pdest = UInt(PhyRegIdxWidth.W)
   val ftqIdx = new FtqPtr
   val ftqOffset = UInt(log2Up(PredictWidth).W)
+  val vtypeWb = Bool()
 }
 
 class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
@@ -388,6 +389,7 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
     old_pdest := data.old_pdest
     ftqIdx := data.ftqIdx
     ftqOffset := data.ftqOffset
+    vtypeWb := data.vtypeWb
   }
 }
 

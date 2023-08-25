@@ -36,16 +36,6 @@ import xs.utils._
 import xiangshan.backend.execute.fu.csr._
 import xiangshan.backend.execute.fu.FuOutput
 
-class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
-    val vtype   = UInt(XLEN.W)
-    val vstart  = UInt(XLEN.W)
-    val vxsat   = UInt(XLEN.W)
-    val vxrm    = UInt(XLEN.W)
-    val vcsr    = UInt(XLEN.W)
-    val vl      = UInt(XLEN.W)
-    val vlenb   = UInt(XLEN.W)
-}
-
 class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val vtypeWbToRename = ValidIO(new FuOutput(XLEN))
     val vtypeRead = new Bundle {
@@ -70,7 +60,6 @@ class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val uop = io.in.bits.uop
-    //val cfOut = Wire(new CtrlFlow)
     redirectOutValid := DontCare
     redirectOut := DontCare
 
@@ -83,21 +72,17 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vcsr    = RegInit(UInt(XLEN.W), 0.U)
     val vlenb   = RegInit(UInt(XLEN.W), (VLEN / 8).U)
 
-    // vcsr_io.vcsrInfo.vstart := vstart
-    // vcsr_io.vcsrInfo.vxsat  := vxsat
-    // vcsr_io.vcsrInfo.vxrm   := vxrm
-    // vcsr_io.vcsrInfo.vcsr   := vcsr
-    // vcsr_io.vcsrInfo.vlenb  := vlenb
-
+    //vstart, vxsat writeback to here from Rob commit
     val wbFromRob = vcsr_io.robWb
-    vstart := Mux(wbFromRob.vstartW.valid, wbFromRob.vstartW.bits, vstart)
-    vxsat := Mux(wbFromRob.vxsatW.valid, wbFromRob.vxsatW.bits, vstart)
+    vstart  := Mux(wbFromRob.vstartW.valid, wbFromRob.vstartW.bits, vstart)
+    vxsat   := Mux(wbFromRob.vxsatW.valid,  wbFromRob.vxsatW.bits,  vxsat)
     
-    //vsetvl
+    // vsetvl need to calculate in vcsr
+    // vsetvl
     val isVsetvl = (uop.ctrl.fuOpType === CSROpType.vsetvl)
-    //vsetvl{i}
+    // vsetvl{i}
     val isVsetvli = (uop.ctrl.fuOpType === CSROpType.vsetvli)
-    //vset{i}vl{i}
+    // vset{i}vl{i}
     val isVsetivli = (uop.ctrl.fuOpType === CSROpType.vsetivli)
 
     //src1 -> AVL, src2 ->
@@ -121,10 +106,10 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vlmul = vtypeValue(2, 0)
     val vsew = vtypeValue(5, 3)
 
-    //vsew inside {3'b000, 3'b001, 3'b010, 3'b011}, vsew[2] == 0
-    //LMUL = 2 ^ signed(vlmul)
-    //SEW = 2 ^ vsew * 8
-    //VLMAX = VLEN * LMUL / SEW = VLEN * (LMUL / SEW) = VLEN * 2 ^ (signed(vlmul) - vsew) / 8, (vsew[2] == 0) => signed(vlmul) - vsew = signed(vlmul) - signed(vsew))
+    // vsew inside {3'b000, 3'b001, 3'b010, 3'b011}, vsew[2] == 0
+    // LMUL = 2 ^ signed(vlmul)
+    // SEW = 2 ^ vsew * 8
+    // VLMAX = VLEN * LMUL / SEW = VLEN * (LMUL / SEW) = VLEN * 2 ^ (signed(vlmul) - vsew) / 8, (vsew[2] == 0) => signed(vlmul) - vsew = signed(vlmul) - signed(vsew))
     val vlmul_tmp = Mux(vlmul(2)===0.U, Cat(vlmul(2), 0.U(1.W), vlmul(1, 0)), Cat(vlmul(2), ~Cat(0.U(1.W), vlmul(1, 0)) + 1.U))
     val vsew_neg_tmp = Cat(1.U(1.W), ~(vsew+3.U)) + 1.U
     val vlmax_sel = vlmul + vsew_neg_tmp + 7.U
@@ -139,8 +124,9 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
 
     vcsr_io.vtype.vtypeWbToRename.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
-    //vcsr_io.vtypeRename.vtypeWbToRename.bits.data := io.in.bits.uop
     vcsr_io.vtype.vtypeWbToRename.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
+
+    // CSRRW
 
     val vectorCSRMapping = Map(
         MaskedRegMap(vstartAddr, vstart),
@@ -167,5 +153,4 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     io.out.bits.uop := io.in.bits.uop
     io.out.bits.data := Mux((isVsetivli || isVsetvl || isVsetvli), Cat(vill, 0.U(55.W), vtypeValue), rdata)
     io.out.valid := io.in.valid
-
 }
