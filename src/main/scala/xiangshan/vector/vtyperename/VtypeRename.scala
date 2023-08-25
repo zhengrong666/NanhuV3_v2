@@ -187,11 +187,6 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     res
   }
 
-  private val uop = Wire(Vec(RenameWidth, new MicroOp()))
-  for (i <- 0 until RenameWidth) {
-    uop(i) := io.in(i).bits
-  }
-
   realValids.zipWithIndex.foreach({case(s, idx) =>
     val newVType = GenVType(io.in(idx).bits, oldVType.info)
     enqAddrEnqSeq(idx) := enqPtr + enqAddrDeltas(idx)
@@ -202,13 +197,21 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     }
   })
 
-  private val setVlNeedRenameSeq = io.in.map(i => i.valid && i.bits.ctrl.isVtype && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli)
+
+  private val uop = WireInit(io.in)
+  private val pdestSeq = Wire(Vec(RenameWidth,UInt(5.W)))
+  for (i <- 0 until RenameWidth) {
+    if(i == 0){
+      pdestSeq(i) := oldVType.pdest
+    } else {
+      pdestSeq(i) := vtypeEnqSeq(i - 1).pdest
+    }
+  }
+  private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) => i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v})
   private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAllocate)
   needRenameValids.zipWithIndex.foreach({case(n, idx) =>
-    if (idx == 0) {
-      uop(idx).psrc(0) := Mux(n, oldVType.pdest, uop(idx).psrc(0))
-    } else {
-      uop(idx).psrc(0) := Mux(n, uop(idx - 1).pdest, uop(idx).psrc(0))
+    when(n) {
+      uop(idx).bits.psrc(0) := pdestSeq(idx)
     }
   })
 
@@ -244,7 +247,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   }
 
   for (i <- 0 until RenameWidth) {
-    io.renameResp(i).bits := uop(i)
-    io.renameResp(i).valid := io.in(i).valid
+    io.renameResp(i).bits := uop(i).bits
+    io.renameResp(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value
+    io.renameResp(i).valid := uop(i).valid
   }
 }
