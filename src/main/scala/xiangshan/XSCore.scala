@@ -134,7 +134,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   csrioIn.vcsr := DontCare
   csrioIn.vcsr.robWb := DontCare
   csrioIn.vcsr.vtype.vtypeWbToRename := DontCare
-  
+  ctrlBlock.io.vcsrio := DontCare
   
   
   ctrlBlock.io.lqCancelCnt := exuBlock.io.lqCancelCnt

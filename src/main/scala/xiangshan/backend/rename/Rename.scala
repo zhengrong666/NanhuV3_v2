@@ -188,7 +188,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
 
     vtyperename.io.in(i).bits := uops(i)
     vtyperename.io.in(i).valid := io.in(i).valid
-    vtyperename.io.vcsr := io.vcsrio
+    vtyperename.io.vcsr <> io.vcsrio
     vtypeuops(i) := vtyperename.io.renameResp(i)
 
     //out
