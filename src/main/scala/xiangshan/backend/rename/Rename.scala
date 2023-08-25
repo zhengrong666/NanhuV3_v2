@@ -189,10 +189,10 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     vtyperename.io.in(i).bits := uops(i)
     vtyperename.io.in(i).valid := io.in(i).valid
     vtyperename.io.vcsr <> io.vcsrio
-    vtypeuops(i) := vtyperename.io.renameResp(i)
+    vtypeuops(i) := vtyperename.io.renameResp(i).bits
 
     //out
-    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
+    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAllocate
     io.out(i).bits  := vtypeuops(i)
 
     // dirty code for fence. The lsrc is passed by imm.
