@@ -58,15 +58,28 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
     val flushVec = Output(UInt(size.W))
   })
   private val table = Reg(Vec(size, new VTypeEntry))
+  private val doReset = RegInit(true.B)
 
   for((entry, idx) <- table.zipWithIndex){
     val hitSeq = io.w.map(w => w.en && w.addr === idx.U)
     val dataSeq = io.w.map(_.data)
     val data = Mux1H(hitSeq, dataSeq)
     val en = hitSeq.reduce(_|_)
-    when(en){
-      entry := data
+    if(idx == 0){
+      when(doReset) {
+        entry := 0.U.asTypeOf(new VTypeEntry)
+      }.elsewhen(en){
+        entry := data
+      }
+    } else {
+      when(en) {
+        entry := data
+      }
     }
+  }
+
+  when(doReset){
+    doReset := false.B
   }
 
   for(r <- io.r){
