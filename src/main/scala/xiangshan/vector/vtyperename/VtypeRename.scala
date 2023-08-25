@@ -157,17 +157,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val oldvlmax = oldvtype.VLMAXGen()
     val oldvl = oldvtype.vl
     res.info.oldvl := oldvl
-    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
-    res.info.vma := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(30), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(29), 0.U))
-    res.info.vta := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(29), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(28), 0.U))
-    res.info.vsew := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(28, 26), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(27, 25), 0.U))
-    res.info.vlmul := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, in.cf.instr(25, 23), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(24, 22), 0.U))
-    res.info.vlmax := Mux(in.ctrl.fuOpType === CSROpType.vsetivli, res.info.VLMAXGen(), Mux(in.ctrl.fuOpType === CSROpType.vsetvli, res.info.VLMAXGen(), 0.U))
+    res.info.vma := in.ctrl.imm(7)
+    res.info.vta := in.ctrl.imm(6)
+    res.info.vsew := in.ctrl.imm(5, 3)
+    res.info.vlmul := in.ctrl.imm(2, 0)
+    res.info.vlmax := res.info.VLMAXGen()
     //TODO:---
     //      println(s"vtype index:$i")
-    res.info.vl := Mux(in.ctrl.fuOpType === CSROpType.vsetivli,
-      Mux(in.ctrl.lsrc(0) === 0.U, Mux(in.ctrl.lsrc(2) === 0.U, oldvl, oldvlmax), 0.U),
-      Mux(in.ctrl.fuOpType === CSROpType.vsetvli, in.cf.instr(19, 15), 0.U))
+    res.info.vl := in.ctrl.imm(4, 0)
     res.writebacked := in.ctrl.fuOpType === CSROpType.vsetivli
     res.robIdx := in.robIdx
     res
