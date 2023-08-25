@@ -46,9 +46,26 @@ class VCSRInfo(implicit p: Parameters) extends VectorBaseBundle with HasVCSRCons
     val vlenb   = UInt(XLEN.W)
 }
 
-class VCSRWIO(implicit p: Parameters) extends VectorBaseBundle with HasVCSRConst {
+class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
+    val vtypeWbToRename = ValidIO(new FuOutput(XLEN))
+    val vtypeRead = new Bundle {
+        val readEn = Output(Bool())
+        val data = Flipped(ValidIO(UInt(XLEN.W)))
+    }
+    val vlRead = new Bundle {
+        val readEn = Output(Bool())
+        val data = Flipped(ValidIO(UInt(XLEN.W)))
+    }
+}
+
+class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {
     val vstartW = Flipped(ValidIO(UInt(XLEN.W)))
     val vxsatW  = Flipped(ValidIO(UInt(XLEN.W)))
+}
+
+class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
+    val vtype = new VCSRWithVtypeRenameIO
+    val robWb = new VCSRWithRobIO
 }
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
@@ -57,40 +74,31 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     redirectOutValid := DontCare
     redirectOut := DontCare
 
-    val vcsr_io = IO(new Bundle {
-        val vcsrInfo = Output(new VCSRInfo)
-        val wbFromRob = new VCSRWIO
-        val vtypeWb = ValidIO(new FuOutput(64))
-        val wen = Input(Bool())
-    })
+    val vcsr_io = IO(new VCsrIO)
 
     //csr define
-    val vtype   = RegInit(UInt(XLEN.W), 0.U)
     val vstart  = RegInit(UInt(XLEN.W), 0.U)
     val vxsat   = RegInit(UInt(XLEN.W), 0.U)
     val vxrm    = RegInit(UInt(XLEN.W), 0.U)
     val vcsr    = RegInit(UInt(XLEN.W), 0.U)
-    val vl      = RegInit(UInt(XLEN.W), 0.U)
     val vlenb   = RegInit(UInt(XLEN.W), (VLEN / 8).U)
 
-    vcsr_io.vcsrInfo.vtype  := vtype
-    vcsr_io.vcsrInfo.vstart := vstart
-    vcsr_io.vcsrInfo.vxsat  := vxsat
-    vcsr_io.vcsrInfo.vxrm   := vxrm
-    vcsr_io.vcsrInfo.vcsr   := vcsr
-    vcsr_io.vcsrInfo.vl     := vl
-    vcsr_io.vcsrInfo.vlenb  := vlenb
+    // vcsr_io.vcsrInfo.vstart := vstart
+    // vcsr_io.vcsrInfo.vxsat  := vxsat
+    // vcsr_io.vcsrInfo.vxrm   := vxrm
+    // vcsr_io.vcsrInfo.vcsr   := vcsr
+    // vcsr_io.vcsrInfo.vlenb  := vlenb
 
-    val wbFromRob = vcsr_io.wbFromRob
+    val wbFromRob = vcsr_io.robWb
     vstart := Mux(wbFromRob.vstartW.valid, wbFromRob.vstartW.bits, vstart)
     vxsat := Mux(wbFromRob.vxsatW.valid, wbFromRob.vxsatW.bits, vstart)
     
     //vsetvl
-    val isVsetvl = uop.ctrl.fuOpType === CSROpType.vsetvl
+    val isVsetvl = (uop.ctrl.fuOpType === CSROpType.vsetvl)
     //vsetvl{i}
-    val isVsetvli = uop.ctrl.fuOpType === CSROpType.vsetvli
+    val isVsetvli = (uop.ctrl.fuOpType === CSROpType.vsetvli)
     //vset{i}vl{i}
-    val isVsetivli = uop.ctrl.fuOpType === CSROpType.vsetivli
+    val isVsetivli = (uop.ctrl.fuOpType === CSROpType.vsetivli)
 
     //src1 -> AVL, src2 ->
     val valid = io.in.valid
@@ -126,24 +134,19 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
 
     val avl = Mux(isVsetivli, Cat(0.U(59.W), imm(4, 0)), src0)
     val vlNewSetivli = Mux(vlmax >= avl, avl, vlmax)
-    val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, vl))
-    vl := Mux(isVsetivli, vlNewSetivli, vlNewOther)
+    val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, uop.vCsrInfo.vl))
 
     val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
-    vtype := Cat(vill, 0.U(55.W), vtypeValue)
 
-    //val vtypeWb = Cat(vill, vtypeValue)
-    vcsr_io.vtypeWb.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
-    vcsr_io.vtypeWb.bits.uop := io.in.bits.uop
-    vcsr_io.vtypeWb.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
-    // vcsr_io.vtypeWb.valid := io.in.valid
+    vcsr_io.vtype.vtypeWbToRename.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
+    //vcsr_io.vtypeRename.vtypeWbToRename.bits.data := io.in.bits.uop
+    vcsr_io.vtype.vtypeWbToRename.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
 
     val vectorCSRMapping = Map(
         MaskedRegMap(vstartAddr, vstart),
         MaskedRegMap(vxsatAddr, vxsat),
         MaskedRegMap(vxrmAddr, vxrm),
         MaskedRegMap(vcsrAddr, vcsr),
-        MaskedRegMap(vlAddr, vl),
         MaskedRegMap(vlenbAddr, vlenb)
     )
     val addr = imm(11, 0)
@@ -157,7 +160,7 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
         CSROpType.seti -> (rdata | csri),
         CSROpType.clri -> (rdata & (~csri).asUInt)
     ))
-    MaskedRegMap.generate(vectorCSRMapping, addr, rdata, vcsr_io.wen, wdata)
+    //MaskedRegMap.generate(vectorCSRMapping, addr, rdata, vcsr_io.wen, wdata)
 
     io.in.ready := true.B
     
