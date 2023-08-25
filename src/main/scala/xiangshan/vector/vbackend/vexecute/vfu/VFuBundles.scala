@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 // import darecreek.exu.fu2.VFUParam._
 import chipsalliance.rocketchip.config.Parameters
-import xiangshan._
+import xiangshan.{MicroOp, Redirect}
 
 // Temporary. Will replaced by system Uop class.
 class VUopCtrl extends Bundle {
@@ -90,13 +90,8 @@ class VPermInput(implicit p: Parameters) extends Bundle {
   val old_vd_preg_idx = Vec(8, UInt(8.W))
   val mask_preg_idx = UInt(8.W)
   val uop_valid = Bool()
-  val uop_rob_flag = Bool()
-  val uop_rob_idx = UInt(8.W)
   val rdata = UInt(128.W)
   val rvalid = Bool()
-  val flush_vld = Bool()
-  val flush_rob_flag = Bool()
-  val flush_rob_idx = UInt(8.W)
 }
 
 class VPermOutput(implicit p: Parameters) extends Bundle {
@@ -203,7 +198,7 @@ class LaneFUOutput(implicit p: Parameters) extends Bundle {
   val vxsat = Bool() // Fixed-point accrued saturation flag
 }
 
-class LaneUnit(implicit p: Parameters) extends XSModule {
+class LaneUnit(implicit p: Parameters) extends Module {
   val io = IO(new Bundle() {
     val in = Flipped(DecoupledIO(new LaneFUInput))
     val out = DecoupledIO(new LaneFUOutput)

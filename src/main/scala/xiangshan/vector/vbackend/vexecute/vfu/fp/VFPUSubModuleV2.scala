@@ -7,13 +7,29 @@ import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
 import freechips.rocketchip.config.Parameters
 import darecreek.exu.fu2._
 
-import xiangshan._
-
-abstract class VFPUBaseModule(implicit p: Parameters) extends XSModule with HasVFuParameters
+abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFuParameters
 
 // a module that has decoupled interfaces
 abstract class VFPUSubModule(implicit p: Parameters) extends VFPUBaseModule with HasVFuParameters {
   val io = IO(new LaneFloatFUIO)
+  def invert_sign(x: UInt, len: Int) = {
+    Cat(
+      !x(len-1), x(len-2, 0)
+    )
+  }
+  def empty_fflags = 0.U(5.W)
+  def empty_fflags_n(n: Int) = Seq.fill(n)(0.U(5.W))
+  // mask(x) == 1 means active
+  def isActive(id: Int) = !io.in.bits.prestart(id) & !io.in.bits.tail(id) & (
+    io.in.bits.uop.ctrl.vm | io.in.bits.mask(id)
+  )
+
+  io.out.bits.vxsat := false.B
+}
+
+// a module that has decoupled interfaces
+abstract class VFPUDivSubModule(implicit p: Parameters) extends VFPUBaseModule with HasVFuParameters {
+  val io = IO(new LaneFloatDivFUIO)
   def invert_sign(x: UInt, len: Int) = {
     Cat(
       !x(len-1), x(len-2, 0)
@@ -46,8 +62,8 @@ trait HasPipelineReg {
   val uopVec = io.in.bits.uop +: Array.fill(latency)(Reg(new VFPUOp))
 
   // if flush(0), valid 0 will not given, so set flushVec(0) to false.B
-  val flushVec = Array.fill(latency+1)(WireInit(false.B)) // FIXME: implement flush logic
-  //  val flushVec = validVec.zip(uopVec).map(x => x._1 && x._2.robIdx.needFlush(io.redirectIn))
+  // val flushVec = Array.fill(latency+1)(WireInit(false.B)) // FIXME: implement flush logic
+  val flushVec = validVec.zip(uopVec).map(x => x._1 && x._2.sysUop.robIdx.needFlush(io.redirect))
 
   for (i <- 0 until latency - 1) {
     rdyVec(i) := !validVec(i + 1) || rdyVec(i + 1)

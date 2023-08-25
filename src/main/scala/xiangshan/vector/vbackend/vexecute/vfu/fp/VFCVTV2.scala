@@ -21,16 +21,17 @@ import chisel3.util._
  *  64b (u)int  -> 64b float
  *  32b (u)int  -> 64b float  widen
  */
-class VFCVT(implicit p: Parameters) extends VFPUSubModule {
+class VFCVT(implicit val p: Parameters) extends VFPUSubModule {
   val module = Module(new VFCVTDataModule)
 
   module.io.in <> io.in
+  module.io.redirect := io.redirect
   io.out <> module.io.out
   // block if is not cvt,
   module.io.in.valid := io.in.valid && io.in.bits.uop.vfpCtrl.isCvt
 }
 
-class VFCVTDataModule(implicit p: Parameters) extends VFPUPipelineModule {
+class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
 
   override def latency = 2 //  2 stage register
 
@@ -207,6 +208,7 @@ class VFCVTDataModule(implicit p: Parameters) extends VFPUPipelineModule {
   io.out.bits.vd := Mux(uopReg.ctrl.narrow, narrowOutReg, nonNarrowOutReg)
   io.out.bits.fflags := Mux(uopReg.ctrl.narrow, narrowFlagOutReg, nonNarrowFlagOutReg)
   // delay 1 cycle to match the timing of the arithmetic result
-  io.out.valid := validVec.last && state =/= State.sNarrow  // block narrow cycle 1
+  // io.out.valid := validVec.last && state =/= State.sNarrow  // block narrow cycle 1
+  io.out.valid := validVec.last
   io.out.bits.uop := uopVec.last
 }

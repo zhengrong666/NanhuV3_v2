@@ -108,6 +108,10 @@ object MaskReorg {
   def splash(bits: UInt, sew: SewOH): UInt = {
     Mux1H(sew.oneHot, Seq(1,2,4,8).map(k => Cat(bits(16/k -1, 0).asBools.map(Fill(k, _)).reverse)))
   }
+  // sew = 8: unchanged, sew = 16: 00000000abcdefgh -> 0000abcd0000efgh, ...
+  def apply(bits: UInt, sew: SewOH): UInt = {
+    Mux1H(sew.oneHot, Seq(1,2,4,8).map(k => Cat(UIntSplit(bits(16/k -1, 0), 2).map(_ | 0.U(8.W)).reverse)))
+  }
 }
 
 object BundleHelper {
@@ -130,6 +134,8 @@ class MaskTailData(implicit p: Parameters) extends Module {
   val io = IO(new Bundle {
     val mask = Input(UInt(8.W))
     val tail = Input(UInt(8.W))
+    val prestart = Input(UInt(8.W))
+    val vstart_gte_vl = Input(Bool())
     val oldVd = Input(UInt(64.W))
     val uop = Input(new VExpdUOp)
     val opi = Input(Bool())
@@ -144,7 +150,9 @@ class MaskTailData(implicit p: Parameters) extends Module {
   val addWithCarry = uop.ctrl.funct6(5,2) === "b0100".U && io.opi
   val vmerge = uop.ctrl.funct6 === "b010111".U
   for (i <- 0 until 8) {
-    when (tail(i)) {
+    when (io.prestart(i) || io.vstart_gte_vl) {
+      maskTail(i) := 2.U
+    }.elsewhen (tail(i)) {
       maskTail(i) := Mux(uop.info.ta || uop.ctrl.narrow_to_1, 3.U, 2.U)
     }.elsewhen (addWithCarry || vmerge) {
       maskTail(i) := 0.U

@@ -7,7 +7,7 @@ import fudian.FDIV
 
 
 // multi-cycle data module
-class VFDivSqrtDataModule(implicit p: Parameters) extends VFPUSubModule {
+class VFDivSqrtDataModule(implicit val p: Parameters) extends VFPUDivSubModule {
   val kill_w = IO(Input(Bool()))
   val kill_r = IO(Input(Bool()))
 
@@ -69,7 +69,7 @@ class VFDivSqrtDataModule(implicit p: Parameters) extends VFPUSubModule {
 
 // DIV: vs2 / vs1 normally, vs1 / vs2 if reverse
 // SQRT: sqrt vs2
-class VFDivSqrt(implicit p: Parameters) extends VFPUSubModule {
+class VFDivSqrt(implicit val p: Parameters) extends VFPUDivSubModule {
 
   val kill_r = false.B
   // val kill_r = !io.in.ready && uopReg.robIdx.needFlush(io.redirectIn)

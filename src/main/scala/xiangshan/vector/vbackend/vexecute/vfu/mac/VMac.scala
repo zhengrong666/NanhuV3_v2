@@ -118,3 +118,11 @@ class VMac(implicit p: Parameters) extends VFuModule {
   io.out.bits.vxsat := (Cat(vIMac64bs.map(_.io.vxsat).reverse) &
                    Cat(updateType.map(_(1) === false.B).reverse)).orR
 }
+
+import xiangshan._
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({case XSCoreParamsKey => XSCoreParameters()})
+  emitVerilog(new VMac()(p.alterPartial({case VFuParamsKey => VFuParameters()})), Array("--target-dir", "generated",
+              "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}

@@ -726,3 +726,11 @@ class CSA4to2(width: Int) extends Module {
 //   emitVerilog(new Reduction(), Array("--target-dir", "build/vifu"))
 // }
 
+import xiangshan._
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({case XSCoreParamsKey => XSCoreParameters()})
+  emitVerilog(new Reduction()(p.alterPartial({case VFuParamsKey => VFuParameters()})), Array("--target-dir", "generated",
+              "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}
+

@@ -45,6 +45,7 @@ class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vdiv.io.in.bits.oldVd := src2
     vdiv.io.in.bits.mask := mask
     vdiv.io.out.ready := true.B
+    vdiv.io.redirect := redirectIn
 
     when(iss.valid){assert(vdiv.io.in.valid)}
 

@@ -1,10 +1,11 @@
 package darecreek.exu.fu2.fp
 
 import chisel3._
-import chisel3.util.DecoupledIO
+import chisel3.util._
 // import darecreek.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
 import darecreek.exu.fu2.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
 import freechips.rocketchip.config.Parameters
+import xiangshan.Redirect
 
 class VFPUCtrlSigs extends Bundle {
 
@@ -111,9 +112,14 @@ class LaneFloatFUOut(implicit p: Parameters) extends LaneFUWithMaskOut {
 class LaneFloatFUIO(implicit p: Parameters) extends Bundle {
   val in = Flipped(DecoupledIO(new LaneFloatFUIn))
   val out = DecoupledIO(new LaneFloatFUOut)
-  //  val redirectIn = Flipped(ValidIO(new Redirect))
+  val redirect = Flipped(ValidIO(new Redirect))
 }
 
+class LaneFloatDivFUIO(implicit p: Parameters) extends Bundle {
+  val in = Flipped(DecoupledIO(new LaneFloatFUIn))
+  val out = DecoupledIO(new LaneFloatFUOut)
+  // val redirect = Flipped(ValidIO(new Redirect))
+}
 
 
 
