@@ -129,12 +129,10 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
 
   ctrlBlock.io.csrCtrl <> csrioIn.customCtrl
   //TODO:
-  ctrlBlock.io.vstart := DontCare
+  ctrlBlock.io.vstart := csrioIn.vcsr.vstart
 
-  csrioIn.vcsr := DontCare
-  csrioIn.vcsr.robWb := DontCare
-  csrioIn.vcsr.vtype.vtypeWbToRename := DontCare
-  ctrlBlock.io.vcsrio := DontCare
+  csrioIn.vcsr.robWb <> ctrlBlock.io.vcsrToEXU
+  csrioIn.vcsr.vtype <> ctrlBlock.io.vcsrToRename
   
   
   ctrlBlock.io.lqCancelCnt := exuBlock.io.lqCancelCnt
