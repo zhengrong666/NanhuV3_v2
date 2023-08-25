@@ -164,7 +164,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val countnum = RegInit(VecInit.tabulate(VIDecodeWidth)(_.U))
   val lmul = currentstate.vtypeInfo.LmulToInt()
   val vl = currentstate.vtypeInfo.vl
-  val sew = currentstate.vtypeInfo.SewToInt()
+  val sew = currentstate.vtypeInfo.vsew
   val nf = currentdata.ctrl.NFToInt()
   val elementInRegGroup = VLEN >> (sew + 3)
   val elementTotal = lmul * elementInRegGroup
