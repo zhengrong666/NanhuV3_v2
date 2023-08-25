@@ -87,7 +87,6 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val renameResp = Vec(RenameWidth, ValidIO(new MicroOp))
     val out = Vec(RenameWidth, ValidIO(new VTypeResp))
 //    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
-    val writeback = Flipped(ValidIO(new FuOutput(64)))
     val vcsr  = Flipped(new VCSRWithVtypeRenameIO)
   })
 
