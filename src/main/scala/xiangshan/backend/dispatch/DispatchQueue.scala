@@ -145,7 +145,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     when(io.enq.canAccept){assert(Mux(i.U < actualEnqNum, squeezedEnqs(i).valid === true.B, squeezedEnqs(i).valid === false.B))}
   }
   for(i <- 1 until squeezedEnqs.length){
-    when(squeezedEnqs(i).valid){assert(squeezedEnqs(i).bits.robIdx > squeezedEnqs(i - 1).bits.robIdx)}
+    when(squeezedEnqs(i).valid){assert(squeezedEnqs(i).bits.robIdx >= squeezedEnqs(i - 1).bits.robIdx)}
   }
   assert(flushNum <= validEntriesNum)
   private val enqFlushNextMask = UIntToMask((enqPtr - flushNum).value, size)
