@@ -110,11 +110,8 @@ class CSRFileIO(implicit p: Parameters) extends XSBundle {
   val customCtrl = Output(new CustomCSRCtrlIO)
   // distributed csr write
   val distributedUpdate = Vec(2, Flipped(new DistributedCSRUpdateReq))
-  //vcsr to VectorCtrlPipeline
-  val vtypeWb = ValidIO(new FuOutput(64))
-  //vcsr wb from Rob
-  val vcsrWbFromRob = new VCSRWIO
-  val vstart = Output(UInt(7.W))
+  //vector csr
+  val vcsr = new VCsrIO
 }
 
 class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with PMPMethod with PMAMethod with HasTriggerConst
@@ -757,14 +754,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   //vcsr
   val vcsr = Module(new VCSR)
   vcsr.io.in.bits := io.in.bits
-  vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector
-  csrio.vtypeWb <> vcsr.vcsr_io.vtypeWb
-  vcsr.vcsr_io.wbFromRob <> csrio.vcsrWbFromRob
-  vcsr.vcsr_io.wen := wen && permitted
+  vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector && io.in.valid
+  csrio.vcsr <> vcsr.vcsr_io
   vcsr.io.redirectIn <> io.redirectIn
   vcsr.io.out.ready := io.out.ready
-
-  csrio.vstart := vcsr.vcsr_io.vcsrInfo.vstart
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>

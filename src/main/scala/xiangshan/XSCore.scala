@@ -128,8 +128,8 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   frontend.io.prefetchI := exuBlock.io.prefetchI
 
   ctrlBlock.io.csrCtrl <> csrioIn.customCtrl
-  ctrlBlock.io.vstart := csrioIn.vstart
-  ctrlBlock.io.vtypeWb := csrioIn.vtypeWb
+  ctrlBlock.io.vstart := DontCare
+  ctrlBlock.io.vtypeWb := csrioIn.vcsr.vtype.vtypeWbToRename
   
   ctrlBlock.io.lqCancelCnt := exuBlock.io.lqCancelCnt
   ctrlBlock.io.sqCancelCnt := exuBlock.io.sqCancelCnt
