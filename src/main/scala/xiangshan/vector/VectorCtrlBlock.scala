@@ -54,7 +54,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         //from ctrl decode
         val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
         //from ctrl rename
-        val vtypein = Vec(VIDecodeWidth, Flipped(ValidIO(new VtypeReg))) //to waitqueue
+        val vtypein = Vec(VIDecodeWidth, Flipped(ValidIO(new VTypeResp))) //to waitqueue
         val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
         //from ctrl rob
         val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
@@ -87,8 +87,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         waitqueue.io.enq.req(i).bits.MicroOp.pdest := io.SIRenameIn(i).bits.pdest
         waitqueue.io.enq.req(i).bits.MicroOp.psrc := io.SIRenameIn(i).bits.psrc
         waitqueue.io.enq.req(i).bits.MicroOp.old_pdest := io.SIRenameIn(i).bits.old_pdest
-        waitqueue.io.enq.req(i).bits.MicroOp.vCsrInfo := io.vtypein(i).bits.uop.vCsrInfo
-        waitqueue.io.enq.req(i).bits.MicroOp.robIdx := io.vtypein(i).bits.uop.robIdx
+        waitqueue.io.enq.req(i).bits.MicroOp.vCsrInfo := io.vtypein(i).bits.vtype
+        waitqueue.io.enq.req(i).bits.MicroOp.robIdx := io.vtypein(i).bits.robIdx
         waitqueue.io.enq.req(i).bits.state := io.vtypein(i).bits.state
     }
 

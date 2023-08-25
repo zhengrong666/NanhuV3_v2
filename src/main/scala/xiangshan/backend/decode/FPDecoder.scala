@@ -19,7 +19,6 @@ package xiangshan.backend.decode
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import freechips.rocketchip.rocket.DecodeLogic
 import freechips.rocketchip.rocket.Instructions._
 import xiangshan.backend.execute.fu.fpu.FPUCtrlSignals
 import xiangshan.backend.execute.fu.fpu.FPU

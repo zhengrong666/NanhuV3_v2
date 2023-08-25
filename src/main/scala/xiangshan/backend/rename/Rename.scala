@@ -18,22 +18,19 @@ package xiangshan.backend.rename
 
 import chisel3._
 import chisel3.util._
-
 import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.rocket.CSRs
-
 import utils._
 import xs.utils.GTimer
 import xiangshan._
-
 import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.rename.freelist._
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.execute.fu.FuOutput
-import xiangshan.backend.rob.{RobPtr, RobEnqIO}
+import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.mdp._
 import xiangshan.vector.SIRenameInfo
-import xiangshan.vector.vtyperename.{VtypeRename, VtypeReg}
+import xiangshan.vector.vtyperename.{VTypeResp, VtypeRename}
 
 class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
@@ -55,21 +52,18 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
     // to vector
     val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
-    val vtypeout = Vec(VIDecodeWidth, ValidIO(new VtypeReg))
-    val vtypeWb = Vec(4, Flipped(ValidIO(new FuOutput(64))))
+    val vtypeout = Vec(VIDecodeWidth, ValidIO(new VTypeResp))
+    val vtypeWb = Flipped(ValidIO(new FuOutput(64)))
   })
 
   // create free list and rat
   val intFreeList = Module(new MEFreeList(NRPhyRegs))
   val intRefCounter = Module(new RefCounter(NRPhyRegs))
   val fpFreeList = Module(new StdFreeList(NRPhyRegs - 32))
-  val vtyperename = Module(new VtypeRename(VIVtypeRegsNum, VIDecodeWidth, VIDecodeWidth, VIDecodeWidth))
-  vtyperename.io.writeback <> io.vtypeWb
-  vtyperename.io.redirect <> io.redirect
-  vtyperename.io.robCommits <> io.robCommits
-  val vtypeVec = Wire(Vec(RenameWidth, Bool()))
-  vtypeVec := io.in.map(_.bits.ctrl.isVtype)
-  vtyperename.io.doAllocate := vtypeVec.asUInt.orR
+  val vtyperename = Module(new VtypeRename)
+  vtyperename.io.writeback := io.vtypeWb
+  vtyperename.io.redirect := io.redirect
+  vtyperename.io.robCommits := io.robCommits
 
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
@@ -98,7 +92,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   fpFreeList.io.doAllocate := intFreeList.io.canAllocate && io.out(0).ready
 
   // dispatch1 ready ++ float point free list ready ++ int free list ready ++ not walk
-  val canOut = io.out(0).ready && fpFreeList.io.canAllocate && intFreeList.io.canAllocate && !io.robCommits.isWalk
+  val canOut = io.out(0).ready && fpFreeList.io.canAllocate && intFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAllocate
 
 
   // speculatively assign the instruction with an robIdx
@@ -195,9 +189,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk
     io.out(i).bits  := uops(i)
 
-    vtyperename.io.in <> DontCare
     vtyperename.io.in(i).bits   := uops(i)
     vtyperename.io.in(i).valid  := io.in(i).valid
+    uops(i).vtypeRegIdx := vtyperename.io.out(i).bits.vtypeIdx
     
 
     // dirty code for fence. The lsrc is passed by imm.
@@ -340,7 +334,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     intRefCounter.io.deallocate(i).bits := Mux(io.robCommits.isWalk, io.robCommits.info(i).pdest, io.robCommits.info(i).old_pdest)
   }
 
-  io.vtypeout <> vtyperename.io.out
+  io.vtypeout := vtyperename.io.out
 
 
   /*
