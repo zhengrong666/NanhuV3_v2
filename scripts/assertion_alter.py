@@ -61,7 +61,7 @@ def alter_print_info(file_queue):
   return res_queue
 
 def alter_assert_always_block(line_queue):
-  rex_always_statement = re.compile("always @\(posedge clock\)")
+  rex_always_statement = re.compile("always @\(posedge .*clock\)")
   rex_begin = re.compile("\\bbegin\\b")
   rex_end = re.compile("\\bend\\b")
   rex_assert = re.compile("^(?!.*\").*assert\(.*\);")
