@@ -323,7 +323,10 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       earlyWakeupQueue.io.in.bits.robPtr := lduIssueInfo.bits.info.robPtr
       earlyWakeupQueue.io.in.bits.lpv := lduIssueInfo.bits.info.lpv
       earlyWakeupQueue.io.in.bits.pdest := lduIssueInfo.bits.info.pdest
-      earlyWakeupQueue.io.in.bits.destType := SrcType.reg
+      earlyWakeupQueue.io.in.bits.destType := MuxCase(SrcType.default, Seq(
+        lduIssueInfo.bits.info.rfWen -> SrcType.reg,
+        lduIssueInfo.bits.info.fpWen -> SrcType.fp,
+      ))
       earlyWakeupQueue.io.redirect := io.redirect
 
       earlyWakeupQueue.io.in.bits.lpv(issuePortIdx) := lduIssueInfo.bits.info.lpv(issuePortIdx) | (1 << (LpvLength - 1)).U
