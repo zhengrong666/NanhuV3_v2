@@ -26,7 +26,8 @@ import xiangshan.cache._
 
 class SQVPAddrModule( CommonNumRead : Int, CommonNumWrite : Int, numEntries : Int, NumForward : Int,
                       PAddrWidth: Int, PNumRead: Int, PNumWrite:Int,
-                      VAddrWidth: Int, VNumRead: Int,VNumWrite: Int)
+                      VAddrWidth: Int, VNumRead: Int,VNumWrite: Int,
+                      WbNumRead : Int)
                     (implicit p: Parameters) extends XSModule with HasDCacheParameters{
   //specialized optimization
   require((CommonNumRead == 2) && (CommonNumWrite == 2) &&
@@ -43,6 +44,13 @@ class SQVPAddrModule( CommonNumRead : Int, CommonNumWrite : Int, numEntries : In
     val rdata_ext_v = Output(Vec(VNumRead, UInt(VAddrWidth.W)))
 
     val rlineflag_v_p = Output(Vec(CommonNumRead, Bool()))
+
+    val wbRead = new Bundle() {
+      val raddr = Input(Vec(WbNumRead,UInt(log2Up(numEntries).W)))
+      val paddr = Output(Vec(WbNumRead,UInt(PAddrWidth.W)))
+      val vaddr = Output(Vec(WbNumRead,UInt(VAddrWidth.W)))
+    }
+
     //write
     val wen = Input(Vec(CommonNumWrite, Bool()))
     val waddr = Input(Vec(CommonNumWrite, UInt(log2Up(numEntries).W)))
@@ -79,6 +87,17 @@ class SQVPAddrModule( CommonNumRead : Int, CommonNumWrite : Int, numEntries : In
 
   io.debug_data_v := data_vaddr_cat
   io.debug_data_p := data_paddr_cat
+
+  //s0
+  val wb_raddr = io.wbRead.raddr
+  //s1
+  val wb_raddr_s1 = RegNext(wb_raddr)
+
+  (0 until WbNumRead).foreach({ case i => {
+    io.wbRead.vaddr(i) := Cat(data_vaddr_cat(wb_raddr_s1(i)))
+    io.wbRead.paddr(i) := Cat(data_paddr_cat(wb_raddr_s1(i)))
+  }
+  })
 
   //s0
   val raddr = io.raddr
@@ -385,7 +404,7 @@ class SQDataEntry(implicit p: Parameters) extends XSBundle {
 }
 
 // SQDataModule is a wrapper of SQData8Modules
-class SQDataModule(numEntries: Int, numRead: Int, numWrite: Int, numForward: Int)(implicit p: Parameters) extends XSModule with HasDCacheParameters with HasCircularQueuePtrHelper {
+class SQDataModule(numEntries: Int, numRead: Int, numWbRead: Int, numWrite: Int, numForward: Int)(implicit p: Parameters) extends XSModule with HasDCacheParameters with HasCircularQueuePtrHelper {
   val io = IO(new Bundle() {
     // sync read port
     val raddr = Vec(numRead,  Input(UInt(log2Up(numEntries).W)))
@@ -402,6 +421,10 @@ class SQDataModule(numEntries: Int, numRead: Int, numWrite: Int, numForward: Int
       val waddr = Vec(numWrite, Input(UInt(log2Up(numEntries).W)))
       val wdata = Vec(numWrite, Input(UInt(8.W)))
     }
+    val wbRead = new Bundle() {
+      val raddr = Vec(numWbRead, Input(UInt(log2Up(numEntries).W)))
+      val rdata = Vec(numWbRead, Output(new SQDataEntry))
+    }
 
     // st-ld forward addr cam result input, used to select forward data
     val needForward = Input(Vec(numForward, Vec(2, UInt(numEntries.W))))
@@ -412,7 +435,7 @@ class SQDataModule(numEntries: Int, numRead: Int, numWrite: Int, numForward: Int
     val forwardData = Vec(numForward, Output(Vec(8, UInt(8.W))))
   })
 
-  val data8 = Seq.fill(8)(Module(new SQData8Module(numEntries, numRead, numWrite, numForward)))
+  val data8 = Seq.fill(8)(Module(new SQData8Module(numEntries, numRead + numWbRead, numWrite, numForward)))
 
   // writeback to lq/sq
   for (i <- 0 until numWrite) {
@@ -434,6 +457,15 @@ class SQDataModule(numEntries: Int, numRead: Int, numWrite: Int, numForward: Int
     }
     io.rdata(i).mask := VecInit((0 until 8).map(j => data8(j).io.rdata(i).valid)).asUInt
     io.rdata(i).data := VecInit((0 until 8).map(j => data8(j).io.rdata(i).data)).asUInt
+  }
+
+  //next cycle get data
+  for (i <- numRead until numRead + numWbRead) {
+    for (j <- 0 until 8) {
+      data8(j).io.raddr(i) := io.wbRead.raddr(i - numRead)
+    }
+    io.wbRead.rdata(i - numRead).mask := VecInit((0 until 8).map(j => data8(j).io.rdata(i).valid)).asUInt
+    io.wbRead.rdata(i - numRead).data := VecInit((0 until 8).map(j => data8(j).io.rdata(i).data)).asUInt
   }
 
   // DataModuleTemplate should not be used when there're any write conflicts
