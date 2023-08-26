@@ -212,7 +212,6 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     vectorBusyTableReadIdx = vectorBusyTableReadIdx + 3
     //assert(type0 === SrcType.reg)
     when(source.valid) {
-      assert(type0 === SrcType.reg)
       assert(FuType.memoryTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))
     }
   })

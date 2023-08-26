@@ -53,20 +53,20 @@ object WakeupQueue {
     val res = Wire(Valid(new WakeUpInfo()(p)))
     if(latency > 0) {
       val wakeupQueue = Module(new WakeupQueue(latency)(p))
-      wakeupQueue.io.in.valid := in.fire
+      wakeupQueue.io.in.valid := in.fire && (in.bits.info.fpWen || in.bits.info.rfWen)
       wakeupQueue.io.earlyWakeUpCancel := cancel
       wakeupQueue.io.in.bits.lpv := in.bits.info.lpv
       wakeupQueue.io.in.bits.robPtr := in.bits.info.robPtr
       wakeupQueue.io.in.bits.pdest := in.bits.info.pdest
-      wakeupQueue.io.in.bits.destType := Mux(in.bits.info.fpWen, SrcType.fp, Mux(in.bits.info.rfWen, SrcType.reg, SrcType.default))
+      wakeupQueue.io.in.bits.destType := Mux(in.bits.info.fpWen, SrcType.fp, Mux(in.bits.info.rfWen, SrcType.reg, SrcType.DC))
       wakeupQueue.io.redirect := redirect
       res := wakeupQueue.io.out
     } else {
-      res.valid := in.fire
+      res.valid := in.fire && (in.bits.info.fpWen || in.bits.info.rfWen)
       res.bits.lpv := in.bits.info.lpv
       res.bits.robPtr := in.bits.info.robPtr
       res.bits.pdest := in.bits.info.pdest
-      res.bits.destType := Mux(in.bits.info.fpWen, SrcType.fp, Mux(in.bits.info.rfWen, SrcType.reg, SrcType.default))
+      res.bits.destType := Mux(in.bits.info.fpWen, SrcType.fp, Mux(in.bits.info.rfWen, SrcType.reg, SrcType.DC))
     }
     res
   }
