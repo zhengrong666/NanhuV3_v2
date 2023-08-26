@@ -224,7 +224,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     require(wb.out.length == 1)
     wb.out.head._1
   })
-  private val vstuWritebacks = outer.stuWritebackNodes.map(wb => {
+  private val vstuWritebacks = outer.vstuWritebackNodes.map(wb => {
     require(wb.out.length == 1)
     wb.out.head._1
   })
