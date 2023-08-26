@@ -206,7 +206,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.lsuPAddr := s1_paddr_dup_lsu
   io.dcachePAddr := s1_paddr_dup_dcache
   //io.dcacheKill := s1_tlb_miss || s1_exception || s1_mmio
-  io.dcacheKill := s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel || (!EnableMem)
+  io.dcacheKill := io.in.valid && (s1_tlb_miss || s1_exception || io.s1_kill || io.s1_cancel || (!EnableMem))
   // load forward query datapath
   io.sbuffer.valid := io.in.valid && !(s1_exception || s1_tlb_miss || io.s1_kill) && EnableMem
   io.sbuffer.vaddr := io.in.bits.vaddr
