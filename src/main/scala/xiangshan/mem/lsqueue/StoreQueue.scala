@@ -581,7 +581,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.mmioStout.bits.data := dataModule.io.rdata(0).data // dataModule.io.rdata.read(deqPtr)
   io.mmioStout.bits.redirectValid := false.B
   io.mmioStout.bits.redirect := DontCare
-  io.mmioStout.bits.debug.isMMIO := mmio(deqPtr)
+  io.mmioStout.bits.debug.isMMIO := true.B
   io.mmioStout.bits.debug.paddr := DontCare
   io.mmioStout.bits.debug.isPerfCnt := false.B
   io.mmioStout.bits.fflags := DontCare
@@ -668,7 +668,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   //s0 sel writeback index
   val storeWbSelVec = VecInit((0 until StoreQueueSize).map(i => {
-    allocated(i) && allvalid(i) && !writebacked(i)
+    allocated(i) && !writebacked(i) && !mmio(i) && datavalid(i) && RegNext(addrvalid(i),init = false.B)
   })).asUInt
 
   val evenDeqMask = getEvenBits(deqMask)
