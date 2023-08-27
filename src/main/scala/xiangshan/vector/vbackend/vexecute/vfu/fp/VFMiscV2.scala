@@ -188,7 +188,7 @@ class VFMisc (implicit val p: Parameters) extends VFPUSubModule {
   io.out <> module.io.out
   // IMPORTANT: compose results of compare uop when LMUL > 1. This is required from VPU Control/Issue design
   val outUop = module.io.out.bits.uop
-  val compareReg = RegInit(~0.U(64.W))  // init all 1
+  val compareReg = RegInit("hffffffffffffffff".U(64.W))  // init all 1
   val compareResult = Wire(UInt(64.W))
   compareResult := (compareReg << 8)(63,0) | Cat(0.U(56.W), module.io.out.bits.vd(7,0))
   when(outUop.vfpCtrl.miscCmd(3) & module.io.out.valid) {

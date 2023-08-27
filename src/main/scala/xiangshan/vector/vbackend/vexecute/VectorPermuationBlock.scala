@@ -82,13 +82,9 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.old_vd_preg_idx.zip(issueDataReg.pov).foreach({case(a,b) => a := b})
     permutation.io.in.mask_preg_idx := issueDataReg.pvm
     permutation.io.in.uop_valid := issueValidReg
-    permutation.io.in.uop_rob_flag := issueDataReg.uop.robIdx.flag
-    permutation.io.in.uop_rob_idx := issueDataReg.uop.robIdx.value
     permutation.io.in.rdata := rfRespData
     permutation.io.in.rvalid := rfRespValid
-    permutation.io.in.flush_vld := io.redirect.valid
-    permutation.io.in.flush_rob_flag := io.redirect.bits.robIdx.flag
-    permutation.io.in.flush_rob_idx := io.redirect.bits.robIdx.value
+    permutation.io.redirect := io.redirect
 
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1

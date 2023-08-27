@@ -101,7 +101,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val lsqVecDeqCnt = Output(new LsqVecDeqIO)
     val loadQueueDcache = new LQDcacheReqResp
     val storeQueueDcache = Flipped(new DCacheToSbufferIO)
-    val stout = Vec(2,Decoupled(new ExuOutput))
+    val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
   })
 
   val loadQueue = Module(new LoadQueue)

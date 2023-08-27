@@ -87,7 +87,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     val storeVectorDeqCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
     val dcacheReqResp = Flipped(new DCacheToSbufferIO)
-    val stout = Vec(2,Decoupled(new ExuOutput))
+    val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
   })
   //
   io.storeVectorDeqCnt := 0.U
@@ -100,6 +100,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val dataModule = Module(new SQDataModule(
     numEntries = StoreQueueSize,
     numRead = StorePipelineWidth,
+    numWbRead = StorePipelineWidth, //for stout
     numWrite = StorePipelineWidth,
     numForward = StorePipelineWidth
   ))
@@ -115,7 +116,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     PNumWrite = 0,
     VAddrWidth = VAddrBits,
     VNumRead = 1,
-    VNumWrite = 0
+    VNumWrite = 0,
+    WbNumRead = StorePipelineWidth  //for stout
   ))
   v_pAddrModule.io := DontCare
 
@@ -150,6 +152,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val committed = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // inst has been committed by rob
   val pending = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
   val mmio = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio: inst is an mmio inst
+  val writebacked = RegInit(VecInit(List.fill(StoreQueueSize)(false.B)))  //inst has writebacked
 
   // ptr
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new SqPtr))))
@@ -232,6 +235,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
       addrvalid(index) := false.B
       committed(index) := false.B
       pending(index) := false.B
+      writebacked(index) := false.B
       XSError(!io.enq.canAccept || !io.enq.lqCanAccept, s"must accept $i\n")
       XSError(index =/= sqIdx.value, s"must be the same entry $i\n")
     }
@@ -632,13 +636,99 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     dataBuffer.io.enq(i).bits.mask  := dataModule.io.rdata(i).mask
     dataBuffer.io.enq(i).bits.wline := v_pAddrModule.io.rlineflag_v_p(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
-
-    io.stout(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
-    io.stout(i).bits := DontCare
-    io.stout(i).bits.uop := uop(ptr)
-    io.stout(i).bits.data := dataModule.io.rdata(i).data
-    io.stout(i).bits.wbmask := DontCare
   }
+
+
+  def getEvenBits(input: UInt): UInt = {
+    VecInit((0 until StoreQueueSize / 2).map(i => {
+      input(2 * i)
+    })).asUInt
+  }
+
+  def getOddBits(input: UInt): UInt = {
+    VecInit((0 until StoreQueueSize / 2).map(i => {
+      input(2 * i + 1)
+    })).asUInt
+  }
+
+  def getFirstOne(mask: Vec[Bool], startMask: UInt) = {
+    val length = mask.length
+    val highBits = (0 until length).map(i => mask(i) & ~startMask(i))
+    val highBitsUint = Cat(highBits.reverse)
+    PriorityEncoder(Mux(highBitsUint.orR(), highBitsUint, mask.asUInt))
+  }
+
+  def toVec(a: UInt): Vec[Bool] = {
+    VecInit(a.asBools)
+  }
+
+  val storeWbSelV = Wire(Vec(StorePipelineWidth, Bool()))
+  val storeWbSel = Wire(Vec(LoadPipelineWidth,UInt(log2Up(StoreQueueSize).W)))
+
+  //s0 sel writeback index
+  val storeWbSelVec = VecInit((0 until StoreQueueSize).map(i => {
+    allocated(i) && allvalid(i) && !writebacked(i)
+  })).asUInt
+
+  val evenDeqMask = getEvenBits(deqMask)
+  val oddDeqMask = getOddBits(deqMask)
+
+  val evenFireMask = getEvenBits(UIntToOH(storeWbSel(0)))
+  val oddFireMask = getOddBits(UIntToOH(storeWbSel(1)))
+
+  val storeEvenSelVecFire = getEvenBits(storeWbSelVec) & ~evenFireMask
+  val storeOddSelVecFire = getOddBits(storeWbSelVec) & ~oddFireMask
+
+  val storeEvenSelVecNotFire = getEvenBits(storeWbSelVec)
+  val storeOddSelVecNotFire = getOddBits(storeWbSelVec)
+
+  val storeEvenSel = Mux(
+    io.stout(0).fire,
+    getFirstOne(toVec(storeEvenSelVecFire), evenDeqMask),
+    getFirstOne(toVec(storeEvenSelVecNotFire), evenDeqMask)
+  )
+
+  val storeOddSel = Mux(
+    io.stout(1).fire,
+    getFirstOne(toVec(storeOddSelVecFire), oddDeqMask),
+    getFirstOne(toVec(storeOddSelVecNotFire), oddDeqMask)
+  )
+
+  val storeWbSelGen = Wire(Vec(StorePipelineWidth,UInt(log2Up(StoreQueueSize).W)))
+  val storeWbSelVGen = Wire(Vec(StorePipelineWidth,Bool()))
+  storeWbSelGen(0) := Cat(storeEvenSel,0.U(1.W))
+  storeWbSelVGen(0) := Mux(io.stout(0).fire,storeEvenSelVecFire.asUInt.orR,storeEvenSelVecNotFire.asUInt.orR)
+  storeWbSelGen(1) := Cat(storeOddSel,1.U(1.W))
+  storeWbSelVGen(1) := Mux(io.stout(1).fire,storeOddSelVecFire.asUInt.orR,storeOddSelVecNotFire.asUInt.orR)
+
+  (0 until StorePipelineWidth).foreach({ case i => {
+    storeWbSel(i) := RegNext(storeWbSelGen(i))
+    storeWbSelV(i) := RegNext(storeWbSelVGen(i), false.B)
+    when(io.stout(i).fire){
+      writebacked(storeWbSel(i)) := true.B
+    }
+  }})
+
+
+  //s1 start writedback
+  (0 until StorePipelineWidth).foreach(i => {
+    dataModule.io.wbRead.raddr(i) := storeWbSelGen(i)
+    v_pAddrModule.io.wbRead.raddr(i) := storeWbSelGen(i)
+
+    val rdata = dataModule.io.wbRead.rdata(i).data
+    val seluop = uop(storeWbSel(i))
+    val raddr = v_pAddrModule.io.wbRead.paddr(i)
+
+
+    io.stout(i) := DontCare
+    io.stout(i).valid := storeWbSelV(i) && !io.stout(i).bits.uop.robIdx.needFlush((io.brqRedirect))
+    io.stout(i).bits.uop := seluop
+    io.stout(i).bits.data := rdata
+    io.stout(i).bits.redirectValid := false.B
+    io.stout(i).bits.redirect := DontCare
+  })
+
+
 
   // Send data stored in sbufferReqBitsReg to sbuffer
   for (i <- 0 until StorePipelineWidth) {

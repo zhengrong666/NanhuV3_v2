@@ -26,6 +26,7 @@ import xiangshan._
 import xiangshan.ExceptionNO._
 import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.mem.LsqEnqIO
+import xiangshan.mem._
 import xiangshan.vector._
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename._
@@ -40,7 +41,6 @@ import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.execute.fu.FuOutput
 import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
-import xiangshan.mem._
 import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithRobIO
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
