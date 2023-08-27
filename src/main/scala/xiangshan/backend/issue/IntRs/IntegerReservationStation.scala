@@ -70,7 +70,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
     val mulSpecWakeup = Output(Vec(mulIssuePortNum, Valid(new WakeUpInfo)))
-    val aluSpecWakeup = Output(Vec(aluIssuePortNum, Valid(new WakeUpInfo)))
+    val aluJmpSpecWakeup = Output(Vec(aluIssuePortNum + jmpIssuePortNum, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val integerAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
@@ -78,8 +78,8 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
 
-  private val internalAluWakeupSignals = Wire(Vec(aluIssuePortNum, Valid(new WakeUpInfo)))
-  private val extraAluWakeupSignals = Wire(Vec(aluIssuePortNum, Valid(new WakeUpInfo)))
+  private val internalAluJmpWakeupSignals = Wire(Vec(aluIssuePortNum + jmpIssuePortNum, Valid(new WakeUpInfo)))
+  private val extraAluJmpWakeupSignals = Wire(Vec(aluIssuePortNum + jmpIssuePortNum, Valid(new WakeUpInfo)))
   private val internalMulWakeupSignals = Wire(Vec(mulIssuePortNum, Valid(new WakeUpInfo)))
   io.mulSpecWakeup.zip(internalMulWakeupSignals).foreach({case(a, b) =>
     //Add an pipe here for there is no bypass from mul to load/store units.
@@ -99,16 +99,16 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
     wkp.bits.destType := Mux(elm.bits.uop.ctrl.rfWen, SrcType.reg, SrcType.DC)
     wkp
   }))
-  private val rsWakeupWidth = (wakeupSignals ++ internalAluWakeupSignals ++ internalMulWakeupSignals ++ extraAluWakeupSignals).length
+  private val rsWakeupWidth = (wakeupSignals ++ internalAluJmpWakeupSignals ++ internalMulWakeupSignals ++ extraAluJmpWakeupSignals).length
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
     val mod = Module(new IntegerReservationBank(entriesNumPerBank, issueWidth, rsWakeupWidth, loadUnitNum))
     mod.io.redirect := io.redirect
-    mod.io.wakeup.zip(wakeupSignals ++ internalAluWakeupSignals ++ internalMulWakeupSignals ++ extraAluWakeupSignals).foreach({case(a, b) => a := b})
+    mod.io.wakeup.zip(wakeupSignals ++ internalAluJmpWakeupSignals ++ internalMulWakeupSignals ++ extraAluJmpWakeupSignals).foreach({case(a, b) => a := b})
     mod.io.loadEarlyWakeup := io.loadEarlyWakeup
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod
   })
-  private val btWakeupWidth = (wakeupSignals ++ internalAluWakeupSignals ++ internalMulWakeupSignals).length
+  private val btWakeupWidth = (wakeupSignals ++ internalAluJmpWakeupSignals ++ internalMulWakeupSignals).length
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("IntegerAllocateNetwork")))
   private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, btWakeupWidth, RenameWidth))
   integerBusyTable.io.allocPregs := io.integerAllocPregs
@@ -118,20 +118,20 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   })
   private val busyTableAluWbPorts = integerBusyTable.io.wbPregs.drop((wakeupSignals ++ internalMulWakeupSignals).length)
   private var aluWbPortIdx = 0
-  internalAluWakeupSignals.foreach(wb=> {
+  internalAluJmpWakeupSignals.foreach(wb=> {
     val delayValidReg = RegNext(wb.valid, false.B)
     val delayBitsReg = RegEnable(wb.bits, wb.valid)
     val shouldBeCancelled = delayBitsReg.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
     val shouldBeFlushed = delayBitsReg.robPtr.needFlush(io.redirect)
     busyTableAluWbPorts(aluWbPortIdx).valid := delayValidReg && delayBitsReg.destType === SrcType.reg && !shouldBeCancelled && !shouldBeFlushed
     busyTableAluWbPorts(aluWbPortIdx).bits := delayBitsReg.pdest
-    extraAluWakeupSignals(aluWbPortIdx).valid := busyTableAluWbPorts(aluWbPortIdx).valid
-    extraAluWakeupSignals(aluWbPortIdx).bits := delayBitsReg
-    extraAluWakeupSignals(aluWbPortIdx).bits.lpv.foreach(_ := 0.U)
+    extraAluJmpWakeupSignals(aluWbPortIdx).valid := busyTableAluWbPorts(aluWbPortIdx).valid
+    extraAluJmpWakeupSignals(aluWbPortIdx).bits := delayBitsReg
+    extraAluJmpWakeupSignals(aluWbPortIdx).bits.lpv.foreach(_ := 0.U)
     aluWbPortIdx = aluWbPortIdx + 1
   })
 
-  internalAluWakeupSignals.zip(io.aluSpecWakeup).foreach({case(iwkp, owkp) =>
+  internalAluJmpWakeupSignals.zip(io.aluJmpSpecWakeup).foreach({case(iwkp, owkp) =>
     owkp.valid := RegNext(iwkp.valid, false.B)
     owkp.bits := RegEnable(iwkp.bits, iwkp.valid)
   })
@@ -183,7 +183,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
 
-  private var aluWkpPortIdx = 0
+  private var aluJmpWkpPortIdx = 0
   private var mulWkpPortIdx = 0
   private var aluPortIdx = 0
   private var mulPortIdx = 0
@@ -198,9 +198,9 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
       selectRespArbiter.io.in(0) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
-      internalAluWakeupSignals(aluWkpPortIdx) := WakeupQueue(aluSelectNetwork.io.issueInfo(aluPortIdx), aluSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
+      internalAluJmpWakeupSignals(aluJmpWkpPortIdx) := WakeupQueue(aluSelectNetwork.io.issueInfo(aluPortIdx), aluSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
       aluPortIdx = aluPortIdx + 1
-      aluWkpPortIdx = aluWkpPortIdx + 1
+      aluJmpWkpPortIdx = aluJmpWkpPortIdx + 1
       if (iss._2.isAluMul) {
         selectRespArbiter.io.in(1) <> mulSelectNetwork.io.issueInfo(mulPortIdx)
         internalMulWakeupSignals(mulWkpPortIdx) := WakeupQueue(mulSelectNetwork.io.issueInfo(mulPortIdx), mulSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
@@ -211,6 +211,8 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
         divPortIdx = divPortIdx + 1
       } else if(iss._2.isAluJmp){
         selectRespArbiter.io.in(1) <> jmpSelectNetwork.io.issueInfo(jmpPortIdx)
+        internalAluJmpWakeupSignals(aluJmpWkpPortIdx) := WakeupQueue(jmpSelectNetwork.io.issueInfo(jmpPortIdx), jmpSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
+        aluJmpWkpPortIdx = aluJmpWkpPortIdx + 1
         jmpPortIdx = jmpPortIdx + 1
       } else {
         require(false, "Unknown Exu complex!")

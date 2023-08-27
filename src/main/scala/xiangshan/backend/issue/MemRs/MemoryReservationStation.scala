@@ -78,7 +78,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
     val mulSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.mulNum, Valid(new WakeUpInfo)))
-    val aluSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.aluNum, Valid(new WakeUpInfo)))
+    val aluJmpSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.aluNum + p(XSCoreParamsKey).exuParameters.AluJmpCnt, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Output(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val stLastCompelet = Input(new SqPtr)
@@ -102,8 +102,8 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     ))
     wkp
   }))
-  private val aluSpecWakeup = Wire(Vec(p(XSCoreParamsKey).exuParameters.aluNum, Valid(new WakeUpInfo)))
-  aluSpecWakeup.zip(io.aluSpecWakeup).foreach({case(a, b) =>
+  private val aluJmpSpecWakeup = Wire(Vec(io.aluJmpSpecWakeup.length, Valid(new WakeUpInfo)))
+  aluJmpSpecWakeup.zip(io.aluJmpSpecWakeup).foreach({case(a, b) =>
     val flush = b.bits.robPtr.needFlush(io.redirect)
     val canceled = b.bits.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
     a.valid := b.valid && !flush && !canceled
@@ -114,9 +114,9 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   private val stIssuedWires = Wire(Vec(staIssuePortNum, Valid(new RobPtr)))
 
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, lduIssuePortNum, (wakeupSignals ++ io.mulSpecWakeup ++ aluSpecWakeup).length))
+    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, lduIssuePortNum, (wakeupSignals ++ io.mulSpecWakeup ++ aluJmpSpecWakeup).length))
     mod.io.redirect := io.redirect
-    mod.io.wakeup := wakeupSignals ++ io.mulSpecWakeup ++ aluSpecWakeup
+    mod.io.wakeup := wakeupSignals ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
     mod.io.loadEarlyWakeup := io.loadEarlyWakeup
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod.io.stIssued := stIssuedWires
@@ -134,9 +134,9 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, wakeupInt.length + io.mulSpecWakeup.length + aluSpecWakeup.length, RenameWidth))
+  private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, wakeupInt.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.integerAllocPregs
-  integerBusyTable.io.wbPregs.zip(wakeupInt ++ aluSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+  integerBusyTable.io.wbPregs.zip(wakeupInt ++ aluJmpSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })

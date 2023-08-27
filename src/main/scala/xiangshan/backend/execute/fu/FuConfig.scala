@@ -112,7 +112,7 @@ object FuConfigs{
     writeVecRf = false,
     writeFflags = false,
     writeVxsat = false,
-    latency = Int.MaxValue,
+    latency = 0,
     hasRedirect = true,
     trigger = false,
     exceptionOut = Seq(illegalInstr)
@@ -128,7 +128,7 @@ object FuConfigs{
     writeVecRf = false,
     writeFflags = false,
     writeVxsat = false,
-    latency = 1,
+    latency = 0,
     hasRedirect = true,
     trigger = false,
     exceptionOut = Seq(illegalInstr, breakPoint, ecallU, ecallS, ecallM)

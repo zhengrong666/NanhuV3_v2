@@ -56,6 +56,7 @@ class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {
 class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
     val vtype = new VCSRWithVtypeRenameIO
     val robWb = new VCSRWithRobIO
+    val vstart = Output(UInt(7.W))
 }
 
 class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
@@ -71,6 +72,8 @@ class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
     val vxrm    = RegInit(UInt(XLEN.W), 0.U)
     val vcsr    = RegInit(UInt(XLEN.W), 0.U)
     val vlenb   = RegInit(UInt(XLEN.W), (VLEN / 8).U)
+
+    vcsr_io.vstart := vstart
 
     //vstart, vxsat writeback to here from Rob commit
     val wbFromRob = vcsr_io.robWb
