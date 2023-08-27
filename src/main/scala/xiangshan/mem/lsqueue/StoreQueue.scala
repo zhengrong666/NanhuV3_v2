@@ -95,7 +95,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   println("StoreQueue: size:" + StoreQueueSize)
 
   // data modules
-  val uop = Reg(Vec(StoreQueueSize, new MicroOp))
+//  val uop = Reg(Vec(StoreQueueSize, new MicroOp))
+  val uop = RegInit(VecInit(List.fill(StoreQueueSize)(0.U.asTypeOf(new MicroOp))))
   // val data = Reg(Vec(StoreQueueSize, new LsqEntry))
   val dataModule = Module(new SQDataModule(
     numEntries = StoreQueueSize,
