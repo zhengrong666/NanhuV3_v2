@@ -519,7 +519,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     //
     // Int load writeback will finish (if not blocked) in one cycle
 
-    io.ldout := DontCare
+    io.ldout(i) := DontCare
     io.ldout(i).bits.uop := seluop
     io.ldout(i).bits.uop.lqIdx := loadWbSel(i).asTypeOf(new LqPtr)
     io.ldout(i).bits.data := rdataPartialLoad // not used
