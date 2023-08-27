@@ -291,7 +291,7 @@ object FuConfigs{
     writeVecRf = false,
     writeFflags = false,
     writeVxsat = false,
-    latency = Int.MaxValue,
+    latency = 0,
     trigger = true,
     hasRedirect = false,
     exceptionOut = lduCfg.exceptionOut ++ staCfg.exceptionOut
