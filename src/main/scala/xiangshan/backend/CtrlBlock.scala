@@ -165,7 +165,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val pendingRedirect = RegInit(false.B)
   when (io.redirectIn.valid) {
     pendingRedirect := true.B
-  }.elsewhen (RegNext(io.frontend.toFtq.redirect.valid, false.B)) {
+  }.elsewhen (RegNext(RegNext(io.frontend.toFtq.redirect.valid, false.B), false.B)) {
     pendingRedirect := false.B
   }
 
