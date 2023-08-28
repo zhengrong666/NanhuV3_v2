@@ -195,7 +195,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   when(io.replay.valid){
     counterNext := io.replay.bits
   }.elsewhen(staLoadStateNext =/= s_ready && staLoadState === s_ready) {
-    counterNext := (1 << 3).U
+    counterNext := (1 << 4).U
   }.elsewhen(counter.orR) {
     counterNext := LogicShiftRight(counter, 1)
   }
