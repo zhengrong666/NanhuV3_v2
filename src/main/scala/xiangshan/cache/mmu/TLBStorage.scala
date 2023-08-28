@@ -53,7 +53,8 @@ class BankedAsyncDataModuleTemplateWithDup[T <: Data](
 
   val dataBanks = Seq.tabulate(numBanks)(i => {
     val bankEntries = if (i < numBanks - 1) numBankEntries else (numEntries - (i * numBankEntries))
-    Mem(bankEntries, gen)
+    RegInit(VecInit(List.fill(bankEntries)(0.U.asTypeOf(gen))))
+//    Mem(bankEntries, gen)
   })
 
   // delay one cycle for write, so there will be one inflight entry.
