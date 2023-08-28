@@ -28,7 +28,6 @@ import freechips.rocketchip.devices.debug._
 import difftest._
 import freechips.rocketchip.util.ElaborationArtefacts
 import top.TopMain.writeOutputFile
-import xstransforms.ModulePrefixAnnotation
 
 class SimTop(implicit p: Parameters) extends Module {
   val debugOpts = p(DebugOptionsKey)
@@ -111,7 +110,6 @@ object SimTop extends App {
     // Keep this the same as TopMain except that SimTop is used here instead of XSTop
     val (config, firrtlOpts) = ArgParser.parse(args)
     XiangShanStage.execute(firrtlOpts, Seq(
-      ModulePrefixAnnotation(config(PrefixKey)),
       ChiselGeneratorAnnotation(() => {
         DisableMonitors(p => new SimTop()(p))(config)
       })
