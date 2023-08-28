@@ -39,6 +39,7 @@ ABS_WORK_DIR := $(shell pwd)
 RUN_BIN_DIR ?= $(ABS_WORK_DIR)/ready-to-run
 RUN_BIN ?= coremark-2-iteration
 CONSIDER_FSDB ?= 1
+PREFIX ?=
 MFC ?= 0
 
 ifdef FLASH
@@ -71,11 +72,11 @@ RELEASE_ARGS = --fpga-platform --enable-difftest
 DEBUG_ARGS   = --enable-difftest
 
 ifeq ($(VCS),1)
-RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(TOP)
-DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --prefix $(PREFIX) --output-file $(TOP)
+DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --prefix $(PREFIX) --output-file $(SIM_TOP)
 else
-RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --output-file $(TOP)
-DEBUG_ARGS += -E verilog --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --prefix $(PREFIX) --output-file $(TOP)
+DEBUG_ARGS += -E verilog --prefix $(PREFIX) --output-file $(SIM_TOP)
 endif
 
 ifeq ($(RELEASE),1)
@@ -100,6 +101,7 @@ $(TOP_V): $(SCALA_FILE)
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $(BUILD_DIR)/tmp.v > $(BUILD_DIR)/tmp1.v
 	rm $@ $(BUILD_DIR)/tmp.v
 	mv $(BUILD_DIR)/tmp1.v $@
+	python3 scripts/assertion_alter.py -o $(TOP_V) $(TOP_V)
 	@git log -n 1 >> .__head__
 	@git diff >> .__diff__
 	@sed -i 's/^/\/\// ' .__head__

@@ -26,10 +26,10 @@ import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.jtag.JTAGIO
 import freechips.rocketchip.util.{ElaborationArtefacts, HasRocketChipStageUtils}
-import huancun.{HCCacheParamsKey, HuanCun}
 import xs.utils.{ResetGen, DFTResetSignals}
 import xs.utils.sram.BroadCastBundle
 import coupledL3._
+import xstransforms.ModulePrefixAnnotation
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
   with BindingScope
@@ -261,6 +261,7 @@ object TopMain extends App with HasRocketChipStageUtils {
     val (config, firrtlOpts) = ArgParser.parse(args)
     val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
     XiangShanStage.execute(firrtlOpts, Seq(
+      ModulePrefixAnnotation(config(PrefixKey)),
       ChiselGeneratorAnnotation(() => {
         soc.module
       })
