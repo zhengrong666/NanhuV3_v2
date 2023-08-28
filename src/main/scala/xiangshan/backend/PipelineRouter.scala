@@ -52,7 +52,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
 
   for((r, iidx) <- allowIns.zipWithIndex){
     val fires = io.out.map(_(iidx)).map(_.fire)
-    r := fires.reduce(_&_) || auxValids(iidx) === false.B
+    r := fires.reduce(_&_) || auxValids(iidx) === false.B || io.flush
   }
 
   validRegs.foreach(vl => {
