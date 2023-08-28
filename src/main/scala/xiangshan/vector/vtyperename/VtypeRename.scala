@@ -187,7 +187,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     res
   }
 
-  realValids.zipWithIndex.foreach({case(s, idx) =>
+  setVlSeq.zipWithIndex.foreach({case(s, idx) =>
     val newVType = GenVType(io.in(idx).bits, oldVType.info)
     enqAddrEnqSeq(idx) := enqPtr + enqAddrDeltas(idx)
     if(idx == 0){
@@ -207,7 +207,9 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
       pdestSeq(i) := vtypeEnqSeq(i - 1).pdest
     }
   }
-  private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) => i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v})
+  private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) =>
+    i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v
+  })
   private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAllocate)
   needRenameValids.zipWithIndex.foreach({case(n, idx) =>
     when(n) {
