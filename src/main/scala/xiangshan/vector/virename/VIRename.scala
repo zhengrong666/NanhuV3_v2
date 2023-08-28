@@ -133,7 +133,12 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     rollBackList.io.renamePort.mask := VecInit(io.renameReq.map(e => e.bits.needRename)).asUInt
 
     //-------------------------------------------- TODO: commit & walk --------------------------------------------
+    val robIdxQueueIn = WireInit(io.commitReq)
     robIdxQueue.io.in <> io.commitReq
+    for(en <- robIdxQueue.io.in.bits.mask) {
+        en := false.B
+    }
+
     rollBackList.io.commitPort.req <> robIdxQueue.io.out
     renameTable.io.commitPort <> rollBackList.io.commitPort.resp
     
