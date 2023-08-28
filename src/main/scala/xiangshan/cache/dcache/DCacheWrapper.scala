@@ -435,7 +435,7 @@ class DCacheToSbufferIO(implicit p: Parameters) extends DCacheBundle {
 }
 
 class DCacheToLsuIO(implicit p: Parameters) extends DCacheBundle {
-  val load  = Vec(LoadPipelineWidth + 1, Flipped(new DCacheLoadIO)) // for speculative load
+  val load  = Vec(LoadPipelineWidth, Flipped(new DCacheLoadIO)) // for speculative load
   val lsq = ValidIO(new Refill)  // refill to load queue, wake up load misses
   val store = new DCacheToSbufferIO // for sbuffer
   val atomics  = Flipped(new AtomicWordIO)  // atomics reqs
@@ -626,23 +626,24 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
 
   //todo
   ldu.head.io.lsu <> io.lsu.load.head
-
-  val choose_n = RegInit(0.U(1.W))  //default connect loadUnit
   ldu(1).io.lsu <> io.lsu.load(1)
 
-  when(io.lsu.load(2).req.valid && !io.lsu.load(1).req.valid){
-    choose_n := 1.U
-    ldu(1).io.lsu := DontCare
-    ldu(1).io.lsu.req <> io.lsu.load(2).req
-  }
-
-  when(io.lsu.load(1).req.valid){
-    choose_n := 0.U
-  }
-
-  when(choose_n === 1.U){
-    ldu(1).io.lsu.resp <> io.lsu.load(2).resp
-  }
+//  val choose_n = RegInit(0.U(1.W))  //default connect loadUnit
+//  ldu(1).io.lsu <> io.lsu.load(1)
+//
+//  when(io.lsu.load(2).req.valid && !io.lsu.load(1).req.valid){
+//    choose_n := 1.U
+//    ldu(1).io.lsu := DontCare
+//    ldu(1).io.lsu.req <> io.lsu.load(2).req
+//  }
+//
+//  when(io.lsu.load(1).req.valid){
+//    choose_n := 0.U
+//  }
+//
+//  when(choose_n === 1.U){
+//    ldu(1).io.lsu.resp <> io.lsu.load(2).resp
+//  }
 
 
   //----------------------------------------

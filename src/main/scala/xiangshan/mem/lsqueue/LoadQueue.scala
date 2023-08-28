@@ -910,17 +910,18 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.uncache.resp.ready := true.B
   io.dcacheReqResp.resp.ready := true.B
 
-  io.dcacheReqResp.req.valid := (uncache_Order_State === s_req) && (uop(deqPtr).ctrl.isOrder)
+//  io.dcacheReqResp.req.valid := (uncache_Order_State === s_req) && (uop(deqPtr).ctrl.isOrder)
+  io.dcacheReqResp.req.valid := false.B //todo
   io.dcacheReqResp.req.bits := DontCare
   io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XRD
   io.dcacheReqResp.req.bits.instrtype := LOAD_SOURCE.U
   io.dcacheReqResp.req.bits.robIdx := uop(deqPtr).robIdx
 
-  when(io.dcacheReqResp.resp.fire){
-    datavalid(deqPtr) := true.B
-    dataModule.io.uncacheWrite(deqPtr,io.dcacheReqResp.resp.bits.load_data)
-    dataModule.io.uncache.wen := true.B
-  }
+//  when(io.dcacheReqResp.resp.fire){
+//    datavalid(deqPtr) := true.B
+//    dataModule.io.uncacheWrite(deqPtr,io.dcacheReqResp.resp.bits.load_data)
+//    dataModule.io.uncache.wen := true.B
+//  }
 
 
   when (io.uncache.req.fire()) {

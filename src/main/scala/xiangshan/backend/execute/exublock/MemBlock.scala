@@ -763,9 +763,14 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     SbSq2Dcache := 0.U
   }
 
-  dcache.io.lsu.load(exuParameters.LduCnt) := DontCare
-  dcache.io.lsu.load(exuParameters.LduCnt).req <> lsq.io.loadQueueDcache.req
-  dcache.io.lsu.load(exuParameters.LduCnt).resp <> lsq.io.loadQueueDcache.resp
+//  dcache.io.lsu.load(exuParameters.LduCnt) := DontCare
+//  dcache.io.lsu.load(exuParameters.LduCnt).req <> lsq.io.loadQueueDcache.req
+//  dcache.io.lsu.load(exuParameters.LduCnt).resp <> lsq.io.loadQueueDcache.resp
+
+  lsq.io.loadQueueDcache.req := DontCare
+  lsq.io.loadQueueDcache.resp := DontCare
+
+
 
 //  sbuffer.io.dcache     <> dcache.io.lsu.store
 

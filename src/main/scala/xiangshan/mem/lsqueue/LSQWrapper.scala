@@ -107,6 +107,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   val loadQueue = Module(new LoadQueue)
   val storeQueue = Module(new StoreQueue)
 
+  io.loadQueueDcache := DontCare
   storeQueue.io.hartId := io.hartId
 
   // io.enq logic
@@ -161,7 +162,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.lqCancelCnt <> io.lqCancelCnt
   loadQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
   io.lsqVecDeqCnt.loadVectorDeqCnt := loadQueue.io.loadVectorDeqCnt
-  loadQueue.io.dcacheReqResp <> io.loadQueueDcache
+//  loadQueue.io.dcacheReqResp <> io.loadQueueDcache
+  loadQueue.io.dcacheReqResp := DontCare
 
   // store queue wiring
   // storeQueue.io <> DontCare
