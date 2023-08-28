@@ -136,6 +136,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   private val srcShouldBeCancelled = io.entry.bits.lpv.map(l => io.earlyWakeUpCancel.zip(l).map({ case (c, li) => li(0) & c }).reduce(_ | _))
   private val src0HasSpecWakeup = io.entryNext.bits.lpv(0).map(_.orR).reduce(_ || _)
   private val src1HasSpecWakeup = io.entryNext.bits.lpv(1).map(_.orR).reduce(_ || _)
+  private val src2HasSpecWakeup = io.entryNext.bits.lpv(2).map(_.orR).reduce(_ || _)
   private val stIssueHit = io.stIssued.map(elm => elm.valid && elm.bits === io.entry.bits.waitTarget).reduce(_ | _)
   private val staLoadIssued = io.staLduIssue
   private val stdIssued = io.stdIssue
@@ -158,7 +159,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
     }
     is(s_ready) {
       when(staLoadIssued) {
-        staLoadStateNext := Mux(src0HasSpecWakeup, s_wait_cancel, s_wait_replay)
+        staLoadStateNext := Mux(src0HasSpecWakeup || src1HasSpecWakeup, s_wait_cancel, s_wait_replay)
       }
     }
     is(s_wait_cancel) {
@@ -183,7 +184,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
     switch(stdState) {
       is(s_ready) {
         when(stdIssued) {
-          stdStateNext := Mux(src1HasSpecWakeup, s_wait_cancel, s_issued)
+          stdStateNext := Mux(src2HasSpecWakeup, s_wait_cancel, s_issued)
         }
       }
       is(s_wait_cancel) {
