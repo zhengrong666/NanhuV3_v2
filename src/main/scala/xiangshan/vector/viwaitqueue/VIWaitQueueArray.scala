@@ -99,8 +99,9 @@ class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorPa
     un.io.enq.bits := Mux1H(enqSel, io.enq.map(_.data))
     un.io.entry := a
     un.io.robEnq := io.robEnq
-    un.io.vmsResp.valid := io.vmsIdAllocte.en && io.vmsIdAllocte.addr === idx.U
-    un.io.vmsResp.bits := io.vmsIdAllocte.data
+    val vmsSel = io.vmsIdAllocte.map(e => e.en && idx.U === e.addr)
+    un.io.vmsResp.valid := vmsSel.reduce(_|_)
+    un.io.vmsResp.bits := Mux1H(vmsSel, io.vmsIdAllocte.map(_.data))
     un.io.vtypeWb := io.vtypeWb
     when(un.io.updateEnable){
       a := un.io.entryNext
