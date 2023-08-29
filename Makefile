@@ -39,8 +39,6 @@ ABS_WORK_DIR := $(shell pwd)
 RUN_BIN_DIR ?= $(ABS_WORK_DIR)/ready-to-run
 RUN_BIN ?= coremark-2-iteration
 CONSIDER_FSDB ?= 1
-PREFIX ?=
-MFC ?= 0
 
 ifdef FLASH
 	RUN_OPTS := +flash=$(RUN_BIN_DIR)/$(RUN_BIN)
@@ -67,16 +65,22 @@ ifeq ($(ENABLE_TOPDOWN),1)
 override SIM_ARGS += --enable-topdown
 endif
 
+ifdef PREFIX
+ARG_PREFIX = --prefix $(PREFIX)
+else
+ARG_PREFIX =
+endif
+
 # emu for the release version
-RELEASE_ARGS = --fpga-platform --enable-difftest
-DEBUG_ARGS   = --enable-difftest
+RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
+DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
 
 ifeq ($(VCS),1)
-RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --prefix $(PREFIX) --output-file $(TOP)
-DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --prefix $(PREFIX) --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(TOP)
+DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(SIM_TOP)
 else
-RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --prefix $(PREFIX) --output-file $(TOP)
-DEBUG_ARGS += -E verilog --prefix $(PREFIX) --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --output-file $(TOP)
+DEBUG_ARGS += -E verilog --output-file $(SIM_TOP)
 endif
 
 ifeq ($(RELEASE),1)
