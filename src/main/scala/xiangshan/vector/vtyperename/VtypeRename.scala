@@ -33,14 +33,17 @@ class VTypeEntry(implicit p: Parameters) extends VectorBaseBundle {
   val info = new VICsrInfo()
   val robIdx = new RobPtr
   val writebacked = Bool()
-  val pdest = UInt(5.W)
+  val pdest = UInt(PhyRegIdxWidth.W)
 }
 
-class VTypeResp(implicit p: Parameters) extends VectorBaseBundle{
-  val vtype = new VICsrInfo()
-  val state = Bool()
-  val vtypeIdx = UInt(VIVtypeRegsNum.W)
+class VtpToVCtl(implicit p: Parameters) extends VectorBaseBundle {
+  val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
+  val pdest = UInt(PhyRegIdxWidth.W)
+  val old_pdest = UInt(PhyRegIdxWidth.W)
   val robIdx = new RobPtr
+  val vcsrInfo = new VICsrInfo()
+  val vtypeRdy = Bool()
+  val vtypeIdx = UInt(VIVtypeRegsNum.W)
 }
 
 class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
@@ -86,9 +89,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val robCommits = Flipped(new RobCommitIO)
     val canAllocate = Output(Bool())
     val in = Vec(RenameWidth, Flipped(ValidIO(new MicroOp)))
-    val renameResp = Vec(RenameWidth, ValidIO(new MicroOp))
-    val out = Vec(RenameWidth, ValidIO(new VTypeResp))
-//    val deq = Vec(VICommitWidth, DecoupledIO(new MicroOp))
+    val out = Vec(RenameWidth, ValidIO(new MicroOp))
+    val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
     val vcsr  = Flipped(new VCSRWithVtypeRenameIO)
   })
 
@@ -242,16 +244,15 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
 
   for (i <- 0 until RenameWidth) {
-    io.out(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVector && io.in(i).bits.ctrl.isVtype
-    io.out(i).bits.vtype := vtypeEnqSeq(i).info
-    io.out(i).bits.vtypeIdx := enqAddrEnqSeq(i).value
-    io.out(i).bits.state := vtypeEnqSeq(i).writebacked
-    io.out(i).bits.robIdx := io.in(i).bits.robIdx
-  }
+    io.toVCtl(i).psrc := uop(i).bits.psrc
+    io.toVCtl(i).pdest := uop(i).bits.pdest
+    io.toVCtl(i).old_pdest := uop(i).bits.old_pdest
+    io.toVCtl(i).robIdx := uop(i).bits.robIdx
+    io.toVCtl(i).vcsrInfo := vtypeEnqSeq(i).info
+    io.toVCtl(i).vtypeRdy := vtypeEnqSeq(i).writebacked
+    io.toVCtl(i).vtypeIdx := enqAddrEnqSeq(i).value
 
-  for (i <- 0 until RenameWidth) {
-    io.renameResp(i).bits := uop(i).bits
-    io.renameResp(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value
-    io.renameResp(i).valid := uop(i).valid
+    io.out(i) := uop(i)
+    io.out(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value
   }
 }

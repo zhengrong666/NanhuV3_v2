@@ -17,6 +17,11 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
   private val masterValidReg = RegInit(false.B)
   private val outReady = io.out.map(_.head.ready).reduce(_&_)
   private val allowIn = (!masterValidReg || outReady) && !io.flush
+  private val allowOut = Wire(Vec(outNum, Bool()))
+
+  allowOut.zipWithIndex.foreach({case(a, i) =>
+    a := io.out.zipWithIndex.filterNot(_._2 == i).map(_._1.head.ready).reduce(_&_)
+  })
 
   io.in.foreach(_.ready := allowIn)
 
@@ -40,9 +45,9 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
     })
   })
 
-  validRegs.zip(bitsRegs).zip(io.out).foreach({case((vrl, brl), ol) =>
+  validRegs.zip(bitsRegs).zip(io.out).zip(allowOut).foreach({case(((vrl, brl), ol), en) =>
     vrl.zip(brl).zip(ol).foreach({case((vr, br), out) =>
-      out.valid := vr && !io.flush
+      out.valid := vr && !io.flush && en
       out.bits := br
     })
   })

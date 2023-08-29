@@ -54,8 +54,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     //from ctrl decode
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
     //from ctrl rename
-    val vtypein = Vec(VIDecodeWidth, Flipped(ValidIO(new VTypeResp))) //to waitqueue
-    val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
+    val fromVtpRn = Input(Vec(RenameWidth, new VtpToVCtl))
     //from ctrl rob
     val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Flipped(ValidIO(new ExuOutput)) //to wait queue
@@ -81,15 +80,16 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.req(i).valid := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
-    waitqueue.io.enq.needAlloc(i) := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
+    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector
+    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector
     waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
-    waitqueue.io.enq.req(i).bits.uop.pdest := io.SIRenameIn(i).bits.pdest
-    waitqueue.io.enq.req(i).bits.uop.psrc := io.SIRenameIn(i).bits.psrc
-    waitqueue.io.enq.req(i).bits.uop.old_pdest := io.SIRenameIn(i).bits.old_pdest
-    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := io.vtypein(i).bits.vtype
-    waitqueue.io.enq.req(i).bits.uop.robIdx := io.vtypein(i).bits.robIdx
-    waitqueue.io.enq.req(i).bits.vtypeRdy := io.vtypein(i).bits.state
+    waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
+    waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
+    waitqueue.io.enq.req(i).bits.uop.old_pdest := io.fromVtpRn(i).old_pdest
+    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := io.fromVtpRn(i).vcsrInfo
+    waitqueue.io.enq.req(i).bits.uop.robIdx := io.fromVtpRn(i).robIdx
+    waitqueue.io.enq.req(i).bits.vtypeRdy := io.fromVtpRn(i).vtypeRdy
+    waitqueue.io.enq.req(i).bits.uop.vtypeRegIdx := io.fromVtpRn(i).vtypeIdx
   }
 
 

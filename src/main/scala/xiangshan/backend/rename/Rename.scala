@@ -31,7 +31,7 @@ import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.mdp._
 import xiangshan.vector.SIRenameInfo
-import xiangshan.vector.vtyperename.{VTypeResp, VtypeRename}
+import xiangshan.vector.vtyperename.{VtpToVCtl, VtypeRename}
 
 class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
@@ -52,8 +52,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // to dispatch1
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
     // to vector
-    val SIRenameOUT = Vec(RenameWidth, ValidIO(new SIRenameInfo))
-    val vtypeout = Vec(VIDecodeWidth, ValidIO(new VTypeResp))
+    val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
     val vcsrio  = Flipped(new VCSRWithVtypeRenameIO)
   })
 
@@ -189,7 +188,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     vtyperename.io.in(i).bits := uops(i)
     vtyperename.io.in(i).valid := io.in(i).valid
     vtyperename.io.vcsr <> io.vcsrio
-    vtypeuops(i) := vtyperename.io.renameResp(i).bits
+    vtypeuops(i) := vtyperename.io.out(i).bits
+    io.toVCtl := vtyperename.io.toVCtl
 
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAllocate
@@ -288,13 +288,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     }
   }
 
-  for(i <- 0 until RenameWidth) {
-    io.SIRenameOUT(i).valid := io.out(i).valid
-    io.SIRenameOUT(i).bits.psrc := io.out(i).bits.psrc
-    io.SIRenameOUT(i).bits.pdest := io.out(i).bits.pdest
-    io.SIRenameOUT(i).bits.old_pdest := io.out(i).bits.old_pdest
-  }
-
   /**
     * Instructions commit: update freelist and rename table
     */
@@ -334,9 +327,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     intRefCounter.io.deallocate(i).valid := (commitValid || walkValid) && needDestRegCommit(false, io.robCommits.info(i))
     intRefCounter.io.deallocate(i).bits := Mux(io.robCommits.isWalk, io.robCommits.info(i).pdest, io.robCommits.info(i).old_pdest)
   }
-
-  io.vtypeout := vtyperename.io.out
-
 
   /*
   Debug and performance counters

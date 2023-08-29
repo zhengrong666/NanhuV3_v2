@@ -301,8 +301,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
-  vCtrlBlock.io.SIRenameIn  := rename.io.SIRenameOUT
-  vCtrlBlock.io.vtypein       := rename.io.vtypeout
+  vCtrlBlock.io.fromVtpRn  := rename.io.toVCtl
   //TODO: vtype writeback here.
   vCtrlBlock.io.vtypewriteback.valid := false.B
   vCtrlBlock.io.vtypewriteback.bits := DontCare
