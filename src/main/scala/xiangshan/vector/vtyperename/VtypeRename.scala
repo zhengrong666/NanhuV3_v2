@@ -87,7 +87,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   val io = IO(new Bundle() {
     val redirect = Flipped(ValidIO(new Redirect))
     val robCommits = Flipped(new RobCommitIO)
-    val canAllocate = Output(Bool())
+    val needAlloc = Vec(RenameWidth, Input(Bool()))
+    val canAccept = Output(Bool())
     val in = Vec(RenameWidth, Flipped(ValidIO(new MicroOp)))
     val out = Vec(RenameWidth, ValidIO(new MicroOp))
     val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
@@ -116,11 +117,11 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val redirectMask = maybeFlushMask & table.io.flushVec
   private val flushNum = PopCount(redirectMask)
 
-  private val setVlSeq = io.in.map(i => i.valid && i.bits.ctrl.isVtype)
-  private val setVlNum = PopCount(setVlSeq)
-  io.canAllocate := setVlNum <= emptyEntiresNum && !io.redirect.valid
+  private val allocNum = PopCount(io.needAlloc)
+  io.canAccept := allocNum <= emptyEntiresNum && !io.redirect.valid
 
-  private val realValids = setVlSeq.map(_ && io.canAllocate)
+  private val setVlSeq = io.in.map(i => i.valid)
+  private val realValids = setVlSeq.map(_ && io.canAccept)
   table.io.redirect := io.redirect
 
   table.io.w.last.en := io.vcsr.vtypeWbToRename.valid
@@ -212,7 +213,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) =>
     i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v
   })
-  private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAllocate)
+  private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAccept)
   needRenameValids.zipWithIndex.foreach({case(n, idx) =>
     when(n) {
       uop(idx).bits.psrc(0) := pdestSeq(idx)
@@ -244,10 +245,10 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
 
   for (i <- 0 until RenameWidth) {
-    io.toVCtl(i).psrc := uop(i).bits.psrc
-    io.toVCtl(i).pdest := uop(i).bits.pdest
-    io.toVCtl(i).old_pdest := uop(i).bits.old_pdest
-    io.toVCtl(i).robIdx := uop(i).bits.robIdx
+    io.toVCtl(i).psrc := DontCare
+    io.toVCtl(i).pdest := DontCare
+    io.toVCtl(i).old_pdest := DontCare
+    io.toVCtl(i).robIdx := DontCare
     io.toVCtl(i).vcsrInfo := vtypeEnqSeq(i).info
     io.toVCtl(i).vtypeRdy := vtypeEnqSeq(i).writebacked
     io.toVCtl(i).vtypeIdx := enqAddrEnqSeq(i).value

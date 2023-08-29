@@ -53,6 +53,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     //val hartId = Input(UInt(8.W))
     //from ctrl decode
     val in = Vec(DecodeWidth, Flipped(DecoupledIO(new CfCtrl)))
+    val allowIn = Input(Bool())
     //from ctrl rename
     val fromVtpRn = Input(Vec(RenameWidth, new VtpToVCtl))
     //from ctrl rob
@@ -81,7 +82,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
     waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector
-    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector
+    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn
     waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc

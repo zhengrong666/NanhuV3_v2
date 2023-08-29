@@ -8,6 +8,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
   val io = IO(new Bundle{
     val in = Flipped(Vec(vecLen, Decoupled(gen)))
     val out = Vec(outNum, Vec(vecLen, Decoupled(gen)))
+    val allowOut = Output(Vec(outNum, Bool()))
     val flush = Input(Bool())
   })
   io.out.foreach(o => assert(PopCount(o.map(_.ready)) === 0.U || PopCount(o.map(_.ready)) === vecLen.U))
@@ -22,6 +23,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
   allowOut.zipWithIndex.foreach({case(a, i) =>
     a := io.out.zipWithIndex.filterNot(_._2 == i).map(_._1.head.ready).reduce(_&_)
   })
+  io.allowOut := allowOut
 
   io.in.foreach(_.ready := allowIn)
 
@@ -47,7 +49,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
 
   validRegs.zip(bitsRegs).zip(io.out).zip(allowOut).foreach({case(((vrl, brl), ol), en) =>
     vrl.zip(brl).zip(ol).foreach({case((vr, br), out) =>
-      out.valid := vr && !io.flush && en
+      out.valid := vr && !io.flush
       out.bits := br
     })
   })

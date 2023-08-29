@@ -264,6 +264,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     rename.io.intReadPorts(i) := rat.io.intReadPorts(i).map(_.data)
     rename.io.fpReadPorts(i)  := rat.io.fpReadPorts(i).map(_.data)
     rename.io.waittable(i)    := RegEnable(waittable.io.rdata(i), decode.io.out(i).fire)
+    rename.io.allowIn := decPipe.io.allowOut(0)
 
     if (i < RenameWidth - 1) {
       // fusion decoder sees the raw decode info
@@ -330,6 +331,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   //vCtrlBlock.io.hartId := io.hartId
   //TODO: vCtrlBlock.io.in 
   vCtrlBlock.io.in <> decPipe.io.out(1)
+  vCtrlBlock.io.allowIn := decPipe.io.allowOut(1)
   
   vDeq  <> vCtrlBlock.io.vDispatch
   vpDeq <> vCtrlBlock.io.vpDispatch

@@ -27,6 +27,7 @@ import xiangshan.backend.decode.{FusionDecodeInfo, Imm_I, Imm_LUI_LOAD, Imm_U}
 import xiangshan.backend.rename.freelist._
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.backend.execute.fu.csr.CSROpType
 import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.mdp._
@@ -39,6 +40,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val robCommits = Flipped(new RobCommitIO)
     // from decode
     val in = Vec(RenameWidth, Flipped(DecoupledIO(new CfCtrl)))
+    val allowIn = Input(Bool())
     val fusionInfo = Vec(DecodeWidth - 1, Flipped(new FusionDecodeInfo))
     // ssit read result
     val ssit = Flipped(Vec(RenameWidth, Output(new SSITEntry)))
@@ -63,6 +65,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val vtyperename = Module(new VtypeRename)
   vtyperename.io.redirect := io.redirect
   vtyperename.io.robCommits := io.robCommits
+  io.toVCtl := vtyperename.io.toVCtl
 
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
@@ -91,7 +94,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   fpFreeList.io.doAllocate := intFreeList.io.canAllocate && io.out(0).ready
 
   // dispatch1 ready ++ float point free list ready ++ int free list ready ++ not walk
-  val canOut = io.out(0).ready && fpFreeList.io.canAllocate && intFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAllocate
+  val canOut = io.out(0).ready && fpFreeList.io.canAllocate && intFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept
 
 
   // speculatively assign the instruction with an robIdx
@@ -185,15 +188,14 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     // Assign performance counters
     uops(i).debugInfo.renameTime := GTimer()
 
+    vtyperename.io.needAlloc(i) := io.in(i).valid && io.in(i).bits.ctrl.isVtype
     vtyperename.io.in(i).bits := uops(i)
-    vtyperename.io.in(i).valid := io.in(i).valid
+    vtyperename.io.in(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVtype && io.allowIn
     vtyperename.io.vcsr <> io.vcsrio
-    vtypeuops(i) := vtyperename.io.out(i).bits
-    io.toVCtl := vtyperename.io.toVCtl
 
     //out
-    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAllocate
-    io.out(i).bits  := vtypeuops(i)
+    io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept && io.allowIn
+    io.out(i).bits  := uops(i)
 
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
@@ -285,8 +287,16 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
       require(2 * psrcWidth >= left_lui_imm, "cannot fused lui and load with psrc")
       io.out(i).bits.psrc(0) := lui_imm(lui_imm_in_imm + psrcWidth - 1, lui_imm_in_imm)
       io.out(i).bits.psrc(1) := lui_imm(lui_imm.getWidth - 1, lui_imm_in_imm + psrcWidth)
+    }.elsewhen(io.out(i).bits.ctrl.fuOpType =/= CSROpType.vsetivli && io.out(i).bits.ctrl.lsrc(0) === 0.U && io.out(i).bits.ctrl.ldest === 0.U){
+      io.out(i).bits.psrc(0) := vtyperename.io.out(i).bits.psrc(0)
     }
+    io.out(i).bits.vtypeRegIdx := vtyperename.io.out(i).bits.vtypeRegIdx
+    io.toVCtl(i).psrc := io.out(i).bits.psrc
+    io.toVCtl(i).pdest := io.out(i).bits.pdest
+    io.toVCtl(i).old_pdest := io.out(i).bits.old_pdest
+    io.toVCtl(i).robIdx := io.out(i).bits.robIdx
   }
+
 
   /**
     * Instructions commit: update freelist and rename table
