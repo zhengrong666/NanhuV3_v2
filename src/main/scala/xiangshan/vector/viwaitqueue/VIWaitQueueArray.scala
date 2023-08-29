@@ -67,9 +67,15 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     entryNext.vtypeRdy := io.enq.bits.vtypeRdy
     entryNext.uop.vCsrInfo := io.enq.bits.uop.vCsrInfo
   }.elsewhen(vtypeWbHit) {
-    entryNext.robEnqueued := true.B
+    entryNext.vtypeRdy := true.B
     //TODO: fill this
     entryNext.uop.vCsrInfo := DontCare
+    entryNext.uop.vCsrInfo.vma := io.vtypeWb.bits.data(7)
+    entryNext.uop.vCsrInfo.vta := io.vtypeWb.bits.data(6)
+    entryNext.uop.vCsrInfo.vsew := io.vtypeWb.bits.data(5, 3)
+    entryNext.uop.vCsrInfo.vlmul := io.vtypeWb.bits.data(2, 0)
+    entryNext.uop.vCsrInfo.vl := io.vtypeWb.bits.data(15, 8)
+    entryNext.uop.vCsrInfo.vlmax := entryNext.uop.vCsrInfo.VLMAXGen()
   }
 
   io.entryNext := entryNext
