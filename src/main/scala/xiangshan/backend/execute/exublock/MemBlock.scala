@@ -705,7 +705,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
   // mmio store writeback will use store writeback port 0
   lsq.io.mmioStout.ready := false.B
-  when (lsq.io.mmioStout.valid && !storeUnits(0).io.stout.valid) {
+  when (lsq.io.mmioStout.valid && !lsq.io.stout(0).valid) {
     stOut(0).valid := true.B
     stOut(0).bits  := lsq.io.mmioStout.bits
     lsq.io.mmioStout.ready := true.B
