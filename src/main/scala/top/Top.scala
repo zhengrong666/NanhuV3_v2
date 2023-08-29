@@ -168,6 +168,10 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     dontTouch(io)
     dontTouch(peripheral)
     dontTouch(memory)
+    dontTouch(scan_mode)
+    dontTouch(dft_lgc_rst_n)
+    dontTouch(dft_mode)
+    dontTouch(dfx_reset)
     misc.module.ext_intrs := io.extIntrs
 
     for ((core, i) <- core_with_l2.zipWithIndex) {
@@ -243,6 +247,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       if(mbistBroadCastToL3.isDefined){
         // mbistBroadCastToL3.get := dft.get
       }
+      dontTouch(dft.get)
     }
 
     withClockAndReset(io.clock.asClock, reset_sync) {
