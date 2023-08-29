@@ -79,6 +79,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   }.elsewhen(enqValids.reduce(_|_)){
     enqPtrNext := enqPtr + enqNum
   }
+  enqPtr := enqPtrNext
 
 
   //MergeId Allocation Logics
