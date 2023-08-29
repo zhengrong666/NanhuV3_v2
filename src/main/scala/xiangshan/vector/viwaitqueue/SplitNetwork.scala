@@ -9,7 +9,7 @@ import xs.utils.ParallelPriorityMux
 
 class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
-    val in = Input(Decoupled(new MicroOp))
+    val in = Flipped(Decoupled(new MicroOp))
     val out = Vec(splitNum, Decoupled(new MicroOp))
     val vstart = Flipped(ValidIO(UInt(7.W)))
     val redirect = Input(Valid(new Redirect))
@@ -75,7 +75,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     remainNext := remain - leaving
   }
   remain := remainNext
-  io.in.ready := remainNext === 0.U && !io.redirect.valid
+  io.in.ready := (remainNext === 0.U) && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid

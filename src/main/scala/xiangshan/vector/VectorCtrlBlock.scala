@@ -71,7 +71,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     })
 
     val videcode    = Module(new VIDecodeUnit)
-    val waitqueue   = Module(new VIWaitQueue)
+    val waitqueue   = Module(new NewWaitQueue)
     val virename    = Module(new VIRenameWrapper)
     val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
     
@@ -83,13 +83,13 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     for (i <- 0 until VIDecodeWidth) {
         waitqueue.io.enq.req(i).valid := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
         waitqueue.io.enq.needAlloc(i) := io.vtypein(i).valid && videcode.io.out(i).valid && io.SIRenameIn(i).valid
-        waitqueue.io.enq.req(i).bits.MicroOp := videcode.io.out(i).bits
-        waitqueue.io.enq.req(i).bits.MicroOp.pdest := io.SIRenameIn(i).bits.pdest
-        waitqueue.io.enq.req(i).bits.MicroOp.psrc := io.SIRenameIn(i).bits.psrc
-        waitqueue.io.enq.req(i).bits.MicroOp.old_pdest := io.SIRenameIn(i).bits.old_pdest
-        waitqueue.io.enq.req(i).bits.MicroOp.vCsrInfo := io.vtypein(i).bits.vtype
-        waitqueue.io.enq.req(i).bits.MicroOp.robIdx := io.vtypein(i).bits.robIdx
-        waitqueue.io.enq.req(i).bits.state := io.vtypein(i).bits.state
+        waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
+        waitqueue.io.enq.req(i).bits.uop.pdest := io.SIRenameIn(i).bits.pdest
+        waitqueue.io.enq.req(i).bits.uop.psrc := io.SIRenameIn(i).bits.psrc
+        waitqueue.io.enq.req(i).bits.uop.old_pdest := io.SIRenameIn(i).bits.old_pdest
+        waitqueue.io.enq.req(i).bits.uop.vCsrInfo := io.vtypein(i).bits.vtype
+        waitqueue.io.enq.req(i).bits.uop.robIdx := io.vtypein(i).bits.robIdx
+        waitqueue.io.enq.req(i).bits.vtypeRdy := io.vtypein(i).bits.state
     }
 
     
