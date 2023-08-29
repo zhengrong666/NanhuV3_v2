@@ -26,7 +26,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   val io = IO(new Bundle() {
     //val hartId = Input(UInt(8.W))
     val vstart = Input(UInt(7.W))
-    val vtypeWbData = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput)))
+    val vtypeWbData = Flipped(ValidIO(new ExuOutput))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
     val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
     val canRename = Input(Bool())
@@ -86,13 +86,13 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val needMergeNum = distanceBetween(enqPtr, mergePtr)
 
   io.mergeId.zipWithIndex.foreach({case(m, i) =>
-    m.valid := needMergeNum >= (i + 1).U
+    m.ready := needMergeNum >= (i + 1).U
   })
 
   table.io.vmsIdAllocte.zipWithIndex.foreach({ case(va, i) =>
     va.en := io.mergeId(i).fire
     va.data := io.mergeId(i).bits
-    va.addr := mergePtr + i.U
+    va.addr := (mergePtr + i.U).value
   })
 
   private val mergeAllocs = io.mergeId.map(_.fire)
@@ -106,7 +106,9 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   }
 
   //Misc entry update logics
-  table.io.vtypeWb := io.vtypeWbData
+  table.io.vtypeWb.valid := io.vtypeWbData.valid
+  table.io.vtypeWb.bits.data := io.vtypeWbData.bits.data
+  table.io.vtypeWb.bits.uop := io.vtypeWbData.bits.uop
   table.io.robEnq := io.robin
   table.io.redirect := io.redirect
 

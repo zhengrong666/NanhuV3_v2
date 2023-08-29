@@ -58,7 +58,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
         val SIRenameIn = Vec(VIDecodeWidth, Flipped(ValidIO(new SIRenameInfo)))//to waitqueue
         //from ctrl rob
         val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
-        val vtypewriteback = Vec(VIDecodeWidth, Flipped(ValidIO(new ExuOutput))) //to wait queue
+        val vtypewriteback = Flipped(ValidIO(new ExuOutput)) //to wait queue
         val mergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))) //to wait queue
         val commit = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO)) // to rename
         val redirect = Flipped(ValidIO(new Redirect))
@@ -93,14 +93,14 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     }
 
     
-    waitqueue.io.vstart         <> io.vstart
-    waitqueue.io.vtypeWbData    <> io.vtypewriteback
-    waitqueue.io.robin          <> io.robPtr
+    waitqueue.io.vstart         := io.vstart
+    waitqueue.io.vtypeWbData    := io.vtypewriteback
+    waitqueue.io.robin          := io.robPtr
     waitqueue.io.mergeId        <> io.mergeIdAllocate
-    waitqueue.io.canRename      <> virename.io.canAccept
-    waitqueue.io.redirect       <> io.redirect
+    waitqueue.io.canRename      := virename.io.canAccept
+    waitqueue.io.redirect       := io.redirect
 
-    virename.io.redirect    <> io.redirect
+    virename.io.redirect    := io.redirect
     virename.io.uopIn       <> waitqueue.io.out
     virename.io.commit      <> io.commit
     

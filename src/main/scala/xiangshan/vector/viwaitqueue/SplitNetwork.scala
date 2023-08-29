@@ -11,16 +11,15 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val in = Flipped(Decoupled(new MicroOp))
     val out = Vec(splitNum, Decoupled(new MicroOp))
-    val vstart = Flipped(ValidIO(UInt(7.W)))
+    val vstart = Input(UInt(7.W))
     val redirect = Input(Valid(new Redirect))
   })
-  private def SplitUop(in:Valid[MicroOp], remain:UInt): Vec[Valid[MicroOp]] = {
+  private def SplitUop(in:Valid[MicroOp], remain:UInt, vstart:UInt): Vec[Valid[MicroOp]] = {
     val res = Wire(Vec(splitNum, Valid(new MicroOp)))
     //TODO: Fill split logics here
     val vl = in.bits.vCsrInfo.vl
     val sew = in.bits.vCsrInfo.vsew
     val nf = in.bits.ctrl.NFToInt()
-    val vstart = in.bits.vCsrInfo.vstart
     val elementInReg = Wire(UInt(8.W))
     val tailReg = Wire(UInt(4.W))
     val prestartReg = Wire(UInt(4.W))
@@ -29,25 +28,19 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     prestartReg := vstart >> (4.U - sew)
     res.zipWithIndex.foreach({case(o , idx) =>
       val currentnum = in.bits.uopNum - remain + idx.U
-      if ((idx.U < remain) == true){
-        when (io.in.valid) {
-          o.valid := true.B
-          o.bits := in.bits
-          o.bits.uopNum := in.bits.uopNum
-          o.bits.uopIdx := currentnum
-          o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
-          o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
-          o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf.U, false.B, true.B),
-            Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
-          val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf.U,
-            Mux(in.bits.ctrl.isVLS, currentnum % elementInReg, currentnum))
-          o.bits.ctrl.lsrc(0) := in.bits.ctrl.lsrc(0) + tempnum
-          o.bits.ctrl.lsrc(1) := in.bits.ctrl.lsrc(1) + tempnum
-          o.bits.ctrl.lsrc(2) := in.bits.ctrl.lsrc(2) + tempnum
-        }
-      } else {
-        o.valid := false.B
-      }
+      o.valid := io.in.valid && (idx.U < remain)
+      o.bits := in.bits
+      o.bits.uopNum := in.bits.uopNum
+      o.bits.uopIdx := currentnum
+      o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
+      o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
+      o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf.U, false.B, true.B),
+        Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
+      val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf.U,
+        Mux(in.bits.ctrl.isVLS, currentnum % elementInReg, currentnum))
+      o.bits.ctrl.lsrc(0) := in.bits.ctrl.lsrc(0) + tempnum
+      o.bits.ctrl.lsrc(1) := in.bits.ctrl.lsrc(1) + tempnum
+      o.bits.ctrl.lsrc(2) := in.bits.ctrl.lsrc(2) + tempnum
     })
     res
   }
@@ -63,30 +56,31 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     uopnum
   }
 
-  private val remain = RegInit(0.U(log2Ceil(VLEN).W))
-  private val remainNext = WireInit(remain)
+  private val remain = RegInit(0.U(log2Ceil(VLEN + 1).W))
+  private val remainWire = WireInit(remain)
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
+  private val uopNum = GetUopNum(io.in.bits)
   when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid){
-    remainNext := 0.U
+    remain := 0.U
   }.elsewhen(remain === 0.U && io.in.valid){
-    remainNext := GetUopNum(io.in.bits)
-  }.elsewhen(remainUpdate){
-    remainNext := remain - leaving
+    remain := uopNum - leaving
+  }.elsewhen(remainUpdate) {
+    remain := remain - leaving
   }
-  remain := remainNext
-  io.in.ready := (remainNext === 0.U) && !io.redirect.valid
+
+  when(remain === 0.U && io.in.valid){
+    remainWire := uopNum
+  }
+
+  io.in.ready := ((remain - leaving) === 0.U) && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid
   in_v.bits := io.in.bits
-  in_v.bits.uopNum := GetUopNum(io.in.bits)
-  when(io.vstart.valid){
-    in_v.bits.vCsrInfo.vstart := io.vstart.bits
-  }.otherwise{
-    in_v.bits.vCsrInfo.vstart := 0.U
-  }
-  private val out_v = SplitUop(in_v, remainNext)
+  in_v.bits.uopNum := uopNum
+
+  private val out_v = SplitUop(in_v, remainWire, io.vstart)
 
   io.out.zipWithIndex.foreach({ case (o, i) =>
     o.valid := out_v(i).valid
