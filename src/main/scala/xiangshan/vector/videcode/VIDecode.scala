@@ -738,6 +738,7 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
       cs.isSeg := false.B
     }
 
+    io.out(i).bits := DontCare
     io.out(i).bits.cf := io.in(i).bits.cf
     io.out(i).bits.ctrl := cs
     io.out(i).valid := io.in(i).valid
