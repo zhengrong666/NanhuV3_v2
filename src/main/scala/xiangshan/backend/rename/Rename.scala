@@ -111,7 +111,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     * Rename: allocate free physical register and update rename table
     */
   val uops = Wire(Vec(RenameWidth, new MicroOp))
-  val vtypeuops = Wire(Vec(RenameWidth, new MicroOp))
   uops.foreach( uop => {
     uop.srcState(0) := DontCare
     uop.srcState(1) := DontCare
