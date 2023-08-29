@@ -83,7 +83,8 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     require(issueNode.in.length == 1)
 
     private val wbPairNeedMerge = wbVFUPair.filter(_._3.willTriggerVrfWkp)
-    private val wbPairDontNeedMerge = wbVFUPair.filterNot(_._3.willTriggerVrfWkp)
+    private val wbPairDontNeedMerge = wbVFUPair.filterNot(_._3.willTriggerVrfWkp).filterNot(_._3.exuType == ExuType.sta)
+    private val wbPairStu = wbVFUPair.filter(_._3.exuType == ExuType.sta)
 
     private val fromRs = issueNode.in.flatMap(i => i._1.zip(i._2._2).map(e => (e._1, e._2, i._2._1)))
     private val toExuMap = issueNode.out.map(i => i._2._2 -> (i._1, i._2._2, i._2._1)).toMap
@@ -124,7 +125,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := rfwkp.bits
       wbout.bits.redirectValid := rfwkp.bits.redirectValid && !rfwkp.bits.redirect.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := rfwkp.bits.redirect
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 7, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 7, cfg.exuType == ExuType.ldu, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
@@ -138,7 +139,19 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := bitsReg
       wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := redirectBitsReg
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, cfg.exuType == ExuType.ldu || cfg.exuType == ExuType.sta, VLEN)
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, false, VLEN)
+    })
+    wbPairStu.foreach({case(wbin, wbout, _) =>
+      val validCond = wbin.valid
+      val validReg = RegNext(validCond, false.B)
+      val bitsReg = RegEnable(wbin.bits, wbin.valid && validCond)
+      val redirectValidReg = RegNext(wbin.bits.redirectValid, false.B)
+      val redirectBitsReg = RegEnable(wbin.bits.redirect, wbin.bits.redirectValid)
+      wbout.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
+      wbout.bits := bitsReg
+      wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
+      wbout.bits.redirect := redirectBitsReg
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, true, VLEN)
     })
     vrf.io.moveOldValReqs := io.moveOldValReqs
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>
