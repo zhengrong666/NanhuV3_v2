@@ -190,8 +190,8 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   })
 
   val s1_uop = io.in.bits.uop
-  val s1_paddr_dup_lsu = Mux(io.dtlbResp.valid && !io.dtlbResp.bits.miss, io.dtlbResp.bits.paddr(0), 0.U)
-  val s1_paddr_dup_dcache = Mux(io.dtlbResp.valid && !io.dtlbResp.bits.miss, io.dtlbResp.bits.paddr(1), 0.U)
+  val s1_paddr_dup_lsu = io.dtlbResp.bits.paddr(0)
+  val s1_paddr_dup_dcache = io.dtlbResp.bits.paddr(1)
   val EnableMem = io.in.bits.uop.loadStoreEnable
   // af & pf exception were modified below.
   val s1_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, lduCfg).asUInt.orR, false.B)
