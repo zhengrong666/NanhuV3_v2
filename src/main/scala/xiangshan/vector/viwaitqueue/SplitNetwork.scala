@@ -36,6 +36,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   }.elsewhen(remainUpdate){
     remainNext := remain - leaving
   }
+  remain := remainNext
   io.in.ready := remainNext === 0.U && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
