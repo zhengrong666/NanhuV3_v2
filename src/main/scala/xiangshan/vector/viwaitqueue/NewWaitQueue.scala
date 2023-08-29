@@ -64,7 +64,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   })
   table.io.enq.zip(io.enq.req).zip(enqAddrDelta).foreach({case((t, e), d) =>
     t.wen := e.valid && io.enq.canAccept
-    t.addr := enqPtr + d
+    t.addr := (enqPtr + d).value
     t.data.uop := e.bits.uop
     t.data.robEnqueued := false.B
     t.data.mergeIdAlloc := false.B
