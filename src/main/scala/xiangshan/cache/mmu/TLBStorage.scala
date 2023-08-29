@@ -57,11 +57,13 @@ class BankedAsyncDataModuleTemplateWithDup[T <: Data](
 //    Mem(bankEntries, gen)
   })
 
+  val fanOutDupNum = numBanks
   // delay one cycle for write, so there will be one inflight entry.
   // The inflight entry is transparent('already writen') for outside
   val last_wen = RegNext(io.wen, false.B)
   val last_waddr = RegEnable(io.waddr, io.wen)
-  val last_wdata_dup = RegEnable(io.wdata, io.wen)
+//  val last_wdata_dup = RegEnable(io.wdata, io.wen)
+  val last_wdata_dup = VecInit(Seq.fill(fanOutDupNum)(RegEnable(io.wdata, io.wen)))  //for fanout
 
   // async read, but regnext
   for (i <- 0 until numRead) {
@@ -85,9 +87,10 @@ class BankedAsyncDataModuleTemplateWithDup[T <: Data](
   }
 
   // write
+  require(numBanks == fanOutDupNum)
   for (i <- 0 until numBanks) {
     when (last_wen && (bankIndex(last_waddr) === i.U)) {
-      dataBanks(i)(bankOffset(last_waddr)) := last_wdata_dup
+      dataBanks(i)(bankOffset(last_waddr)) := last_wdata_dup(i)
     }
   }
 }

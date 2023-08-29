@@ -120,6 +120,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitNetwork.io.redirect := io.redirect
   splitNetwork.io.in.valid := hasValid && !vstartHold && uopRdy
   splitNetwork.io.in.bits := deqUop.uop
+  splitNetwork.io.vstart := io.vstart
 
   private val deqValid = splitNetwork.io.in.fire
   when(deqValid){

@@ -204,14 +204,30 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     */
   io.enq.canAccept := allowEnqueue
 
+  //for uop(index).robidx clock-gating
+  val wen_robIdx = Wire(Vec(LoadQueueSize, Bool()))
   val canEnqueue = io.enq.req.map(_.valid)
   val enqCancel = io.enq.req.map(_.bits.robIdx.needFlush(io.brqRedirect))
+
+  (0 until LoadQueueSize).foreach(i => {
+    val req_valid = Wire(Vec(exuParameters.LsExuCnt, Bool()))
+    (0 until exuParameters.LsExuCnt).foreach(j => {
+      req_valid(j) := canEnqueue(j) && !enqCancel(j) && (io.enq.req(j).bits.lqIdx.value === i.U)
+    })
+    wen_robIdx(i) := req_valid.asUInt.orR
+    val w_addr = OHToUInt(req_valid)
+    val w_data = io.enq.req(w_addr).bits.robIdx
+    when(wen_robIdx(i)) {
+      uop(i).robIdx := w_data
+    }
+  })
+
   for (i <- 0 until io.enq.req.length) {
     val offset = if (i == 0) 0.U else PopCount(io.enq.needAlloc.take(i))
     val lqIdx = enqPtrExt(offset)
     val index = io.enq.req(i).bits.lqIdx.value
     when (canEnqueue(i) && !enqCancel(i)) {
-      uop(index).robIdx := io.enq.req(i).bits.robIdx
+//      uop(index).robIdx := io.enq.req(i).bits.robIdx
       allocated(index) := true.B
       datavalid(index) := false.B
       writebacked(index) := false.B
@@ -976,11 +992,23 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     }
   }
 
+  val splitNum = 4
+  val needCancelCntSub = Wire(Vec(splitNum, UInt(log2Up(LoadQueueSize).W)))
+  (0 until splitNum).foreach({ case i => {
+    needCancelCntSub(i) := PopCount(needCancel.asUInt((i + 1) * (LoadQueueSize / splitNum) - 1, i * (LoadQueueSize / splitNum)))
+  }
+  })
+  val needCancelCnt = needCancelCntSub.reduce(_ + _)
+  val needCancelReg = RegInit(0.U(LoadQueueSize.W))
+  needCancelReg := needCancelCnt
+  val lastCycleCancelCount = needCancelReg
+
+
   /**
     * update pointers
     */
   val lastEnqCancel = PopCount(RegNext(VecInit(canEnqueue.zip(enqCancel).map(x => x._1 && x._2))))
-  val lastCycleCancelCount = RegNext(PopCount(needCancel))
+//  val lastCycleCancelCount = RegNext(PopCount(needCancel))
   val enqNumber = Mux(io.enq.canAccept && io.enq.sqCanAccept, PopCount(io.enq.req.map(_.valid)), 0.U)
   val enqNumber_enq = Mux(io.enq.canAccept && io.enq.sqCanAccept, io.enq.reqNum, 0.U)
 
