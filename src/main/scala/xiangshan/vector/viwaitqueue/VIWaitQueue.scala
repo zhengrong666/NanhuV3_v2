@@ -66,7 +66,7 @@ class VIWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   // pointers
   // For enqueue ptr, we don't duplicate it since only enqueue needs it.
-  val enqPtrVec = RegInit(VecInit(Seq.fill(VIDecodeWidth)(0.U.asTypeOf(new WqPtr))))
+  val enqPtrVec = RegInit(VecInit(Seq.tabulate(VIDecodeWidth)(_.U.asTypeOf(new WqPtr))))
   val deqPtr = RegInit(0.U.asTypeOf(new WqPtr))
   val enqPtr = enqPtrVec.head
   val mergePtr = RegInit(0.U.asTypeOf(new WqPtr))
