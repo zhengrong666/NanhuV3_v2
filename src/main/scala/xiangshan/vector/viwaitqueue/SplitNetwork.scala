@@ -21,23 +21,26 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     val sew = in.bits.vCsrInfo.vsew
     val nf = in.bits.ctrl.NFToInt()
     val vstart = in.bits.vCsrInfo.vstart
-    val elementInReg = VLEN >> (sew + 3)
-    val tailreg = vl >> (4 - sew)
-    val prestartreg = vstart >> (4 - sew)
+    val elementInReg = Wire(UInt(8.W))
+    val tailReg = Wire(UInt(4.W))
+    val prestartReg = Wire(UInt(4.W))
+    elementInReg := (VLEN >> 3).U >> sew
+    tailReg := vl >> (4.U - sew)
+    prestartReg := vstart >> (4.U - sew)
     res.zipWithIndex.foreach({case(o , idx) =>
       val currentnum = in.bits.uopNum - remain + idx.U
-      if (idx < remain){
+      if ((idx.U < remain) == true){
         when (io.in.valid) {
           o.valid := true.B
           o.bits := in.bits
           o.bits.uopNum := in.bits.uopNum
           o.bits.uopIdx := currentnum
-          o.bits.isTail := Mux(currentnum === tailreg, true.B, false.B)
-          o.bits.isPrestart := Mux(currentnum === prestartreg && vstart =/= 0.U, true.B, false.B)
+          o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
+          o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
           o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf.U, false.B, true.B),
-            Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg.U === 0.U, true.B, false.B), true.B))
+            Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
           val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf.U,
-            Mux(in.bits.ctrl.isVLS, currentnum % elementInReg.U, currentnum))
+            Mux(in.bits.ctrl.isVLS, currentnum % elementInReg, currentnum))
           o.bits.ctrl.lsrc(0) := in.bits.ctrl.lsrc(0) + tempnum
           o.bits.ctrl.lsrc(1) := in.bits.ctrl.lsrc(1) + tempnum
           o.bits.ctrl.lsrc(2) := in.bits.ctrl.lsrc(2) + tempnum
