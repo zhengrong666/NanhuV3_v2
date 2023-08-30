@@ -49,9 +49,18 @@ class TLB(Width: Int, nRespDups: Int = 1, q: TLBParameters)(implicit p: Paramete
   val vmEnable_tmp = if (EnbaleTlbDebug) (io.csr.satp.mode === 8.U)
     else (io.csr.satp.mode === 8.U && (mode_tmp < ModeM))
   val vmEnable_dup = Seq.fill(Width)(RegNext(vmEnable_tmp))
-  val sfence_dup = Seq.fill(2)(RegNext(io.sfence))
+//  val sfence_dup = Seq.fill(2)(RegNext(io.sfence))
   val csr_dup = Seq.fill(Width)(RegNext(io.csr))
   val csr_dup_2 = Seq.fill(2)(RegNext(io.csr))
+
+  val sfence_dup_valid = Seq.fill(2)(RegNext(io.sfence.valid))
+  val sfence_dup_bits = Seq.fill(2)(RegEnable(io.sfence.bits, io.sfence.valid))
+  val sfence_dup = Seq.fill(2)(Wire(new SfenceBundle))
+  sfence_dup.zipWithIndex.foreach({ case (s, i) => {
+    s.valid := sfence_dup_valid(i)
+    s.bits := sfence_dup_bits(i)
+  }})
+
 
   val satp = csr_dup.head.satp
   val priv = csr_dup.head.priv
