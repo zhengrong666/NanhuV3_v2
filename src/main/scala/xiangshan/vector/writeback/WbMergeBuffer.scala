@@ -46,11 +46,13 @@ object WbMergeBufferPtr {
     }
 }
 
-class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters) extends XSModule {
+class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters) 
+    extends XSModule with HasCircularQueuePtrHelper {
     val io = IO(new Bundle {
         val allocate        = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
         val release         = Flipped(ValidIO(UInt(log2Up(size + 1).W)))
         val releasePtrValue = Output(new WbMergeBufferPtr(size))
+        val validNum        = Output(UInt(log2Up(size+1).W))
     })
 
     val allocatePtr = RegInit(WbMergeBufferPtr(false, 0, size))
@@ -69,6 +71,7 @@ class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(i
     releasePtr := Mux(io.release.valid, releasePtrNext, releasePtr)
 
     io.releasePtrValue := releasePtr
+    io.validNum := distanceBetween(allocatePtr, releasePtr)
 }
 
 class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4, wbWidth: Int = 4)(implicit p: Parameters) extends XSModule {
@@ -116,10 +119,10 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val wbPtr = Wire(new WbMergeBufferPtr(size))
     wbPtr := ptrHelper.io.releasePtrValue
 
-    wbVec(0) := mergeTable(wbPtr.value).wbmask.andR
+    wbVec(0) := (ptrHelper.io.validNum.orR) & mergeTable(wbPtr.value).wbmask.andR
     for(i <- 1 until wbWidth) {
         val entry = mergeTable(wbPtr.value + i.U)
-        wbVec(i) := wbVec(i-1) & entry.wbmask.andR
+        wbVec(i) := wbVec(i-1) & entry.wbmask.andR & (ptrHelper.io.validNum > i.U)
     }
 
     for((port, i) <- io.rob.zipWithIndex) {
