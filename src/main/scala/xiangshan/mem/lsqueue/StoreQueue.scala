@@ -24,7 +24,7 @@ import xs.utils._
 import xiangshan._
 import xiangshan.cache._
 import xiangshan.cache.MemoryOpConstants
-import xiangshan.backend.rob.RobLsqIO
+import xiangshan.backend.rob.{RobLsqIO, RobPtr}
 import difftest._
 import device.RAMHelper
 import freechips.rocketchip.util.SeqBoolBitwiseOps
@@ -59,6 +59,12 @@ class DataBufferEntry (implicit p: Parameters)  extends DCacheBundle {
   val mask   = UInt((DataBits/8).W)
   val wline = Bool()
   val sqPtr  = new SqPtr
+}
+
+class LSQExceptionInfo (implicit p: Parameters)  extends DCacheBundle{
+  val valid = Bool()
+  val eVec = ExceptionVec()
+  val robIdx = new RobPtr
 }
 
 // Store Queue
@@ -154,6 +160,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val pending = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio pending: inst is an mmio inst, it will not be executed until it reachs the end of rob
   val mmio = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // mmio: inst is an mmio inst
   val writebacked = RegInit(VecInit(List.fill(StoreQueueSize)(false.B)))  //inst has writebacked
+  val exception_info = RegInit(0.U.asTypeOf(new LSQExceptionInfo))
 
   // ptr
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new SqPtr))))
@@ -267,6 +274,33 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   // io.issuePtrExt := cmtPtrExt(0)
   io.issuePtrExt := issuePtrExt
 
+  //update STA exception info
+  require(io.storeIn.length == 2)
+  val storeInValidNum = PopCount(io.storeIn.map(_.valid))
+  val storeExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
+  storeExceptionInfo.zipWithIndex.foreach({case (d,i) => {
+    d.valid := io.storeIn(i).valid
+    d.eVec := io.storeInRe(i).uop.cf.exceptionVec
+    d.robIdx := io.storeInRe(i).uop.robIdx
+  }})
+
+  val storeInOldest = Wire(new LSQExceptionInfo)
+
+  storeInOldest := MuxCase(0.U.asTypeOf(new LSQExceptionInfo),Seq(
+    (storeInValidNum === 0.U) -> 0.U.asTypeOf(new LSQExceptionInfo),
+    (storeInValidNum === 1.U) -> Mux(io.storeIn(0).valid,storeExceptionInfo(0),storeExceptionInfo(1)),
+    (storeInValidNum === 2.U) -> Mux(storeExceptionInfo(0).robIdx < storeExceptionInfo(1).robIdx,storeExceptionInfo(0),storeExceptionInfo(1))
+  ))
+
+
+  when(storeInOldest.valid){
+    when(!exception_info.valid){
+      exception_info := storeInOldest
+    }.otherwise{
+      exception_info := Mux(exception_info.robIdx < storeInOldest.robIdx,exception_info,storeInOldest)
+    }
+  }
+
   /**
     * Writeback store from store units
     *
@@ -289,7 +323,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
     dataModule.io.mask.wen(i) := false.B
     val stWbIndex = io.storeIn(i).bits.uop.sqIdx.value
-    when (io.storeIn(i).fire()) {
+    when (io.storeIn(i).valid) {
       val addr_valid = !io.storeIn(i).bits.miss
       addrvalid(stWbIndex) := addr_valid //!io.storeIn(i).bits.mmio
       // pending(stWbIndex) := io.storeIn(i).bits.mmio
@@ -727,6 +761,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
     io.stout(i).bits.data := rdata
     io.stout(i).bits.redirectValid := false.B
     io.stout(i).bits.redirect := DontCare
+    io.stout(i).bits.uop.cf.exceptionVec := Mux(exception_info.valid && (seluop.robIdx === exception_info.robIdx),exception_info.eVec,0.U.asTypeOf(ExceptionVec()))
   })
 
 
