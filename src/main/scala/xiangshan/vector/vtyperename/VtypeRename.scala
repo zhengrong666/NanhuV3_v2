@@ -145,7 +145,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     if(i == 0){
       d := 0.U
     } else {
-      d := PopCount(realValids.take(i))
+      d := PopCount(setVlSeq.take(i))
     }
   })
 

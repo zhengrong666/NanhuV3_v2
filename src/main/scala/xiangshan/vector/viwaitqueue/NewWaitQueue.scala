@@ -59,7 +59,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     if(i == 0){
       d := 0.U
     } else {
-      d := PopCount(io.enq.req.take(i).map(_.valid))
+      d := PopCount(io.enq.needAlloc.take(i))
     }
   })
   table.io.enq.zip(io.enq.req).zip(enqAddrDelta).foreach({case((t, e), d) =>
