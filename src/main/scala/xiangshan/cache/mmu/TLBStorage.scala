@@ -71,8 +71,8 @@ class BankedAsyncDataModuleTemplateWithDup[T <: Data](
     val bank_index_dup = Reg(Vec(numDup, UInt(numBanks.W)))
     val w_bypassed_dup = Seq.fill(numDup)(RegNext(io.waddr === io.raddr(i) && io.wen))
     val w_bypassed2_dup = Seq.fill(numDup)(RegNext(last_waddr === io.raddr(i) && last_wen))
-    val last_wdata_dup = Seq.fill(numDup)(RegEnable(io.wdata, io.wen))
-    val last_wdata2_dup = Seq.fill(numDup)(RegEnable(last_wdata_dup.head, last_wen))
+    val lastWdata_dup = Seq.fill(numDup)(RegEnable(io.wdata, io.wen))
+    val lastWdata2_dup = Seq.fill(numDup)(RegEnable(lastWdata_dup.head, last_wen))
     for (j <- 0 until numDup) {
       bank_index_dup(j) := UIntToOH(bankIndex(io.raddr(i)))
       for (k <- 0 until numBanks) {
@@ -81,7 +81,7 @@ class BankedAsyncDataModuleTemplateWithDup[T <: Data](
     }
     // next cycle
     for (j <- 0 until numDup) {
-      io.rdata(i)(j) := Mux(w_bypassed_dup(j) || w_bypassed2_dup(j), Mux(w_bypassed2_dup(j), last_wdata2_dup(j), last_wdata_dup(j)),
+      io.rdata(i)(j) := Mux(w_bypassed_dup(j) || w_bypassed2_dup(j), Mux(w_bypassed2_dup(j), lastWdata2_dup(j), lastWdata_dup(j)),
         Mux1H(bank_index_dup(j), data_read_dup(j)))
     }
   }

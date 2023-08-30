@@ -592,7 +592,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   bankedDataArray.io.readline <> mainPipe.io.data_read
   bankedDataArray.io.readline_intend := mainPipe.io.data_read_intend
   mainPipe.io.readline_error_delayed := bankedDataArray.io.readline_error_delayed
-  mainPipe.io.data_resp := bankedDataArray.io.readline_resp
+  mainPipe.io.data_resp := bankedDataArray.io.resp
 
   //loadPipe read bankedDataArray in s1
   bankedDataArray.io.readSel := RegNext(ldSelRead)
@@ -600,14 +600,14 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
     bankedDataArray.io.read(i) <> ldu(i).io.banked_data_read
     bankedDataArray.io.read_error_delayed(i) <> ldu(i).io.read_error_delayed
 
-    ldu(i).io.banked_data_resp := bankedDataArray.io.resp(i)
+//    ldu(i).io.banked_data_resp := bankedDataArray.io.resp(i)
     ldu(i).io.bank_conflict_fast := bankedDataArray.io.bank_conflict_fast(i)
     ldu(i).io.bank_conflict_slow := bankedDataArray.io.bank_conflict_slow(i)
   })
 
-//  (0 until LoadPipelineWidth).map(i => {
-//    ldu(i).io.banked_data_resp := bankedDataArray.io.resp
-//  })
+  (0 until LoadPipelineWidth).foreach({ case i => {
+    ldu(i).io.banked_data_resp := bankedDataArray.io.resp
+  }})
 
   //----------------------------------------
   // load pipe

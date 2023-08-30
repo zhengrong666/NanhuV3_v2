@@ -40,7 +40,8 @@ class LoadPipe(id: Int)(implicit p: Parameters) extends DCacheModule with HasPer
 
     val banked_data_read = DecoupledIO(new L1BankedDataReadLsuReq)
 //    val banked_data_resp = Input(Vec(DCacheBanks, new L1BankedDataReadResult()))
-    val banked_data_resp = Input(new L1BankedDataReadResult())
+//    val banked_data_resp = Input(new L1BankedDataReadResult())
+    val banked_data_resp = Input(Vec(DCacheBanks, new L1BankedDataReadResult()))
     val read_error_delayed = Input(Bool())
 
     // banked data read conflict
@@ -166,7 +167,7 @@ class LoadPipe(id: Int)(implicit p: Parameters) extends DCacheModule with HasPer
   io.banked_data_read.valid := s1_fire && !s1_nack
   io.banked_data_read.bits.addr := s1_vaddr
   io.banked_data_read.bits.way_en := s1_tag_match_way_dup_dc
-  io.banked_data_read.bits.robIdx := s1_req.robIdx
+//  io.banked_data_read.bits.robIdx := s1_req.robIdx
   io.banked_data_read.bits.kill := io.lsu.s1_kill
 
   // get s1_will_send_miss_req in lpad_s1
@@ -268,8 +269,9 @@ class LoadPipe(id: Int)(implicit p: Parameters) extends DCacheModule with HasPer
   resp.valid := s2_valid
   resp.bits := DontCare
 //  resp.bits.load_data := Mux1H(s2_bank_oh,VecInit(banked_data_resp.map(i => i.raw_data)))
-  resp.bits.load_data := Mux(s2_valid,banked_data_resp.raw_data,0.U)  //to cut X state
-//  resp.bits.bank_data := VecInit(banked_data_resp.map(i => i.raw_data))
+//  resp.bits.load_data := Mux(s2_valid,banked_data_resp.raw_data,0.U)  //to cut X state
+  resp.bits.load_data := Mux(s2_valid,Mux1H(s2_bank_oh,VecInit(banked_data_resp.map(i => i.raw_data))),0.U)  //to cut X state
+  //  resp.bits.bank_data := VecInit(banked_data_resp.map(i => i.raw_data))
 //  resp.bits.bank_oh := s2_bank_oh
   // * on miss or nack, upper level should replay request
   // but if we successfully sent the request to miss queue
