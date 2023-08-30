@@ -28,6 +28,8 @@ import xiangshan.backend.rob.{RobLsqIO, RobPtr}
 import difftest._
 import device.RAMHelper
 import freechips.rocketchip.util.SeqBoolBitwiseOps
+import xiangshan.backend.execute.fu.FuConfigs
+import xiangshan.backend.issue.SelectPolicy
 
 class SqPtr(implicit p: Parameters) extends CircularQueuePtr[SqPtr](
   p => p(XSCoreParamsKey).StoreQueueSize
@@ -277,38 +279,29 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   //update STA exception info
   require(io.storeIn.length == 2)
-  val storeInValidNum = VecInit(io.storeIn.map(_.valid)).asUInt
   val storeExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
-  storeExceptionInfo.zipWithIndex.foreach({case (d,i) => {
-    d.valid := RegNext(io.storeIn(i).valid,false.B)
-    d.eVec := io.storeInRe(i).uop.cf.exceptionVec
-    d.robIdx := io.storeInRe(i).uop.robIdx
-    d.vaddr := io.storeInRe(i).vaddr
-  }})
-
-  io.exceptionAddr.vaddr := exception_info.vaddr
-  val storeInOldest = Wire(new LSQExceptionInfo)
-
-  storeInOldest := MuxCase(0.U.asTypeOf(new LSQExceptionInfo),Seq(
-    (storeInValidNum === "b00".U) -> 0.U.asTypeOf(new LSQExceptionInfo),
-    (storeInValidNum === "b01".U) -> storeExceptionInfo(0),
-    (storeInValidNum === "b10".U) -> storeExceptionInfo(1),
-    (storeInValidNum === "b11".U) -> Mux(storeExceptionInfo(0).robIdx < storeExceptionInfo(1).robIdx,storeExceptionInfo(0),storeExceptionInfo(1))
-  ))
-
-
-  when(storeInOldest.valid){
-    when(!exception_info.valid){
-      exception_info := storeInOldest
-    }.otherwise{
-      exception_info := Mux(exception_info.robIdx < storeInOldest.robIdx,exception_info,storeInOldest)
-    }
-  }
-
-  when(io.brqRedirect.valid){
+  storeExceptionInfo.zipWithIndex.foreach({case (d,i) =>
+    val validReg = RegNext(io.storeIn(i).valid && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect), false.B)
+    d.eVec := RegEnable(io.storeInRe(i).uop.cf.exceptionVec, validReg)
+    d.robIdx := RegEnable(io.storeInRe(i).uop.robIdx, validReg)
+    d.vaddr := RegEnable(io.storeInRe(i).vaddr, validReg)
+    val hasException = ExceptionNO.selectByFu(d.eVec, FuConfigs.staCfg).asUInt.orR
+    d.valid := RegNext(validReg && !io.storeInRe(i).uop.robIdx.needFlush(io.brqRedirect), false.B) && hasException
+  })
+  private val exceptionSrcs = exception_info +: storeExceptionInfo
+  private val excptSelector = Module(new SelectPolicy(exceptionSrcs.length, true, true))
+  excptSelector.io.in.zip(exceptionSrcs).foreach({case(a, b)=>
+    a.valid := b.valid && !b.robIdx.needFlush(io.brqRedirect)
+    a.bits := b.robIdx
+  })
+  private val excptUpdateCond = excptSelector.io.out.valid && excptSelector.io.out.bits =/= 1.U(exceptionSrcs.length.W)
+  when(excptUpdateCond){
+    exception_info := Mux1H(excptSelector.io.out.bits, exceptionSrcs)
+  }.elsewhen(io.brqRedirect.valid && exception_info.robIdx.needFlush(io.brqRedirect)){
     exception_info.valid := false.B
   }
 
+  io.exceptionAddr.vaddr := exception_info.vaddr
 
   /**
     * Writeback store from store units
