@@ -645,7 +645,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // check if load already in lq needs to be rolledback
     dataModule.io.violation(i).paddr := io.storeIn(i).bits.paddr
     dataModule.io.violation(i).mask := io.storeIn(i).bits.mask
-    val addrMaskMatch = RegNext(dataModule.io.violation(i).violationMask)
+    val addrMaskMatch = RegEnable(dataModule.io.violation(i).violationMask,io.storeIn(i).valid)
     val entryNeedCheck = RegNext(VecInit((0 until LoadQueueSize).map(j => {
       allocated(j) && stToEnqPtrMask(j) && (datavalid(j) || miss(j))
     })))
@@ -667,7 +667,11 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       (io.storeIn(i).bits.mask & io.loadIn(j).bits.mask).orR
     })))
     val wbViolation = wbViolationVec.asUInt().orR() && RegNext(io.storeIn(i).valid && !io.storeIn(i).bits.miss)
-    val wbViolationUop = getOldestInTwo(wbViolationVec, RegNext(VecInit(io.loadIn.map(_.bits.uop))))
+    val wbUopNext = VecInit(io.loadIn.map(in => {
+      RegEnable(in.bits.uop, in.valid)
+    }))
+    val wbViolationUop = getOldestInTwo(wbViolationVec, wbUopNext)
+//    val wbViolationUop = getOldestInTwo(wbViolationVec, RegNext(VecInit(io.loadIn.map(_.bits.uop))))
     XSDebug(wbViolation, p"${Binary(Cat(wbViolationVec))}, $wbViolationUop\n")
 
     // check if rollback is needed for load in l1
@@ -678,7 +682,11 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       (io.storeIn(i).bits.mask & io.load_s1(j).mask).orR
     })))
     val l1Violation = l1ViolationVec.asUInt().orR() && RegNext(io.storeIn(i).valid && !io.storeIn(i).bits.miss)
-    val l1ViolationUop = getOldestInTwo(l1ViolationVec, RegNext(VecInit(io.load_s1.map(_.uop))))
+    val l1UopNext = VecInit(io.load_s1.map(in => {
+      RegEnable(in.uop, in.valid)
+    }))
+    val l1ViolationUop = getOldestInTwo(l1ViolationVec, l1UopNext)
+//    val l1ViolationUop = getOldestInTwo(l1ViolationVec, RegNext(VecInit(io.load_s1.map(_.uop))))
     XSDebug(l1Violation, p"${Binary(Cat(l1ViolationVec))}, $l1ViolationUop\n")
 
     XSDebug(
@@ -815,6 +823,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   // Load-Load Memory violation query
   val deqRightMask = UIntToMask.rightmask(deqPtr, LoadQueueSize)
   (0 until LoadPipelineWidth).map(i => {
+    val ldldViolationReqValid = io.loadViolationQuery(i).req.valid
     dataModule.io.release_violation(i).paddr := io.loadViolationQuery(i).req.bits.paddr
     io.loadViolationQuery(i).req.ready := true.B
     io.loadViolationQuery(i).resp.valid := RegNext(io.loadViolationQuery(i).req.fire())
@@ -835,7 +844,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       dataModule.io.release_violation(i).match_mask(j)// addr match
       // addr match result is slow to generate, we RegNext() it
     })))
-    val ldld_violation_mask = RegNext(ldld_violation_mask_gen_1).asUInt & RegNext(ldld_violation_mask_gen_2).asUInt
+//    val ldld_violation_mask = RegNext(ldld_violation_mask_gen_1).asUInt & RegNext(ldld_violation_mask_gen_2).asUInt
+    val ldld_violation_mask = RegEnable(ldld_violation_mask_gen_1,ldldViolationReqValid).asUInt & RegEnable(ldld_violation_mask_gen_2,ldldViolationReqValid).asUInt
     dontTouch(ldld_violation_mask)
     ldld_violation_mask.suggestName("ldldViolationMask_" + i)
     io.loadViolationQuery(i).resp.bits.have_violation := ldld_violation_mask.orR
@@ -885,6 +895,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     * (5) ROB commits the instruction: same as normal instructions
     */
   //(2) when they reach ROB's head, they can be sent to uncache channel
+  dataModule.io.uncache.ren := false.B
+
   val lqTailMmioPending = WireInit(pending(deqPtr))
   val lqTailAllocated = WireInit(allocated(deqPtr))
   val s_idle :: s_req :: s_resp :: s_wait :: Nil = Enum(4)
@@ -892,6 +904,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   switch(uncache_Order_State) {
     is(s_idle) {
       when(RegNext(io.rob.pendingld && lqTailMmioPending && lqTailAllocated)) {
+        dataModule.io.uncache.ren := true.B
         uncache_Order_State := s_req
       }
     }

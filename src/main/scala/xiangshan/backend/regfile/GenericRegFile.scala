@@ -38,9 +38,10 @@ class ReadPort(dataWidth:Int)(implicit p: Parameters) extends XSBundle {
   val data = Output(UInt(dataWidth.W))
 }
 
-class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNum:Int, dataWidth:Int, moduleName:String, hasZero:Boolean, hasMask:Boolean = false)(implicit p: Parameters) extends XSModule{
+class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNum:Int, readNumNoBypass:Int, dataWidth:Int, moduleName:String, hasZero:Boolean, hasMask:Boolean = false)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val read = Vec(readPortNum, new ReadPort(dataWidth))
+    val readNoBypass = Vec(readNumNoBypass, new ReadPort(dataWidth))
     val write = Vec(writeBackNum, new WritePort(dataWidth, hasMask))
     val bypassWrite = Vec(bypassNum, new WritePort(dataWidth, hasMask))
   })
@@ -94,6 +95,10 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
       } else {
         r.data := memReadData
       }
+    })
+    io.readNoBypass.foreach(r => {
+      val memReadData = Mux1H(UIntToOH(r.addr), mem)
+      r.data := memReadData
     })
   }
 }
