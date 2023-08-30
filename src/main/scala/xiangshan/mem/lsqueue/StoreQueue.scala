@@ -65,6 +65,7 @@ class LSQExceptionInfo (implicit p: Parameters)  extends DCacheBundle{
   val valid = Bool()
   val eVec = ExceptionVec()
   val robIdx = new RobPtr
+  val vaddr = UInt(VAddrBits.W)
 }
 
 // Store Queue
@@ -276,20 +277,23 @@ class StoreQueue(implicit p: Parameters) extends XSModule
 
   //update STA exception info
   require(io.storeIn.length == 2)
-  val storeInValidNum = PopCount(io.storeIn.map(_.valid))
+  val storeInValidNum = VecInit(io.storeIn.map(_.valid)).asUInt
   val storeExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
   storeExceptionInfo.zipWithIndex.foreach({case (d,i) => {
-    d.valid := io.storeIn(i).valid
+    d.valid := RegNext(io.storeIn(i).valid,false.B)
     d.eVec := io.storeInRe(i).uop.cf.exceptionVec
     d.robIdx := io.storeInRe(i).uop.robIdx
+    d.vaddr := io.storeInRe(i).vaddr
   }})
 
+  io.exceptionAddr.vaddr := exception_info.vaddr
   val storeInOldest = Wire(new LSQExceptionInfo)
 
   storeInOldest := MuxCase(0.U.asTypeOf(new LSQExceptionInfo),Seq(
-    (storeInValidNum === 0.U) -> 0.U.asTypeOf(new LSQExceptionInfo),
-    (storeInValidNum === 1.U) -> Mux(io.storeIn(0).valid,storeExceptionInfo(0),storeExceptionInfo(1)),
-    (storeInValidNum === 2.U) -> Mux(storeExceptionInfo(0).robIdx < storeExceptionInfo(1).robIdx,storeExceptionInfo(0),storeExceptionInfo(1))
+    (storeInValidNum === "b00".U) -> 0.U.asTypeOf(new LSQExceptionInfo),
+    (storeInValidNum === "b01".U) -> storeExceptionInfo(0),
+    (storeInValidNum === "b10".U) -> storeExceptionInfo(1),
+    (storeInValidNum === "b11".U) -> Mux(storeExceptionInfo(0).robIdx < storeExceptionInfo(1).robIdx,storeExceptionInfo(0),storeExceptionInfo(1))
   ))
 
 
@@ -300,6 +304,11 @@ class StoreQueue(implicit p: Parameters) extends XSModule
       exception_info := Mux(exception_info.robIdx < storeInOldest.robIdx,exception_info,storeInOldest)
     }
   }
+
+  when(io.brqRedirect.valid){
+    exception_info.valid := false.B
+  }
+
 
   /**
     * Writeback store from store units
@@ -828,7 +837,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   }
 
   // Read vaddr for mem exception
-  io.exceptionAddr.vaddr := v_pAddrModule.io.rdata_ext_v(0)
+//  io.exceptionAddr.vaddr := v_pAddrModule.io.rdata_ext_v(0)
 
   // misprediction recovery / exception redirect
   // invalidate sq term using robIdx
