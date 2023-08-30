@@ -132,15 +132,16 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     }
 
     ptrHelper.io.release.bits := PopCount(wbVec)
-    ptrHelper.io.release.valid := true.B
+    ptrHelper.io.release.valid := wbVec.asUInt.orR
 
     //redirect
-    val cancelVec = Wire(Vec(size, Bool()))
-    val cancelNum = Wire(UInt(log2Up(size + 1).W))
-    for((entry, i) <- mergeTable.zipWithIndex) {
-        cancelVec(i) := io.redirect.valid && (io.redirect.bits.robIdx <= entry.uop.robIdx)
-    }
-    cancelNum := PopCount(cancelVec)
-    ptrHelper.io.release.bits := cancelNum
-    ptrHelper.io.release.valid := cancelNum.orR
+    //TODO:
+    // val cancelVec = Wire(Vec(size, Bool()))
+    // val cancelNum = Wire(UInt(log2Up(size + 1).W))
+    // for((entry, i) <- mergeTable.zipWithIndex) {
+    //     cancelVec(i) := io.redirect.valid && (io.redirect.bits.robIdx <= entry.uop.robIdx) 
+    // }
+    // cancelNum := PopCount(cancelVec)
+    // ptrHelper.io.release.bits := cancelNum
+    // ptrHelper.io.release.valid := cancelNum.orR
 }
