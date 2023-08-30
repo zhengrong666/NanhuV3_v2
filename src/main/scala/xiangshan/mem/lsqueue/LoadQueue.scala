@@ -885,6 +885,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     * (5) ROB commits the instruction: same as normal instructions
     */
   //(2) when they reach ROB's head, they can be sent to uncache channel
+  dataModule.io.uncache.ren := false.B
+
   val lqTailMmioPending = WireInit(pending(deqPtr))
   val lqTailAllocated = WireInit(allocated(deqPtr))
   val s_idle :: s_req :: s_resp :: s_wait :: Nil = Enum(4)
@@ -892,6 +894,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   switch(uncache_Order_State) {
     is(s_idle) {
       when(RegNext(io.rob.pendingld && lqTailMmioPending && lqTailAllocated)) {
+        dataModule.io.uncache.ren := true.B
         uncache_Order_State := s_req
       }
     }
