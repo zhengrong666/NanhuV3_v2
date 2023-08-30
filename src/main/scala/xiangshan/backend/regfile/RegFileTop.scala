@@ -129,13 +129,13 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
     private val writeFpRfBypass = wb.filter(i => i._2.bypassFpRegfile)
     private val writeFpRf = wb.filter(i => !i._2.bypassFpRegfile && i._2.writeFpRf)
 
-    private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum + extraScalarRfReadPort
-    private val fpReadNum = needFpSrc.map(_._2.fpSrcNum).sum + extraScalarRfReadPort
+    private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum
+    private val fpReadNum = needFpSrc.map(_._2.fpSrcNum).sum
 
     println(s"intReadNum: $intReadNum, fpReadNum: $fpReadNum")
 
-    private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, intReadNum, XLEN, "IntegerRegFile", true))
-    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, XLEN, "FloatingRegFile", false))
+    private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, intReadNum, extraScalarRfReadPort, XLEN, "IntegerRegFile", true))
+    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, extraScalarRfReadPort, XLEN, "FloatingRegFile", false))
 
     private val intWriteBackSinks = intRf.io.write ++ intRf.io.bypassWrite
     private val intWriteBackSources = writeIntRf ++ writeIntRfBypass
@@ -323,22 +323,24 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       }
     }
 
+    var intRfReadExtraIdx = 0
+    var fpRfReadExtraIdx = 0
     for(r <- io.extraReads){
-      intRf.io.read(intRfReadIdx).addr := r.addr
-      fpRf.io.read(fpRfReadIdx).addr := r.addr
-      r.data := Mux(r.isFp, fpRf.io.read(fpRfReadIdx).data, intRf.io.read(intRfReadIdx).data)
-      intRfReadIdx = intRfReadIdx + 1
-      fpRfReadIdx = fpRfReadIdx + 1
+      intRf.io.readNoBypass(intRfReadExtraIdx).addr := r.addr
+      fpRf.io.readNoBypass(fpRfReadExtraIdx).addr := r.addr
+      r.data := Mux(r.isFp, fpRf.io.readNoBypass(fpRfReadExtraIdx).data, intRf.io.readNoBypass(intRfReadExtraIdx).data)
+      intRfReadExtraIdx = intRfReadExtraIdx + 1
+      fpRfReadExtraIdx = fpRfReadExtraIdx + 1
     }
 
     if (env.EnableDifftest || env.AlwaysBasicDiff) {
       val intWriteNum = (intRf.io.write ++ intRf.io.bypassWrite).length
-      val debugIntRegfile = Module(new GenericRegFile(NRPhyRegs, intWriteNum, 0, 32, XLEN, "DebugIntegerRegFile", true))
+      val debugIntRegfile = Module(new GenericRegFile(NRPhyRegs, intWriteNum, 0, 32, 0, XLEN, "DebugIntegerRegFile", true))
       debugIntRegfile.io.write.zip(intRf.io.write ++ intRf.io.bypassWrite).foreach({ case (a, b) => a := b })
       debugIntRegfile.io.read.zip(io.debug_int_rat).foreach(e => e._1.addr := e._2)
 
       val fpWriteNum = (fpRf.io.write ++ fpRf.io.bypassWrite).length
-      val debugFpRegfile = Module(new GenericRegFile(NRPhyRegs, fpWriteNum, 0, 32, XLEN, "DebugFloatingRegFile", false))
+      val debugFpRegfile = Module(new GenericRegFile(NRPhyRegs, fpWriteNum, 0, 32, 0, XLEN, "DebugFloatingRegFile", false))
       debugFpRegfile.io.write.zip(fpRf.io.write ++ fpRf.io.bypassWrite).foreach({ case (a, b) => a := b })
       debugFpRegfile.io.read.zip(io.debug_fp_rat).foreach(e => e._1.addr := e._2)
 
