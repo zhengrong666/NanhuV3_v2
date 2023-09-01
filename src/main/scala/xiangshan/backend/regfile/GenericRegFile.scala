@@ -86,7 +86,8 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
     if(hasZero) mem(0) := 0.U
 
     io.read.foreach(r => {
-      val memReadData = Mux1H(UIntToOH(r.addr), mem)
+      val addrOH = mem.indices.map(_.U === r.addr)
+      val memReadData = Mux1H(addrOH, mem)
       if (bypassNum > 0) {
         val bypassHits = io.bypassWrite.map(w => w.en && w.addr === r.addr)
         val bypassData = Mux1H(bypassHits, io.bypassWrite.map(_.data))
@@ -97,7 +98,8 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
       }
     })
     io.readNoBypass.foreach(r => {
-      val memReadData = Mux1H(UIntToOH(r.addr), mem)
+      val addrOH = mem.indices.map(_.U === r.addr)
+      val memReadData = Mux1H(addrOH, mem)
       r.data := memReadData
     })
   }
