@@ -132,14 +132,6 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	rm $@ $(BUILD_DIR)/tmp.v
 	mv $(BUILD_DIR)/tmp1.v $@
 
-ifeq ($(RELEASE),1)
-ifeq ($(VCS), 1)
-	mv $(BUILD_DIR)/$(TOP).sv $(BUILD_DIR)/$(SIM_TOP).sv
-else
-	mv $(BUILD_DIR)/$(TOP).v $(BUILD_DIR)/$(SIM_TOP).v
-endif
-endif
-
 ifneq ($(VCS), 1)
 	mv $(BUILD_DIR)/$(SIM_TOP).v $(SIM_TOP_V)
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $(SIM_TOP_V)
