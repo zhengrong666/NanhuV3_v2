@@ -22,8 +22,10 @@ TOP_V =
 
 ifeq ($(VCS),1)
 TOP_V += $(BUILD_DIR)/$(TOP).sv
+SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).sv
 else
 TOP_V += $(BUILD_DIR)/$(TOP).v
+SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).v
 endif
 
 SCALA_FILE = $(shell find ./src/main/scala -name '*.scala')
@@ -76,11 +78,11 @@ RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
 DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
 
 ifeq ($(VCS),1)
-RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(TOP)
-DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog
+DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog
 else
-RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog --output-file $(TOP)
-DEBUG_ARGS += -E verilog --output-file $(SIM_TOP)
+RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog
+DEBUG_ARGS += -E verilog
 endif
 
 ifeq ($(RELEASE),1)
@@ -98,7 +100,7 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	time -o $(@D)/time.log mill -i XiangShan.runMain $(FPGATOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(RELEASE_ARGS) | tee build/make.log
+		$(RELEASE_ARGS) --output-file $(TOP) | tee build/make.log
 	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@ > $(BUILD_DIR)/tmp.v
 	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
@@ -116,14 +118,13 @@ $(TOP_V): $(SCALA_FILE)
 
 verilog: $(TOP_V)
 
-SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).sv
 $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	mkdir -p $(@D)
 	@echo "\n[mill] Generating Verilog files..." > $(@D)/time.log
 	@date -R | tee -a $(@D)/time.log
 	time -o $(@D)/time.log mill -i XiangShan.test.runMain $(SIMTOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(SIM_ARGS) | tee build/make.log
+		$(SIM_ARGS) --output-file $(SIM_TOP) | tee build/make.log
 	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
   	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@ > $(BUILD_DIR)/tmp.v
 	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
