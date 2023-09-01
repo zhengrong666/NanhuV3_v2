@@ -965,30 +965,30 @@ case class Imm_B6() extends Imm(6){
   }
 }
 
+case class Imm_VI() extends Imm(5) {
+  override def do_toImm32(minBits: UInt): UInt = SignExt(minBits(len - 1, 0), 32)
+  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
+}
+
+case class Imm_VL() extends Imm(5) {
+  override def do_toImm32(minBits: UInt): UInt = SignExt(minBits, 32)
+  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
+}
+
+case class Imm_VS() extends Imm(5) {
+  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
+  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
+}
+
 case class Imm_C() extends Imm(11) {
   override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
 
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(30, 20))
 }
 
-case class Imm_CI() extends Imm(15) {
+case class Imm_CI() extends Imm(16) {
   override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(29, 20), instr(19,15))
-}
-
-case class Imm_I() extends Imm(5) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(minBits(len - 1, 0), 32)
-  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
-}
-
-case class Imm_L() extends Imm(5) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(minBits, 32)
-  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
-}
-
-case class Imm_S() extends Imm(5) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
-  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
 }
 
 object ImmUnion {
@@ -1001,9 +1001,9 @@ object ImmUnion {
   val B6 = Imm_B6()
   val VC = Imm_C()
   val VCI = Imm_CI()
-  val VA = Imm_I()
-  val VL = Imm_L()
-  val VS = Imm_S()
+  val VA = Imm_VI()
+  val VL = Imm_VL()
+  val VS = Imm_VS()
   val imms = Seq(I, S, B, U, J, Z, B6, VC, VCI, VA, VL, VS)
   val maxLen = imms.maxBy(_.len).len
   val immSelMap = Seq(
