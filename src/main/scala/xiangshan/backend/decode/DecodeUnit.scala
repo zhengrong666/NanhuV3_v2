@@ -986,7 +986,7 @@ case class Imm_C() extends Imm(11) {
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(30, 20))
 }
 
-case class Imm_CI() extends Imm(16) {
+case class Imm_CI() extends Imm(15) {
   override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(29, 20), instr(19,15))
 }
