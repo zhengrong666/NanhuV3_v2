@@ -133,7 +133,6 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	mv $(BUILD_DIR)/tmp1.v $@
 
 ifneq ($(VCS), 1)
-	mv $(BUILD_DIR)/$(SIM_TOP).v $(SIM_TOP_V)
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $(SIM_TOP_V)
 endif
 	python3 scripts/assertion_alter.py -o $(SIM_TOP_V) $(SIM_TOP_V)
