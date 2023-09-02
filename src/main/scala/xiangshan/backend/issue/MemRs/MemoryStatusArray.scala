@@ -20,13 +20,14 @@
 package xiangshan.backend.issue.MemRs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import chisel3.experimental.ChiselAnnotation
+import chisel3.experimental.{ChiselAnnotation, prefix}
 import chisel3.util._
 import firrtl.passes.InlineAnnotation
 import xiangshan.backend.issue.{BasicStatusArrayEntry, EarlyWakeUpInfo, SelectInfo, WakeUpInfo}
 import xiangshan.{FuType, Redirect, SrcState, SrcType, XSBundle, XSModule}
 import xs.utils.LogicShiftRight
 import xiangshan.backend.issue.MemRs.EntryState._
+import xiangshan.backend.issue.MemRs.UpdateNetworkHelper.{EarlyWkpToNormalWkp, WakeupLogics}
 import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.SqPtr
 
@@ -88,7 +89,61 @@ class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEnt
   val isCboZero = Bool()
 }
 
-class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit p: Parameters) extends XSModule {
+object UpdateNetworkHelper{
+  //Return (updateValid, newSrcState, newLpvs)
+  def WakeupLogics(valid: Bool, psrc: UInt, srcType: UInt, srcState: UInt, lpvs: Vec[UInt], wkps: Seq[Valid[WakeUpInfo]], maybeReg: Boolean, idx: Int): (Bool, UInt, Vec[UInt]) = {
+    val updateValid = Wire(Bool())
+    val newState = WireInit(srcState)
+    val newLpvs = WireInit(lpvs)
+    prefix(s"wkp_${idx}_") {
+      val wakeUpValid = Wire(Bool())
+      val hitVec = Wire(Vec(wkps.length, Bool()))
+      hitVec.zip(wkps).foreach({ case (hv, wkp) =>
+        if (maybeReg) {
+          hv := wkp.valid && wkp.bits.pdest === psrc && wkp.bits.destType === srcType && !(srcType === SrcType.reg && psrc === 0.U)
+        } else {
+          hv := wkp.valid && wkp.bits.pdest === psrc && wkp.bits.destType === srcType
+        }
+      })
+      val lpvsSel = Mux1H(hitVec, wkps.map(_.bits.lpv))
+      wakeUpValid := hitVec.reduce(_ | _)
+      when(wakeUpValid) {
+        newState := SrcState.rdy
+      }
+      newLpvs.zip(lpvs).zip(lpvsSel).foreach({ case ((nl, ol), wl) =>
+        when(wakeUpValid) {
+          nl := wl
+        }.elsewhen(ol.orR) {
+          nl := LogicShiftRight(ol, 1)
+        }
+        when(valid) {
+          assert(PopCount(nl) <= 1.U)
+        }
+      })
+      updateValid := wakeUpValid || lpvs.map(_.orR).reduce(_ | _)
+      when(valid) {
+        assert(PopCount(hitVec) <= 1.U)
+      }
+    }
+    (updateValid, newState, newLpvs)
+  }
+
+  def EarlyWkpToNormalWkp(in:Vec[Valid[EarlyWakeUpInfo]], p:Parameters):Vec[Valid[WakeUpInfo]] = {
+    val loadUnitNum = in.length
+    val res = Wire(Vec(loadUnitNum, Valid(new WakeUpInfo()(p))))
+    for(((n, e), i) <- res.zip(in).zipWithIndex){
+      n.valid := e.valid
+      n.bits.pdest := e.bits.pdest
+      n.bits.destType := e.bits.destType
+      n.bits.robPtr := e.bits.robPtr
+      n.bits.lpv.foreach(_ := 0.U)
+      n.bits.lpv(i) := e.bits.lpv
+    }
+    res
+  }
+}
+
+class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, regWkpWidth:Int, fpWkpWidth:Int, vecWkpWidth:Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle {
     val entry = Input(Valid(new MemoryStatusArrayEntry))
     val entryNext = Output(Valid(new MemoryStatusArrayEntry))
@@ -96,7 +151,9 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
     val enq = Input(Valid(new MemoryStatusArrayEntry))
     val staLduIssue = Input(Bool())
     val stdIssue = Input(Bool())
-    val wakeup = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
+    val regWakeUps = Input(Vec(regWkpWidth, Valid(new WakeUpInfo)))
+    val fpWakeUps = Input(Vec(fpWkpWidth, Valid(new WakeUpInfo)))
+    val vecWakeUps = Input(Vec(vecWkpWidth, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val stIssued = Input(Vec(stuNum, Valid(new RobPtr)))
@@ -109,22 +166,50 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   private val enqNext = Wire(Valid(new MemoryStatusArrayEntry))
   private val enqUpdateEn = WireInit(false.B)
 
-  //Start of wake up
-  private val pregMatch = (io.entry.bits.psrc :+ io.entry.bits.vm)
-    .zip(io.entry.bits.srcType :+ SrcType.vec)
-    .map(p => (io.wakeup ++ io.loadEarlyWakeup).map(elm =>
-      (elm.bits.pdest === p._1) && elm.valid && p._2 === elm.bits.destType && !(p._1 === 0.U && p._2 === SrcType.reg)
-    ))
-  for ((n, v) <- (miscNext.bits.srcState :+ miscNext.bits.vmState) zip pregMatch) {
-    val shouldUpdateSrcState = Cat(v).orR
-    when(shouldUpdateSrcState) {
-      n := SrcState.rdy
-    }
+  //Start of wake up && LPV update
+  private val earlyWakeUps = EarlyWkpToNormalWkp(io.loadEarlyWakeup, p)
+  private val src0WakeUps = io.regWakeUps ++ earlyWakeUps
+  private val src1WakeUps = io.regWakeUps ++ io.vecWakeUps ++ earlyWakeUps
+  private val src2WakpUps = io.regWakeUps ++ io.fpWakeUps ++ io.vecWakeUps ++ earlyWakeUps
+  private val vmWakpUps = io.vecWakeUps
+
+  private val (src0UpdateValid, src0NewState, src0NewLpvs) = WakeupLogics(
+    io.entry.valid, io.entry.bits.psrc(0),
+    io.entry.bits.srcType(0), io.entry.bits.srcState(0),
+    io.entry.bits.lpv(0), src0WakeUps, true, 0
+  )
+  private val (src1UpdateValid, src1NewState, src1NewLpvs) = WakeupLogics(
+    io.entry.valid, io.entry.bits.psrc(1),
+    io.entry.bits.srcType(1), io.entry.bits.srcState(1),
+    io.entry.bits.lpv(1), src1WakeUps, true, 1
+  )
+  private val (src2UpdateValid, src2NewState, src2NewLpvs) = WakeupLogics(
+    io.entry.valid, io.entry.bits.psrc(2),
+    io.entry.bits.srcType(2), io.entry.bits.srcState(2),
+    io.entry.bits.lpv(2), src2WakpUps, true, 2
+  )
+  private val (vmUpdateValid, vmNewState, _) = WakeupLogics(
+    io.entry.valid, io.entry.bits.vm,
+    SrcType.reg, io.entry.bits.vmState,
+    VecInit(Seq.fill(loadUnitNum)(0.U(LpvLength.W))), vmWakpUps, false, 3
+  )
+  when(src0UpdateValid){
+    miscNext.bits.srcState(0) := src0NewState
+    miscNext.bits.lpv(0) := src0NewLpvs
   }
-  pregMatch.foreach(hv =>{
-    when(io.entry.valid){assert(PopCount(hv) <= 1.U)}
-  })
-  private val miscUpdateEnWakeUp = pregMatch.map(_.reduce(_ | _)).reduce(_ | _)
+  when(src1UpdateValid) {
+    miscNext.bits.srcState(1) := src1NewState
+    miscNext.bits.lpv(1) := src1NewLpvs
+  }
+  when(src2UpdateValid) {
+    miscNext.bits.srcState(2) := src2NewState
+    miscNext.bits.lpv(2) := src2NewLpvs
+  }
+  when(vmUpdateValid) {
+    miscNext.bits.vmState := vmNewState
+  }
+
+  private val miscUpdateEnWakeUp = src0UpdateValid | src1UpdateValid | src2UpdateValid | vmUpdateValid
   //End of wake up
 
   //Start of issue and cancel
@@ -225,26 +310,6 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   }
   //End of dequeue and redirect
 
-  //Start of LPV behaviors
-  private val lpvModified = Wire(Vec(miscNext.bits.lpv.length, Vec(miscNext.bits.lpv.head.length, Bool())))
-  lpvModified.foreach(_.foreach(_ := false.B))
-  for(((((newLpvs, oldLpvs),mod), st), psrc) <- miscNext.bits.lpv.zip(io.entry.bits.lpv).zip(lpvModified).zip(io.entry.bits.srcType).zip(io.entry.bits.psrc)){
-    for(((((nl, ol), ewkp), m),idx) <- newLpvs.zip(oldLpvs).zip(io.loadEarlyWakeup).zip(mod).zipWithIndex){
-      val earlyWakeUpHit = ewkp.valid && ewkp.bits.pdest === psrc && st === ewkp.bits.destType && !(psrc === 0.U && st === SrcType.reg)
-      val regularWakeupHits = io.wakeup.map(wkp => wkp.valid && wkp.bits.pdest === psrc && st === wkp.bits.destType && !(psrc === 0.U && st === SrcType.reg))
-      val regularWakeupLpv = io.wakeup.map(wkp => wkp.bits.lpv(idx))
-      val lpvUpdateHitsVec = regularWakeupHits :+ earlyWakeUpHit
-      val lpvUpdateDataVec = regularWakeupLpv :+ ewkp.bits.lpv
-      val wakeupLpvValid = lpvUpdateHitsVec.reduce(_|_)
-      val wakeupLpvSelected = Mux1H(lpvUpdateHitsVec, lpvUpdateDataVec)
-      nl := Mux(wakeupLpvValid, wakeupLpvSelected, LogicShiftRight(ol,1))
-      m := wakeupLpvValid | ol.orR
-      when(io.entry.valid){assert(PopCount(lpvUpdateHitsVec) === 1.U || PopCount(lpvUpdateHitsVec) === 0.U)}
-    }
-  }
-  private val miscUpdateEnLpvUpdate = lpvModified.map(_.reduce(_|_)).reduce(_|_)
-  //End of LPV behaviors
-
   //Start of Enqueue
   enqNext.bits := io.enq.bits
   private val enqShouldBeSuppressed = io.enq.bits.robIdx.needFlush(io.redirect)
@@ -252,7 +317,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int)(implicit 
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnCancelOrIssue | miscUpdateEnDequeueOrRedirect | miscUpdateEnLpvUpdate | miscStateUpdateEn, enqUpdateEn)
+  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnCancelOrIssue | miscUpdateEnDequeueOrRedirect | miscStateUpdateEn, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 class Replay(entryNum:Int) extends Bundle {
@@ -260,7 +325,7 @@ class Replay(entryNum:Int) extends Bundle {
   val waitVal = UInt(5.W)
 }
 
-class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(implicit p: Parameters) extends XSModule{
+class MemoryStatusArray(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidth:Int, vecWkpWidth:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
 
@@ -277,7 +342,9 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(i
 
     val staLduIssue = Input(Valid(UInt(entryNum.W)))
     val stdIssue = Input(Valid(UInt(entryNum.W)))
-    val wakeup = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
+    val regWakeUps = Input(Vec(regWkpWidth, Valid(new WakeUpInfo)))
+    val fpWakeUps = Input(Vec(fpWkpWidth, Valid(new WakeUpInfo)))
+    val vecWakeUps = Input(Vec(vecWkpWidth, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val replay = Input(Vec(3, Valid(new Replay(entryNum))))
@@ -316,14 +383,16 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, lduNum:Int, wakeupWidth:Int)(i
     .zip(statusArray)
     .zipWithIndex
       ){
-    val updateNetwork = Module(new MemoryStatusArrayEntryUpdateNetwork(stuNum,wakeupWidth))
+    val updateNetwork = Module(new MemoryStatusArrayEntryUpdateNetwork(stuNum, regWkpWidth, fpWkpWidth, vecWkpWidth))
     updateNetwork.io.entry.valid := v
     updateNetwork.io.entry.bits := d
     updateNetwork.io.enq.valid := io.enq.valid & io.enq.bits.addrOH(idx)
     updateNetwork.io.enq.bits := io.enq.bits.data
     updateNetwork.io.staLduIssue := io.staLduIssue.valid && io.staLduIssue.bits(idx)
     updateNetwork.io.stdIssue := io.stdIssue.valid && io.stdIssue.bits(idx)
-    updateNetwork.io.wakeup := io.wakeup
+    updateNetwork.io.regWakeUps := io.regWakeUps
+    updateNetwork.io.fpWakeUps := io.fpWakeUps
+    updateNetwork.io.vecWakeUps := io.vecWakeUps
     updateNetwork.io.loadEarlyWakeup := io.loadEarlyWakeup
     updateNetwork.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 

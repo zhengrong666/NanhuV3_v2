@@ -22,7 +22,7 @@ import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.experimental.prefix
 import chisel3.util._
-import xiangshan.{FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, XSCoreParamsKey}
+import xiangshan.{ExuOutput, FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, XSCoreParamsKey}
 import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.execute.fu.FuConfigs
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
@@ -32,6 +32,22 @@ import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan.mem.SqPtr
+
+object MemRsHelper {
+  def WbToWkp(in:Valid[ExuOutput], p:Parameters):Valid[WakeUpInfo] = {
+    val wkp = Wire(Valid(new WakeUpInfo()(p)))
+    wkp.valid := in.valid
+    wkp.bits.pdest := in.bits.uop.pdest
+    wkp.bits.robPtr := in.bits.uop.robIdx
+    wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
+    wkp.bits.destType := MuxCase(SrcType.default, Seq(
+      in.bits.uop.ctrl.rfWen -> SrcType.reg,
+      in.bits.uop.ctrl.fpWen -> SrcType.fp,
+      in.bits.uop.ctrl.vdWen -> SrcType.vec
+    ))
+    wkp
+  }
+}
 
 class MemoryReservationStation(implicit p: Parameters) extends LazyModule{
   private val entryNum = p(XSCoreParamsKey).memRsDepth
@@ -89,19 +105,10 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
 
-  private val wakeupSignals = VecInit(wakeup.map(_._1).map(elm =>{
-    val wkp = Wire(Valid(new WakeUpInfo))
-    wkp.valid := elm.valid
-    wkp.bits.pdest := elm.bits.uop.pdest
-    wkp.bits.robPtr := elm.bits.uop.robIdx
-    wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
-    wkp.bits.destType := MuxCase(SrcType.default, Seq(
-      elm.bits.uop.ctrl.rfWen -> SrcType.reg,
-      elm.bits.uop.ctrl.fpWen -> SrcType.fp,
-      elm.bits.uop.ctrl.vdWen -> SrcType.vec
-    ))
-    wkp
-  }))
+  private val regWkpIns = wakeup.filter(_._2.writeIntRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+  private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+  private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+
   private val aluJmpSpecWakeup = Wire(Vec(io.aluJmpSpecWakeup.length, Valid(new WakeUpInfo)))
   aluJmpSpecWakeup.zip(io.aluJmpSpecWakeup).foreach({case(a, b) =>
     val flush = b.bits.robPtr.needFlush(io.redirect)
@@ -113,10 +120,15 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
   private val stIssuedWires = Wire(Vec(staIssuePortNum, Valid(new RobPtr)))
 
+  private val regWkpWidth = regWkpIns.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length
+  private val fpWkpWidth = fpWkpIns.length + io.mulSpecWakeup.length
+  private val vecWkpWidth = vecWkpIns.length
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, lduIssuePortNum, (wakeupSignals ++ io.mulSpecWakeup ++ aluJmpSpecWakeup).length))
+    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, regWkpWidth, fpWkpWidth, vecWkpWidth))
     mod.io.redirect := io.redirect
-    mod.io.wakeup := wakeupSignals ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
+    mod.io.regWakeUps := regWkpIns ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
+    mod.io.fpWakeUps := fpWkpIns ++ io.mulSpecWakeup
+    mod.io.vecWakeUps := vecWkpIns
     mod.io.loadEarlyWakeup := io.loadEarlyWakeup
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod.io.stIssued := stIssuedWires
@@ -125,24 +137,21 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   })
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("MemoryAllocateNetwork")))
 
-  private val wakeupFp = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeFpRf).map(_._1)
-  private val wakeupInt = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeIntRf).map(_._1)
-  private val wakeupVec = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeVecRf).map(_._1)
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, (wakeupFp ++ io.mulSpecWakeup).length, RenameWidth))
+  private val floatingBusyTable = Module(new BusyTable(param.bankNum, (fpWkpIns ++ io.mulSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
-  floatingBusyTable.io.wbPregs.zip(wakeupFp ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(fpWkpIns ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, wakeupInt.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length, RenameWidth))
+  private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, regWkpIns.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.integerAllocPregs
-  integerBusyTable.io.wbPregs.zip(wakeupInt ++ aluJmpSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+  integerBusyTable.io.wbPregs.zip(regWkpIns ++ aluJmpSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
-  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 3, wakeupVec.length + io.mulSpecWakeup.length, coreParams.vectorParameters.vRenameWidth))
+  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 3, vecWkpIns.length + io.mulSpecWakeup.length, coreParams.vectorParameters.vRenameWidth))
   vectorBusyTable.io.allocPregs := io.vectorAllocPregs
-  vectorBusyTable.io.wbPregs.zip(wakeupVec ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+  vectorBusyTable.io.wbPregs.zip(vecWkpIns ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec
     bt.bits := wb.bits.pdest
   })
