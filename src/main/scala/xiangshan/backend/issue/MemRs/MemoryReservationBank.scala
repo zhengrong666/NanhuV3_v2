@@ -29,7 +29,7 @@ import xiangshan.backend.issue.{EarlyWakeUpInfo, WakeUpInfo}
 import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.SqPtr
 
-class MemoryReservationBank(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidth:Int, vecWkpWidth:Int)(implicit p: Parameters) extends Module{
+class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq[Int], fpWkpIdx:Seq[Int], vecWkpIdx:Seq[Int])(implicit p: Parameters) extends Module{
   private val loadUnitNum = p(XSCoreParamsKey).exuParameters.LduCnt
   val io = IO(new Bundle {
     val redirect = Input(Valid(new Redirect))
@@ -57,15 +57,13 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidt
     val stIssued = Input(Vec(stuNum, Valid(new RobPtr)))
     val stLastCompelet = Input(new SqPtr)
 
-    val regWakeUps = Input(Vec(regWkpWidth, Valid(new WakeUpInfo)))
-    val fpWakeUps = Input(Vec(fpWkpWidth, Valid(new WakeUpInfo)))
-    val vecWakeUps = Input(Vec(vecWkpWidth, Valid(new WakeUpInfo)))
+    val wakeups = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
   })
 
 
-  private val statusArray = Module(new MemoryStatusArray(entryNum, stuNum, regWkpWidth, fpWkpWidth, vecWkpWidth))
+  private val statusArray = Module(new MemoryStatusArray(entryNum, stuNum, wakeupWidth, regWkpIdx, fpWkpIdx, vecWkpIdx))
   private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, 3, "MemoryPayloadArray"))
 
   private def EnqToEntry(in: MicroOp): MemoryStatusArrayEntry = {
@@ -137,9 +135,7 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidt
   statusArray.io.stdIssue.bits := io.stdIssue.bits
   statusArray.io.replay := io.replay
   statusArray.io.stIssued.zip(io.stIssued).foreach({case(a, b) => a := Pipe(b)})
-  statusArray.io.regWakeUps := io.regWakeUps
-  statusArray.io.fpWakeUps := io.fpWakeUps
-  statusArray.io.vecWakeUps := io.vecWakeUps
+  statusArray.io.wakeups := io.wakeups
   statusArray.io.loadEarlyWakeup := io.loadEarlyWakeup
   statusArray.io.earlyWakeUpCancel := io.earlyWakeUpCancel
   statusArray.io.stLastCompelet := io.stLastCompelet

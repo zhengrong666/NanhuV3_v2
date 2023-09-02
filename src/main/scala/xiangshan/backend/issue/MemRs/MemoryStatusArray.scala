@@ -95,7 +95,7 @@ object UpdateNetworkHelper{
     val updateValid = Wire(Bool())
     val newState = WireInit(srcState)
     val newLpvs = WireInit(lpvs)
-    prefix(s"wkp_${idx}_") {
+    prefix(s"wkp_${idx}") {
       val wakeUpValid = Wire(Bool())
       val hitVec = Wire(Vec(wkps.length, Bool()))
       hitVec.zip(wkps).foreach({ case (hv, wkp) =>
@@ -116,14 +116,10 @@ object UpdateNetworkHelper{
         }.elsewhen(ol.orR) {
           nl := LogicShiftRight(ol, 1)
         }
-        when(valid) {
-          assert(PopCount(nl) <= 1.U)
-        }
+        when(valid) {assert(PopCount(nl) <= 1.U, s"psrc${idx}: LPV should only be ont-bit valid")}
       })
       updateValid := wakeUpValid || lpvs.map(_.orR).reduce(_ | _)
-      when(valid) {
-        assert(PopCount(hitVec) <= 1.U)
-      }
+      when(valid) {assert(PopCount(hitVec) <= 1.U, s"psrc${idx}: Multiple wake-ups hit!")}
     }
     (updateValid, newState, newLpvs)
   }
@@ -143,7 +139,7 @@ object UpdateNetworkHelper{
   }
 }
 
-class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, regWkpWidth:Int, fpWkpWidth:Int, vecWkpWidth:Int)(implicit p: Parameters) extends XSModule {
+class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq[Int], fpWkpIdx:Seq[Int], vecWkpIdx:Seq[Int])(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle {
     val entry = Input(Valid(new MemoryStatusArrayEntry))
     val entryNext = Output(Valid(new MemoryStatusArrayEntry))
@@ -151,9 +147,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, regWkpWidth:Int, fpWkpWidt
     val enq = Input(Valid(new MemoryStatusArrayEntry))
     val staLduIssue = Input(Bool())
     val stdIssue = Input(Bool())
-    val regWakeUps = Input(Vec(regWkpWidth, Valid(new WakeUpInfo)))
-    val fpWakeUps = Input(Vec(fpWkpWidth, Valid(new WakeUpInfo)))
-    val vecWakeUps = Input(Vec(vecWkpWidth, Valid(new WakeUpInfo)))
+    val wakeups = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val stIssued = Input(Vec(stuNum, Valid(new RobPtr)))
@@ -161,17 +155,18 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, regWkpWidth:Int, fpWkpWidt
     val redirect = Input(Valid(new Redirect))
     val stLastCompelet = Input(new SqPtr)
   })
-
+  require((regWkpIdx ++ fpWkpIdx ++ vecWkpIdx).distinct.length == wakeupWidth)
+  require((regWkpIdx ++ fpWkpIdx ++ vecWkpIdx).distinct.max == wakeupWidth - 1)
   private val miscNext = WireInit(io.entry)
   private val enqNext = Wire(Valid(new MemoryStatusArrayEntry))
   private val enqUpdateEn = WireInit(false.B)
 
   //Start of wake up && LPV update
   private val earlyWakeUps = EarlyWkpToNormalWkp(io.loadEarlyWakeup, p)
-  private val src0WakeUps = io.regWakeUps ++ earlyWakeUps
-  private val src1WakeUps = io.regWakeUps ++ io.vecWakeUps ++ earlyWakeUps
-  private val src2WakpUps = io.regWakeUps ++ io.fpWakeUps ++ io.vecWakeUps ++ earlyWakeUps
-  private val vmWakpUps = io.vecWakeUps
+  private val src0WakeUps = regWkpIdx.map(io.wakeups(_)) ++ earlyWakeUps
+  private val src1WakeUps = (regWkpIdx ++ vecWkpIdx).distinct.map(io.wakeups(_)) ++ earlyWakeUps
+  private val src2WakpUps = (regWkpIdx ++ fpWkpIdx ++ vecWkpIdx).distinct.map(io.wakeups(_)) ++ earlyWakeUps
+  private val vmWakpUps = vecWkpIdx.map(io.wakeups(_))
 
   private val (src0UpdateValid, src0NewState, src0NewLpvs) = WakeupLogics(
     io.entry.valid, io.entry.bits.psrc(0),
@@ -325,7 +320,7 @@ class Replay(entryNum:Int) extends Bundle {
   val waitVal = UInt(5.W)
 }
 
-class MemoryStatusArray(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidth:Int, vecWkpWidth:Int)(implicit p: Parameters) extends XSModule{
+class MemoryStatusArray(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq[Int], fpWkpIdx:Seq[Int], vecWkpIdx:Seq[Int])(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
 
@@ -342,9 +337,7 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidth:In
 
     val staLduIssue = Input(Valid(UInt(entryNum.W)))
     val stdIssue = Input(Valid(UInt(entryNum.W)))
-    val regWakeUps = Input(Vec(regWkpWidth, Valid(new WakeUpInfo)))
-    val fpWakeUps = Input(Vec(fpWkpWidth, Valid(new WakeUpInfo)))
-    val vecWakeUps = Input(Vec(vecWkpWidth, Valid(new WakeUpInfo)))
+    val wakeups = Input(Vec(wakeupWidth, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val replay = Input(Vec(3, Valid(new Replay(entryNum))))
@@ -383,16 +376,14 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, regWkpWidth:Int, fpWkpWidth:In
     .zip(statusArray)
     .zipWithIndex
       ){
-    val updateNetwork = Module(new MemoryStatusArrayEntryUpdateNetwork(stuNum, regWkpWidth, fpWkpWidth, vecWkpWidth))
+    val updateNetwork = Module(new MemoryStatusArrayEntryUpdateNetwork(stuNum, wakeupWidth, regWkpIdx, fpWkpIdx, vecWkpIdx))
     updateNetwork.io.entry.valid := v
     updateNetwork.io.entry.bits := d
     updateNetwork.io.enq.valid := io.enq.valid & io.enq.bits.addrOH(idx)
     updateNetwork.io.enq.bits := io.enq.bits.data
     updateNetwork.io.staLduIssue := io.staLduIssue.valid && io.staLduIssue.bits(idx)
     updateNetwork.io.stdIssue := io.stdIssue.valid && io.stdIssue.bits(idx)
-    updateNetwork.io.regWakeUps := io.regWakeUps
-    updateNetwork.io.fpWakeUps := io.fpWakeUps
-    updateNetwork.io.vecWakeUps := io.vecWakeUps
+    updateNetwork.io.wakeups := io.wakeups
     updateNetwork.io.loadEarlyWakeup := io.loadEarlyWakeup
     updateNetwork.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 

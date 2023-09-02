@@ -105,10 +105,6 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
 
-  private val regWkpIns = wakeup.filter(_._2.writeIntRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
-  private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
-  private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
-
   private val aluJmpSpecWakeup = Wire(Vec(io.aluJmpSpecWakeup.length, Valid(new WakeUpInfo)))
   aluJmpSpecWakeup.zip(io.aluJmpSpecWakeup).foreach({case(a, b) =>
     val flush = b.bits.robPtr.needFlush(io.redirect)
@@ -118,17 +114,20 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     a.bits.lpv.foreach(_ := 0.U)
   })
 
+  private val allWkpIns = wakeup.map(w => (MemRsHelper.WbToWkp(w._1, p), w._2))
+  private val wkpToRsBank = allWkpIns.map(_._1) ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
+  private val specWkpLen = (io.mulSpecWakeup ++ aluJmpSpecWakeup).length
+  private val wbWkpLen = allWkpIns.length
+  private val regWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeIntRf).map(_._2) ++ Seq.tabulate(specWkpLen)(_ + wbWkpLen)
+  private val fpWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeFpRf).map(_._2) ++ Seq.tabulate(io.mulSpecWakeup.length)(_ + wbWkpLen)
+  private val vecWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeVecRf).map(_._2)
+
   private val stIssuedWires = Wire(Vec(staIssuePortNum, Valid(new RobPtr)))
 
-  private val regWkpWidth = regWkpIns.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length
-  private val fpWkpWidth = fpWkpIns.length + io.mulSpecWakeup.length
-  private val vecWkpWidth = vecWkpIns.length
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, regWkpWidth, fpWkpWidth, vecWkpWidth))
+    val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, wkpToRsBank.length, regWkpIdx, fpWkpIdx, vecWkpIdx))
     mod.io.redirect := io.redirect
-    mod.io.regWakeUps := regWkpIns ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
-    mod.io.fpWakeUps := fpWkpIns ++ io.mulSpecWakeup
-    mod.io.vecWakeUps := vecWkpIns
+    mod.io.wakeups := wkpToRsBank
     mod.io.loadEarlyWakeup := io.loadEarlyWakeup
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod.io.stIssued := stIssuedWires
@@ -136,6 +135,10 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     mod
   })
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("MemoryAllocateNetwork")))
+
+  private val regWkpIns = wakeup.filter(_._2.writeIntRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+  private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+  private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
 
   private val floatingBusyTable = Module(new BusyTable(param.bankNum, (fpWkpIns ++ io.mulSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
