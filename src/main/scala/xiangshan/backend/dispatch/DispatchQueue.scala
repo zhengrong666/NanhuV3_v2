@@ -48,7 +48,7 @@ class DispatchQueuePayload(entryNum:Int, enqNum:Int, deqNum:Int)(implicit p: Par
       val data: MicroOp = new MicroOp
     }))
     val r = Vec(deqNum, new Bundle{
-      val addrOH: UInt = Input(UInt(entryNum.W))
+      val addr: UInt = Input(UInt(entryNum.W))
       val data: MicroOp = Output(new MicroOp)
     })
     val redirect: Valid[Redirect] = Input(Valid(new Redirect))
@@ -66,7 +66,8 @@ class DispatchQueuePayload(entryNum:Int, enqNum:Int, deqNum:Int)(implicit p: Par
   }
 
   for(r <- io.r){
-    r.data := Mux1H(r.addrOH, array)
+    val rSel = array.indices.map(_.U === r.addr)
+    r.data := Mux1H(rSel, array)
   }
 
   private val redirectHits = array.map(_.robIdx.needFlush(io.redirect))
@@ -87,24 +88,6 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val emptyEntriesNum = size.U - validEntriesNum
   io.dqFull := validEntriesNum === size.U
 
-  private def SqueezeEnqueue(in:Vec[Valid[MicroOp]]):Vec[Valid[MicroOp]] = {
-    val validMatrix = Wire(Vec(in.length + 1, Vec(in.length, Bool())))
-    validMatrix.head.zip(in.map(_.valid)).foreach({case(a, b) => a := b})
-    val dst = Wire(Vec(in.length, Valid(new MicroOp)))
-    dst.zipWithIndex.foreach({case(o, idx) =>
-      val validVec = validMatrix(idx).drop(idx)
-      val selOH = ParallelPriorityMux(validVec, validVec.indices.map(i => (1 << (i + idx)).U(in.length.W)))
-      validMatrix(idx + 1).zip(validMatrix(idx)).zip(selOH.asBools).foreach({ case ((n, p), s) =>
-        n := p && (!s)
-      })
-      o.valid := validVec.reduce(_|_)
-      o.bits := Mux1H(selOH, in.map(_.bits))
-    })
-    dst
-  }
-  //Make sure there is no bubble in enqueue data.
-  private val squeezedEnqs = SqueezeEnqueue(io.enq.req)
-
   payloadArray.io.redirect := io.redirect
   private val enqMask = UIntToMask(enqPtrAux.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
@@ -114,10 +97,20 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val flushNum = PopCount(redirectMask)
 
   io.enq.canAccept := (PopCount(io.enq.needAlloc) < emptyEntriesNum) && !io.redirect.valid
+
+  private val enqAddrDelta = Wire(Vec(enqNum, UInt(log2Ceil(enqNum).W)))
+  for((e,i) <- enqAddrDelta.zipWithIndex){
+    if(i == 0) {
+      e := 0.U
+    } else {
+      e := PopCount(io.enq.needAlloc.take(i))
+    }
+  }
+
   for(idx <- 0 until enqNum){
-    payloadArray.io.w(idx).en := squeezedEnqs(idx).valid && io.enq.canAccept
-    payloadArray.io.w(idx).addr := (enqPtr + idx.U).value
-    payloadArray.io.w(idx).data := squeezedEnqs(idx).bits
+    payloadArray.io.w(idx).en := io.enq.req(idx).valid && io.enq.canAccept
+    payloadArray.io.w(idx).addr := (enqPtr + enqAddrDelta(idx)).value
+    payloadArray.io.w(idx).data := io.enq.req(idx).bits
   }
   private val actualEnqNum = Mux(io.enq.canAccept, PopCount(io.enq.req.map(_.valid)), 0.U)
   when(io.redirect.valid){
@@ -130,7 +123,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   io.deq.zipWithIndex.foreach({case(deq, idx) =>
     deq.valid := ((deqPtr + idx.U) < enqPtrAux) && !io.redirect.valid
-    payloadArray.io.r(idx).addrOH := UIntToOH((deqPtr + idx.U).value)
+    payloadArray.io.r(idx).addr := (deqPtr + idx.U).value
     deq.bits := payloadArray.io.r(idx).data
   })
   private val actualDeqNum = PopCount(io.deq.map(_.fire))
@@ -140,13 +133,6 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   assert(deqPtr <= enqPtrAux)
   assert(actualEnqNum <= emptyEntriesNum)
-  when(io.enq.canAccept){assert(PopCount(squeezedEnqs.map(_.valid)) === actualEnqNum)}
-  for(i <- io.enq.req.indices){
-    when(io.enq.canAccept){assert(Mux(i.U < actualEnqNum, squeezedEnqs(i).valid === true.B, squeezedEnqs(i).valid === false.B))}
-  }
-  for(i <- 1 until squeezedEnqs.length){
-    when(squeezedEnqs(i).valid){assert(squeezedEnqs(i).bits.robIdx >= squeezedEnqs(i - 1).bits.robIdx)}
-  }
   assert(flushNum <= validEntriesNum)
   private val enqFlushNextMask = UIntToMask((enqPtr - flushNum).value, size)
   private val flushXorPresentMask = enqFlushNextMask ^ enqMask
