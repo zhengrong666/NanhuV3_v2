@@ -34,6 +34,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     val enq = new NewWqEnqIO
     val out = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
   })
+  private class WqPtr extends CircularQueuePtr[WqPtr](VIWaitQueueWidth)
   private val deqPtr = RegInit(0.U.asTypeOf(new WqPtr))
   private val enqPtr = RegInit(0.U.asTypeOf(new WqPtr))
   private val mergePtr = RegInit(0.U.asTypeOf(new WqPtr))
@@ -43,8 +44,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIWaitQueueWidth.U - validEntriesNum
 
-  private val enqMask = UIntToMask(enqPtr.value, VIVtypeRegsNum)
-  private val deqMask = UIntToMask(deqPtr.value, VIVtypeRegsNum)
+  private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
+  private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
   private val enqXorDeq = enqMask ^ deqMask
   private val validMask = Mux(deqPtr.value <= enqPtr.value, enqXorDeq, (~enqXorDeq).asUInt)
   private val redirectMask = validMask & table.io.flushMask
