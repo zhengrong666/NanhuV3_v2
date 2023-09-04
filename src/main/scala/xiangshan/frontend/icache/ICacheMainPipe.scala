@@ -482,8 +482,8 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
   /** exception and pmp logic **/
   //PMP Result
   val pmpExcpAF = Wire(Vec(PortNumber, Bool()))
-  pmpExcpAF(0)  := RegEnable(fromPMP(0).instr, s1_fire)
-  pmpExcpAF(1)  := RegEnable(fromPMP(1).instr && s2_double_line, s1_fire)
+  pmpExcpAF(0)  := RegNext(fromPMP(0).instr)
+  pmpExcpAF(1)  := RegNext(fromPMP(1).instr && s2_double_line)
   //exception information
   //short delay exception signal
   val s2_except_pf        = RegEnable(tlbExcpPF, s1_fire)
@@ -495,7 +495,7 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
   val s2_except    = VecInit((0 until 2).map{i => s2_except_pf(i) || s2_except_tlb_af(i)})
   val s2_has_except = s2_valid && (s2_except_tlb_af.reduce(_||_) || s2_except_pf.reduce(_||_))
   //MMIO
-  val s2_mmio      = DataHoldBypass(RegEnable(io.pmp(0).resp.mmio, s1_fire) && !s2_except_tlb_af(0) && !s2_except_pmp_af(0) && !s2_except_pf(0), RegNext(s1_fire)).asBool() && s2_valid
+  val s2_mmio      = DataHoldBypass(io.pmp(0).resp.mmio && !s2_except_tlb_af(0) && !s2_except_pmp_af(0) && !s2_except_pf(0), RegNext(s1_fire)).asBool() && s2_valid
 
   /*** cacheline miss logic ***/
   val wait_idle :: wait_queue_ready :: wait_send_req  :: wait_two_resp :: wait_0_resp :: wait_1_resp :: wait_one_resp ::wait_finish :: wait_pmp_except :: Nil = Enum(9)
