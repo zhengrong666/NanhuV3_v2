@@ -53,6 +53,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val fpRenamePorts   = Vec(RenameWidth, Output(new RatWritePort))
     // to dispatch1
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
+    val allowOut = Vec(RenameWidth,Output(Bool()))
     // to vector
     val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
     val vcsrio  = Flipped(new VCSRWithVtypeRenameIO)
@@ -66,7 +67,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
   vtyperename.io.redirect := io.redirect
   vtyperename.io.robCommits := io.robCommits
   io.toVCtl := vtyperename.io.toVCtl
-
   // decide if given instruction needs allocating a new physical register (CfCtrl: from decode; RobCommitInfo: from rob)
   def needDestReg[T <: CfCtrl](fp: Boolean, x: T): Bool = {
       if(fp) x.ctrl.fpWen
@@ -195,7 +195,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept && io.allowIn
     io.out(i).bits  := uops(i)
-
+    io.allowOut(i) := io.in(i).valid
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
       io.out(i).bits.ctrl.imm := Cat(io.in(i).bits.ctrl.lsrc(1), io.in(i).bits.ctrl.lsrc(0))
