@@ -1,17 +1,17 @@
-/***************************************************************************************
+/** *************************************************************************************
  * Copyright (c) 2020-2023 Institute of Computing Technology, Chinese Academy of Sciences
  *
  * XiangShan is licensed under Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *          http://license.coscl.org.cn/MulanPSL2
+ * http://license.coscl.org.cn/MulanPSL2
  *
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
  * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
  * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
  *
  * See the Mulan PSL v2 for more details.
- ***************************************************************************************/
+ * ************************************************************************************* */
 
 /*--------------------------------------------------------------------------------------
     Author: GMX
@@ -35,64 +35,73 @@ import xiangshan.backend.dispatch.DispatchQueue
 import xiangshan.backend.dispatch.MemDispatch2Rs
 
 class VectorDispatchReq(implicit p: Parameters) extends VectorBaseBundle {
-    val canDispatch = Output(Bool())
-    val uop         = Vec(VIRenameWidth, Flipped(ValidIO(new MicroOp)))
+  val canDispatch = Output(Bool())
+  val uop = Vec(VIRenameWidth, Flipped(ValidIO(new MicroOp)))
 }
 
 class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(implicit p: Parameters) extends VectorBaseModule {
-    val io = IO(new Bundle {
-        //req, from Rename
-        val req = new VectorDispatchReq
-        //dispatch port, connect with RS
-        val toVectorCommonRS    = Vec(vecDeqNum, DecoupledIO(new MicroOp))
-        val toVectorPermuRS     = Vec(vpDeqNum, DecoupledIO(new MicroOp))
-        val toMem2RS            = Vec(memDeqNum, DecoupledIO(new MicroOp))
-        
-        val redirect = Flipped(ValidIO(new Redirect))
-    })
+  val io = IO(new Bundle {
+    //req, from Rename
+    val req = new VectorDispatchReq
+    //dispatch port, connect with RS
+    val toVectorCommonRS = Vec(vecDeqNum, DecoupledIO(new MicroOp))
+    val toVectorPermuRS = Vec(vpDeqNum, DecoupledIO(new MicroOp))
+    val toMem2RS = Vec(memDeqNum, DecoupledIO(new MicroOp))
 
-    val dispatchNetwork = Module(new VectorDispatchNetwork)
-    //TODO: RS Input Width align
-    val dqCommon    = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, vecDeqNum))
-    val dqPermu     = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, vpDeqNum))
-    val dqMem       = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, memDeqNum))
+    val redirect = Flipped(ValidIO(new Redirect))
+  })
 
-    //dispatch
-    for((dpNetPort, req) <- dispatchNetwork.io.fromRename.zip(io.req.uop)) {
-        dpNetPort.bits := req.bits
-        dpNetPort.valid := req.valid   
-    }
+  val dispatchNetwork = Module(new VectorDispatchNetwork)
+  //TODO: RS Input Width align
+  val dqCommon = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, vecDeqNum))
+  val dqPermu = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, vpDeqNum))
+  val dqMem = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, memDeqNum))
+  private val renameQueue = Module(new DispatchQueue(VIRenameWidth * 2, VIRenameWidth, VIRenameWidth))
 
-    //handshake
-    val dqCommonCanAccept   = dqCommon.io.enq.canAccept
-    val dqPermuCanAccept    = dqPermu.io.enq.canAccept
-    val dqMemCanAccept      = dqMem.io.enq.canAccept
+  for(idx <- 0 until VIRenameWidth){
+    renameQueue.io.enq.needAlloc(idx) := io.req.uop(idx).valid
+    renameQueue.io.enq.req(idx) := io.req.uop(idx)
+  }
+  io.req.canDispatch := renameQueue.io.enq.canAccept
 
-    io.req.canDispatch := dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept
 
-    val dqCommonMask    = dispatchNetwork.io.commonMask.asBools
-    val dqPermuMask     = dispatchNetwork.io.permutationMask.asBools
-    val dqMemMask       = dispatchNetwork.io.memMask.asBools
+  //dispatch
+  for ((dpNetPort, req) <- dispatchNetwork.io.fromRename.zip(renameQueue.io.deq)) {
+    dpNetPort.bits := req.bits
+    dpNetPort.valid := req.valid
+  }
 
-    dqCommon.io.enq.needAlloc   := dqCommonMask
-    dqPermu.io.enq.needAlloc    := dqPermuMask
-    dqMem.io.enq.needAlloc      := dqMemMask
+  //handshake
+  val dqCommonCanAccept = dqCommon.io.enq.canAccept
+  val dqPermuCanAccept = dqPermu.io.enq.canAccept
+  val dqMemCanAccept = dqMem.io.enq.canAccept
 
-    dqCommon.io.redirect <> io.redirect
-    dqPermu.io.redirect <> io.redirect
-    dqMem.io.redirect <> io.redirect
+  renameQueue.io.deq.foreach(_.ready := dqCommonCanAccept & dqPermuCanAccept & dqMemCanAccept)
 
-    for((uop, i) <- io.req.uop.zipWithIndex) {
-        dqCommon.io.enq.req(i).bits := uop.bits
-        dqMem.io.enq.req(i).bits    := uop.bits
-        dqPermu.io.enq.req(i).bits  := uop.bits
-        
-        dqCommon.io.enq.req(i).valid    := dqCommonMask(i)
-        dqMem.io.enq.req(i).valid       := dqMemMask(i)
-        dqPermu.io.enq.req(i).valid     := dqPermuMask(i)
-    }
+  val dqCommonMask = dispatchNetwork.io.commonMask.asBools
+  val dqPermuMask = dispatchNetwork.io.permutationMask.asBools
+  val dqMemMask = dispatchNetwork.io.memMask.asBools
 
-    io.toVectorCommonRS <> dqCommon.io.deq
-    io.toVectorPermuRS  <> dqPermu.io.deq
-    io.toMem2RS         <> dqMem.io.deq
+  dqCommon.io.enq.needAlloc := dqCommonMask
+  dqPermu.io.enq.needAlloc := dqPermuMask
+  dqMem.io.enq.needAlloc := dqMemMask
+
+  dqCommon.io.redirect := io.redirect
+  dqPermu.io.redirect := io.redirect
+  dqMem.io.redirect := io.redirect
+  renameQueue.io.redirect := io.redirect
+
+  for ((uop, i) <- renameQueue.io.deq.zipWithIndex) {
+    dqCommon.io.enq.req(i).bits := uop.bits
+    dqMem.io.enq.req(i).bits := uop.bits
+    dqPermu.io.enq.req(i).bits := uop.bits
+
+    dqCommon.io.enq.req(i).valid := dqCommonMask(i) && dqPermuCanAccept && dqMemCanAccept
+    dqMem.io.enq.req(i).valid := dqMemMask(i) && dqPermuCanAccept && dqCommonCanAccept
+    dqPermu.io.enq.req(i).valid := dqPermuMask(i) && dqMemCanAccept && dqCommonCanAccept
+  }
+
+  io.toVectorCommonRS <> dqCommon.io.deq
+  io.toVectorPermuRS <> dqPermu.io.deq
+  io.toMem2RS <> dqMem.io.deq
 }
