@@ -308,9 +308,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     pipelineDq.io.enq.needAlloc(i) := rename.io.allowOut(i)
     rename.io.out(i).ready := pipelineDq.io.enq.canAccept
 
-    pipelineDq.io.deq(i).ready := dispatch.io.recv(i)
-    dispatch.io.fromRename(i).valid := pipelineDq.io.deq(i).valid
-    dispatch.io.fromRename(i).bits := pipelineDq.io.deq(i).bits
+    dispatch.io.fromRename(i) <> pipelineDq.io.deq(i)
   }
 
 
