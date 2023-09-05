@@ -663,7 +663,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   assert(load_s2.io.in.ready)
 
   // feedback bank conflict / ld-vio check struct hazard to rs
-  io.feedbackFast.bits := RegEnable(load_s1.io.rsFeedback.bits, load_s1.io.rsFeedback.valid && !load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect))
+  io.feedbackFast.bits := RegNext(load_s1.io.rsFeedback.bits)   //remove clock-gating for timing
   io.feedbackFast.valid := RegNext(load_s1.io.rsFeedback.valid && !load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect), false.B)
 
   // pre-calcuate sqIdx mask in s0, then send it to lsq in s1 for forwarding
@@ -809,7 +809,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   io.fastpathOut.data := s3_loadDataFromDcache.mergedData() // fastpath is for ld only
 
   // feedback tlb miss / dcache miss queue full
-  io.feedbackSlow.bits := RegEnable(load_s2.io.rsFeedback.bits, load_s2.io.rsFeedback.valid && !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect))
+  io.feedbackSlow.bits := RegNext(load_s2.io.rsFeedback.bits) //remove clock-gating for timing
   io.feedbackSlow.valid := RegNext(load_s2.io.rsFeedback.valid && !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect), false.B)
   // If replay is reported at load_s1, inst will be canceled (will not enter load_s2),
   // in that case:

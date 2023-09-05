@@ -564,12 +564,13 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.uncache.req.bits.data := dataModule.io.rdata(0).data
   io.uncache.req.bits.mask := dataModule.io.rdata(0).mask
 
-  io.dcacheReqResp.req.valid := (mmio_order_state === s_req_mmio) && (uop(deqPtr).ctrl.isOrder)
+  val dcacheReq_valid = mmio_order_state === s_req_mmio && uop(deqPtr).ctrl.isOrder
+  io.dcacheReqResp.req.valid := RegNext(dcacheReq_valid)
   io.dcacheReqResp.req.bits := DontCare
-  io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XWR
-  io.dcacheReqResp.req.bits.addr := v_pAddrModule.io.rdata_p(0)
-  io.dcacheReqResp.req.bits.data := dataModule.io.rdata(0).data
-  io.dcacheReqResp.req.bits.mask := dataModule.io.rdata(0).mask
+  io.dcacheReqResp.req.bits.cmd  := RegEnable(MemoryOpConstants.M_XWR,dcacheReq_valid)
+  io.dcacheReqResp.req.bits.addr := RegEnable(v_pAddrModule.io.rdata_p(0),dcacheReq_valid)
+  io.dcacheReqResp.req.bits.data := RegEnable(dataModule.io.rdata(0).data,dcacheReq_valid)
+  io.dcacheReqResp.req.bits.mask := RegEnable(dataModule.io.rdata(0).mask,dcacheReq_valid)
 
   // CBO op type check can be delayed for 1 cycle,
   // as uncache op will not start in s_idle
