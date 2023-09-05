@@ -663,7 +663,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   assert(load_s2.io.in.ready)
 
   // feedback bank conflict / ld-vio check struct hazard to rs
-  io.feedbackFast.bits := RegEnable(load_s1.io.rsFeedback.bits, load_s1.io.rsFeedback.valid && !load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect))
+  io.feedbackFast.bits := RegNext(load_s1.io.rsFeedback.bits)   //remove clock-gating for timing
   io.feedbackFast.valid := RegNext(load_s1.io.rsFeedback.valid && !load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect), false.B)
 
   // pre-calcuate sqIdx mask in s0, then send it to lsq in s1 for forwarding
