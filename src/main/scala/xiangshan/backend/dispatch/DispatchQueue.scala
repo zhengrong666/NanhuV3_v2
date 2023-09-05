@@ -140,7 +140,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   when(io.redirect.valid){assert(enqRollbackMask === redirectMask, "Redirect mask should be continuous.")}
   private val readyNum = PopCount(io.deq.map(_.ready))
   for (i <- 1 until io.deq.length) {
-    assert(Mux(i.U < readyNum, io.deq(i).ready === true.B, io.deq(i).ready === false.B))
+    when(PopCount(io.deq.map(_.valid)) > 0.U) {assert(Mux(i.U < readyNum, io.deq(i).ready === true.B, io.deq(i).ready === false.B))}
   }
 
   XSPerfHistogram("valid_entries_num", validEntriesNum, true.B, 0, size, size / 4)
