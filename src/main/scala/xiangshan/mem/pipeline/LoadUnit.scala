@@ -809,7 +809,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   io.fastpathOut.data := s3_loadDataFromDcache.mergedData() // fastpath is for ld only
 
   // feedback tlb miss / dcache miss queue full
-  io.feedbackSlow.bits := RegEnable(load_s2.io.rsFeedback.bits, load_s2.io.rsFeedback.valid && !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect))
+  io.feedbackSlow.bits := RegNext(load_s2.io.rsFeedback.bits) //remove clock-gating for timing
   io.feedbackSlow.valid := RegNext(load_s2.io.rsFeedback.valid && !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect), false.B)
   // If replay is reported at load_s1, inst will be canceled (will not enter load_s2),
   // in that case:
