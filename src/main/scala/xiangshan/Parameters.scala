@@ -145,7 +145,7 @@ case class XSCoreParameters
   ),
   intRsDepth:Int = 32,
   fpRsDepth:Int = 32,
-  memRsDepth:Int = 48,
+  memRsDepth:Int = 32,
   rsBankNum:Int = 4,
   exuParameters: ExuParameters = ExuParameters(),
   // TODO: replace Coupled L2
