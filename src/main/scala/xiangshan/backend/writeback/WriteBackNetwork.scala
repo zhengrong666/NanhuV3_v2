@@ -35,7 +35,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     private val wbSourcesMap = node.in.map(elm => elm._2._1 -> (elm._1, elm._2._1)).toMap
     private val wbSink = node.out
 
-    println("\nWriteback Network Info:")
+    println("\n\nWriteback Network Info:")
     println(s"Writeback Num: ${wbSources.length}")
     wbSources.foreach(w => print(w._2))
     val io = IO(new Bundle{
@@ -67,7 +67,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     private var jmpRedirectIdx = 0
     private var aluRedirectIdx = 0
     private var memRedirectIdx = 0
-    println("Redirect Info:")
+    print("\n\nRedirect Info:")
     wbSources.filter(_._2.hasRedirectOut).foreach(source => {
       if(source._2.exuType == ExuType.jmp){
         print(source._2)
@@ -94,7 +94,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
       val sinkParam = s._2._2
       val source = sinkParam.map(elm => wbSourcesMap(elm))
       val sink = s._1
-      println(s"\n${s._2._1.name} sinkId #${i}")
+      print(s"\n\n${s._2._1.name} sinkId #${i}")
       sink.zip(source).foreach({case(dst, (src,cfg)) =>
         print(cfg)
         val realSrc = WireInit(src)

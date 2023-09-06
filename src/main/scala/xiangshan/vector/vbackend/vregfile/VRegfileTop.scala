@@ -95,7 +95,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
 
     println("VRF writeback port need merged:")
     wbPairNeedMerge.foreach(e => print(e._3))
-    println("VRF writeback port not need merged:")
+    println("\nVRF writeback port not need merged:")
     wbPairDontNeedMerge.foreach(e => print(e._3))
     vrf.io.wbWakeup.zip(vrf.io.wakeups).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
       if(cfg.exuType == ExuType.ldu){
