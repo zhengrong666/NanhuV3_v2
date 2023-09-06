@@ -300,22 +300,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.ssit        := ssit.io.rdata
   rename.io.vcsrio    <> io.vcsrToRename
 
-//   pipeline between rename and dispatch
-//  for (i <- 0 until RenameWidth) {
-//    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
-//  }
-
-  private val pipelineDq = Module(new DispatchQueue(RenameWidth * 2, RenameWidth, RenameWidth))
-  pipelineDq.io.redirect := io.redirectIn
+  //pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
-    pipelineDq.io.enq.req(i).bits := rename.io.out(i).bits
-    pipelineDq.io.enq.req(i).valid := rename.io.out(i).valid
-    pipelineDq.io.enq.needAlloc(i) := rename.io.allowOut(i)
-    rename.io.out(i).ready := pipelineDq.io.enq.canAccept
-
-    dispatch.io.fromRename(i) <> pipelineDq.io.deq(i)
+    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
   }
-
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
