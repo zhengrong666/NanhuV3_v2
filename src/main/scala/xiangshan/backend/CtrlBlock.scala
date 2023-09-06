@@ -343,7 +343,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   for(((v, info), i) <- (commitVector.commitValid zip commitVector.info).zipWithIndex) {
     v := (!info.isVector) && rob.io.commits.commitValid(i)
   }
-  vCtrlBlock.io.commit.bits.mask := commitVector
+  vCtrlBlock.io.commit.bits.mask := commitVector.commitValid
   for(i <- 0 until CommitWidth) {
     vCtrlBlock.io.commit.bits.robIdx(i) := rob.io.commits.robIdx(i)
   }

@@ -517,6 +517,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     io.commits.walkValid(i)   := shouldWalkVec(i)
     io.commits.info(i).pc     := debug_microOp(deqPtrVec(i).value).cf.pc
     io.commits.info(i).connectEntryData(entryDataRead(i))
+    io.commits.robIdx(i) := deqPtrVec(i).value
 
     when (io.commits.isWalk && state === s_walk && shouldWalkVec(i)) {
       XSError(!walk_v(i), s"why not $i???\n")
@@ -770,9 +771,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     VecInit(walkPtrVec_next.map(_.value))
   )
   entryDataModule.io.raddr  := commitReadAddr_next
-  for((crp, value) <- io.commits.robIdx.zip(commitReadAddr_next)) {
-    crp := value
-  }
+  // for((crp, value) <- io.commits.robIdx.zip(commitReadAddr_next)) {
+  //   crp := value
+  // }
 
   entryDataModule.io.wen    := canEnqueue
   entryDataModule.io.waddr  := allocatePtrVec.map(_.value)
@@ -790,6 +791,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.vecWen      := req.ctrl.isVector
       wdata.wvcsr       := false.B
       wdata.vtypeWb     := req.ctrl.isVtype
+      wdata.isVector    := req.ctrl.isVector && !req.ctrl.isVtype
   }
 
   for(i <- 0 until fflagsWbNums) {
