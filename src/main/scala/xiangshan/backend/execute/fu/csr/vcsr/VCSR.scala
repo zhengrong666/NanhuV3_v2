@@ -1,25 +1,3 @@
-/***************************************************************************************
- * Copyright (c) 2020-2023 Institute of Computing Technology, Chinese Academy of Sciences
- *
- * XiangShan is licensed under Mulan PSL v2.
- * You can use this software according to the terms and conditions of the Mulan PSL v2.
- * You may obtain a copy of Mulan PSL v2 at:
- *          http://license.coscl.org.cn/MulanPSL2
- *
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
- * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
- * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
- *
- * See the Mulan PSL v2 for more details.
- ***************************************************************************************/
-
-/*--------------------------------------------------------------------------------------
-    Author: GMX
-    Date: 2023-07-27
-    email: guanmingxing@bosc.ac.cn
-
----------------------------------------------------------------------------------------*/
-
 package xiangshan.backend.execute.fu.csr.vcsr
 
 import chisel3._
@@ -37,128 +15,142 @@ import xiangshan.backend.execute.fu.csr._
 import xiangshan.backend.execute.fu.FuOutput
 
 class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-    val vtypeWbToRename = ValidIO(new FuOutput(XLEN))
-    val vtypeRead = new Bundle {
-        val readEn = Output(Bool())
-        val data = Flipped(ValidIO(UInt(XLEN.W)))
-    }
-    val vlRead = new Bundle {
-        val readEn = Output(Bool())
-        val data = Flipped(ValidIO(UInt(XLEN.W)))
-    }
+  val vtypeWbToRename = ValidIO(new FuOutput(XLEN))
+  val vtypeRead = new Bundle {
+    val readEn = Output(Bool())
+    val data = Flipped(ValidIO(UInt(XLEN.W)))
+  }
+  val vlRead = new Bundle {
+    val readEn = Output(Bool())
+    val data = Flipped(ValidIO(UInt(XLEN.W)))
+  }
 }
 
 class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {
-    val vstartW = Flipped(ValidIO(UInt(XLEN.W)))
-    val vxsatW  = Flipped(ValidIO(UInt(XLEN.W)))
+  val vstartW = Flipped(ValidIO(UInt(XLEN.W)))
+  val vxsatW  = Flipped(ValidIO(UInt(XLEN.W)))
 }
 
 class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
-    val vtype = new VCSRWithVtypeRenameIO
-    val robWb = new VCSRWithRobIO
-    val vstart = Output(UInt(7.W))
+  val vtype = new VCSRWithVtypeRenameIO
+  val robWb = new VCSRWithRobIO
+  val vstart = Output(UInt(7.W))
 }
 
-class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
-    val uop = io.in.bits.uop
-    redirectOutValid := DontCare
-    redirectOut := DontCare
+/*
+  * vtype and vl stored in vtypeRenameModule, VCSR need read(CSRR) and write(vset wb) it
+  * vstart and vxsat, may writeback from ROB or CSRRW
+  * vlenb
+  * vxrm
+  * vcsr
+*/
 
-    val vcsr_io = IO(new VCsrIO)
+// for vsetvli, cf.imm = instr(30, 20)
+// for vsetivli, cf.imm = instr(29, 15)
 
-    //csr define
-    val vstart  = RegInit(UInt(XLEN.W), 0.U)
-    val vxsat   = RegInit(UInt(XLEN.W), 0.U)
-    val vxrm    = RegInit(UInt(XLEN.W), 0.U)
-    val vcsr    = RegInit(UInt(XLEN.W), 0.U)
-    val vlenb   = RegInit(UInt(XLEN.W), (VLEN / 8).U)
+class VtypeStruct(implicit p: Parameters) extends XSBundle {
+  val vill      = UInt(1.W)
+  val reserved  = UInt((XLEN-9).W)
+  val vma       = UInt(1.W)
+  val vta       = UInt(1.W)
+  val vsew      = UInt(3.W)
+  val vlmul     = UInt(3.W)
+  assert(this.getWidth == XLEN)
 
-    vcsr_io.vstart := vstart
+  def vset_parse(vtype: UInt): Unit = {
+    this.vlmul    := vtype(2, 0)
+    this.vsew     := vtype(5, 3)
+    this.vta      := vtype(6)
+    this.vma      := vtype(7)
+    this.reserved := 0.U
+    this.vill := 0.U
+  }
 
-    //vstart, vxsat writeback to here from Rob commit
-    val wbFromRob = vcsr_io.robWb
-    vstart  := Mux(wbFromRob.vstartW.valid, wbFromRob.vstartW.bits, vstart)
-    vxsat   := Mux(wbFromRob.vxsatW.valid,  wbFromRob.vxsatW.bits,  vxsat)
-    
-    // vsetvl need to calculate in vcsr
-    // vsetvl
-    val isVsetvl = (uop.ctrl.fuOpType === CSROpType.vsetvl)
-    // vsetvl{i}
-    val isVsetvli = (uop.ctrl.fuOpType === CSROpType.vsetvli)
-    // vset{i}vl{i}
-    val isVsetivli = (uop.ctrl.fuOpType === CSROpType.vsetivli)
+  def check_illegal: Bool = {
+    val vsew_illegal = vsew(2) === 1.U
+    val vlmul_illegal = vlmul === 4.U
+    vsew_illegal || vlmul_illegal
+  }
+}
 
-    //src1 -> AVL, src2 ->
-    val valid = io.in.valid
-    val rs1 = io.in.bits.uop.ctrl.lsrc(0)
-    val rs1IsX0 = (rs1 === 0.U)
-    val rd = io.in.bits.uop.ctrl.ldest
-    val rdIsX0 = (rd === 0.U)
+class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
+  val io = IO(new Bundle {
+    val src         = Vec(2, Input(UInt(XLEN.W)))
+    val rs1IsX0     = Input(Bool())
+    val rdIsX0      = Input(Bool())
+    val vsetType    = Input(UInt(3.W)) //one-hot, 001,010,100->vsetivli, vsetvli, vsetvl
+    val vlOld       = Input(UInt(XLEN.W))
+    val vtypeNew    = Output(UInt(XLEN.W))
+    val vlNew       = Output(UInt(XLEN.W))
+  })
 
-    val src0 = io.in.bits.src(0)
-    val src1 = io.in.bits.src(1)
-    val imm = io.in.bits.uop.ctrl.imm
+  val (src1, src2) = (io.src(0), io.src(1))
+  val uimm    = src2(4, 0)
+  val zimm_ii = src2(14, 5)
+  val zimm_i  = src2(10, 0)
 
-    val func = io.in.bits.uop.ctrl.fuOpType
+  val vtypeSetivli  = Wire(new VtypeStruct).vset_parse(zimm_ii)
+  val vtypeSetvli   = Wire(new VtypeStruct).vset_parse(zimm_i)
+  val vtypeSetvl    = Wire(new VtypeStruct).vset_parse(src2)
 
-    //vtype
-    val vtypeValue = Wire(UInt(8.W))
-    val vtypei = Mux(isVsetvli, imm(7, 0), (imm >> 5.U)(7, 0))
-    vtypeValue := Mux(isVsetvl, src1(7,0), vtypei)
+  val avl   = Wire(UInt(log2Up(VLEN).W))
+  val vtype = Wire(new VtypeStruct)
 
-    val vlmul = vtypeValue(2, 0)
-    val vsew = vtypeValue(5, 3)
+  vtype := Mux1H(io.vsetType, Seq(
+    zimm_ii, zimm_i, src2
+  )).asTypeOf(new VtypeStruct)
 
-    // vsew inside {3'b000, 3'b001, 3'b010, 3'b011}, vsew[2] == 0
-    // LMUL = 2 ^ signed(vlmul)
-    // SEW = 2 ^ vsew * 8
-    // VLMAX = VLEN * LMUL / SEW = VLEN * (LMUL / SEW) = VLEN * 2 ^ (signed(vlmul) - vsew) / 8, (vsew[2] == 0) => signed(vlmul) - vsew = signed(vlmul) - signed(vsew))
-    val vlmul_tmp = Mux(vlmul(2)===0.U, Cat(vlmul(2), 0.U(1.W), vlmul(1, 0)), Cat(vlmul(2), ~Cat(0.U(1.W), vlmul(1, 0)) + 1.U))
-    val vsew_neg_tmp = Cat(1.U(1.W), ~(vsew+3.U)) + 1.U
-    val vlmax_sel = vlmul + vsew_neg_tmp + 7.U
+  val vlmul = vtype.vlmul
+  val vsew  = vtype.vsew
 
-    val vlmax_vec = (0 until 8).map(i => 1.U(8.W) << i)
-    val vlmax = ParallelMux((0 until 8).map(_.U).map(_===vlmax_sel), vlmax_vec)
-
-    val avl = Mux(isVsetivli, Cat(0.U(59.W), imm(4, 0)), src0)
-    val vlNewSetivli = Mux(vlmax >= avl, avl, vlmax)
-    val vlNewOther = Mux(!rs1IsX0, Mux(src0 >= vlmax, vlmax, src0), Mux(!rdIsX0, vlmax, src0))
-
-    val vill = 0.U(1.W) //TODO: set vill -> illegal vtype set
-
-    vcsr_io.vtype.vtypeWbToRename.bits.uop := io.in.bits.uop
-    vcsr_io.vtype.vtypeWbToRename.bits.data := Cat(vill, 0.U(55.W), vtypeValue)
-    vcsr_io.vtype.vtypeWbToRename.valid := (isVsetivli || isVsetvl || isVsetvli) && io.in.fire()
-    vcsr_io.vtype.vlRead.readEn := false.B
-    vcsr_io.vtype.vtypeRead.readEn := false.B
-
-    // CSRRW
-
-    val vectorCSRMapping = Map(
-        MaskedRegMap(vstartAddr, vstart),
-        MaskedRegMap(vxsatAddr, vxsat),
-        MaskedRegMap(vxrmAddr, vxrm),
-        MaskedRegMap(vcsrAddr, vcsr),
-        MaskedRegMap(vlenbAddr, vlenb)
+  val VLMAX = Wire(UInt(7.W))
+  VLMAX := MuxCase(0.U, Seq(
+      (vlmul === 0.U) -> ((VLEN >> 3).U >> vsew),
+      (vlmul === 1.U) -> ((VLEN >> 2).U >> vsew),
+      (vlmul === 2.U) -> ((VLEN >> 1).U >> vsew),
+      (vlmul === 3.U) -> ((VLEN).U      >> vsew),
+      (vlmul === 5.U) -> ((VLEN >> 6).U >> vsew),
+      (vlmul === 6.U) -> ((VLEN >> 5).U >> vsew),
+      (vlmul === 7.U) -> ((VLEN >> 4).U >> vsew)
     )
-    val addr = imm(11, 0)
-    val rdata = Wire(UInt(XLEN.W))
-    //TODO: fill rdata
-    rdata := 0.U
-    val csri = ZeroExt(imm(16, 12), XLEN)
-    val wdata = LookupTree(func, List(
-        CSROpType.wrt  -> src1,
-        CSROpType.set  -> (rdata | src0),
-        CSROpType.clr  -> (rdata & (~src0).asUInt),
-        CSROpType.wrti -> csri,
-        CSROpType.seti -> (rdata | csri),
-        CSROpType.clri -> (rdata & (~csri).asUInt)
-    ))
-    //MaskedRegMap.generate(vectorCSRMapping, addr, rdata, vcsr_io.wen, wdata)
+  )
 
-    io.in.ready := true.B
-    
-    io.out.bits.uop := io.in.bits.uop
-    io.out.bits.data := Mux((isVsetivli || isVsetvl || isVsetvli), Cat(vill, 0.U(55.W), vtypeValue), rdata)
-    io.out.valid := io.in.valid
+  val avl_hasRs1 = Wire(UInt(log2Up(VLEN).W))
+  avl_hasRs1 := Mux(!io.rs1IsX0, src1, Mux(!io.rdIsX0, VLMAX, io.vlOld))
+  avl := Mux((io.vsetType === "b001".asUInt), uimm, avl_hasRs1)
+
+
+
+  io.vtypeNew := vtype.asUInt
+  io.vlNew    := Mux(!io.rs1IsX0, avl, Mux(io.vlOld > VLMAX, VLMAX, io.vlOld))
 }
+
+// class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
+//   val uopIn = io.in.bits.uop
+
+//   val vcsrio = IO(new VCsrIO)
+
+//   val vlenb   = RegInit(UInt(XLEN.W), (VLEN/8).U(XLEN.W)) //is read-only
+//   val vstart  = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+//   val vxrm    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+//   val vxsat   = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+//   val vcsr    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+
+//   val vcsrMapping = Map(
+//     MaskedRegMap(vlenbAddr,   vlenb),
+//     MaskedRegMap(vstartAddr,  vstart),
+//     MaskedRegMap(vxrmAddr,    vxrm),
+//     MaskedRegMap(vxsatAddr,   vxsat),
+//     MaskedRegMap(vcsrAddr,    vcsr)
+//   )
+  
+
+//   //vset
+//   val vsetFu = Module(new VSetFu)
+//   vsetFu.io.src(0) := io.in.bits.src(0)
+//   vsetFu.io.src(1) := io.in.bits.uop.ctrl.imm
+
+//   //csrrw
+
+//   //rob
+// }
