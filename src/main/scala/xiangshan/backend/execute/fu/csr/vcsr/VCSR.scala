@@ -124,33 +124,3 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   io.vtypeNew := vtype.asUInt
   io.vlNew    := Mux(!io.rs1IsX0, avl, Mux(io.vlOld > VLMAX, VLMAX, io.vlOld))
 }
-
-// class VCSR(implicit p: Parameters) extends FUWithRedirect with HasVCSRConst {
-//   val uopIn = io.in.bits.uop
-
-//   val vcsrio = IO(new VCsrIO)
-
-//   val vlenb   = RegInit(UInt(XLEN.W), (VLEN/8).U(XLEN.W)) //is read-only
-//   val vstart  = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
-//   val vxrm    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
-//   val vxsat   = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
-//   val vcsr    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
-
-//   val vcsrMapping = Map(
-//     MaskedRegMap(vlenbAddr,   vlenb),
-//     MaskedRegMap(vstartAddr,  vstart),
-//     MaskedRegMap(vxrmAddr,    vxrm),
-//     MaskedRegMap(vxsatAddr,   vxsat),
-//     MaskedRegMap(vcsrAddr,    vcsr)
-//   )
-  
-
-//   //vset
-//   val vsetFu = Module(new VSetFu)
-//   vsetFu.io.src(0) := io.in.bits.src(0)
-//   vsetFu.io.src(1) := io.in.bits.uop.ctrl.imm
-
-//   //csrrw
-
-//   //rob
-// }
