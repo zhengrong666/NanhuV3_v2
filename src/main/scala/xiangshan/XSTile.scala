@@ -157,9 +157,12 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
 }
 
 @instantiable
-class XSTileImp(outer: XSTile) extends LazyHardenModuleImp(outer) {
+class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyHardenModuleImp(outer)
+  with HasXSParameter
+  with HasSoCParameter {
   @public val io = IO(new Bundle {
     val hartId = Input(UInt(64.W))
+    val reset_vector = Input(UInt(PAddrBits.W))
     val cpu_halt = Output(Bool())
     val dfx_reset = Input(new DFTResetSignals())
   })
@@ -169,6 +172,7 @@ class XSTileImp(outer: XSTile) extends LazyHardenModuleImp(outer) {
   val core_soft_rst = outer.core_reset_sink.in.head._1
 
   outer.core.module.io.hartId := io.hartId
+  outer.core.module.io.reset_vector := io.reset_vector
   outer.core.module.io.dfx_reset := io.dfx_reset
   io.cpu_halt := outer.core.module.io.cpu_halt
   // TODO: replace Coupled L2

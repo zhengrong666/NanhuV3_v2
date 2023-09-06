@@ -143,6 +143,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       }
       val debug_reset = Output(Bool())
       val riscv_halt = Output(Vec(NumCores, Bool()))
+      val riscv_rst_vec = Input(Vec(NumCores, UInt(soc.PAddrBits.W)))
     })
 
     val scan_mode = IO(Input(Bool()))
@@ -177,6 +178,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     for ((core, i) <- core_with_l2.zipWithIndex) {
       core.moduleInstance.io.hartId := i.U
       core.moduleInstance.io.dfx_reset:= dfx_reset
+      core.moduleInstance.io.reset_vector:= io.riscv_rst_vec(i)
       io.riscv_halt(i) := core.moduleInstance.io.cpu_halt
     }
 

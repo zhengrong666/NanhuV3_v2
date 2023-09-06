@@ -88,6 +88,7 @@ class FrontendImp (outer: Frontend) extends LazyModuleImp(outer)
 
   // bpu ctrl
   bpu.io.ctrl := csrCtrl.bp_ctrl
+  bpu.io.reset_vector := io.reset_vector
 
 // pmp
   val pmp = Module(new PMP())

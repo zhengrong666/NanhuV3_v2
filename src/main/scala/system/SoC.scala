@@ -39,7 +39,7 @@ case class SoCParameters
 (
   EnableILA: Boolean = false,
   PAddrBits: Int = 36,
-  extIntrs: Int = 64,
+  extIntrs: Int = 256,
   L3NBanks: Int = 4,
   L3CacheParamsOpt: Option[L3Param] = Some(L3Param(
     name = "l3",
