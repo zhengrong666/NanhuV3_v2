@@ -209,6 +209,9 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   def isSoftPrefetch: Bool = {
     fuType === FuType.alu && fuOpType === ALUOpType.or && selImm === SelImm.IMM_I && ldest === 0.U
   }
+
+  def isVset: Bool = (fuOpType===CSROpType.vsetivli || fuOpType===CSROpType.vsetvli || fuOpType===CSROpType.vsetvl)
+
 }
 
 class CfCtrl(implicit p: Parameters) extends XSBundle {
@@ -371,6 +374,7 @@ class RobEntryData(implicit p: Parameters) extends XSBundle {
   val ftqIdx = new FtqPtr
   val ftqOffset = UInt(log2Up(PredictWidth).W)
   val vtypeWb = Bool()
+  val isVector = Bool()
 }
 
 class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
@@ -390,6 +394,7 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
     ftqIdx := data.ftqIdx
     ftqOffset := data.ftqOffset
     vtypeWb := data.vtypeWb
+    isVector := data.isVector
   }
 }
 
