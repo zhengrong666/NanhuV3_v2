@@ -234,7 +234,12 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //rename(only int and fp)
   //TODO: rob deq need to select
-  rat.io.robCommits     := rob.io.commits
+  val commitScalar  = Wire(new RobCommitIO)
+  commitScalar := rob.io.commits
+  for(((v, info), i) <- (commitScalar.commitValid zip commitScalar.info).zipWithIndex) {
+    v := (!info.isVector) && rob.io.commits.commitValid(i)
+  }
+  rat.io.robCommits     := commitScalar
   rat.io.intRenamePorts := rename.io.intRenamePorts
   rat.io.fpRenamePorts  := rename.io.fpRenamePorts
 
@@ -334,7 +339,13 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
   vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
   vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
-  vCtrlBlock.io.commit.bits.mask := rob.io.commits.commitValid
+
+  val commitVector = Wire(new RobCommitIO)
+  commitVector := rob.io.commits
+  for(((v, info), i) <- (commitVector.commitValid zip commitVector.info).zipWithIndex) {
+    v := (!info.isVector) && rob.io.commits.commitValid(i)
+  }
+  vCtrlBlock.io.commit.bits.mask := commitVector
   for(i <- 0 until CommitWidth) {
     vCtrlBlock.io.commit.bits.robIdx(i) := rob.io.commits.robIdx(i)
   }
