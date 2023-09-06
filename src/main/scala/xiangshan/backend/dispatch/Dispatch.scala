@@ -27,13 +27,6 @@ import xiangshan.backend.rob.RobEnqIO
 import xiangshan.mem.mdp._
 import chisel3.ExcitingUtils
 
-case class DispatchParameters
-(
-  IntDqSize: Int,
-  FpDqSize: Int,
-  LsDqSize: Int
-)
-
 // read rob and enqueue
 class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {

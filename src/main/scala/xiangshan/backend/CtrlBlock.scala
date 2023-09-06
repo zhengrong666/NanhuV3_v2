@@ -142,9 +142,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val memDispatch2Rs = Module(new MemDispatch2Rs)
 
   //DispatchQueue
-  private val intDq = Module(new DispatchQueue(dpParams.IntDqSize, RenameWidth, intDispatch._2.bankNum))
-  private val fpDq = Module(new DispatchQueue(dpParams.FpDqSize, RenameWidth, fpDispatch._2.bankNum))
-  private val lsDq = Module(new DispatchQueue(dpParams.LsDqSize, RenameWidth, lsDispatch._2.bankNum))
+  private val intDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, intDispatch._2.bankNum))
+  private val fpDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, fpDispatch._2.bankNum))
+  private val lsDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, lsDispatch._2.bankNum))
 
   //ROB
   private val rob = outer.rob.module
@@ -305,7 +305,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 //    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
 //  }
 
-  private val pipelineDq = Module(new DispatchQueue(RenameWidth*2, RenameWidth, RenameWidth))
+  private val pipelineDq = Module(new DispatchQueue(RenameWidth*3, RenameWidth, RenameWidth))
   pipelineDq.io.redirect := io.redirectIn
   for (i <- 0 until RenameWidth) {
     pipelineDq.io.enq.req(i).bits := rename.io.out(i).bits

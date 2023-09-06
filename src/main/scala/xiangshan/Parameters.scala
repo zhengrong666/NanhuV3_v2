@@ -20,7 +20,6 @@ import chipsalliance.rocketchip.config.{Field, Parameters}
 import chisel3._
 import chisel3.util._
 import xiangshan.backend.execute.exublock.ExuParameters
-import xiangshan.backend.dispatch.DispatchParameters
 import xiangshan.cache.DCacheParameters
 import xiangshan.cache.prefetch._
 import xiangshan.frontend.{BasePredictor, BranchPredictionResp, FTB, FakePredictor, RAS, Tage, ITTage, Tage_SC, FauFTB}
@@ -138,11 +137,6 @@ case class XSCoreParameters
   StoreQueueSize: Int = 64,
   StoreQueueNWriteBanks: Int = 8,
   RobSize: Int = 192,
-  dpParams: DispatchParameters = DispatchParameters(
-    IntDqSize = 16,
-    FpDqSize = 16,
-    LsDqSize = 16
-  ),
   intRsDepth:Int = 32,
   fpRsDepth:Int = 32,
   memRsDepth:Int = 32,
@@ -381,7 +375,6 @@ trait HasXSParameter {
   val LoadQueueNWriteBanks = coreParams.LoadQueueNWriteBanks
   val StoreQueueSize = coreParams.StoreQueueSize
   val StoreQueueNWriteBanks = coreParams.StoreQueueNWriteBanks
-  val dpParams = coreParams.dpParams
   val exuParameters = coreParams.exuParameters
   val LoadPipelineWidth = coreParams.LoadPipelineWidth
   val StorePipelineWidth = coreParams.StorePipelineWidth

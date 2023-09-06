@@ -141,7 +141,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 //    a.bits := b.bits
 //  })
 
-  private val splitQueue = Module(new DispatchQueue(VIRenameWidth * 2, VIRenameWidth, VIRenameWidth))
+  private val splitQueue = Module(new DispatchQueue(VIRenameWidth * 3, VIRenameWidth, VIRenameWidth))
   splitQueue.io.redirect := io.redirect
   for (i <- 0 until VIRenameWidth) {
     splitNetwork.io.out(i).ready := splitQueue.io.enq.canAccept
