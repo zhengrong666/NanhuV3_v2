@@ -56,7 +56,7 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
   val dqCommon = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, vecDeqNum))
   val dqPermu = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, vpDeqNum))
   val dqMem = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, memDeqNum))
-  private val renameQueue = Module(new DispatchQueue(VIRenameWidth * 3, VIRenameWidth, VIRenameWidth))
+  private val renameQueue = Module(new DispatchQueue(VIRenameWidth * 2, VIRenameWidth, VIRenameWidth))
 
   for(idx <- 0 until VIRenameWidth){
     renameQueue.io.enq.needAlloc(idx) := io.req.uop(idx).valid

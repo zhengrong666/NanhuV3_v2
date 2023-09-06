@@ -305,7 +305,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 //    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
 //  }
 
-  private val pipelineDq = Module(new DispatchQueue(RenameWidth*3, RenameWidth, RenameWidth))
+  private val pipelineDq = Module(new DispatchQueue(RenameWidth * 2, RenameWidth, RenameWidth))
   pipelineDq.io.redirect := io.redirectIn
   for (i <- 0 until RenameWidth) {
     pipelineDq.io.enq.req(i).bits := rename.io.out(i).bits
