@@ -79,6 +79,7 @@ class ILABundle extends Bundle {}
 
 
 abstract class BaseSoC()(implicit p: Parameters) extends LazyModule with HasSoCParameter {
+  val PAddrBits = p(SoCParamsKey).PAddrBits
   val bankedNode = BankBinder(L3NBanks, L3BlockSize)
   val peripheralXbar = TLXbar()
   val l3_xbar = TLXbar()
@@ -130,7 +131,8 @@ trait HaveAXI4MemPort {
   this: BaseSoC =>
   val device = new MemoryDevice
   // 36-bit physical address
-  val memRange = AddressSet(0x00000000L, 0xfffffffffL).subtract(AddressSet(0x0L, 0x7fffffffL))
+  val addrMask = (1L << PAddrBits) - 1L
+  val memRange = AddressSet(0x00000000L, addrMask).subtract(AddressSet(0x0L, 0x7fffffffL))
   val memAXI4SlaveNode = AXI4SlaveNode(Seq(
     AXI4SlavePortParameters(
       slaves = Seq(
