@@ -37,6 +37,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
 
     println("\nWriteback Network Info:")
     println(s"Writeback Num: ${wbSources.length}")
+    wbSources.foreach(w => print(w._2))
     val io = IO(new Bundle{
       val pcReadAddr = Output(Vec(2, UInt(log2Ceil(FtqSize).W)))
       val pcReadData = Input(Vec(2, new Ftq_RF_Components))
@@ -69,15 +70,15 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     println("Redirect Info:")
     wbSources.filter(_._2.hasRedirectOut).foreach(source => {
       if(source._2.exuType == ExuType.jmp){
-        println(source._2)
+        print(source._2)
         redirectGen.io.jmpWbIn(jmpRedirectIdx) := source._1
         jmpRedirectIdx = jmpRedirectIdx + 1
       } else if(source._2.exuType == ExuType.alu){
-        println(source._2)
+        print(source._2)
         redirectGen.io.aluWbIn(aluRedirectIdx) := source._1
         aluRedirectIdx = aluRedirectIdx + 1
       } else if (source._2.exuType == ExuType.sta || source._2.exuType == ExuType.ldu) {
-        println(source._2)
+        print(source._2)
         redirectGen.io.memWbIn(memRedirectIdx) := source._1
         memRedirectIdx = memRedirectIdx + 1
       } else {
@@ -89,11 +90,13 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     io.redirectOut := redirectGen.io.redirectOut
     io.memPredUpdate := redirectGen.io.memPredUpdate
 
-    for(s <- wbSink){
+    for((s, i) <- wbSink.zipWithIndex){
       val sinkParam = s._2._2
       val source = sinkParam.map(elm => wbSourcesMap(elm))
       val sink = s._1
+      println(s"\n${s._2._1.name} sinkId #${i}")
       sink.zip(source).foreach({case(dst, (src,cfg)) =>
+        print(cfg)
         val realSrc = WireInit(src)
         if(s._2._1.needWriteback && cfg.speculativeWakeup){
           val realValid = src.valid && !src.bits.uop.robIdx.needFlush(localRedirectReg)
@@ -119,5 +122,6 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
         }
       })
     }
+    println("")
   }
 }
