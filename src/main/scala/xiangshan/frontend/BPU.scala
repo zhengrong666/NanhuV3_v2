@@ -229,6 +229,7 @@ class Predictor(parentName:String = "Unknown")(implicit p: Parameters) extends X
 
   // ctrl signal
   predictors.io.ctrl := ctrl
+  predictors.io.reset_vector := io.reset_vector
 
 
   val s0_fire_dup, s1_fire_dup, s2_fire_dup, s3_fire_dup = dup_wire(Bool())
@@ -237,10 +238,8 @@ class Predictor(parentName:String = "Unknown")(implicit p: Parameters) extends X
   val s1_components_ready_dup, s2_components_ready_dup, s3_components_ready_dup = dup_wire(Bool())
 
   val s0_pc_dup = Wire(Vec(numDup, UInt(VAddrBits.W)))
-  val s0_pc_reg_dup = s0_pc_dup.map(x => RegNext(x))
-  when(reset.asBool) {
-    s0_pc_reg_dup.foreach(_ := io.reset_vector)
-  }
+  val s0_pc_reg_dup = s0_pc_dup.indices.map(_ => RegInit(io.reset_vector.asTypeOf(UInt(VAddrBits.W))))
+  s0_pc_reg_dup.zip(s0_pc_dup).foreach({case(a, b) => a := b})
   // for debug, would not appear in real RTL
   val s1_pc = RegEnable(s0_pc_dup(0), s0_fire_dup(0))
   val s2_pc = RegEnable(s1_pc, s1_fire_dup(0))
