@@ -21,7 +21,7 @@ import chisel3._
 import chisel3.experimental.chiselName
 import chisel3.util._
 import xiangshan._
-import utils.{DelayN, _}
+import utils._
 import xs.utils._
 
 import scala.math.min
