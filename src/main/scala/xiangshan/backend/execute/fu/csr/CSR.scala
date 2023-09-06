@@ -16,20 +16,24 @@
 
 package xiangshan.backend.execute.fu.csr
 
-import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import difftest._
+
+import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.util._
+
+import difftest._
 import utils._
-import xiangshan.ExceptionNO._
-import xiangshan._
-import xiangshan.backend.execute.fu.{FUWithRedirect, FunctionUnit, PMAMethod, PMPEntry, PMPMethod}
-import xiangshan.cache._
 import xs.utils.MaskedRegMap.WritableMask
 import xs.utils._
+
+import xiangshan._
+import xiangshan.ExceptionNO._
+
+import xiangshan.backend.execute.fu.{FUWithRedirect, FunctionUnit, PMAMethod, PMPEntry, PMPMethod}
 import xiangshan.backend.execute.fu.csr.vcsr._
 import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.cache._
 
 // Trigger Tdata1 bundles
 trait HasTriggerConst {
@@ -45,7 +49,6 @@ class FpuCsrIO extends Bundle {
   val dirty_fs = Output(Bool())
   val frm = Input(UInt(3.W))
 }
-
 
 class PerfCounterIO(implicit p: Parameters) extends XSBundle {
   val perfEventsFrontend  = Vec(numCSRPCntFrontend, new PerfEvent)
@@ -114,10 +117,13 @@ class CSRFileIO(implicit p: Parameters) extends XSBundle {
   val vcsr = new VCsrIO
 }
 
-class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with PMPMethod with PMAMethod with HasTriggerConst
-  with SdtrigExt with DebugCSR
-{
+class CSR(implicit p: Parameters) extends FUWithRedirect
+  with HasCSRConst with PMPMethod with PMAMethod
+  with HasTriggerConst  with SdtrigExt with DebugCSR {
+
   val csrio = IO(new CSRFileIO)
+
+  val uopIn = io.in.bits.uop
 
   val cfIn = io.in.bits.uop.cf
   val cfOut = Wire(new CtrlFlow)
@@ -132,7 +138,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   )
 
   // CSR define
-
   class Priv extends Bundle {
     val m = Output(Bool())
     val h = Output(Bool())
@@ -508,6 +513,69 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
     MaskedRegMap(Fcsr, fcsr, wfn = fcsr_wfn)
   )
 
+  val addr = src2(11, 0)
+  val csri = ZeroExt(src2(16, 12), XLEN)
+  val rdata = Wire(UInt(XLEN.W))
+  val wdata = LookupTree(func, List(
+    CSROpType.wrt  -> src1,
+    CSROpType.set  -> (rdata | src1),
+    CSROpType.clr  -> (rdata & (~src1).asUInt),
+    CSROpType.wrti -> csri,
+    CSROpType.seti -> (rdata | csri),
+    CSROpType.clri -> (rdata & (~csri).asUInt)
+  ))
+
+  //vector CSRs
+  val vlenb   = RegInit(UInt(XLEN.W), (VLEN/8).U(XLEN.W)) //is read-only
+  val vstart  = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+  val vxrm    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+  val vxsat   = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+  val vcsr    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+
+  val vcsrMapping = Map(
+    MaskedRegMap(Vlenb,   vlenb),
+    MaskedRegMap(Vstart,  vstart),
+    MaskedRegMap(Vxrm,    vxrm),
+    MaskedRegMap(Vxsat,   vxsat),
+    MaskedRegMap(Vcsr,    vcsr)
+  )
+
+    // vcsr
+  // val vcsr = Module(new VCSR)
+  // vcsr.io.in.bits := io.in.bits
+  // vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector && io.in.valid
+  // csrio.vcsr <> vcsr.vcsr_io
+  // vcsr.io.redirectIn <> io.redirectIn
+  // vcsr.io.out.ready := io.out.ready
+  val vsetFu = Module(new VSetFu)
+  vsetFu.io.src(0) := io.in.bits.src(0)
+  vsetFu.io.src(1) := io.in.bits.uop.ctrl.imm
+  vsetFu.io.rs1IsX0 := io.in.bits.uop.ctrl.lsrc(0) === 0.U
+  vsetFu.io.rdIsX0 := io.in.bits.uop.ctrl.ldest === 0.U
+  vsetFu.io.vlOld := io.in.bits.uop.vCsrInfo.oldvl
+  vsetFu.io.vsetType := Cat(io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli,
+                            io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli,
+                            io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvl
+                          )
+  csrio.vcsr.vtype.vtypeWbToRename.bits.data := vsetFu.io.vtypeNew
+  csrio.vcsr.vtype.vtypeWbToRename.bits.uop := io.in.bits.uop
+  csrio.vcsr.vtype.vtypeWbToRename.valid := io.in.valid && io.in.bits.uop.ctrl.isVtype
+
+  when(csrio.vcsr.robWb.vstartW.valid) {
+    vstart := csrio.vcsr.robWb.vstartW.bits
+  }
+
+  when(csrio.vcsr.robWb.vxsatW.valid) {
+    vxsat := csrio.vcsr.robWb.vxsatW.bits
+  }
+
+  csrio.vcsr.vstart := vstart
+
+  val isVset = uopIn.ctrl.isVset
+  val needReadVtype = valid && !isVset && ((addr===Vtype.asUInt) || (addr===Vl.asUInt))
+  csrio.vcsr.vtype.vtypeRead.readEn := valid && !isVset && (addr===Vtype.asUInt)
+  csrio.vcsr.vtype.vlRead.readEn    := valid && !isVset && (addr===Vl.asUInt)
+
   // Hart Priviledge Mode
   val priviledgeMode = RegInit(UInt(2.W), ModeM)
 
@@ -668,7 +736,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
                 pmpMapping ++
                 pmaMapping ++
                 (if (HasFPU) fcsrMapping else Nil) ++
-                (if (HasCustomCSRCacheOp) cacheopMapping else Nil)
+                (if (HasCustomCSRCacheOp) cacheopMapping else Nil) ++ 
+                (if(hasVector) vcsrMapping else Nil)
 
   println("XiangShan CSR Lists")
 
@@ -676,17 +745,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
     println(f"$addr%#03x ${mapping(addr)._1}")
   }
 
-  val addr = src2(11, 0)
-  val csri = ZeroExt(src2(16, 12), XLEN)
-  val rdata = Wire(UInt(XLEN.W))
-  val wdata = LookupTree(func, List(
-    CSROpType.wrt  -> src1,
-    CSROpType.set  -> (rdata | src1),
-    CSROpType.clr  -> (rdata & (~src1).asUInt),
-    CSROpType.wrti -> csri,
-    CSROpType.seti -> (rdata | csri),
-    CSROpType.clri -> (rdata & (~csri).asUInt)
-  ))
+
 
   val addrInPerfCnt = (addr >= Mcycle.U) && (addr <= Mhpmcounter31.U) ||
     (addr >= Mcountinhibit.U) && (addr <= Mhpmevent31.U) ||
@@ -712,7 +771,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
-  io.out.bits.data := rdata
+  io.out.bits.data := Mux(isVset, vsetFu.io.vlNew, Mux(needReadVtype, csrio.vcsr.vtype.vtypeRead.data.bits, rdata))
   io.out.bits.uop := io.in.bits.uop
   io.out.bits.uop.cf := cfOut
   io.out.bits.uop.ctrl.flushPipe := flushPipe
@@ -751,13 +810,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
   
-  //vcsr
-  val vcsr = Module(new VCSR)
-  vcsr.io.in.bits := io.in.bits
-  vcsr.io.in.valid := io.in.bits.uop.ctrl.isVector && io.in.valid
-  csrio.vcsr <> vcsr.vcsr_io
-  vcsr.io.redirectIn <> io.redirectIn
-  vcsr.io.out.ready := io.out.ready
+
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>
@@ -897,7 +950,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect with HasCSRConst with P
   }
 
   io.in.ready := true.B
-  io.out.valid := valid
+  io.out.valid := (valid && !needReadVtype) || csrio.vcsr.vtype.vtypeRead.data.valid || csrio.vcsr.vtype.vlRead.data.valid
 
   // In this situation, hart will enter debug mode instead of handling a breakpoint exception simply.
   // Ebreak block instructions backwards, so it's ok to not keep extra info to distinguish between breakpoint
