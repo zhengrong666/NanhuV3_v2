@@ -125,11 +125,7 @@ class VIRobIdxQueue(size: Int)(implicit p: Parameters) extends VectorBaseModule 
     val deqNumReal = Mux(io.out.hasPendingRobIdx && (io.out.pendingType =/= robIdxQueue(tailPtr.value).commitType), 0.U, deqNum)
     for(i <- 0 until VICommitWidth) {
         io.out.mask(i) := i.U < deqNum
-        when(deqNum > i.U) {
-            io.out.robIdx(i) := robIdxQueue(i).commitType
-        }.otherwise {
-            io.out.robIdx(i) := DontCare
-        }
+        io.out.robIdx(i) := robIdxQueue((tailPtr + i.U).value).robIdx
     }
     io.out.doCommit := Mux((deqNum =/= 0.U) && (deqType === false.B), true.B, false.B)
     io.out.doWalk   := Mux((deqNum =/= 0.U) && (deqType === true.B), true.B, false.B)
