@@ -57,7 +57,12 @@ class RenameTable(float: Boolean)(implicit p: Parameters) extends XSModule {
   // (4) WData at T0 is bypassed to RData at T1.
   val t1_rdata = io.readPorts.map(p => RegNext(Mux(p.hold, p.data, spec_table_next(p.addr))))
   val t1_raddr = io.readPorts.map(p => RegEnable(p.addr, !p.hold))
-  val t1_wSpec = RegNext(io.specWritePorts)
+  val t1_wSpec = Wire(Vec(CommitWidth, new RatWritePort))
+  t1_wSpec.zip(io.specWritePorts).foreach({case(a,b) =>
+    a.wen := RegNext(b.wen, false.B)
+    a.addr := RegEnable(b.addr, b.wen)
+    a.data := RegEnable(b.data, b.wen)
+  })
 
   // WRITE: when instruction commits or walking
   val t1_wSpec_addr = t1_wSpec.map(w => Mux(w.wen, UIntToOH(w.addr), 0.U))
