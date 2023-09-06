@@ -147,6 +147,7 @@ class BasePredictorInput (implicit p: Parameters) extends XSBundle with HasBPUCo
 class BasePredictorOutput (implicit p: Parameters) extends BranchPredictionResp {}
 
 class BasePredictorIO (implicit p: Parameters) extends XSBundle with HasBPUConst {
+  val reset_vector = Input(UInt(PAddrBits.W))
   val in  = Flipped(DecoupledIO(new BasePredictorInput)) // TODO: Remove DecoupledIO
   // val out = DecoupledIO(new BasePredictorOutput)
   val out = Output(new BasePredictorOutput)
@@ -216,6 +217,7 @@ class PredictorIO(implicit p: Parameters) extends XSBundle {
   val bpu_to_ftq = new BpuToFtqIO()
   val ftq_to_bpu = Flipped(new FtqToBpuIO())
   val ctrl = Input(new BPUCtrl)
+  val reset_vector = Input(UInt(PAddrBits.W))
 }
 
 @chiselName
@@ -234,9 +236,11 @@ class Predictor(parentName:String = "Unknown")(implicit p: Parameters) extends X
   val s1_ready_dup, s2_ready_dup, s3_ready_dup = dup_wire(Bool())
   val s1_components_ready_dup, s2_components_ready_dup, s3_components_ready_dup = dup_wire(Bool())
 
-  val s0_pc_dup = dup(resetVector.U(VAddrBits.W))
-
-  val s0_pc_reg_dup = s0_pc_dup.map(x => RegNext(x, init=resetVector.U))
+  val s0_pc_dup = Wire(Vec(numDup, UInt(VAddrBits.W)))
+  val s0_pc_reg_dup = s0_pc_dup.map(x => RegNext(x))
+  when(reset.asBool) {
+    s0_pc_reg_dup.foreach(_ := io.reset_vector)
+  }
   // for debug, would not appear in real RTL
   val s1_pc = RegEnable(s0_pc_dup(0), s0_fire_dup(0))
   val s2_pc = RegEnable(s1_pc, s1_fire_dup(0))

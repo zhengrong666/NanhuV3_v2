@@ -56,6 +56,7 @@ class SimTop(implicit p: Parameters) extends Module {
   soc.scan_mode := false.B
   soc.dft_lgc_rst_n := true.B.asAsyncReset
   soc.dft_mode := false.B
+  soc.io.riscv_rst_vec.foreach(_ := 0x80000000L.U)
   if(soc.dft.isDefined){
     soc.dft.get.cgen := false.B
     soc.dft.get.l3dataram_clk := false.B
