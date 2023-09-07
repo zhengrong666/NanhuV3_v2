@@ -53,7 +53,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val fpRenamePorts   = Vec(RenameWidth, Output(new RatWritePort))
     // to dispatch1
     val out = Vec(RenameWidth, DecoupledIO(new MicroOp))
-    val allowOut = Vec(RenameWidth,Output(Bool()))
     // to vector
     val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
     val vcsrio  = Flipped(new VCSRWithVtypeRenameIO)
@@ -195,7 +194,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept && io.allowIn
     io.out(i).bits  := uops(i)
-    io.allowOut(i) := io.in(i).valid
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
       io.out(i).bits.ctrl.imm := Cat(io.in(i).bits.ctrl.lsrc(1), io.in(i).bits.ctrl.lsrc(0))
@@ -213,8 +211,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
 
     // write speculative rename table
     // we update rat later inside commit code
-    intSpecWen(i) := needIntDest(i) && intFreeList.io.canAllocate && intFreeList.io.doAllocate && !io.robCommits.isWalk && !io.redirect.valid
-    fpSpecWen(i)  := needFpDest(i) && fpFreeList.io.canAllocate && fpFreeList.io.doAllocate && !io.robCommits.isWalk && !io.redirect.valid
+    intSpecWen(i) := needIntDest(i) && intFreeList.io.canAllocate && intFreeList.io.doAllocate && !io.robCommits.isWalk && !io.redirect.valid && io.allowIn
+    fpSpecWen(i)  := needFpDest(i) && fpFreeList.io.canAllocate && fpFreeList.io.doAllocate && !io.robCommits.isWalk && !io.redirect.valid && io.allowIn
 
     intRefCounter.io.allocate(i).valid  := intSpecWen(i)
     intRefCounter.io.allocate(i).bits   := io.out(i).bits.pdest
