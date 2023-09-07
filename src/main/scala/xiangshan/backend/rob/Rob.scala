@@ -345,9 +345,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val wbHasException = ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, cfg).asUInt.orR
       val wbHasTriggerCanFire = if (cfg.trigger) wb.bits.uop.cf.trigger.getBackendCanFire else false.B
       val block_wb = wbHasException || wbHasTriggerCanFire
-      if(cfg.hasRedirectOut) {
+      if(cfg.hasRedirectOut && cfg.exuType != ExuType.sta) {
         val ri = wb.bits.redirect
-        writebacked(wbIdx) := !(wb.bits.redirectValid && (ri.cfiUpdate.isMisPred || ri.isLoadStore || ri.isLoadLoad || ri.isFlushPipe)) && !block_wb
+        writebacked(wbIdx) := !(wb.bits.redirectValid && (ri.cfiUpdate.isMisPred || ri.isLoadLoad || ri.isFlushPipe)) && !block_wb
       } else {
         writebacked(wbIdx) := !block_wb
       }
