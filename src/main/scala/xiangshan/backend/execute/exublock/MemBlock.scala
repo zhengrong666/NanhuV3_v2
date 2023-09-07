@@ -367,7 +367,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   lduWritebacks.zip(ldExeWbReqs).foreach({case(wb, out) =>
     val redirect_wb = wb.bits.redirect
     val uop_out = out.bits.uop
-    wb.bits.redirectValid := out.fire && out.bits.uop.ctrl.replayInst && !out.bits.uop.ctrl.isVector
+    wb.bits.redirectValid := out.fire && out.bits.uop.ctrl.replayInst
     redirect_wb.robIdx := uop_out.robIdx
     redirect_wb.ftqIdx := uop_out.cf.ftqPtr
     redirect_wb.ftqOffset := uop_out.cf.ftqOffset
@@ -384,21 +384,8 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
 
   vlduWritebacks.zip(ldExeWbReqs).foreach({ case (vwb, vout) =>
-    val redirect_wb = vwb.bits.redirect
-    val uop_out = vout.bits.uop
-    vwb.bits.redirectValid := vout.fire && vout.bits.uop.ctrl.replayInst && vout.bits.uop.ctrl.isVector
-    redirect_wb.robIdx := uop_out.robIdx
-    redirect_wb.ftqIdx := uop_out.cf.ftqPtr
-    redirect_wb.ftqOffset := uop_out.cf.ftqOffset
-    redirect_wb.level := RedirectLevel.flush
-    redirect_wb.interrupt := false.B
-    redirect_wb.cfiUpdate := DontCare
-    redirect_wb.cfiUpdate.isMisPred := false.B
-    redirect_wb.isException := false.B
-    redirect_wb.isLoadStore := false.B
-    redirect_wb.isLoadLoad := true.B
-    redirect_wb.isXRet := false.B
-    redirect_wb.isFlushPipe := false.B
+    vwb.bits.redirectValid := false.B
+    vwb.bits.redirect := DontCare
   })
 
 
