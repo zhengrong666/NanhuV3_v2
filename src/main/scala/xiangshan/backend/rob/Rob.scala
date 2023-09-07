@@ -345,7 +345,12 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val wbHasException = ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, cfg).asUInt.orR
       val wbHasTriggerCanFire = if (cfg.trigger) wb.bits.uop.cf.trigger.getBackendCanFire else false.B
       val block_wb = wbHasException || wbHasTriggerCanFire
-      writebacked(wbIdx) := !block_wb
+      if(cfg.hasRedirectOut) {
+        val ri = wb.bits.redirect
+        writebacked(wbIdx) := !(wb.bits.redirectValid && (ri.cfiUpdate.isMisPred || ri.isLoadStore || ri.isLoadLoad || ri.isFlushPipe)) && !block_wb
+      } else {
+        writebacked(wbIdx) := !block_wb
+      }
     }
   }
 
@@ -421,6 +426,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val exceptionHappen = (state === s_idle) && valid(deqPtr.value) && (intrEnable || exceptionEnable)
   val redirectDelay1  = Pipe(io.redirect)
   val exceptionWaitingRedirect = RegInit(false.B)
+
+  when(io.redirect.valid) {
+    writebacked(io.redirect.bits.robIdx.value) := Mux(io.redirect.bits.flushItself(), false.B, true.B)
+  }
 
   when(io.exception.valid) {
     exceptionWaitingRedirect := true.B
