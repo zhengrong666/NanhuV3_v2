@@ -46,7 +46,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     })
     private val jmpNum = wbSources.count(_._2.exuType == ExuType.jmp)
     private val aluNum = wbSources.count(_._2.exuType == ExuType.alu)
-    private val lduNum = wbSources.count(w => w._2.exuType == ExuType.ldu || w._2.exuType == ExuType.sta)
+    private val lduNum = wbSources.count(w => (w._2.exuType == ExuType.ldu || w._2.exuType == ExuType.sta) && w._2.writebackToRob)
     private val redirectGen = Module(new RedirectGen(jmpNum, aluNum, lduNum))
     io.pcReadAddr := redirectGen.io.pcReadAddr
     redirectGen.io.pcReadData := io.pcReadData
