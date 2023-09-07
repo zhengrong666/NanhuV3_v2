@@ -68,7 +68,7 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
     private var aluRedirectIdx = 0
     private var memRedirectIdx = 0
     print("\n\nRedirect Info:")
-    wbSources.filter(_._2.hasRedirectOut).foreach(source => {
+    wbSources.filter(e => e._2.hasRedirectOut && e._2.writebackToRob).foreach(source => {
       if(source._2.exuType == ExuType.jmp){
         print(source._2)
         redirectGen.io.jmpWbIn(jmpRedirectIdx) := source._1
