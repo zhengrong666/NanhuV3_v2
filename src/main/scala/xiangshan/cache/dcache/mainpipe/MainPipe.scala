@@ -341,6 +341,7 @@ class MainPipe(implicit p: Parameters) extends DCacheModule with HasPerfEvents {
   // s2: select data, return resp if this is a store miss
   val s2_valid = RegInit(false.B)
   val s2_req = RegEnable(s1_req, s1_fire)
+  val s2_req_vaddr_dup = VecInit(Seq.fill(4)(RegEnable(s1_req.vaddr, s1_fire)))  //for fanout
   val s2_tag_match = RegEnable(s1_tag_match, s1_fire)
   val s2_tag_match_way = RegEnable(s1_tag_match_way, s1_fire)
   val s2_hit_coh = RegEnable(s1_hit_coh, s1_fire)
@@ -470,9 +471,9 @@ class MainPipe(implicit p: Parameters) extends DCacheModule with HasPerfEvents {
   val s3_tag_match_dup = RegEnable(s2_tag_match, s2_fire_to_s3)
 
   val s3_req_vaddr_dup_for_wb,
-      s3_req_vaddr_dup_for_data_write = RegEnable(s2_req.vaddr, s2_fire_to_s3)
+      s3_req_vaddr_dup_for_data_write = RegEnable(s2_req_vaddr_dup(0), s2_fire_to_s3)
   
-  val s3_idx_dup = (0 until 6).map(_ => RegEnable(get_idx(s2_req.vaddr), s2_fire_to_s3))
+  val s3_idx_dup = (0 until 6).map(_ => RegEnable(get_idx(s2_req_vaddr_dup(1)), s2_fire_to_s3))
 
   val s3_req_replace_dup = (0 until 8).map(_ => RegEnable(s2_req.replace, s2_fire_to_s3))    
   val s3_req_cmd_dup = (0 until 6).map(_ => RegEnable(s2_req.cmd, s2_fire_to_s3))
@@ -1215,7 +1216,7 @@ class MainPipe(implicit p: Parameters) extends DCacheModule with HasPerfEvents {
 
     io.data_write_dup(i).valid := s3_valid_dup_for_data_w_bank(i) && s3_update_data_cango_dup_for_data_w_bank && update_data_dup_for_data_w_bank
     io.data_write_dup(i).bits.way_en := RegEnable(s2_way_en, s2_fire_to_s3)
-    io.data_write_dup(i).bits.addr := RegEnable(s2_req.vaddr, s2_fire_to_s3)
+    io.data_write_dup(i).bits.addr := RegEnable(s2_req_vaddr_dup(2), s2_fire_to_s3)
   }
   // -------------------------------------------------------------------------------------
 
@@ -1550,7 +1551,7 @@ class MainPipe(implicit p: Parameters) extends DCacheModule with HasPerfEvents {
     s.s2.bits.set := RegEnable(get_idx(s1_req.vaddr), s1_fire)
     s.s2.bits.way_en := RegEnable(s1_way_en, s1_fire)
     s.s3.valid := s3_valid_dup_for_status(i) && !RegEnable(s2_req.replace, s2_fire_to_s3)
-    s.s3.bits.set := RegEnable(get_idx(s2_req.vaddr), s2_fire_to_s3)
+    s.s3.bits.set := RegEnable(get_idx(s2_req_vaddr_dup(3)), s2_fire_to_s3)
     s.s3.bits.way_en := RegEnable(s2_way_en, s2_fire_to_s3)
   }
   dontTouch(io.status_dup)
