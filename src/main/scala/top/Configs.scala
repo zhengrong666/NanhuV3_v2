@@ -28,7 +28,6 @@ import freechips.rocketchip.devices.debug._
 import freechips.rocketchip.tile.MaxHartIdBits
 import xiangshan.cache.DCacheParameters
 import xiangshan.cache.mmu.{L2TLBParameters, TLBParameters}
-import xiangshan.backend.dispatch.DispatchParameters
 import xiangshan.backend.execute.exublock.ExuParameters
 import device.{EnableJtag, XSDebugModuleParams}
 import huancun._
@@ -79,11 +78,6 @@ class MinimalConfig(n: Int = 1) extends Config(
         IBufSize = 16,
         StoreBufferSize = 4,
         StoreBufferThreshold = 3,
-        dpParams = DispatchParameters(
-          IntDqSize = 12,
-          FpDqSize = 12,
-          LsDqSize = 12
-        ),
         exuParameters = ExuParameters(),
         prefetcher = None,
         icacheParameters = ICacheParameters(
