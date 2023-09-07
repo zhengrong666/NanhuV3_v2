@@ -531,7 +531,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     lduIssues(i).rsFeedback.feedbackSlowLoad := loadUnits(i).io.feedbackSlow
     lduIssues(i).rsFeedback.feedbackFastLoad := loadUnits(i).io.feedbackFast
     val bnpi = outer.lduIssueNodes(i).in.head._2._1.bankNum / exuParameters.LduCnt
-    val selSldu = slduIssue.issue.valid && slduIssue.rsIdx.bankIdxOH(bnpi * i + bnpi - 1, bnpi * i).orR
+    val selSldu = slduIssue.auxValid && slduIssue.rsIdx.bankIdxOH(bnpi * i + bnpi - 1, bnpi * i).orR
     loadUnits(i).io.rsIdx := Mux(selSldu, slduIssue.rsIdx, lduIssues(i).rsIdx)
     loadUnits(i).io.isFirstIssue := Mux(selSldu, slduIssue.rsFeedback.isFirstIssue, lduIssues(i).rsFeedback.isFirstIssue)
     // get input form dispatch

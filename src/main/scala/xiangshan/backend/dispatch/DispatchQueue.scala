@@ -83,7 +83,8 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, deqNum))
   private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
   private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
-  private val deqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtr = deqPtrVec.head
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = size.U - validEntriesNum
   io.dqFull := validEntriesNum === size.U
@@ -122,13 +123,13 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   }
 
   io.deq.zipWithIndex.foreach({case(deq, idx) =>
-    deq.valid := ((deqPtr + idx.U) < enqPtrAux) && !io.redirect.valid
-    payloadArray.io.r(idx).addr := (deqPtr + idx.U).value
+    deq.valid := (deqPtrVec(idx) < enqPtrAux) && !io.redirect.valid
+    payloadArray.io.r(idx).addr := deqPtrVec(idx).value
     deq.bits := payloadArray.io.r(idx).data
   })
   private val actualDeqNum = PopCount(io.deq.map(_.fire))
   when(actualDeqNum =/= 0.U && !io.redirect.valid){
-    deqPtr := deqPtr + actualDeqNum
+    deqPtrVec.foreach(d => d := d + actualDeqNum)
   }
 
   assert(deqPtr <= enqPtrAux)
