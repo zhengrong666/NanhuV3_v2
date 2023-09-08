@@ -346,8 +346,15 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   sbuffer.io.hartId := io.hartId
   atomicsUnit.io.hartId := io.hartId
 
+  private val redirectInDelay = Pipe(redirectIn)
   private val ldExeWbReqs = loadUnits.map(_.io.ldout)
-  private val stuExeWbReqs = lsq.io.stout
+  private val stuExeWbReqs = lsq.io.stout.map(swb =>{
+    val res = Wire(Decoupled(new ExuOutput))
+    res.valid := RegNext(swb.valid && !swb.bits.uop.robIdx.needFlush(redirectInDelay), false.B)
+    res.bits := RegEnable(swb.bits, swb.valid)
+    swb.ready := res.ready
+    res
+  })
   (lduWritebacks ++ stuWritebacks)
     .zip(ldExeWbReqs ++ stuExeWbReqs)
     .foreach({case(wb, out) =>
