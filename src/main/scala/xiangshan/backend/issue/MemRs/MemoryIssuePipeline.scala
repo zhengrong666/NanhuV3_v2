@@ -52,7 +52,4 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   io.deq.valid := deqValidDriverReg && !shouldBeCanceled
   io.deq.bits := deqDataDriverReg
   io.deq.bits.uop.lpv.zip(deqDataDriverReg.uop.lpv).foreach({case(a,b) => a := LogicShiftRight(b, 1)})
-  when(io.deq.valid){
-    assert(!io.deq.bits.uop.robIdx.needFlush(io.redirect))
-  }
 }
