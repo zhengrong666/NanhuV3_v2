@@ -306,8 +306,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         bo.rsIdx := rsIdxReg
         bo.auxValid := auxValidReg
         when(allowPipe) {
-          issueValidReg := bi.issue.valid && !bi.hold
-          auxValidReg := bi.auxValid && !bi.hold
+          issueValidReg := bi.issue.valid && !bi.hold && !bi.issue.bits.uop.robIdx.needFlush(io.redirect)
+          auxValidReg := bi.auxValid && !bi.hold && !bi.issue.bits.uop.robIdx.needFlush(io.redirect)
         }
         when(bi.issue.fire && !bi.hold) {
           issueExuInReg := exuInBundle

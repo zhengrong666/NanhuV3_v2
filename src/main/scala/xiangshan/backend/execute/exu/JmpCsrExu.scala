@@ -103,7 +103,7 @@ class JmpCsrExuImpl(outer:JmpCsrExu, exuCfg:ExuConfig)(implicit p:Parameters) ex
   private val finalData = Mux1H(outSel, outData)
 
   writebackPort := DontCare
-  writebackPort.valid := outSel.reduce(_ || _) && !finalData.uop.robIdx.needFlush(redirectIn)
+  writebackPort.valid := outSel.reduce(_ || _)
   writebackPort.bits.uop := finalData.uop
   writebackPort.bits.data := finalData.data
 

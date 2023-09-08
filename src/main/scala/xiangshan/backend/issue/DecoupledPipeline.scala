@@ -83,9 +83,8 @@ class DecoupledPipeline(implementQueue:Boolean, bankIdxWidth:Int, entryIdxWidth:
     assert(io.deq.ready)
     val deqValidDriverReg = RegNext(io.enq.valid, false.B)
     val deqDataDriverReg = RegEnable(io.enq.bits, io.enq.valid)
-    val shouldBeFlushed = deqDataDriverReg.uop.robIdx.needFlush(io.redirect)
     val shouldBeCanceled = deqDataDriverReg.uop.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
-    io.deq.valid := deqValidDriverReg && !shouldBeFlushed && !shouldBeCanceled
+    io.deq.valid := deqValidDriverReg && !shouldBeCanceled
     io.deq.bits := deqDataDriverReg
     io.deq.bits.uop.lpv.zip(deqDataDriverReg.uop.lpv).foreach({case(a,b) => a := LogicShiftRight(b, 1)})
   }

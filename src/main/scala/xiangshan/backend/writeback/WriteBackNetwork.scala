@@ -56,11 +56,9 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
       require(latency > 0)
       val res = Wire(Valid(new ExuOutput()(p)))
       val realIn = if (latency == 1) in else PipeWithRedirect(in, latency - 1, p)
-      val resValidReg = RegNext(realIn.valid, false.B)
-      val resDataReg = RegEnable(realIn.bits, realIn.valid)
-      val shouldBeFlushed = resDataReg.uop.robIdx.needFlush(localRedirectReg)
-      res.valid := resValidReg && !shouldBeFlushed
-      res.bits := resDataReg
+      val validCond = realIn.valid && !realIn.bits.uop.robIdx.needFlush(localRedirectReg)
+      res.valid := RegNext(validCond, false.B)
+      res.bits := RegEnable(realIn.bits, validCond)
       res
     }
 
