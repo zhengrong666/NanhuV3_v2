@@ -91,7 +91,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
         (mReq.bits.sew === 3.U) -> (0xff.U << elmIdx)(maskWidth - 1, 0),
       ))
       when(mReq.bits.agnostic && !mReq.bits.enable){
-        srcData.foreach(_ := 0xff.U)
+        srcData.foreach(_ := 0xffff.U)
       }
       vrf.write(dst, srcData, wm.asBools)
     }
