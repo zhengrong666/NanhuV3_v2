@@ -160,26 +160,26 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     io.frontend.toFtq.rob_commits(i).valid := RegNext(is_commit)
     io.frontend.toFtq.rob_commits(i).bits := RegEnable(rob.io.commits.info(i), is_commit)
   }
-  io.frontend.toFtq.redirect := io.redirectIn
-
+  private val redirectDelay = Pipe(io.redirectIn)
+  io.frontend.toFtq.redirect := redirectDelay
   private val pendingRedirect = RegInit(false.B)
-  when (io.redirectIn.valid) {
+  when (redirectDelay.valid) {
     pendingRedirect := true.B
   }.elsewhen (RegNext(io.frontend.toFtq.redirect.valid, false.B)) {
     pendingRedirect := false.B
   }
 
   if (env.EnableTopDown) {
-    val stage2Redirect_valid_when_pending = pendingRedirect && io.redirectIn.valid
+    val stage2Redirect_valid_when_pending = pendingRedirect && redirectDelay.valid
 
     val stage2_redirect_cycles = RegInit(false.B)                                         // frontend_bound->fetch_lantency->stage2_redirect
     val MissPredPending = RegInit(false.B); val branch_resteers_cycles = RegInit(false.B) // frontend_bound->fetch_lantency->stage2_redirect->branch_resteers
     val RobFlushPending = RegInit(false.B); val robFlush_bubble_cycles = RegInit(false.B) // frontend_bound->fetch_lantency->stage2_redirect->robflush_bubble
     val LdReplayPending = RegInit(false.B); val ldReplay_bubble_cycles = RegInit(false.B) // frontend_bound->fetch_lantency->stage2_redirect->ldReplay_bubble
     
-    when(io.redirectIn.valid && io.redirectIn.bits.cfiUpdate.isMisPred) { MissPredPending := true.B }
-    when(io.redirectIn.valid && io.redirectIn.bits.isFlushPipe)  { RobFlushPending := true.B }
-    when(io.redirectIn.valid && io.redirectIn.bits.isLoadLoad)  { LdReplayPending := true.B }
+    when(redirectDelay.valid && redirectDelay.bits.cfiUpdate.isMisPred) { MissPredPending := true.B }
+    when(redirectDelay.valid && redirectDelay.bits.isFlushPipe)  { RobFlushPending := true.B }
+    when(redirectDelay.valid && redirectDelay.bits.isLoadLoad)  { LdReplayPending := true.B }
     
     when (RegNext(io.frontend.toFtq.redirect.valid)) {
       when(pendingRedirect) {                             stage2_redirect_cycles := true.B }
@@ -227,7 +227,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   waittable.io.csrCtrl := RegNext(io.csrCtrl)
 
   // LFST lookup and update
-  lfst.io.redirect := Pipe(io.redirectIn)
+  lfst.io.redirect := redirectDelay
   lfst.io.storeIssue.zip(io.stIn).foreach({case(a, b) => a := Pipe(b)})
   lfst.io.csrCtrl <> RegNext(io.csrCtrl)
   lfst.io.dispatch <> dispatch.io.lfst
@@ -247,7 +247,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   io.debug_int_rat  := rat.io.debug_int_rat
   io.debug_fp_rat   := rat.io.debug_fp_rat
 
-  decPipe.io.flush := io.redirectIn.valid || pendingRedirect
+  decPipe.io.flush := redirectDelay.valid || pendingRedirect
   decPipe.io.in <> decode.io.out
 
   // pipeline between decode and rename
@@ -295,14 +295,14 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     }
   }
 
-  rename.io.redirect    := io.redirectIn
+  rename.io.redirect    := redirectDelay
   rename.io.robCommits  := rob.io.commits
   rename.io.ssit        := ssit.io.rdata
   rename.io.vcsrio    <> io.vcsrToRename
 
   //pipeline between rename and dispatch
   for (i <- 0 until RenameWidth) {
-    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), io.redirectIn.valid)
+    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), redirectDelay.valid)
   }
 
   //vector instr from scalar
@@ -318,7 +318,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   }
 
   rob.io.wbFromMergeBuffer <> outer.wbMergeBuffer.module.io.rob
-  outer.wbMergeBuffer.module.io.redirect <> io.redirectIn
+  outer.wbMergeBuffer.module.io.redirect := Pipe(io.redirectIn)
   
   
   //TODO: select to vCtrl
@@ -335,7 +335,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   for(i <- 0 until CommitWidth) {
     vCtrlBlock.io.commit.bits.robIdx(i) := rob.io.commits.robIdx(i)
   }
-  vCtrlBlock.io.redirect <> io.redirectIn
+  vCtrlBlock.io.redirect := Pipe(io.redirectIn)
   vCtrlBlock.io.vstart := io.vstart
 
   //vectorCtrlBlock
@@ -348,7 +348,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vpDeq <> vCtrlBlock.io.vpDispatch
 
   dispatch.io.hartId := io.hartId
-  dispatch.io.redirect := io.redirectIn
+  dispatch.io.redirect := redirectDelay
   dispatch.io.toIntDq <> intDq.io.enq
   dispatch.io.toFpDq <> fpDq.io.enq
   dispatch.io.toLsDq <> lsDq.io.enq
@@ -356,9 +356,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   dispatch.io.singleStep := RegNext(io.csrCtrl.singlestep)
   dispatch.io.enqRob <> rob.io.enq
 
-  intDq.io.redirect := Pipe(io.redirectIn)
-  fpDq.io.redirect := Pipe(io.redirectIn)
-  lsDq.io.redirect := Pipe(io.redirectIn)
+  private val redirectDelay_dup = Pipe(io.redirectIn)
+  intDq.io.redirect := redirectDelay_dup
+  fpDq.io.redirect := redirectDelay_dup
+  lsDq.io.redirect := redirectDelay_dup
 
   intDeq <> intDq.io.deq
   fpDeq <> fpDq.io.deq
@@ -367,7 +368,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDqArb.io.memIn <> lsDq.io.deq
   memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispath
 
-  memDispatch2Rs.io.redirect := Pipe(io.redirectIn)
+  memDispatch2Rs.io.redirect := redirectDelay_dup
   memDispatch2Rs.io.lcommit := rob.io.lsq.lcommit
   memDispatch2Rs.io.scommit := io.sqDeq
   memDispatch2Rs.io.lqCancelCnt := io.lqCancelCnt
@@ -380,7 +381,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rob.io.hartId := io.hartId
   rob.io.mmuEnable := io.mmuEnable
   io.cpu_halt := DelayN(rob.io.cpu_halt, 5)
-  rob.io.redirect := io.redirectIn
+  rob.io.redirect := Pipe(io.redirectIn)
 
   // rob to int block
   io.robio.toCSR <> rob.io.csr

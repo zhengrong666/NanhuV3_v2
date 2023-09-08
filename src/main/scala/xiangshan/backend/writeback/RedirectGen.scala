@@ -72,10 +72,11 @@ class RedirectGen(jmpRedirectNum:Int, aluRedirectNum:Int, memRedirectNum:Int)(im
   private val s1_allWb = Wire(Vec(jmpRedirectNum + aluRedirectNum + memRedirectNum, Valid(new ExuOutput)))
   s1_allWb.zip(io.jmpWbIn ++ io.aluWbIn ++ io.memWbIn).foreach({case(s, wb) =>
     s := DontCare
+    val redirectValidCond = wb.bits.redirectValid && !wb.bits.redirect.robIdx.needFlush(io.redirectIn)
     s.valid := RegNext(wb.valid, false.B)
-    s.bits.redirectValid := RegNext(wb.bits.redirectValid, false.B)
+    s.bits.redirectValid := RegNext(redirectValidCond, false.B)
     s.bits.uop := RegEnable(wb.bits.uop, wb.valid)
-    s.bits.redirect := RegEnable(wb.bits.redirect, wb.bits.redirectValid)
+    s.bits.redirect := RegEnable(wb.bits.redirect, redirectValidCond)
   })
   private val s1_allRedirect = s1_allWb.map(getRedirect(_, p))
   private val (s1_redirectSel, s1_redirectIdxOH) = selectOldest(s1_allRedirect, p)
