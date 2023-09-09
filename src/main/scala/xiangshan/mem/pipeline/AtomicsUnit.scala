@@ -50,13 +50,14 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
   val state = RegInit(s_invalid)
   val out_valid = RegInit(false.B)
   val data_valid = RegInit(false.B)
-  val in = Reg(new ExuInput())
+//  val in = Reg(new ExuInput())
+  val in_dup = Seq.fill(3)(Reg(new ExuInput()))
   val exceptionVec = RegInit(0.U.asTypeOf(ExceptionVec()))
   val atom_override_xtval = RegInit(false.B)
-  val isLr = in.uop.ctrl.fuOpType === LSUOpType.lr_w || in.uop.ctrl.fuOpType === LSUOpType.lr_d
+  val isLr = in_dup(0).uop.ctrl.fuOpType === LSUOpType.lr_w || in_dup(0).uop.ctrl.fuOpType === LSUOpType.lr_d
   // paddr after translation
   val paddr = Reg(UInt())
-  val vaddr = in.src(0)
+  val vaddr = in_dup(0).src(0)
   val is_mmio = Reg(Bool())
   // pmp check
   val static_pm = Reg(Valid(Bool())) // valid for static, bits for mmio
@@ -73,7 +74,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
   val fuop_reg = Reg(UInt(8.W))
 
   io.exceptionAddr.valid := atom_override_xtval
-  io.exceptionAddr.bits  := in.src(0)
+  io.exceptionAddr.bits  := in_dup(0).src(0)
 
   // assign default value to output signals
   io.in.ready          := false.B
@@ -94,7 +95,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
   when (state === s_invalid) {
     io.in.ready := true.B
     when (io.in.fire) {
-      in := io.in.bits
+      in_dup.foreach({case d => {d := io.in.bits}})
       state := s_tlb
       data_valid := true.B
     }
@@ -110,21 +111,21 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
     // send req to dtlb
     // keep firing until tlb hit
     io.dtlb.req.valid       := true.B
-    io.dtlb.req.bits.vaddr  := in.src(0)
-    io.dtlb.req.bits.robIdx := in.uop.robIdx
+    io.dtlb.req.bits.vaddr  := in_dup(0).src(0)
+    io.dtlb.req.bits.robIdx := in_dup(1).uop.robIdx
     io.dtlb.resp.ready      := true.B
     io.dtlb.req.bits.cmd    := Mux(isLr, TlbCmd.atom_read, TlbCmd.atom_write)
-    io.dtlb.req.bits.debug.pc := in.uop.cf.pc
+    io.dtlb.req.bits.debug.pc := in_dup(0).uop.cf.pc
     io.dtlb.req.bits.debug.isFirstIssue := false.B
 
     when(io.dtlb.resp.fire){
       paddr := io.dtlb.resp.bits.paddr(0)
       // exception handling
-      val addrAligned = LookupTree(in.uop.ctrl.fuOpType(1,0), List(
+      val addrAligned = LookupTree(in_dup(0).uop.ctrl.fuOpType(1,0), List(
         "b00".U   -> true.B,              //b
-        "b01".U   -> (in.src(0)(0) === 0.U),   //h
-        "b10".U   -> (in.src(0)(1,0) === 0.U), //w
-        "b11".U   -> (in.src(0)(2,0) === 0.U)  //d
+        "b01".U   -> (in_dup(0).src(0)(0) === 0.U),   //h
+        "b10".U   -> (in_dup(1).src(0)(1,0) === 0.U), //w
+        "b11".U   -> (in_dup(2).src(0)(2,0) === 0.U)  //d
       ))
       exceptionVec(loadAddrMisaligned)  := !addrAligned && isLr
       exceptionVec(storeAddrMisaligned) := !addrAligned && !isLr
@@ -188,7 +189,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
 
   when (state === s_cache_req) {
     io.dcache.req.valid := true.B
-    io.dcache.req.bits.cmd := LookupTree(in.uop.ctrl.fuOpType, List(
+    io.dcache.req.bits.cmd := LookupTree(in_dup(0).uop.ctrl.fuOpType, List(
       LSUOpType.lr_w      -> M_XLR,
       LSUOpType.sc_w      -> M_XSC,
       LSUOpType.amoswap_w -> M_XA_SWAP,
@@ -215,10 +216,10 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
     ))
 
     io.dcache.req.bits.addr := paddr
-    io.dcache.req.bits.vaddr := in.src(0) // vaddr
-    io.dcache.req.bits.data := genWdata(in.src(1), in.uop.ctrl.fuOpType(1,0))
+    io.dcache.req.bits.vaddr := in_dup(0).src(0) // vaddr
+    io.dcache.req.bits.data := genWdata(in_dup(0).src(1), in_dup(0).uop.ctrl.fuOpType(1,0))
     // TODO: atomics do need mask: fix mask
-    io.dcache.req.bits.mask := genWmask(paddr, in.uop.ctrl.fuOpType(1,0))
+    io.dcache.req.bits.mask := genWmask(paddr, in_dup(0).uop.ctrl.fuOpType(1,0))
     io.dcache.req.bits.id   := DontCare
 
     when(io.dcache.req.fire){
@@ -226,7 +227,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
       paddr_reg := io.dcache.req.bits.addr
       data_reg := io.dcache.req.bits.data
       mask_reg := io.dcache.req.bits.mask
-      fuop_reg := in.uop.ctrl.fuOpType
+      fuop_reg := in_dup(0).uop.ctrl.fuOpType
     }
   }
 
@@ -246,7 +247,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
         "b111".U -> rdata(63, 56)
       ))
 
-      resp_data_wire := LookupTree(in.uop.ctrl.fuOpType, List(
+      resp_data_wire := LookupTree(in_dup(0).uop.ctrl.fuOpType, List(
         LSUOpType.lr_w      -> SignExt(rdataSel(31, 0), XLEN),
         LSUOpType.sc_w      -> rdata,
         LSUOpType.amoswap_w -> SignExt(rdataSel(31, 0), XLEN),
@@ -288,7 +289,7 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
   io.out.valid := out_valid
   XSError((state === s_finish) =/= out_valid, "out_valid reg error\n")
   io.out.bits := DontCare
-  io.out.bits.uop := in.uop
+  io.out.bits.uop := in_dup(2).uop
   io.out.bits.uop.cf.exceptionVec := exceptionVec
   io.out.bits.data := resp_data
   io.out.bits.redirectValid := false.B
@@ -320,9 +321,9 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
 //  val lTriggerMapping = Map(0 -> 2, 1 -> 3, 2 -> 5)
 //  val sTriggerMapping = Map(0 -> 0, 1 -> 1, 2 -> 4)
 
-  val frontendTriggerTimingVec  = in.uop.cf.trigger.frontendTiming
-  val frontendTriggerChainVec   = in.uop.cf.trigger.frontendChain
-  val frontendTriggerHitVec     = in.uop.cf.trigger.frontendHit
+  val frontendTriggerTimingVec  = in_dup(0).uop.cf.trigger.frontendTiming
+  val frontendTriggerChainVec   = in_dup(0).uop.cf.trigger.frontendChain
+  val frontendTriggerHitVec     = in_dup(0).uop.cf.trigger.frontendHit
 
   val backendTriggerTimingVec   = tdata.map(_.timing)
   val backendTriggerChainVec    = tdata.map(_.chain)

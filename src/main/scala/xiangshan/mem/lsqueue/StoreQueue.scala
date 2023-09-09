@@ -169,12 +169,14 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new SqPtr))))
   val rdataPtrExt = RegInit(VecInit((0 until StorePipelineWidth).map(_.U.asTypeOf(new SqPtr))))
   val deqPtrExt = RegInit(VecInit((0 until StorePipelineWidth).map(_.U.asTypeOf(new SqPtr))))
+  val deqPtrExt_dup_mmio = RegInit(VecInit((0 until StorePipelineWidth).map(_.U.asTypeOf(new SqPtr))))
   val cmtPtrExt = RegInit(VecInit((0 until CommitWidth).map(_.U.asTypeOf(new SqPtr))))
   val issuePtrExt = RegInit(0.U.asTypeOf(new SqPtr))
   val validCounter = RegInit(0.U(log2Ceil(LoadQueueSize + 1).W))
 
   val enqPtr = enqPtrExt(0).value
   val deqPtr = deqPtrExt(0).value
+  val deqPtr_dup_mmio = deqPtrExt_dup_mmio(0).value
   val cmtPtr = cmtPtrExt(0).value
 
   val validCount = distanceBetween(enqPtrExt(0), deqPtrExt(0))
@@ -531,7 +533,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   val mmio_order_state = RegInit(s_idle)
   switch(mmio_order_state) {
     is(s_idle) {
-      when(RegNext(io.rob.pendingst && pending(deqPtr) && allocated(deqPtr) && allvalid(deqPtr))) {
+      when(RegNext(io.rob.pendingst && pending(deqPtr_dup_mmio) && allocated(deqPtr_dup_mmio) && allvalid(deqPtr_dup_mmio))) {
         mmio_order_state := s_req_mmio
       }
     }
@@ -613,7 +615,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   io.mmioStout := DontCare
   // (4) writeback to ROB (and other units): mark as writebacked
   io.mmioStout.valid := (mmio_order_state === s_wb_mmio)
-  io.mmioStout.bits.uop := uop(deqPtr)
+  io.mmioStout.bits.uop := uop(deqPtr_dup_mmio)
   io.mmioStout.bits.uop.sqIdx := deqPtrExt(0)
   io.mmioStout.bits.data := dataModule.io.rdata(0).data // dataModule.io.rdata.read(deqPtr)
   io.mmioStout.bits.redirectValid := false.B
@@ -627,7 +629,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   // Remove MMIO inst from store queue after MMIO request is being sent
   // That inst will be traced by uncache state machine
   when (io.mmioStout.fire()) {
-    allocated(deqPtr) := false.B
+    allocated(deqPtr_dup_mmio) := false.B
   }
 
   /**
@@ -860,6 +862,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   }
 
   deqPtrExt := deqPtrExtNext
+  deqPtrExt_dup_mmio := deqPtrExtNext
   rdataPtrExt := rdataPtrExtNext
 
   // val dequeueCount = Mux(io.sbuffer(1).fire(), 2.U, Mux(io.sbuffer(0).fire() || io.mmioStout.fire(), 1.U, 0.U))
