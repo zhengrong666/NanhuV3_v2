@@ -68,10 +68,13 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val floatingAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
+    val fmacSpecWakeUp = Vec(fmacIssue.length, Valid(new WakeUpInfo()))
   })
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
 
+  private val rsFmacWkp = Wire(Vec(fmacIssue.length, Valid(new WakeUpInfo)))
+  io.fmacSpecWakeUp := rsFmacWkp
 
   private val wakeupSignals = VecInit(wakeup.map(_._1).map(elm =>{
     val wkp = Wire(Valid(new WakeUpInfo))
@@ -83,9 +86,9 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     wkp
   }))
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new FloatingReservationBank(entriesNumPerBank, issueWidth, wakeup.length, loadUnitNum))
+    val mod = Module(new FloatingReservationBank(entriesNumPerBank, issueWidth, wakeup.length + fmacIssue.length, loadUnitNum))
     mod.io.redirect := io.redirect
-    mod.io.wakeup := wakeupSignals
+    mod.io.wakeup := wakeupSignals ++ rsFmacWkp
     mod.io.loadEarlyWakeup.zip(io.loadEarlyWakeup).foreach({case(a,b) =>
       val vreg = RegNext(b.valid, false.B)
       val breg = RegEnable(b.bits, b.valid)
@@ -161,13 +164,17 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
   private var fmaPortIdx = 0
   private var fdivPortIdx = 0
   private var fmiscPortIdx = 0
+  private var fmaWkpIdx = 0
   println("\nFloating Point Reservation Issue Ports Config:")
   for((iss, issuePortIdx) <- issue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
     prefix(iss._2.name + "_" + iss._2.id) {
-      val issueDriver = Module(new DecoupledPipeline(true, param.bankNum, entriesNumPerBank))
+      val issueDriver = Module(new DecoupledPipeline(false, param.bankNum, entriesNumPerBank))
       issueDriver.io.redirect := io.redirect
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
+      val wq = Module(new FmaWakeupQueue())
+      wq.io.redirect := io.redirect
+      wq.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 
       val finalSelectInfo = if (iss._2.isFmac) {
         fmaPortIdx = fmaPortIdx + 1
@@ -204,8 +211,12 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
       issueBundle.bits.ctrl.fuType := finalSelectInfo.bits.info.fuType
       issueBundle.bits.lpv := finalSelectInfo.bits.info.lpv
 
-      finalSelectInfo.ready := issueDriver.io.enq.ready
-      issueDriver.io.enq.valid := issueBundle.valid
+      wq.inputConnect(finalSelectInfo, issueDriver.io.enq.ready)
+      rsFmacWkp(fmaWkpIdx) := wq.io.out
+      fmaWkpIdx = fmaWkpIdx + 1
+
+      finalSelectInfo.ready := issueDriver.io.enq.ready && wq.io.in.ready
+      issueDriver.io.enq.valid := issueBundle.valid && wq.io.in.ready
       issueDriver.io.enq.bits.uop := issueBundle.bits
       issueDriver.io.enq.bits.bankIdxOH := finalSelectInfo.bits.bankIdxOH
       issueDriver.io.enq.bits.entryIdxOH := finalSelectInfo.bits.entryIdxOH

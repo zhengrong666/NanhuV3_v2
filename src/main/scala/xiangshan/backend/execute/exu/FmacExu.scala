@@ -51,7 +51,8 @@ class FmacExuImpl(outer:FmacExu, exuCfg:ExuConfig)(implicit p:Parameters) extend
     !issuePort.issue.bits.uop.robIdx.needFlush(redirectIn)
   fmac.io.in.bits.uop := issuePort.issue.bits.uop
   fmac.io.in.bits.src := issuePort.issue.bits.src
-  issuePort.issue.ready := fmac.io.in.ready
+  issuePort.issue.ready := true.B
+  when(issuePort.issue.valid){assert(fmac.io.in.ready)}
   fmac.rm := Mux(issuePort.issue.bits.uop.ctrl.fpu.rm =/= 7.U, issuePort.issue.bits.uop.ctrl.fpu.rm, csr_frm)
   fmac.midResult.in.bits := DontCare
   fmac.midResult.in.valid := false.B

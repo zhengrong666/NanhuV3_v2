@@ -2,8 +2,8 @@ package xiangshan.backend.issue.FpRs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.backend.issue.WakeUpInfo
-import xiangshan.{Redirect, XSModule}
+import xiangshan.backend.issue.{SelectResp, WakeUpInfo}
+import xiangshan.{FuType, Redirect, SrcType, XSModule}
 import xs.utils.LogicShiftRight
 
 class FmaWakeupQueue(implicit p: Parameters) extends XSModule {
@@ -20,7 +20,7 @@ class FmaWakeupQueue(implicit p: Parameters) extends XSModule {
   private val validVec = RegInit(VecInit(Seq.fill(4)(false.B)))
   private val bitsVec = Reg(Vec(4, new WakeUpInfo))
 
-  io.in.ready := LogicShiftRight(validVec.asUInt, 1) =/= io.in.bits.fpv
+  io.in.ready := Mux(io.in.valid, LogicShiftRight(validVec.asUInt, 1) =/= io.in.bits.fpv, true.B)
   when(io.in.valid){assert(io.in.bits.fpv === "b1000".U || io.in.bits.fpv === "b0010".U)}
 
   validVec.zip(bitsVec).zipWithIndex.foreach({case((v, b), i) =>
@@ -50,4 +50,13 @@ class FmaWakeupQueue(implicit p: Parameters) extends XSModule {
 
   io.out.valid := validVec.last
   io.out.bits := bitsVec.last
+
+  def inputConnect(input:DecoupledIO[SelectResp], allowIn:Bool):Unit = {
+    io.in.valid := input.valid && input.bits.info.fuType === FuType.fmac && allowIn
+    io.in.bits.info.lpv := input.bits.info.lpv
+    io.in.bits.info.destType := SrcType.fp
+    io.in.bits.info.pdest := input.bits.info.pdest
+    io.in.bits.info.robPtr := input.bits.info.robPtr
+    io.in.bits.fpv := Mux(input.bits.info.isFma, "b1000".U, "b0010".U)
+  }
 }

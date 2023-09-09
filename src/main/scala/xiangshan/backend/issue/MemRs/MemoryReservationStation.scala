@@ -95,6 +95,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     val redirect = Input(Valid(new Redirect))
     val mulSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.mulNum, Valid(new WakeUpInfo)))
     val aluJmpSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.aluNum + p(XSCoreParamsKey).exuParameters.AluJmpCnt, Valid(new WakeUpInfo)))
+    val fmaSpecWakeup = Input(Vec(p(XSCoreParamsKey).exuParameters.fmaNum, Valid(new WakeUpInfo)))
     val loadEarlyWakeup = Output(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val stLastCompelet = Input(new SqPtr)
@@ -107,19 +108,22 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
   private val aluJmpSpecWakeup = Wire(Vec(io.aluJmpSpecWakeup.length, Valid(new WakeUpInfo)))
   aluJmpSpecWakeup.zip(io.aluJmpSpecWakeup).foreach({case(a, b) =>
-    val flush = b.bits.robPtr.needFlush(io.redirect)
     val canceled = b.bits.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
-    a.valid := b.valid && !flush && !canceled
+    a.valid := b.valid && !canceled
     a.bits := b.bits
     a.bits.lpv.foreach(_ := 0.U)
   })
-
+  private val fmaSpecWakeup = io.fmaSpecWakeup.map(Pipe(_))
   private val allWkpIns = wakeup.map(w => (MemRsHelper.WbToWkp(w._1, p), w._2))
-  private val wkpToRsBank = allWkpIns.map(_._1) ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
-  private val specWkpLen = (io.mulSpecWakeup ++ aluJmpSpecWakeup).length
+  private val wkpToRsBank = allWkpIns.map(_._1) ++ fmaSpecWakeup ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
   private val wbWkpLen = allWkpIns.length
-  private val regWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeIntRf).map(_._2) ++ Seq.tabulate(specWkpLen)(_ + wbWkpLen)
-  private val fpWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeFpRf).map(_._2) ++ Seq.tabulate(io.mulSpecWakeup.length)(_ + wbWkpLen)
+
+  private val regWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeIntRf).map(_._2) ++
+    Seq.tabulate((io.mulSpecWakeup ++ aluJmpSpecWakeup).length)(_ + wbWkpLen + fmaSpecWakeup.length)
+
+  private val fpWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeFpRf).map(_._2) ++
+    Seq.tabulate((fmaSpecWakeup ++ io.mulSpecWakeup).length)(_ + wbWkpLen)
+
   private val vecWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeVecRf).map(_._2)
 
   private val stIssuedWires = Wire(Vec(staIssuePortNum, Valid(new RobPtr)))
@@ -140,9 +144,9 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
   private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
 
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, (fpWkpIns ++ io.mulSpecWakeup).length, RenameWidth))
+  private val floatingBusyTable = Module(new BusyTable(param.bankNum, (fpWkpIns ++ io.mulSpecWakeup ++ io.fmaSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
-  floatingBusyTable.io.wbPregs.zip(fpWkpIns ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(fpWkpIns ++ io.mulSpecWakeup ++ fmaSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })

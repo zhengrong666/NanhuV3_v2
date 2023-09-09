@@ -171,8 +171,9 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     fpBlk.io.csr_frm := intBlk.io.csrio.fpu.frm
 
     memRs.io.redirect := Pipe(localRedirect)
-    memRs.io.aluJmpSpecWakeup.zip(intRs.io.aluJmpSpecWakeup).foreach({case(a, b) => a := b})
-    memRs.io.mulSpecWakeup.zip(intRs.io.mulSpecWakeup).foreach({case(a, b) => a := b})
+    memRs.io.aluJmpSpecWakeup := intRs.io.aluJmpSpecWakeup
+    memRs.io.mulSpecWakeup := intRs.io.mulSpecWakeup
+    memRs.io.fmaSpecWakeup := fpRs.io.fmacSpecWakeUp
     memRs.io.earlyWakeUpCancel := memBlk.io.earlyWakeUpCancel(2)
     memRs.io.integerAllocPregs := io.integerAllocPregs
     memRs.io.floatingAllocPregs := io.floatingAllocPregs

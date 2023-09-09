@@ -68,7 +68,7 @@ object ExuType{
   def vecTypes: Seq[Int] = Seq(vfp, valu, vperm, vmac, vdiv, s2v)
   def typeToString(in:Int):String = mapping(in)
   def bypassIntList: Seq[Int] = Seq(alu, mul, ldu, jmp)
-  def bypassFpList: Seq[Int] = Seq()
+  def bypassFpList: Seq[Int] = Seq(fmac)
 }
 
 case class ExuConfig
@@ -84,9 +84,12 @@ case class ExuConfig
   speculativeWakeup:Boolean = false,
   throughVectorRf:Boolean = false
 ){
+  private val intFastWkpSeq = Seq(ExuType.alu, ExuType.jmp, ExuType.mul)
+  private val fpFastWkpSeq = Seq(ExuType.fmac)
   val intSrcNum:Int = fuConfigs.map(_.numIntSrc).max
   val fpSrcNum:Int = fuConfigs.map(_.numFpSrc).max
-  val hasFastWakeup: Boolean = fuConfigs.map(_.latency).max != Int.MaxValue
+  val isIntFastWakeup: Boolean = intFastWkpSeq.contains(exuType)
+  val isFpFastWakeup: Boolean = fpFastWkpSeq.contains(exuType)
   val latency: Int = fuConfigs.map(_.latency).max
   val exceptionOut: Seq[Int] = fuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted
   val writeIntRf = fuConfigs.map(_.writeIntRf).reduce(_||_)
@@ -97,12 +100,12 @@ case class ExuConfig
   private val isVector = throughVectorRf
   private val isLs = exuType == ExuType.ldu || exuType == ExuType.sta || exuType == ExuType.std
   val writebackToRegfile = if(isLs) !isVector && (writeIntRf || writeFpRf) else (writeIntRf || writeFpRf)
-  val writebackToIntRs = if(isLs) (!isVector && writeIntRf) else (writeIntRf && !hasFastWakeup)
-  val writebackToFpRs = if(isLs) (!isVector && writeFpRf) else writeFpRf
+  val writebackToIntRs = if(isLs) (!isVector && writeIntRf) else (writeIntRf && !isIntFastWakeup)
+  val writebackToFpRs = if(isLs) (!isVector && writeFpRf) else (writeFpRf && !isFpFastWakeup)
   val writebackToReorderQueue = writebackToRob
   val writebackToVecRs = writeVecRf || writeIntRf || writeFpRf
   val writebackToMergeStation = writebackToVms
-  val writebackToMemRs = ((writeIntRf || writeFpRf) && !hasFastWakeup) || writeVecRf
+  val writebackToMemRs = ((writeIntRf || writeFpRf) && !isIntFastWakeup && !isFpFastWakeup) || writeVecRf
 
   val hasRedirectOut = fuConfigs.map(_.hasRedirect).reduce(_||_)
   val isIntType = ExuType.intTypes.contains(exuType)

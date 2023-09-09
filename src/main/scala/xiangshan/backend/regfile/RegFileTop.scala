@@ -130,12 +130,13 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
     private val writeFpRf = wb.filter(i => !i._2.bypassFpRegfile && i._2.writeFpRf)
 
     private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum
-    private val fpReadNum = needFpSrc.map(_._2.fpSrcNum).sum
+    private val fpReadNum = needFpSrc.filterNot(_._2.hasStd).map(_._2.fpSrcNum).sum
+    private val stdFpReadNum = needFpSrc.filter(_._2.hasStd).map(_._2.fpSrcNum).sum
 
     println(s"intReadNum: $intReadNum, fpReadNum: $fpReadNum")
 
     private val intRf = Module(new GenericRegFile(NRPhyRegs, writeIntRf.length, writeIntRfBypass.length, intReadNum, extraScalarRfReadPort, XLEN, "IntegerRegFile", true))
-    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, extraScalarRfReadPort, XLEN, "FloatingRegFile", false))
+    private val fpRf = Module(new GenericRegFile(NRPhyRegs, writeFpRf.length, writeFpRfBypass.length, fpReadNum, extraScalarRfReadPort + stdFpReadNum, XLEN, "FloatingRegFile", false))
 
     private val intWriteBackSinks = intRf.io.write ++ intRf.io.bypassWrite
     private val intWriteBackSources = writeIntRf ++ writeIntRfBypass
@@ -158,6 +159,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
     private var pcReadPortIdx = 0
     private var vecReadPortIdx = 0
     private var vecMoveReqPortIdx = 0
+    private var noBypassFpReadIdx = extraScalarRfReadPort
     for(in <- fromRs){
       val out = toExuMap(in._2)
       val rsParam = in._3
@@ -216,7 +218,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Stride read
           intRf.io.read(intRfReadIdx + 1).addr := bi.issue.bits.uop.psrc(1)
           //Scalar STD data read
-          fpRf.io.read(fpRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
+          fpRf.io.readNoBypass(noBypassFpReadIdx).addr := bi.issue.bits.uop.psrc(0)
           //Move req
           io.vectorRfMoveReq(vecMoveReqPortIdx).valid := bi.issue.bits.uop.ctrl.fuType === FuType.ldu &&
             !bi.hold && bi.issue.valid && bi.issue.bits.uop.ctrl.isVector
@@ -276,7 +278,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           exuInBundle.uop.loadStoreEnable := !(bi.issue.bits.uop.ctrl.isVector && (isMaskDisabled || isTailDisabled || isPrestartDisabled))
 
           intRfReadIdx = intRfReadIdx + 2
-          fpRfReadIdx = fpRfReadIdx + 1
+          noBypassFpReadIdx = noBypassFpReadIdx + 1
           vecMoveReqPortIdx = vecMoveReqPortIdx + 1
           vecReadPortIdx = vecReadPortIdx + 2
           pcReadPortIdx = pcReadPortIdx + 1
