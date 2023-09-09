@@ -20,7 +20,7 @@ class FmaWakeupQueue(implicit p: Parameters) extends XSModule {
   private val validVec = RegInit(VecInit(Seq.fill(4)(false.B)))
   private val bitsVec = Reg(Vec(4, new WakeUpInfo))
 
-  io.in.ready := Mux(io.in.valid, LogicShiftRight(validVec.asUInt, 1) =/= io.in.bits.fpv, true.B)
+  io.in.ready := Mux(io.in.valid, LogicShiftRight(Cat(validVec), 1) =/= io.in.bits.fpv, true.B)
   when(io.in.valid){assert(io.in.bits.fpv === "b1000".U || io.in.bits.fpv === "b0010".U)}
 
   validVec.zip(bitsVec).zipWithIndex.foreach({case((v, b), i) =>
