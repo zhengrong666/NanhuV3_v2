@@ -32,7 +32,7 @@ class FdivExu(id:Int, complexName:String)(implicit p:Parameters) extends BasicEx
     name = "FdivExu",
     id = id,
     complexName = complexName,
-    fuConfigs = Seq(FuConfigs.fdivSqrtCfg, FuConfigs.fdivSqrtCfg, FuConfigs.fdivSqrtCfg),
+    fuConfigs = Seq(FuConfigs.fdivSqrtCfg, FuConfigs.fdivSqrtCfg),
     exuType = ExuType.fdiv,
     needToken = true,
     speculativeWakeup = true,

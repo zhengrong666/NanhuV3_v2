@@ -31,7 +31,7 @@ class DivExu(id:Int, complexName:String, val bypassInNum:Int)(implicit p:Paramet
     name = "DivExu",
     id = id,
     complexName = complexName,
-    fuConfigs = Seq(FuConfigs.divCfg, FuConfigs.divCfg, FuConfigs.divCfg),
+    fuConfigs = Seq(FuConfigs.divCfg, FuConfigs.divCfg),
     exuType = ExuType.div,
     needToken = true,
     speculativeWakeup = true,
