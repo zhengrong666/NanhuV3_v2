@@ -99,11 +99,11 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod
   })
-  private val wakeupWidth = wakeupSignals.length
+  private val wakeupWidth = (wakeupSignals ++ rsFmacWkp).length
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("FloatingAllocateNetwork")))
   private val floatingBusyTable = Module(new BusyTable(param.bankNum * 3, wakeupWidth, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
-  floatingBusyTable.io.wbPregs.zip(wakeupSignals).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(wakeupSignals ++ rsFmacWkp).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
