@@ -241,25 +241,19 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   private val specialIssueArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, lduIssuePortNum, false))
   private val loadUops = Wire(Vec(lduIssuePortNum, new MicroOp))
   private val slRes = specialIssueArbiter.io.out
-  private val uopChosen = Mux1H(specialIssueArbiter.io.chosen, loadUops)
+  private val uopSel = RegEnable(specialIssueArbiter.io.chosen, slRes.valid)
+  private val uopChosen = Mux1H(uopSel, loadUops)
   rsBankSeq.zip(slRes.bits.bankIdxOH.asBools).foreach({case(b, e) =>
     b.io.specialIssue.valid := slRes.valid && e
     b.io.specialIssue.bits := slRes.bits.entryIdxOH
   })
-  private val specialLoadIssueDriver = Module(new DecoupledPipeline(false, param.bankNum, entriesNumPerBank))
+  private val specialLoadIssueDriver = Module(new MemoryIssuePipeline(param.bankNum, entriesNumPerBank))
   specialLoadIssueDriver.io.redirect := io.redirect
   specialLoadIssueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
   specialLoadIssueDriver.io.enq.valid := slRes.valid
   slRes.ready := specialLoadIssueDriver.io.enq.ready
-  specialLoadIssueDriver.io.enq.bits.entryIdxOH := slRes.bits.entryIdxOH
-  specialLoadIssueDriver.io.enq.bits.bankIdxOH := slRes.bits.bankIdxOH
+  specialLoadIssueDriver.io.enq.bits.selectResp := slRes
   specialLoadIssueDriver.io.enq.bits.uop := uopChosen
-  specialLoadIssueDriver.io.enq.bits.uop.robIdx := slRes.bits.info.robPtr
-  specialLoadIssueDriver.io.enq.bits.uop.ctrl.rfWen := slRes.bits.info.rfWen
-  specialLoadIssueDriver.io.enq.bits.uop.ctrl.fpWen := slRes.bits.info.fpWen
-  specialLoadIssueDriver.io.enq.bits.uop.pdest := slRes.bits.info.pdest
-  specialLoadIssueDriver.io.enq.bits.uop.ctrl.fuType := slRes.bits.info.fuType
-  specialLoadIssueDriver.io.enq.bits.uop.lpv := slRes.bits.info.lpv
 
   specialLoadIssue.head._1.issue.valid := specialLoadIssueDriver.io.deq.valid
   specialLoadIssue.head._1.issue.bits.uop := specialLoadIssueDriver.io.deq.bits.uop
@@ -290,7 +284,6 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       specialIssueArbiter.io.in(issuePortIdx).bits := lduSelectNetwork.io.issueInfo(issuePortIdx).bits
       lduSelectNetwork.io.issueInfo(issuePortIdx).ready := specialIssueArbiter.io.in(issuePortIdx).ready | respArbiter.io.in(2).ready
       val selResp = respArbiter.io.out
-      val isStd =  respArbiter.io.chosen === 1.U
 
       def getSlice[T <: Object](in: Seq[T]): Seq[T] = in.slice(issuePortIdx * issBankNum, issuePortIdx * issBankNum + issBankNum)
 
@@ -308,12 +301,16 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val stdSel = getSlice(stdSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
       val staSel = getSlice(staSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
       val loadSel = getSlice(lduSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
-      bankPayloads(0) := Mux1H(stdSel, selectedBanks.map(_.io.stdUop))
-      bankPayloads(1) := Mux1H(staSel, selectedBanks.map(_.io.staUop))
-      bankPayloads(2) := Mux1H(loadSel, selectedBanks.map(_.io.loadUop))
+      val stdSelDelay = stdSel.map(s => RegEnable(s, selResp.valid))
+      val staSelDelay = staSel.map(s => RegEnable(s, selResp.valid))
+      val loadSelDelay = loadSel.map(s => RegEnable(s, selResp.valid))
+      bankPayloads(0) := Mux1H(stdSelDelay, selectedBanks.map(_.io.stdUop))
+      bankPayloads(1) := Mux1H(staSelDelay, selectedBanks.map(_.io.staUop))
+      bankPayloads(2) := Mux1H(loadSelDelay, selectedBanks.map(_.io.loadUop))
       loadUops(issuePortIdx) := bankPayloads(2)
 
-      val selPayload = Mux1H(respArbiter.io.chosen, bankPayloads)
+      val chosenDelay = RegEnable(respArbiter.io.chosen, selResp.valid)
+      val selPayload = Mux1H(chosenDelay, bankPayloads)
       stIssuedWires(issuePortIdx).valid := issueDriver.io.deq.fire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu
       stIssuedWires(issuePortIdx).bits := issueDriver.io.deq.bits.uop.robIdx
       val replayPortSel = selectedBanks.map(_.io.replay)
@@ -347,29 +344,10 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       io.loadEarlyWakeup(issuePortIdx).bits.destType := earlyWakeupQueue.io.out.bits.destType
       io.loadEarlyWakeup(issuePortIdx).bits.lpv := earlyWakeupQueue.io.out.bits.lpv(issuePortIdx)
 
-      val finalSelectInfo = selResp
-      val payload = WireInit(selPayload)
-      val isVec = selPayload.ctrl.isVector
-      when(!isVec && isStd){
-        payload.ctrl.srcType(0) := selPayload.ctrl.srcType(1)
-        payload.psrc(0) := selPayload.psrc(1)
-      }
-
-      val issueBundle = Wire(Valid(new MicroOp))
-      issueBundle.valid := finalSelectInfo.valid
-      issueBundle.bits := payload
-      issueBundle.bits.robIdx := finalSelectInfo.bits.info.robPtr
-      issueBundle.bits.ctrl.rfWen := finalSelectInfo.bits.info.rfWen
-      issueBundle.bits.ctrl.fpWen := finalSelectInfo.bits.info.fpWen
-      issueBundle.bits.pdest := finalSelectInfo.bits.info.pdest
-      issueBundle.bits.ctrl.fuType := finalSelectInfo.bits.info.fuType
-      issueBundle.bits.lpv := finalSelectInfo.bits.info.lpv
-
-      finalSelectInfo.ready := issueDriver.io.enq.ready
-      issueDriver.io.enq.valid := issueBundle.valid
-      issueDriver.io.enq.bits.uop := issueBundle.bits
-      issueDriver.io.enq.bits.bankIdxOH := finalSelectInfo.bits.bankIdxOH
-      issueDriver.io.enq.bits.entryIdxOH := finalSelectInfo.bits.entryIdxOH
+      selResp.ready := issueDriver.io.enq.ready
+      issueDriver.io.enq.valid := selResp.valid
+      issueDriver.io.enq.bits.uop := selPayload
+      issueDriver.io.enq.bits.selectResp := selResp.bits
 
       iss._1.issue.valid := issueDriver.io.deq.valid
       iss._1.issue.bits.uop := issueDriver.io.deq.bits.uop

@@ -34,6 +34,8 @@ class SelectInfo(implicit p: Parameters) extends XSBundle{
   val fpWen = Bool()
   val isVector = Bool()
   val robPtr = new RobPtr
+  val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
+  val vm = UInt(PhyRegIdxWidth.W)
 }
 
 class SelectResp(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends XSBundle {

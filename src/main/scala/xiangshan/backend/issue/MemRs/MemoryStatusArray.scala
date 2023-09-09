@@ -56,6 +56,8 @@ sealed class BasicMemoryIssueInfoGenerator(implicit p: Parameters) extends XSMod
   io.out.bits.fpWen := ib.fpWen
   io.out.bits.rfWen := ib.rfWen
   io.out.bits.isVector := ib.isVector
+  io.out.bits.psrc := ib.psrc
+  io.out.bits.vm := ib.vm
 }
 
 class StaLoadIssueInfoGen(implicit p: Parameters) extends BasicMemoryIssueInfoGenerator{
