@@ -252,7 +252,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   specialLoadIssueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
   specialLoadIssueDriver.io.enq.valid := slRes.valid
   slRes.ready := specialLoadIssueDriver.io.enq.ready
-  specialLoadIssueDriver.io.enq.bits.selectResp := slRes
+  specialLoadIssueDriver.io.enq.bits.selectResp := slRes.bits
   specialLoadIssueDriver.io.enq.bits.uop := uopChosen
 
   specialLoadIssue.head._1.issue.valid := specialLoadIssueDriver.io.deq.valid
