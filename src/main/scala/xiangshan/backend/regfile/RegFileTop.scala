@@ -264,7 +264,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             }
           }.otherwise {
             val intSrcData = intRf.io.read(intRfReadIdx).data
-            val fpSrcData = fpRf.io.read(fpRfReadIdx).data
+            val fpSrcData = fpRf.io.readNoBypass(noBypassFpReadIdx).data
             issueBundle.src(0) := MuxCase(intSrcData,
               Seq(
                 (bi.issue.bits.uop.ctrl.srcType(0) === SrcType.reg, intSrcData),
