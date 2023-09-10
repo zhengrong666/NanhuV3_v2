@@ -25,7 +25,7 @@ import chisel3.util._
 import firrtl.passes.InlineAnnotation
 import xiangshan.backend.issue.{BasicStatusArrayEntry, EarlyWakeUpInfo, SelectInfo, WakeUpInfo}
 import xiangshan.{FuType, Redirect, SrcState, SrcType, XSBundle, XSModule}
-import xs.utils.LogicShiftRight
+import xs.utils.{LogicShiftLeft, LogicShiftRight}
 import xiangshan.backend.issue.MemRs.EntryState._
 import xiangshan.backend.issue.MemRs.UpdateNetworkHelper.{EarlyWkpToNormalWkp, WakeupLogics}
 import xiangshan.backend.rob.RobPtr
@@ -85,7 +85,7 @@ class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEnt
   val staLoadState = EntryState()
   val stdState = EntryState()
   val counter = UInt(6.W)
-  val replayPenalty = UInt(5.W)
+  val replayPenalty = UInt(4.W)
   val isFirstIssue = Bool()
   val waitTarget = new RobPtr
   val sqIdx = new SqPtr
@@ -278,7 +278,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   }
 
   when(io.replay.valid){
-    counterNext := io.replay.bits +& io.entry.bits.replayPenalty
+    counterNext := io.replay.bits +& Cat(io.entry.bits.replayPenalty, 0.U(1.W))
   }.elsewhen(staLoadStateNext =/= s_ready && staLoadState === s_ready) {
     counterNext := 5.U
   }.elsewhen(counter.orR) {
@@ -289,7 +289,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
     enqNext.bits.replayPenalty := 0.U
   }
   when(io.replay.valid){
-    miscNext.bits.replayPenalty := Mux(io.entry.bits.replayPenalty === 0x1F.U, 0x1F.U, io.entry.bits.replayPenalty + 1.U)
+    miscNext.bits.replayPenalty := Mux(io.entry.bits.replayPenalty === 0xF.U, 0xF.U, io.entry.bits.replayPenalty + 1.U)
   }
 
   when(io.entry.valid){
