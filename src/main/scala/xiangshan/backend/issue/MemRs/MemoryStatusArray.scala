@@ -25,7 +25,7 @@ import chisel3.util._
 import firrtl.passes.InlineAnnotation
 import xiangshan.backend.issue.{BasicStatusArrayEntry, EarlyWakeUpInfo, SelectInfo, WakeUpInfo}
 import xiangshan.{FuType, Redirect, SrcState, SrcType, XSBundle, XSModule}
-import xs.utils.LogicShiftRight
+import xs.utils.{LogicShiftLeft, LogicShiftRight}
 import xiangshan.backend.issue.MemRs.EntryState._
 import xiangshan.backend.issue.MemRs.UpdateNetworkHelper.{EarlyWkpToNormalWkp, WakeupLogics}
 import xiangshan.backend.rob.RobPtr
@@ -84,7 +84,8 @@ class MemoryStatusArrayEntry(implicit p: Parameters) extends BasicStatusArrayEnt
   val isVector = Bool()
   val staLoadState = EntryState()
   val stdState = EntryState()
-  val counter = UInt(5.W)
+  val counter = UInt(6.W)
+  val replayPenalty = UInt(4.W)
   val isFirstIssue = Bool()
   val waitTarget = new RobPtr
   val sqIdx = new SqPtr
@@ -154,7 +155,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val stIssued = Input(Vec(stuNum, Valid(new RobPtr)))
-    val replay = Input(Valid(UInt(5.W)))
+    val replay = Input(Valid(UInt(3.W)))
     val redirect = Input(Valid(new Redirect))
     val stLastCompelet = Input(new SqPtr)
   })
@@ -251,12 +252,12 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
     is(s_wait_replay) {
       when(needReplay) {
         staLoadStateNext := Mux(io.replay.bits === 0.U, s_ready, s_wait_counter)
-      }.elsewhen(counter(0).asBool) {
+      }.elsewhen(counter === 1.U) {
         staLoadStateNext := s_issued
       }
     }
     is(s_wait_counter) {
-      when(counter(0).asBool) {
+      when(counter === 1.U) {
         staLoadStateNext := s_ready
       }
     }
@@ -277,12 +278,20 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   }
 
   when(io.replay.valid){
-    counterNext := io.replay.bits
+    counterNext := io.replay.bits +& Cat(io.entry.bits.replayPenalty, 0.U(1.W))
   }.elsewhen(staLoadStateNext =/= s_ready && staLoadState === s_ready) {
-    counterNext := (1 << 4).U
+    counterNext := 5.U
   }.elsewhen(counter.orR) {
-    counterNext := LogicShiftRight(counter, 1)
+    counterNext := counter - 1.U
   }
+
+  when(io.entry.valid){
+    enqNext.bits.replayPenalty := 0.U
+  }
+  when(io.replay.valid){
+    miscNext.bits.replayPenalty := Mux(io.entry.bits.replayPenalty === 0xF.U, 0xF.U, io.entry.bits.replayPenalty + 1.U)
+  }
+
   when(io.entry.valid){
     assert(Cat(addrShouldBeCancelled, staLoadIssued) <= 2.U)
     assert(staLoadState === s_wait_st || staLoadState === s_ready ||
@@ -320,7 +329,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
 }
 class Replay(entryNum:Int) extends Bundle {
   val entryIdxOH = UInt(entryNum.W)
-  val waitVal = UInt(5.W)
+  val waitVal = UInt(3.W)
 }
 
 class MemoryStatusArray(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq[Int], fpWkpIdx:Seq[Int], vecWkpIdx:Seq[Int])(implicit p: Parameters) extends XSModule{
