@@ -143,30 +143,23 @@ class SbufferData(implicit p: Parameters) extends XSModule with HasSbufferConst 
   //s0
   val req = io.writeReq
   //s1
-  val w_valid_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegNext(a.valid)))
-  val w_data_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.data, a.valid)))
-  val w_wline_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.wline, a.valid)))
-  val w_mask_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.mask, a.valid)))
-  val w_addr_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(OHToUInt(a.bits.wvec), a.valid)))
-  val w_word_offset_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.wordOffset(WordsWidth - 1, 0), a.valid)))
+  val w_valid_s1 = req.map(a => RegNext(a.valid))
+  val w_data_s1 = req.map(a => RegEnable(a.bits.data, a.valid))
+  val w_wline_s1 = req.map(a => RegEnable(a.bits.wline, a.valid))
+  val w_mask_s1 = req.map(a => RegEnable(a.bits.mask, a.valid))
+  val w_addr_s1 = req.map(a => RegEnable(OHToUInt(a.bits.wvec), a.valid))
+  val w_word_offset_s1 = req.map(a => RegEnable(a.bits.wordOffset(WordsWidth - 1, 0), a.valid))
 
-//  val w_valid_s1 = req.map(a => RegNext(a.valid))
-//  val w_data_s1 = req.map(a => RegEnable(a.bits.data, a.valid))
-//  val w_wline_s1 = req.map(a => RegEnable(a.bits.wline, a.valid))
-//  val w_mask_s1 = req.map(a => RegEnable(a.bits.mask, a.valid))
-//  val w_addr_s1 = req.map(a => RegEnable(OHToUInt(a.bits.wvec), a.valid))
-//  val w_word_offset_s1 = req.map(a => RegEnable(a.bits.wordOffset(WordsWidth - 1, 0), a.valid))
-
-  w_valid_s1_dup.zipWithIndex.foreach({ case (valid, i) =>
+  w_valid_s1.zipWithIndex.foreach({ case (valid, i) =>
     for (word <- 0 until CacheLineWords) {
       for (byte <- 0 until DataBytes) {
-        val wen = valid(i) && (
-          (w_mask_s1_dup(i)(i)(byte) && (w_word_offset_s1_dup(i)(i) === word.U)) ||
-            w_wline_s1_dup(i)(i)
+        val wen = valid && (
+          (w_mask_s1(i)(byte) && (w_word_offset_s1(i) === word.U)) ||
+            w_wline_s1(i)
           )
         when(wen) {
-          data(w_addr_s1_dup(i)(i))(word)(byte) := w_data_s1_dup(i)(i)(byte * 8 + 7, byte * 8)
-          mask(w_addr_s1_dup(i)(i))(word)(byte) := true.B
+          data(w_addr_s1(i))(word)(byte) := w_data_s1(i)(byte * 8 + 7, byte * 8)
+          mask(w_addr_s1(i))(word)(byte) := true.B
         }
       }
     }

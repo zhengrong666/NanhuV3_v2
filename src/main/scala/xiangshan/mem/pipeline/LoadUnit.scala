@@ -742,23 +742,42 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
 
   // load s3
   val s3_load_wb_meta_reg = RegEnable(Mux(hitLoadOut.valid, hitLoadOut.bits, io.lsq.ldout.bits), hitLoadOut.valid | io.lsq.ldout.valid)
-  val s3_load_wb_meta_reg_dup = RegEnable(Mux(hitLoadOut.valid, hitLoadOut.bits, io.lsq.ldout.bits), hitLoadOut.valid | io.lsq.ldout.valid)
 
   // data from load queue refill
   val s3_loadDataFromLQ = RegEnable(io.lsq.ldRawData, io.lsq.ldout.valid)
-  val s3_loadDataFromLQ_dup = RegEnable(io.lsq.ldRawData, io.lsq.ldout.valid) //for fanout
   val s3_rdataLQ = s3_loadDataFromLQ.mergedData()
+//  val s3_rdataSelLQ = LookupTree(s3_loadDataFromLQ.addrOffset, List(
+//    "b000".U -> s3_rdataLQ(63, 0),
+//    "b001".U -> s3_rdataLQ(63, 8),
+//    "b010".U -> s3_rdataLQ(63, 16),
+//    "b011".U -> s3_rdataLQ(63, 24),
+//    "b100".U -> s3_rdataLQ(63, 32),
+//    "b101".U -> s3_rdataLQ(63, 40),
+//    "b110".U -> s3_rdataLQ(63, 48),
+//    "b111".U -> s3_rdataLQ(63, 56)
+//  ))
+//  val s3_rdataPartialLoadLQ = rdataHelper(s3_loadDataFromLQ.uop, s3_rdataSelLQ)
 
   // data from dcache hit
   val s3_loadDataFromDcache = RegEnable(load_s2.io.loadDataFromDcache, load_s2.io.in.valid)
-  val s3_loadDataFromDcache_dup = RegEnable(load_s2.io.loadDataFromDcache, load_s2.io.in.valid)
   val s3_rdataDcache = s3_loadDataFromDcache.mergedData()
+//  val s3_rdataSelDcache = LookupTree(s3_loadDataFromDcache.addrOffset, List(
+//    "b000".U -> s3_rdataDcache(63, 0),
+//    "b001".U -> s3_rdataDcache(63, 8),
+//    "b010".U -> s3_rdataDcache(63, 16),
+//    "b011".U -> s3_rdataDcache(63, 24),
+//    "b100".U -> s3_rdataDcache(63, 32),
+//    "b101".U -> s3_rdataDcache(63, 40),
+//    "b110".U -> s3_rdataDcache(63, 48),
+//    "b111".U -> s3_rdataDcache(63, 56)
+//  ))
+//  val s3_rdataPartialLoadDcache = rdataHelper(s3_loadDataFromDcache.uop, s3_rdataSelDcache)
 
 
   //--------------------------------------------------------------------------------
   private val hitLoadOutValidReg = RegNext(hitLoadOut.valid, false.B)
-  val s3_uop = Mux(hitLoadOutValidReg,s3_loadDataFromDcache_dup.uop,s3_loadDataFromLQ_dup.uop)
-  val s3_offset = Mux(hitLoadOutValidReg,s3_loadDataFromDcache_dup.addrOffset,s3_loadDataFromLQ_dup.addrOffset)
+  val s3_uop = Mux(hitLoadOutValidReg,s3_loadDataFromDcache.uop,s3_loadDataFromLQ.uop)
+  val s3_offset = Mux(hitLoadOutValidReg,s3_loadDataFromDcache.addrOffset,s3_loadDataFromLQ.addrOffset)
   val s3_rdata = Mux(hitLoadOutValidReg,s3_rdataDcache,s3_rdataLQ)
   val s3_sel_rdata = LookupTree(s3_offset,List(
     "b000".U -> s3_rdata(63, 0),
@@ -778,10 +797,10 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
 //  io.ldout.bits.data := Mux(RegNext(hitLoadOut.valid), s3_rdataPartialLoadDcache, s3_rdataPartialLoadLQ)
   io.ldout.bits.data := s3_rdataPartialLoad
   private val lsqOutputValidReg = RegNext(io.lsq.ldout.valid && (!io.lsq.ldout.bits.uop.robIdx.needFlush(io.redirect)),false.B)
-  private val writebackShouldBeFlushed = s3_load_wb_meta_reg_dup.uop.robIdx.needFlush(io.redirect)
+  private val writebackShouldBeFlushed = s3_load_wb_meta_reg.uop.robIdx.needFlush(io.redirect)
   io.ldout.valid := (!writebackShouldBeFlushed) && (hitLoadOutValidReg || lsqOutputValidReg)
 
-  io.ldout.bits.uop.cf.exceptionVec(loadAccessFault) := s3_load_wb_meta_reg_dup.uop.cf.exceptionVec(loadAccessFault) //||
+  io.ldout.bits.uop.cf.exceptionVec(loadAccessFault) := s3_load_wb_meta_reg.uop.cf.exceptionVec(loadAccessFault) //||
   io.ldout.bits.wbmask := Mux(!wbIsEnable || wbIsOrder, 0.U, "hff".U)
     //RegNext(hitLoadOut.valid) && load_s2.io.s3_delayed_load_error
 
