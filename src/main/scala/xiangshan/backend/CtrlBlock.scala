@@ -67,6 +67,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     val frontend = Flipped(new FrontendToCtrlIO)
     // to exu blocks
     val allocPregs = Vec(RenameWidth, Output(new ResetPregStateReq))
+    val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
     val enqLsq = Flipped(new LsqEnqIO)
     val lqCancelCnt = Input(UInt(log2Up(LoadQueueSize + 1).W))
     val sqCancelCnt = Input(UInt(log2Up(StoreQueueSize + 1).W))
@@ -325,6 +326,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
   vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
   vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
+
+  io.vAllocPregs := vCtrlBlock.io.vAllocPregs
 
   val commitVector = Wire(new RobCommitIO)
   commitVector := rob.io.commits

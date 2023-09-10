@@ -151,6 +151,13 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
     i.valid := r.isInt
     i.bits := r.preg
   })
+
+  exuBlock.io.vectorAllocPregs.zip(ctrlBlock.io.vAllocPregs).foreach({
+    case(v, r) =>
+      v.valid := r.valid
+      v.bits := r.bits
+  })
+
   ctrlBlock.io.memPredUpdate := exuBlock.io.memPredUpdate
   exuBlock.io.debug_int_rat := ctrlBlock.io.debug_int_rat
   exuBlock.io.debug_fp_rat := ctrlBlock.io.debug_fp_rat

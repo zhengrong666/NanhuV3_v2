@@ -68,6 +68,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val vDispatch = Vec(vecDpWidth, DecoupledIO(new MicroOp))
     val vpDispatch = Vec(vpDpWidth, DecoupledIO(new MicroOp))
     val vmemDispath = Vec(memDpWidth, DecoupledIO(new MicroOp))
+
+    val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
   })
 
   val videcode    = Module(new VIDecodeUnit)
@@ -110,6 +112,12 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     dp.bits := rp.bits
     dp.valid := rp.valid
   }
+
+  for((rp, i) <- virename.io.uopOut.zipWithIndex) {
+    io.vAllocPregs(i).valid := rp.valid && rp.bits.ctrl.vdWen
+    io.vAllocPregs(i).bits := rp.bits.pdest
+  }
+
   dispatch.io.redirect <> io.redirect
 
   io.vDispatch <> dispatch.io.toVectorCommonRS
