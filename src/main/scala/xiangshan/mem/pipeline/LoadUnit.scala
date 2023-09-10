@@ -244,7 +244,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
   io.rsFeedback.valid := io.in.valid && (s1_bank_conflict || needLdVioCheckRedo || io.s1_cancel) && !io.s1_kill && EnableMem
   io.rsFeedback.bits.rsIdx := io.in.bits.rsIdx
   io.rsFeedback.bits.flushState := io.in.bits.ptwBack
-  io.rsFeedback.bits.sourceType := Mux(s1_bank_conflict, Cat(0.U((RSFeedbackType.width - 1).W), io.bankConflictAvoidIn), RSFeedbackType.ldVioCheckRedo)
+  io.rsFeedback.bits.sourceType := Mux(s1_bank_conflict, RSFeedbackType.bankConflict, RSFeedbackType.ldVioCheckRedo)
 
   // if replay is detected in load_s1,
   // load inst will be canceled immediately
