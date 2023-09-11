@@ -285,7 +285,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val respArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 3, true))
       respArbiter.io.in(0) <> stdSelectNetwork.io.issueInfo(issuePortIdx)
       respArbiter.io.in(1) <> staSelectNetwork.io.issueInfo(issuePortIdx)
-      respArbiter.io.in(2).valid <> lduSelectNetwork.io.issueInfo(issuePortIdx)
+      respArbiter.io.in(2) <> lduSelectNetwork.io.issueInfo(issuePortIdx)
 
       val scalarLoadSel = lduSelectNetwork.io.issueInfo(issuePortIdx).valid && !lduSelectNetwork.io.issueInfo(issuePortIdx).bits.info.isVector
       loadIssResps(issuePortIdx).valid := scalarLoadSel
