@@ -74,16 +74,55 @@ class DispatchQueuePayload(entryNum:Int, enqNum:Int, deqNum:Int)(implicit p: Par
   io.flushVec := Cat(redirectHits.reverse)
 }
 
+class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule {
+  val io = IO(new Bundle{
+    val in = Input(Vec(2 * deqNum, Valid(new MicroOp())))
+    val deq = Vec(deqNum, Decoupled(new MicroOp()))
+    val deqPtrUpdate = Output(Bool())
+    val deqPtrMoveVal = Output(UInt(log2Ceil(deqNum).W))
+    val redirect = Input(Valid(new Redirect))
+  })
+
+  private val validsReg = RegInit(VecInit(Seq.fill(2 * deqNum)(false.B)))
+  private val bitsRegs = Reg(Vec(2 * deqNum, new MicroOp()))
+  io.deq.zip(validsReg.take(deqNum)).zip(bitsRegs.take(deqNum)).foreach({case((d, v), b) =>
+    d.valid := v && !io.redirect.valid
+    d.bits := b
+  })
+  private val fireNum = PopCount(io.deq.map(_.fire))
+  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_)
+  io.deqPtrMoveVal := fireNum
+
+  for(((in, v), b) <- io.in.zip(validsReg).zip(bitsRegs)){
+    when(io.redirect.valid){
+      v := false.B
+    }.otherwise{
+      v := in.valid
+    }
+    when(in.valid){
+      b := in.bits
+    }
+  }
+  private val readyNum = PopCount(io.deq.map(_.ready))
+  for (i <- 1 until io.deq.length) {
+    when(PopCount(io.deq.map(_.valid)) > 0.U) {
+      assert(Mux(i.U < readyNum, io.deq(i).ready === true.B, io.deq(i).ready === false.B))
+    }
+  }
+}
+
 class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters)
   extends XSModule with HasCircularQueuePtrHelper with HasPerfEvents {
   val io: DispatchQueueIO = IO(new DispatchQueueIO(enqNum, deqNum))
 
   private class DispatchQueuePtr extends CircularQueuePtr[DispatchQueuePtr](size)
 
-  private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, deqNum))
+  private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 3 * deqNum))
+  private val deqDriver = Module(new DeqDriver(deqNum))
   private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
   private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
-  private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrVec = Seq.tabulate(2 * deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = size.U - validEntriesNum
@@ -122,15 +161,38 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     enqPtrAux := enqPtr + actualEnqNum
   }
 
-  io.deq.zipWithIndex.foreach({case(deq, idx) =>
-    deq.valid := (deqPtrVec(idx) < enqPtrAux) && !io.redirect.valid
-    payloadArray.io.r(idx).addr := deqPtrVec(idx).value
-    deq.bits := payloadArray.io.r(idx).data
+
+  payloadArray.io.r.take(2 * deqNum).zip(deqPtrVecNext).foreach({case(a, b) =>
+    a.addr := b.value
   })
-  private val actualDeqNum = PopCount(io.deq.map(_.fire))
-  when(actualDeqNum =/= 0.U && !io.redirect.valid){
-    deqPtrVec.foreach(d => d := d + actualDeqNum)
+  for(i <- 0 until 2 * deqNum){
+    deqDriver.io.in(i).valid := (deqPtrVecNext(i) < enqPtr)
+    deqDriver.io.in(i).bits := payloadArray.io.r(i).data
+    val enqAddrHitsVec = enqAddrDelta.map(d => enqPtr + d).map(_.value === deqPtrVecNext(i).value)
+    val enqValidVec = io.enq.req.map(_.valid && io.enq.canAccept)
+    val enqHitsVec = enqAddrHitsVec.zip(enqValidVec).map({case(a, b) => a && b})
+    val enqUpdateEn = Cat(enqHitsVec).orR
+    when(enqUpdateEn){
+      deqDriver.io.in(i).valid := true.B
+      deqDriver.io.in(i).bits := Mux1H(enqHitsVec, io.enq.req.map(_.bits))
+    }
+    assert(PopCount(enqHitsVec) <= 1.U)
   }
+  deqPtrVecNext.zip(deqPtrVec).foreach({case(dn, d) =>
+    dn := d + deqDriver.io.deqPtrMoveVal
+    when(deqDriver.io.deqPtrUpdate){
+      d := dn
+    }
+  })
+  io.deq.zip(deqDriver.io.deq).foreach({case(a,b) => a <> b})
+
+  private val debug_r = payloadArray.io.r.slice(2 * deqNum, 3 * deqNum)
+  debug_r.zip(deqPtrVec.take(deqNum)).zipWithIndex.foreach({case((r, dp), i) =>
+    r.addr := dp.value
+    when(deqDriver.io.deq(i).valid){
+      assert(r.data === deqDriver.io.deq(i).bits)
+    }
+  })
 
   assert(deqPtr <= enqPtrAux)
   assert(actualEnqNum <= emptyEntriesNum)
@@ -140,16 +202,12 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val flushXorPresentMask = enqFlushNextMask ^ enqMask
   private val enqRollbackMask = Mux(enqPtr.value > enqPtrNext.value || enqPtr === enqPtrNext, flushXorPresentMask, ~flushXorPresentMask)
   when(io.redirect.valid){assert(enqRollbackMask === redirectMask, "Redirect mask should be continuous.")}
-  private val readyNum = PopCount(io.deq.map(_.ready))
-  for (i <- 1 until io.deq.length) {
-    when(PopCount(io.deq.map(_.valid)) > 0.U) {assert(Mux(i.U < readyNum, io.deq(i).ready === true.B, io.deq(i).ready === false.B))}
-  }
 
   XSPerfHistogram("valid_entries_num", validEntriesNum, true.B, 0, size, size / 4)
 
   val perfEvents = Seq(
     ("dispatchq_in", actualEnqNum),
-    ("dispatchq_out", actualDeqNum),
+    ("dispatchq_out", deqDriver.io.deqPtrMoveVal),
     ("dispatchq_out_try", PopCount(io.deq.map(_.valid))),
     ("dispatchq_1_4_valid ", validEntriesNum < (size / 4).U),
     ("dispatchq_2_4_valid ", validEntriesNum >= (size / 4).U && validEntriesNum <= (size / 2).U),
