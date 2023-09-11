@@ -104,17 +104,29 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
         if(s._2._1.isRob || s._2._1.isVrs || s._2._1.isVprs || s._2._1.isVms || s._2._1.isMemRs && cfg.throughVectorRf){
           dst := PipeWithRedirect(realSrc, 2, p)
         } else if(s._2._1.isIntRs){
-          dst := realSrc
+          if (cfg.isIntType || cfg.isMemType) {
+            dst := PipeWithRedirect(realSrc, 1, p)
+          } else {
+            dst := realSrc
+          }
         } else if(s._2._1.isFpRs){
-          dst := realSrc
+          if (cfg.isFpType || cfg.isMemType) {
+            dst := PipeWithRedirect(realSrc, 1, p)
+          } else {
+            dst := realSrc
+          }
         } else if(s._2._1.isMemRs){
-          if (cfg.writeFpRf) {
+          if (cfg.isFpType || cfg.isIntType || cfg.isVecType) {
             dst := PipeWithRedirect(realSrc, 1, p)
           } else {
             dst := realSrc
           }
         } else if(s._2._1.isVprs || s._2._1.isVrs) {
-          dst := PipeWithRedirect(realSrc, 3, p)
+          if (cfg.isFpType || cfg.isIntType || cfg.isMemType) {
+            dst := PipeWithRedirect(realSrc, 2, p)
+          } else {
+            dst := realSrc
+          }
         } else {
           dst := realSrc
         }
