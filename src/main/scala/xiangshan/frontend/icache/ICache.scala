@@ -23,7 +23,8 @@ import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp, Trans
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util.BundleFieldBase
 import xs.utils.mbist.MBISTPipeline
-import huancun.{AliasField, DirtyField, PreferCacheField, PrefetchField}
+import huancun.PreferCacheField
+import coupledL2.{AliasField, DirtyField, PrefetchField}
 import xiangshan._
 import xiangshan.frontend._
 import xiangshan.cache._
