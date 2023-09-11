@@ -146,6 +146,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val intDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, intDispatch._2.bankNum))
   private val fpDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, fpDispatch._2.bankNum))
   private val lsDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, lsDispatch._2.bankNum))
+  private val lsDqS2 = Module(new DispatchQueue(RenameWidth * 2, RenameWidth, lsDispatch._2.bankNum))
 
   //ROB
   private val rob = outer.rob.module
@@ -379,7 +380,17 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDispatch2Rs.io.enqLsq <> io.enqLsq
   memDispatch2Rs.io.in <> memDqArb.io.toMem2RS //lsDq.io.deq
   memDispatch2Rs.io.lsqVecDeqCnt <> io.lsqVecDeqCnt
-  lsDeq <> memDispatch2Rs.io.out
+
+  lsDqS2.io.redirect := Pipe(io.redirectIn)
+  lsDqS2.io.enq.needAlloc.zip(memDispatch2Rs.io.out).foreach({case(a, b) =>
+    a := b.valid
+    b.ready := lsDqS2.io.enq.canAccept
+  })
+  lsDqS2.io.enq.req.zip(memDispatch2Rs.io.out).foreach({ case (a, b) =>
+    a.valid := b.valid
+    a.bits := b.bits
+  })
+  lsDeq <> lsDqS2.io.deq
 
   rob.io.hartId := io.hartId
   rob.io.mmuEnable := io.mmuEnable
