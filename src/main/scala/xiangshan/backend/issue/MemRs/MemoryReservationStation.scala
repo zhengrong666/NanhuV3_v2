@@ -70,7 +70,6 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   rawIssue.foreach(elm => elm._2.exuConfigs.foreach(elm0 => require(ExuType.memTypes.contains(elm0.exuType))))
   private val issue = rawIssue.filterNot(_._2.isSpecialLoad)
   private val specialLoadIssue = rawIssue.filter(_._2.isSpecialLoad)
-  require(specialLoadIssue.length == 1)
   println("\nMemory Reservation Issue Ports Config:")
   for ((iss, issuePortIdx) <- rawIssue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
