@@ -29,10 +29,8 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
     val isLoad = Output(Bool())
   })
   private val hold = RegInit(false.B)
-  when(io.enq.fire && io.enq.bits.uop.ctrl.isVector){
-    when(io.enq.bits.uop.ctrl.srcType(1) === SrcType.reg || io.enq.bits.uop.ctrl.srcType(1) === SrcType.vec){
-      hold := true.B
-    }
+  when(io.enq.fire && io.enq.bits.selectResp.info.isVector && io.enq.bits.selectResp.info.isSgOrStride){
+    hold := true.B
   }.elsewhen(hold){
     hold := false.B
   }
