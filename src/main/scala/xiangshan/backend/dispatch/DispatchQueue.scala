@@ -76,16 +76,16 @@ class DispatchQueuePayload(entryNum:Int, enqNum:Int, deqNum:Int)(implicit p: Par
 
 class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule {
   val io = IO(new Bundle{
-    val in = Input(Vec(2 * deqNum, Valid(new MicroOp())))
+    val in = Input(Vec(deqNum, Valid(new MicroOp())))
     val deq = Vec(deqNum, Decoupled(new MicroOp()))
     val deqPtrUpdate = Output(Bool())
-    val deqPtrMoveVal = Output(UInt(log2Ceil(deqNum).W))
+    val deqPtrMoveVal = Output(UInt(log2Ceil(deqNum + 1).W))
     val redirect = Input(Valid(new Redirect))
   })
 
-  private val validsReg = RegInit(VecInit(Seq.fill(2 * deqNum)(false.B)))
-  private val bitsRegs = Reg(Vec(2 * deqNum, new MicroOp()))
-  io.deq.zip(validsReg.take(deqNum)).zip(bitsRegs.take(deqNum)).foreach({case((d, v), b) =>
+  private val validsReg = RegInit(VecInit(Seq.fill(deqNum)(false.B)))
+  private val bitsRegs = Reg(Vec(deqNum, new MicroOp()))
+  io.deq.zip(validsReg).zip(bitsRegs).foreach({case((d, v), b) =>
     d.valid := v && !io.redirect.valid
     d.bits := b
   })
@@ -117,11 +117,11 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   private class DispatchQueuePtr extends CircularQueuePtr[DispatchQueuePtr](size)
 
-  private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 3 * deqNum))
+  private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 2 * deqNum))
   private val deqDriver = Module(new DeqDriver(deqNum))
   private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
   private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
-  private val deqPtrVec = Seq.tabulate(2 * deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
   private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
@@ -163,10 +163,10 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   }
 
 
-  payloadArray.io.r.take(2 * deqNum).zip(deqPtrVecNext).foreach({case(a, b) =>
+  payloadArray.io.r.take(deqNum).zip(deqPtrVecNext).foreach({case(a, b) =>
     a.addr := b.value
   })
-  for(i <- 0 until 2 * deqNum){
+  for(i <- 0 until deqNum){
     deqDriver.io.in(i).valid := (deqPtrVecNext(i) < enqPtr)
     deqDriver.io.in(i).bits := payloadArray.io.r(i).data
     val enqAddrHitsVec = enqAddrDelta.map(d => enqPtr + d).map(_.value === deqPtrVecNext(i).value)
@@ -187,8 +187,8 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   })
   io.deq.zip(deqDriver.io.deq).foreach({case(a,b) => a <> b})
 
-  private val debug_r = payloadArray.io.r.slice(2 * deqNum, 3 * deqNum)
-  debug_r.zip(deqPtrVec.take(deqNum)).zipWithIndex.foreach({case((r, dp), i) =>
+  private val debug_r = payloadArray.io.r.slice(deqNum, 2 * deqNum)
+  debug_r.zip(deqPtrVec).zipWithIndex.foreach({case((r, dp), i) =>
     r.addr := dp.value
     when(deqDriver.io.deq(i).valid){
       assert(r.data === deqDriver.io.deq(i).bits)
