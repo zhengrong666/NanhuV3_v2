@@ -146,8 +146,7 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
 
   //Start of Enqueue
   enqNext.bits := io.enq.bits
-  private val enqShouldBeSuppressed = io.enq.bits.robIdx.needFlush(io.redirect)
-  enqNext.valid := !enqShouldBeSuppressed && io.enq.valid
+  enqNext.valid := io.enq.valid
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
