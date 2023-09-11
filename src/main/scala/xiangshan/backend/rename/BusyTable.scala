@@ -52,7 +52,7 @@ class BusyTable(numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit
 
   //Only bypass wb data to read
   io.read.foreach(r => {
-    r.resp := !Mux1H(UIntToOH(r.req), tableAfterWb)
+    r.resp := !tableAfterWb(r.req)
   })
   table := tableAfterAlloc
 
