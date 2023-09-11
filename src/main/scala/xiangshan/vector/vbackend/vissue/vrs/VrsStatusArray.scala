@@ -106,7 +106,7 @@ class VrsStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:
 
   private val statusArray = Reg(Vec(entryNum, new VrsStatusArrayEntry))
   private val statusArrayValid = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
-  private val statusArrayValidAux = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
+  private val statusArrayValid_dup = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
 
   //Start of select logic
   for(((selInfo, saEntry), saValid) <- io.selectInfo
@@ -120,11 +120,11 @@ class VrsStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:
   //End of select logic
 
   //Start of allocate logic
-  io.allocateInfo := Cat(statusArrayValidAux.reverse)
+  io.allocateInfo := Cat(statusArrayValid_dup.reverse)
   //End of allocate logic
 
   for((((v, va), d), idx) <- statusArrayValid
-    .zip(statusArrayValidAux)
+    .zip(statusArrayValid_dup)
     .zip(statusArray)
     .zipWithIndex
       ){
@@ -145,7 +145,7 @@ class VrsStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:
     }
   }
 
-  assert(Cat(statusArrayValid) === Cat(statusArrayValidAux))
+  assert(Cat(statusArrayValid) === Cat(statusArrayValid_dup))
   when(io.enq.valid){assert(PopCount(io.enq.bits.addrOH) === 1.U)}
   assert((Mux(io.enq.valid, io.enq.bits.addrOH, 0.U) & Cat(statusArrayValid.reverse)) === 0.U)
   for(iss <- io.issue){

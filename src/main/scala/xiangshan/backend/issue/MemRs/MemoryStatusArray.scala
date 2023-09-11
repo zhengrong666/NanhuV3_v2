@@ -355,7 +355,7 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq
 
   private val statusArray = Reg(Vec(entryNum, new MemoryStatusArrayEntry))
   private val statusArrayValid = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
-  private val statusArrayValidAux = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
+  private val statusArrayValid_dup = RegInit(VecInit(Seq.fill(entryNum)(false.B)))
 
   //Start of select logic
   private val selInfoOut = Seq(io.staSelectInfo, io.stdSelectInfo, io.lduSelectInfo)
@@ -377,10 +377,10 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq
   //End of select logic
 
   //Start of allocate logic
-  io.allocateInfo := Cat(statusArrayValidAux.reverse)
+  io.allocateInfo := Cat(statusArrayValid_dup.reverse)
   //End of allocate logic
   for((((v, va), d), idx) <- statusArrayValid
-    .zip(statusArrayValidAux)
+    .zip(statusArrayValid_dup)
     .zip(statusArray)
     .zipWithIndex
       ){
@@ -412,7 +412,7 @@ class MemoryStatusArray(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx:Seq
     }
   }
 
-  assert(Cat(statusArrayValid) === Cat(statusArrayValidAux))
+  assert(Cat(statusArrayValid) === Cat(statusArrayValid_dup))
   when(io.enq.valid){assert(PopCount(io.enq.bits.addrOH) === 1.U)}
   assert((Mux(io.enq.valid, io.enq.bits.addrOH, 0.U) & Cat(statusArrayValid.reverse)) === 0.U)
   private val issues = Seq(io.staLduIssue, io.stdIssue)
