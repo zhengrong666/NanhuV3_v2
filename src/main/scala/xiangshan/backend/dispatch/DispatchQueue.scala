@@ -129,6 +129,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   io.dqFull := deqPtr.value === enqPtrAux.value && deqPtr.flag =/= enqPtrAux.flag
 
   payloadArray.io.redirect := io.redirect
+  deqDriver.io.redirect := io.redirect
   private val enqMask = UIntToMask(enqPtrAux.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
