@@ -272,6 +272,9 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
     val this_is_load = io.in(i).bits.ctrl.fuType === FuType.ldu
     val lui_to_load = io.in(i - 1).valid && io.in(i - 1).bits.ctrl.ldest === io.in(i).bits.ctrl.lsrc(0)
     val fused_lui_load = last_is_lui && this_is_load && lui_to_load
+    val setVlBypass = io.out(i).bits.ctrl.fuType === FuType.csr &&
+      (io.out(i).bits.ctrl.fuOpType === CSROpType.vsetvl || io.out(i).bits.ctrl.fuOpType === CSROpType.vsetvli) &&
+      io.out(i).bits.ctrl.lsrc(0) === 0.U && io.out(i).bits.ctrl.ldest === 0.U
     when (fused_lui_load) {
       // The first LOAD operand (base address) is replaced by LUI-imm and stored in {psrc, imm}
       val lui_imm = io.in(i - 1).bits.ctrl.imm
@@ -284,7 +287,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
       require(2 * psrcWidth >= left_lui_imm, "cannot fused lui and load with psrc")
       io.out(i).bits.psrc(0) := lui_imm(lui_imm_in_imm + psrcWidth - 1, lui_imm_in_imm)
       io.out(i).bits.psrc(1) := lui_imm(lui_imm.getWidth - 1, lui_imm_in_imm + psrcWidth)
-    }.elsewhen(io.out(i).bits.ctrl.fuOpType =/= CSROpType.vsetivli && io.out(i).bits.ctrl.lsrc(0) === 0.U && io.out(i).bits.ctrl.ldest === 0.U){
+    }.elsewhen(setVlBypass){
       io.out(i).bits.psrc(0) := vtyperename.io.out(i).bits.psrc(0)
     }
     io.out(i).bits.vtypeRegIdx := vtyperename.io.out(i).bits.vtypeRegIdx
