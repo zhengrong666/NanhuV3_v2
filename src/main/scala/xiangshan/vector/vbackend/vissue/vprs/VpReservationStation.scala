@@ -81,19 +81,21 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   }))
   private val scalarWakeupSignals = VecInit(intWakeupSignals ++ fpWakeupSignals)
 
-  private val integerBusyTable = Module(new BusyTable(param.bankNum, intWkps.length, RenameWidth))
+  private val integerBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum, intWkps.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.intAllocPregs
   integerBusyTable.io.wbPregs.zip(intWakeupSignals).foreach({case(bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, fpWkps.length, RenameWidth))
+  private val floatingBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum, fpWkps.length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.fpAllocPregs
   floatingBusyTable.io.wbPregs.zip(fpWakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 4, vecWkps.length, vectorParameters.vRenameWidth))
+  private val vectorRfSize = coreParams.vectorParameters.vPhyRegsNum
+  private val vRenameWidth = coreParams.vectorParameters.vRenameWidth
+  private val vectorBusyTable = Module(new BusyTable(vectorRfSize, param.bankNum * 4, vecWkps.length, vRenameWidth))
   vectorBusyTable.io.allocPregs := io.vecAllocPregs
   vectorBusyTable.io.wbPregs.zip(vectorWakeupSignals).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec

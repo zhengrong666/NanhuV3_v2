@@ -144,19 +144,21 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
   private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
 
-  private val floatingBusyTable = Module(new BusyTable(param.bankNum, (fpWkpIns ++ io.mulSpecWakeup ++ io.fmaSpecWakeup).length, RenameWidth))
+  private val floatingBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum, (fpWkpIns ++ io.mulSpecWakeup ++ io.fmaSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
   floatingBusyTable.io.wbPregs.zip(fpWkpIns ++ io.mulSpecWakeup ++ fmaSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
-  private val integerBusyTable = Module(new BusyTable(param.bankNum * 2, regWkpIns.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length, RenameWidth))
+  private val integerBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum * 2, regWkpIns.length + io.mulSpecWakeup.length + aluJmpSpecWakeup.length, RenameWidth))
   integerBusyTable.io.allocPregs := io.integerAllocPregs
   integerBusyTable.io.wbPregs.zip(regWkpIns ++ aluJmpSpecWakeup ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.reg
     bt.bits := wb.bits.pdest
   })
-  private val vectorBusyTable = Module(new BusyTable(param.bankNum * 3, vecWkpIns.length + io.mulSpecWakeup.length, coreParams.vectorParameters.vRenameWidth))
+  private val vectorRfSize = coreParams.vectorParameters.vPhyRegsNum
+  private val vRenameWidth = coreParams.vectorParameters.vRenameWidth
+  private val vectorBusyTable = Module(new BusyTable(vectorRfSize, param.bankNum * 3, vecWkpIns.length + io.mulSpecWakeup.length, vRenameWidth))
   vectorBusyTable.io.allocPregs := io.vectorAllocPregs
   vectorBusyTable.io.wbPregs.zip(vecWkpIns ++ io.mulSpecWakeup).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.vec

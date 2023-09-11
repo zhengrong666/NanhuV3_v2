@@ -28,7 +28,7 @@ class BusyTableReadIO(implicit p: Parameters) extends XSBundle {
   val resp = Output(Bool())
 }
 
-class BusyTable(numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
+class BusyTable(size:Int, numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
   val io = IO(new Bundle() {
     // set preg state to busy
     val allocPregs = Vec(renameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
@@ -38,7 +38,7 @@ class BusyTable(numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit
     val read = Vec(numReadPorts, new BusyTableReadIO)
   })
 
-  val table = RegInit(0.U(NRPhyRegs.W))
+  val table = RegInit(0.U(size.W))
 
   def reqVecToMask(rVec: Vec[Valid[UInt]]): UInt = {
     ParallelOR(rVec.map(v => Mux(v.valid, UIntToOH(v.bits), 0.U)))
@@ -51,8 +51,12 @@ class BusyTable(numReadPorts: Int, numWritePorts: Int, renameWidth:Int)(implicit
   val tableAfterAlloc = tableAfterWb | allocMask
 
   //Only bypass wb data to read
+  private def read(addr:UInt, table:UInt):Bool = {
+    val addrSel = Seq.tabulate(size)(_.U === addr)
+    !Mux1H(addrSel, table.asBools)
+  }
   io.read.foreach(r => {
-    r.resp := !tableAfterWb(r.req)
+    r.resp := read(r.req, tableAfterWb)
   })
   table := tableAfterAlloc
 
