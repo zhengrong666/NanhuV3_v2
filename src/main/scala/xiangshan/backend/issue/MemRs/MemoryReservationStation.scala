@@ -269,7 +269,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     sldu_iss._1.rsIdx.bankIdxOH := specialLoadIssueDriver.io.deq.bits.bankIdxOH
     sldu_iss._1.rsIdx.entryIdxOH := specialLoadIssueDriver.io.deq.bits.entryIdxOH
     sldu_iss._1.rsFeedback.isFirstIssue := false.B
-    sldu_iss._1.auxValid := specialLoadIssueDriver.io.deq.valid
+    sldu_iss._1.auxValid := specialLoadIssueDriver.io.deq.valid && !loadHasIssued
     specialLoadIssueDriver.io.deq.ready := sldu_iss._1.issue.ready
   }
 
