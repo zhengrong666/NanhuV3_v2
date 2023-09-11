@@ -68,17 +68,17 @@ class BusyTable(size:Int, numReadPorts: Int, numWritePorts: Int, renameWidth:Int
   XSDebug(p"tableNext: ${Binary(tableAfterAlloc)}\n")
   XSDebug(p"allocMask: ${Binary(allocMask)}\n")
   XSDebug(p"wbMask   : ${Binary(wbMask)}\n")
-  for (i <- 0 until NRPhyRegs) {
+  for (i <- 0 until size) {
     XSDebug(table(i), "%d is busy\n", i.U)
   }
 
   XSPerfAccumulate("busy_count", PopCount(table))
 
   val perfEvents = Seq(
-    ("std_freelist_1_4_valid", busyCount < (NRPhyRegs / 4).U                                      ),
-    ("std_freelist_2_4_valid", busyCount > (NRPhyRegs / 4).U && busyCount <= (NRPhyRegs / 2).U    ),
-    ("std_freelist_3_4_valid", busyCount > (NRPhyRegs / 2).U && busyCount <= (NRPhyRegs * 3 / 4).U),
-    ("std_freelist_4_4_valid", busyCount > (NRPhyRegs * 3 / 4).U                                  )
+    ("std_freelist_1_4_valid", busyCount < (size / 4).U                                      ),
+    ("std_freelist_2_4_valid", busyCount > (size / 4).U && busyCount <= (size / 2).U    ),
+    ("std_freelist_3_4_valid", busyCount > (size / 2).U && busyCount <= (size * 3 / 4).U),
+    ("std_freelist_4_4_valid", busyCount > (size * 3 / 4).U                                  )
   )
   generatePerfEvent()
 }
