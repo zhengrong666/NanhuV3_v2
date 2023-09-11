@@ -288,7 +288,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       respArbiter.io.in(2) <> lduSelectNetwork.io.issueInfo(issuePortIdx)
 
       val scalarLoadSel = lduSelectNetwork.io.issueInfo(issuePortIdx).valid && !lduSelectNetwork.io.issueInfo(issuePortIdx).bits.info.isVector
-      loadIssResps(issuePortIdx).valid := scalarLoadSel
+      loadIssResps(issuePortIdx).valid := scalarLoadSel && !(issueDriver.io.hold && issueDriver.io.isLoad)
       loadIssResps(issuePortIdx).bits := lduSelectNetwork.io.issueInfo(issuePortIdx).bits
       val selResp = respArbiter.io.out
 
