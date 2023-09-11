@@ -333,7 +333,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
       val lduIssueInfo = lduSelectNetwork.io.issueInfo(issuePortIdx)
       val earlyWakeupQueue = Module(new WakeupQueue(3))
-      earlyWakeupQueue.io.in.valid := lduIssueInfo.fire && lduIssueInfo.bits.info.rfWen
+      earlyWakeupQueue.io.in.valid := scalarLoadSel && !(issueDriver.io.hold && issueDriver.io.isLoad)
       earlyWakeupQueue.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       earlyWakeupQueue.io.in.bits.robPtr := lduIssueInfo.bits.info.robPtr
       earlyWakeupQueue.io.in.bits.lpv := lduIssueInfo.bits.info.lpv
