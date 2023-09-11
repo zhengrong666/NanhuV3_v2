@@ -285,9 +285,6 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
     counterNext := counter - 1.U
   }
 
-  when(io.entry.valid){
-    enqNext.bits.replayPenalty := 0.U
-  }
   when(io.replay.valid){
     miscNext.bits.replayPenalty := Mux(io.entry.bits.replayPenalty === 0xF.U, 0xF.U, io.entry.bits.replayPenalty + 1.U)
   }
