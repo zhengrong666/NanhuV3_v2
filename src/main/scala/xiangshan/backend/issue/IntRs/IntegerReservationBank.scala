@@ -77,14 +77,14 @@ class IntegerReservationBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, load
   statusArray.io.loadEarlyWakeup := io.loadEarlyWakeup
   statusArray.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 
-  payloadArray.io.write.en := RegNext(io.enq.valid, false.B)
-  payloadArray.io.write.addr := RegEnable(io.enq.bits.addrOH, io.enq.valid)
+  payloadArray.io.write.en := io.enq.valid
+  payloadArray.io.write.addr := io.enq.bits.addrOH
   payloadArray.io.write.data := io.enq.bits.data
   payloadArray.io.read.zip(io.issueAddr).zip(io.issueUop).foreach({
     case((port, iAddr), iData) =>{
-      port.addr := iAddr.bits
+      port.addr := RegEnable(iAddr.bits, iAddr.valid)
       iData.bits := port.data
-      iData.valid := iAddr.valid
+      iData.valid := RegNext(iAddr.valid, false.B)
       when(iAddr.valid){assert(PopCount(iAddr.bits) === 1.U)}
     }
   })
