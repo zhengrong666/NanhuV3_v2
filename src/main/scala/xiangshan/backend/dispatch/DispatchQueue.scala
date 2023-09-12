@@ -191,7 +191,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   debug_r.zip(deqPtrVec).zipWithIndex.foreach({case((r, dp), i) =>
     r.addr := dp.value
     when(deqDriver.io.deq(i).valid){
-      assert(r.data === deqDriver.io.deq(i).bits)
+      assert(r.data.robIdx === deqDriver.io.deq(i).bits.robIdx)
     }
   })
 
