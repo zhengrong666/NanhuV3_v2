@@ -53,7 +53,7 @@ class FloatingIssueInfoGenerator(implicit p: Parameters) extends XSModule{
   io.out.bits.fpWen := ib.fpWen
   io.out.bits.rfWen := ib.rfWen
   io.out.bits.isVector := false.B
-  io.out.bits.psrc := DontCare
+  io.out.bits.psrc := ib.psrc
   io.out.bits.vm := DontCare
   io.out.bits.isFma := ib.isFma
   io.out.bits.isSgOrStride := false.B

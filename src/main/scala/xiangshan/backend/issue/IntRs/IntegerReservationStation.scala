@@ -193,8 +193,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   for((iss, issuePortIdx) <- issue.zipWithIndex) {
     println(s"Issue Port $issuePortIdx ${iss._2}")
     prefix(iss._2.name + "_" + iss._2.id) {
-      val issueDriver = Module(new DecoupledPipeline(false, param.bankNum, entriesNumPerBank))
-      issueDriver.io.redirect := io.redirect
+      val issueDriver = Module(new DecoupledPipeline(param.bankNum, entriesNumPerBank))
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
       selectRespArbiter.io.in(0) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
@@ -223,22 +222,12 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
         rb.io.issueAddr(issuePortIdx).valid := ren
         rb.io.issueAddr(issuePortIdx).bits := finalSelectInfo.bits.entryIdxOH
       })
-
-      val issueBundle = Wire(Valid(new MicroOp))
-      issueBundle.valid := finalSelectInfo.valid
-      issueBundle.bits := Mux1H(rsBankRen, rsBankSeq.map(_.io.issueUop(issuePortIdx).bits))
-      issueBundle.bits.robIdx := finalSelectInfo.bits.info.robPtr
-      issueBundle.bits.ctrl.rfWen := finalSelectInfo.bits.info.rfWen
-      issueBundle.bits.ctrl.fpWen := finalSelectInfo.bits.info.fpWen
-      issueBundle.bits.pdest := finalSelectInfo.bits.info.pdest
-      issueBundle.bits.ctrl.fuType := finalSelectInfo.bits.info.fuType
-      issueBundle.bits.lpv := finalSelectInfo.bits.info.lpv
+      val rsBankRenDelay = RegEnable(rsBankRen, issueDriver.io.enq.valid)
 
       finalSelectInfo.ready := issueDriver.io.enq.ready
-      issueDriver.io.enq.valid := issueBundle.valid
-      issueDriver.io.enq.bits.uop := issueBundle.bits
-      issueDriver.io.enq.bits.bankIdxOH := finalSelectInfo.bits.bankIdxOH
-      issueDriver.io.enq.bits.entryIdxOH := finalSelectInfo.bits.entryIdxOH
+      issueDriver.io.enq.valid := finalSelectInfo.valid
+      issueDriver.io.enq.bits.uop := Mux1H(rsBankRenDelay, rsBankSeq.map(_.io.issueUop(issuePortIdx).bits))
+      issueDriver.io.enq.bits.selectResp := finalSelectInfo.bits
 
       iss._1.issue.valid := issueDriver.io.deq.valid
       iss._1.issue.bits.uop := issueDriver.io.deq.bits.uop

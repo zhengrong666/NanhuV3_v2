@@ -76,8 +76,8 @@ class FloatingReservationBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loa
   statusArray.io.loadEarlyWakeup := io.loadEarlyWakeup
   statusArray.io.earlyWakeUpCancel := io.earlyWakeUpCancel
 
-  payloadArray.io.write.en := io.enq.valid
-  payloadArray.io.write.addr := io.enq.bits.addrOH
+  payloadArray.io.write.en := RegNext(io.enq.valid, false.B)
+  payloadArray.io.write.addr := RegEnable(io.enq.bits.addrOH, io.enq.valid)
   payloadArray.io.write.data := io.enq.bits.data
   payloadArray.io.read.zip(io.issueAddr).zip(io.issueUop).foreach({
     case((port, iAddr), iData) =>{

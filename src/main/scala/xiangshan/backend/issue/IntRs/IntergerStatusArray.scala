@@ -46,6 +46,7 @@ class IntegerIssueInfoGenerator(implicit p: Parameters) extends XSModule{
   io.out.bits.fpWen := ib.fpWen
   io.out.bits.rfWen := ib.rfWen
   io.out.bits.psrc := DontCare
+  io.out.bits.psrc.take(2).zip(ib.psrc).foreach({case(a, b) => a := b})
   io.out.bits.vm := DontCare
   io.out.bits.isFma := false.B
   io.out.bits.isVector := false.B
