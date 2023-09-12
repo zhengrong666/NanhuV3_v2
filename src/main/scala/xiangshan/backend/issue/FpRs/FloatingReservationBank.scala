@@ -81,9 +81,9 @@ class FloatingReservationBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loa
   payloadArray.io.write.data := io.enq.bits.data
   payloadArray.io.read.zip(io.issueAddr).zip(io.issueUop).foreach({
     case((port, iAddr), iData) =>{
-      port.addr := iAddr.bits
+      port.addr := RegEnable(iAddr.bits, iAddr.valid)
       iData.bits := port.data
-      iData.valid := iAddr.valid
+      iData.valid := RegNext(iAddr.valid, false.B)
       when(iAddr.valid){assert(PopCount(iAddr.bits) === 1.U)}
     }
   })

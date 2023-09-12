@@ -131,12 +131,19 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     val mod = Module(new MemoryReservationBank(entriesNumPerBank, staIssuePortNum, wkpToRsBank.length, regWkpIdx, fpWkpIdx, vecWkpIdx))
     mod.io.redirect := io.redirect
     mod.io.wakeups := wkpToRsBank
-    mod.io.loadEarlyWakeup := io.loadEarlyWakeup
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod.io.stIssued := stIssuedWires
     mod.io.stLastCompelet := RegNext(io.stLastCompelet)
     mod
   })
+
+  rsBankSeq.foreach(rb => {
+    rb.io.loadEarlyWakeup.zip(io.loadEarlyWakeup).foreach({case(a, b) =>
+      a.valid := b.valid && b.bits.destType === SrcType.reg
+      a.bits := b.bits
+    })
+  })
+
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("MemoryAllocateNetwork")))
 
   private val regWkpIns = wakeup.filter(_._2.writeIntRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
