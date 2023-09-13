@@ -38,7 +38,7 @@ case object SoCParamsKey extends Field[SoCParameters]
 case class SoCParameters
 (
   EnableILA: Boolean = false,
-  PAddrBits: Int = 36,
+  PAddrBits: Int = 37,
   extIntrs: Int = 256,
   L3NBanks: Int = 4,
   L3CacheParamsOpt: Option[L3Param] = Some(L3Param(
@@ -120,7 +120,7 @@ trait HaveSlaveAXI4Port {
     AXI4Buffer() :=
     AXI4IdIndexer(4) :=
     l3FrontendAXI4Node
-  errorDevice.node := l3_xbar
+//  errorDevice.node := l3_xbar
 
   val dma = InModuleBody {
     l3FrontendAXI4Node.makeIOs()
@@ -130,14 +130,14 @@ trait HaveSlaveAXI4Port {
 trait HaveAXI4MemPort {
   this: BaseSoC =>
   val device = new MemoryDevice
-  // 36-bit physical address
+
   val addrMask = (1L << PAddrBits) - 1L
-  val memRange = AddressSet(0x00000000L, addrMask).subtract(AddressSet(0x0L, 0x7fffffffL))
+  val memRange = AddressSet(0x00000000L, addrMask)
   val memAXI4SlaveNode = AXI4SlaveNode(Seq(
     AXI4SlavePortParameters(
       slaves = Seq(
         AXI4SlaveParameters(
-          address = memRange,
+          address = Seq(memRange),
           regionType = RegionType.UNCACHED,
           executable = true,
           supportsRead = TransferSizes(1, L3BlockSize),
@@ -156,11 +156,6 @@ trait HaveAXI4MemPort {
     TLBuffer.chainNode(2) :=*
     TLCacheCork() :=*
     bankedNode
-
-  mem_xbar :=
-    TLWidthWidget(8) :=
-    TLBuffer.chainNode(3, name = Some("PeripheralXbar_to_MemXbar_buffer")) :=
-    peripheralXbar
 
   memAXI4SlaveNode :=
     AXI4Buffer() :=
@@ -192,9 +187,8 @@ trait HaveAXI4PeripheralPort { this: BaseSoC =>
     supportsWrite = TransferSizes(1, 8),
     resources = uartDevice.reg
   )
-  val peripheralRange = AddressSet(
-    0x0, 0x7fffffff
-  ).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
+  val addrMask = (1L << PAddrBits) - 1L
+  val peripheralRange = AddressSet(0x00000000L, addrMask).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
   val peripheralNode = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
     Seq(AXI4SlaveParameters(
       address = peripheralRange,
