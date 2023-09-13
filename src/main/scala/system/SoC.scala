@@ -120,7 +120,7 @@ trait HaveSlaveAXI4Port {
     AXI4Buffer() :=
     AXI4IdIndexer(4) :=
     l3FrontendAXI4Node
-//  errorDevice.node := l3_xbar
+  errorDevice.node := l3_xbar
 
   val dma = InModuleBody {
     l3FrontendAXI4Node.makeIOs()
@@ -131,8 +131,8 @@ trait HaveAXI4MemPort {
   this: BaseSoC =>
   val device = new MemoryDevice
 
-  val addrMask = (1L << PAddrBits) - 1L
-  val memRange = AddressSet(0x00000000L, addrMask)
+  val memAddrMask = (1L << PAddrBits) - 1L
+  val memRange = AddressSet(0x00000000L, memAddrMask)
   val memAXI4SlaveNode = AXI4SlaveNode(Seq(
     AXI4SlavePortParameters(
       slaves = Seq(
@@ -187,8 +187,8 @@ trait HaveAXI4PeripheralPort { this: BaseSoC =>
     supportsWrite = TransferSizes(1, 8),
     resources = uartDevice.reg
   )
-  val addrMask = (1L << PAddrBits) - 1L
-  val peripheralRange = AddressSet(0x00000000L, addrMask).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
+  val periAddrMask = (1L << PAddrBits) - 1L
+  val peripheralRange = AddressSet(0x00000000L, periAddrMask).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
   val peripheralNode = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
     Seq(AXI4SlaveParameters(
       address = peripheralRange,
