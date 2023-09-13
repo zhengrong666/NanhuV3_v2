@@ -281,14 +281,23 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   require(io.storeIn.length == 2)
   val storeExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
   storeExceptionInfo.zipWithIndex.foreach({case (d,i) =>
-    val validReg = RegNext(io.storeIn(i).valid && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect), false.B)
-    d.eVec := RegEnable(io.storeInRe(i).uop.cf.exceptionVec, validReg)
-    d.robIdx := RegEnable(io.storeInRe(i).uop.robIdx, validReg)
-    d.vaddr := RegEnable(io.storeInRe(i).vaddr, validReg)
-    val hasException = ExceptionNO.selectByFu(d.eVec, FuConfigs.staCfg).asUInt.orR
-    d.valid := RegNext(validReg && !io.storeInRe(i).uop.robIdx.needFlush(io.brqRedirect), false.B) && hasException
+    val validCond = io.storeIn(i).valid && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect)
+    d.robIdx := RegEnable(io.storeIn(i).bits.uop.robIdx, validCond)
+    d.vaddr := RegEnable(io.storeIn(i).bits.vaddr, validCond)
+    d.eVec := io.storeInRe(i).uop.cf.exceptionVec
+    d.valid := RegNext(validCond, false.B)
   })
-  private val exceptionSrcs = exception_info +: storeExceptionInfo
+  private val storeExceptionInfoDelay = storeExceptionInfo.map(s => {
+    val res = Wire(new LSQExceptionInfo)
+    val validCond = s.valid && !s.robIdx.needFlush(io.brqRedirect)
+    res.robIdx := RegEnable(s.robIdx, validCond)
+    res.eVec := RegEnable(s.eVec, validCond)
+    res.vaddr := RegEnable(s.vaddr, validCond)
+    val hasException = ExceptionNO.selectByFu(res.eVec, FuConfigs.staCfg).asUInt.orR
+    res.valid := RegNext(validCond, false.B) && hasException
+    res
+  })
+  private val exceptionSrcs = exception_info +: storeExceptionInfoDelay
   private val excptSelector = Module(new SelectPolicy(exceptionSrcs.length, true, true))
   excptSelector.io.in.zip(exceptionSrcs).foreach({case(a, b)=>
     a.valid := b.valid && !b.robIdx.needFlush(io.brqRedirect)
@@ -296,7 +305,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   })
   private val excptUpdateCond = excptSelector.io.out.valid && excptSelector.io.out.bits =/= 1.U(exceptionSrcs.length.W)
   when(excptUpdateCond){
-    exception_info := Mux1H(excptSelector.io.out.bits, exceptionSrcs)
+    exception_info := Mux1H(excptSelector.io.out.bits, storeExceptionInfoDelay)
   }.elsewhen(io.brqRedirect.valid && exception_info.robIdx.needFlush(io.brqRedirect)){
     exception_info.valid := false.B
   }
