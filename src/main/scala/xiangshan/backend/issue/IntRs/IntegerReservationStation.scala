@@ -196,20 +196,20 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
       val issueDriver = Module(new DecoupledPipeline(param.bankNum, entriesNumPerBank))
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
-      selectRespArbiter.io.in(0) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
+      selectRespArbiter.io.in(1) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
       internalAluJmpWakeupSignals(aluJmpWkpPortIdx) := WakeupQueue(aluSelectNetwork.io.issueInfo(aluPortIdx), aluSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
       aluPortIdx = aluPortIdx + 1
       aluJmpWkpPortIdx = aluJmpWkpPortIdx + 1
       if (iss._2.isAluMul) {
-        selectRespArbiter.io.in(1) <> mulSelectNetwork.io.issueInfo(mulPortIdx)
+        selectRespArbiter.io.in(0) <> mulSelectNetwork.io.issueInfo(mulPortIdx)
         internalMulWakeupSignals(mulWkpPortIdx) := WakeupQueue(mulSelectNetwork.io.issueInfo(mulPortIdx), mulSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
         mulPortIdx = mulPortIdx + 1
         mulWkpPortIdx = mulWkpPortIdx + 1
       } else if (iss._2.isAluDiv) {
-        selectRespArbiter.io.in(1) <> divSelectNetwork.io.issueInfo(divPortIdx)
+        selectRespArbiter.io.in(0) <> divSelectNetwork.io.issueInfo(divPortIdx)
         divPortIdx = divPortIdx + 1
       } else if(iss._2.isAluJmp){
-        selectRespArbiter.io.in(1) <> jmpSelectNetwork.io.issueInfo(jmpPortIdx)
+        selectRespArbiter.io.in(0) <> jmpSelectNetwork.io.issueInfo(jmpPortIdx)
         internalAluJmpWakeupSignals(aluJmpWkpPortIdx) := WakeupQueue(jmpSelectNetwork.io.issueInfo(jmpPortIdx), jmpSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
         aluJmpWkpPortIdx = aluJmpWkpPortIdx + 1
         jmpPortIdx = jmpPortIdx + 1

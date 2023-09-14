@@ -306,10 +306,13 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val bankPayloads = Wire(Vec(3, new MicroOp))
       for ((b, en)<- selectedBanks.zip(bankEns)) {
         b.io.loadIssue.valid := en && respArbiter.io.in(2).fire
+        b.io.auxLoadIssValid := respArbiter.io.in(2).valid
         b.io.loadIssue.bits := lduSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
         b.io.staIssue.valid := en && respArbiter.io.in(1).fire
+        b.io.auxStaIssValid := respArbiter.io.in(1).valid
         b.io.staIssue.bits := staSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
         b.io.stdIssue.valid := en && respArbiter.io.in(0).fire
+        b.io.auxStdIssValid := respArbiter.io.in(0).valid
         b.io.stdIssue.bits := stdSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
       }
       val stdSel = getSlice(stdSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)

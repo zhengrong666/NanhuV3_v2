@@ -182,15 +182,15 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
         fmaPortIdx = fmaPortIdx + 1
         fdivPortIdx = fdivPortIdx + 1
         val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
-        selectRespArbiter.io.in(0) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
-        selectRespArbiter.io.in(1) <> fdivSelectNetwork.io.issueInfo(fdivPortIdx - 1)
+        selectRespArbiter.io.in(1) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
+        selectRespArbiter.io.in(0) <> fdivSelectNetwork.io.issueInfo(fdivPortIdx - 1)
         selectRespArbiter.io.out
       } else {
         fmaPortIdx = fmaPortIdx + 1
         fmiscPortIdx = fmiscPortIdx + 1
         val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
-        selectRespArbiter.io.in(0) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
-        selectRespArbiter.io.in(1) <> fmiscSelectNetwork.io.issueInfo(fmiscPortIdx - 1)
+        selectRespArbiter.io.in(1) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
+        selectRespArbiter.io.in(0) <> fmiscSelectNetwork.io.issueInfo(fmiscPortIdx - 1)
         selectRespArbiter.io.out
       }
 

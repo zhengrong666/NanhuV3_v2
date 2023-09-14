@@ -29,7 +29,7 @@ class SelectRespArbiter(bankNum:Int, entryNum:Int, inNum:Int, haveEqual:Boolean)
     val chosen = Output(UInt(inNum.W))
   })
 
-  private val selector = Module(new SelectPolicy(inNum, true, haveEqual))
+  private val selector = Module(new SelectPolicy(inNum, false, haveEqual))
   selector.io.in.zip(io.in).foreach({case(si, in) =>
     si.valid := in.valid
     si.bits := in.bits.info.robPtr

@@ -51,6 +51,9 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
     val stdIssue = Input(Valid(UInt(entryNum.W)))
     val stdUop = Output(new MicroOp)
     val specialIssue = Input(Valid(UInt(entryNum.W)))
+    val auxLoadIssValid = Input(Bool())
+    val auxStaIssValid = Input(Bool())
+    val auxStdIssValid = Input(Bool())
 
     val replay = Input(Vec(3, Valid(new Replay(entryNum))))
 
@@ -145,9 +148,9 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
   payloadArray.io.write.addr := io.enq.bits.addrOH
   payloadArray.io.write.data := io.enq.bits.data
 
-  payloadArray.io.read(0).addr := RegEnable(io.loadIssue.bits, io.loadIssue.valid || io.specialIssue.valid)
-  payloadArray.io.read(1).addr := RegEnable(io.staIssue.bits, io.staIssue.valid)
-  payloadArray.io.read(2).addr := RegEnable(io.stdIssue.bits, io.stdIssue.valid)
+  payloadArray.io.read(0).addr := RegEnable(io.loadIssue.bits, io.auxLoadIssValid)
+  payloadArray.io.read(1).addr := RegEnable(io.staIssue.bits, io.auxStaIssValid)
+  payloadArray.io.read(2).addr := RegEnable(io.stdIssue.bits, io.auxStdIssValid)
   io.loadUop := payloadArray.io.read(0).data
   io.staUop := payloadArray.io.read(1).data
   io.stdUop := payloadArray.io.read(2).data

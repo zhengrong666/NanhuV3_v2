@@ -75,14 +75,13 @@ class SelectPolicy(width:Int, oldest:Boolean, haveEqual:Boolean)(implicit p: Par
 object SelectPolicy {
   def apply(in:Seq[Valid[SelectResp]], oldest:Boolean, haveEqual:Boolean, bankNum:Int, entryNum:Int, redirect: Valid[Redirect], earlyWakeUpCancel:Vec[Bool], p:Parameters) :Valid[SelectResp] = {
     val selector = Module(new SelectPolicy(in.length, oldest, haveEqual)(p))
-    val redirectVec = Cat(in.map(_.bits.info.robPtr.needFlush(redirect)).map(!_).reverse)
     val cancelVec = Cat(in.map(_.bits.info.lpv.zip(earlyWakeUpCancel).map({case(l, c)=>l(0) & c}).reduce(_|_)).map(!_).reverse)
     selector.io.in.zip(in).foreach({case(a, b) =>
       a.valid := b.valid
       a.bits := b.bits.info.robPtr
     })
     val res = Wire(Valid(new SelectResp(bankNum, entryNum)(p)))
-    res.valid := selector.io.out.valid && (selector.io.out.bits & redirectVec & cancelVec).orR
+    res.valid := selector.io.out.valid && (selector.io.out.bits & cancelVec).orR && !redirect.valid
     res.bits := Mux1H(selector.io.out.bits, in.map(_.bits))
     res
   }
