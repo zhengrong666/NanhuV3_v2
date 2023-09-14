@@ -49,7 +49,7 @@ class PipelineRouter[T <: Data](gen:T, vecLen:Int, outNum:Int) extends Module{
 
   validRegs.zip(bitsRegs).zip(io.out).zip(allowOut).foreach({case(((vrl, brl), ol), en) =>
     vrl.zip(brl).zip(ol).foreach({case((vr, br), out) =>
-      out.valid := vr && !io.flush
+      out.valid := vr
       out.bits := br
     })
   })
