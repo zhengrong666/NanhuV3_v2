@@ -34,21 +34,21 @@ case class VectorParameters (
     //vector instr rename
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
-    vPhyRegsNum: Int        = 64,
+    vPhyRegsNum: Int        = 48,
     vWaitQueueNum: Int      = 16,
     vVtypeRegsNum: Int      = 16,
-    viWalkRobIdxQueueWidth: Int = 64,
+    viWalkRobIdxQueueWidth: Int = 48,
     //dispatch
     vDispatchQueueMem: Int      = 16,
     vDispatchQueuePermu: Int    = 16,
     vDispatchQueueCommon: Int   = 16,
     vDispatchTypeNum: Int = 3,
     //rs
-    vRsDepth: Int       = 32,
+    vRsDepth: Int       = 16,
     vRsOIQDepth: Int    = 8,
     vPRsDepth: Int      = 4,
     //merge
-    vMergeBufferDepth: Int = 64,
+    vMergeBufferDepth: Int = 32,
     vMergeBufferAllocateWidth: Int = 4,
     vMergeWidth: Int = 4,
     vMergeWbWdith: Int = 4

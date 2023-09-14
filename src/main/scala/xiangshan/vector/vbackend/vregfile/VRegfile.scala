@@ -7,8 +7,9 @@ import xs.utils.ZeroExt
 
 class MoveReq(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
-  val srcAddr = UInt(log2Up(VRFSize).W)
-  val dstAddr = UInt(log2Up(VRFSize).W)
+  private val addrBits = coreParams.vectorParameters.vPhyRegIdxWidth
+  val srcAddr = UInt(log2Up(addrBits).W)
+  val dstAddr = UInt(log2Up(addrBits).W)
   val agnostic = Bool()
   val enable = Bool()
   val sew = UInt(2.W)
@@ -23,6 +24,7 @@ class VrfReadPort(implicit p: Parameters) extends XSBundle{
 
 class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parameters) extends XSModule {
   private val size = coreParams.vectorParameters.vPhyRegsNum
+  private val addrBits = coreParams.vectorParameters.vPhyRegIdxWidth
   private val dataWidth = VLEN
   private val maskWidth = VLEN / 8
   val io = IO(new Bundle{
@@ -44,7 +46,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   }
   // write vector register file
   for (i <- 0 until wbWkpNum) {
-    val addr = io.wbWakeup(i).bits.uop.pdest
+    val addr = io.wbWakeup(i).bits.uop.pdest(addrBits - 1 ,0)
     val data = io.wbWakeup(i).bits.data.asTypeOf(Vec(dataWidth / 8, UInt(8.W)))
     val wbMask = io.wbWakeup(i).bits.writeDataMask.asBools
     val wkpMask = io.wbWakeup(i).bits.wakeupMask.asBools
