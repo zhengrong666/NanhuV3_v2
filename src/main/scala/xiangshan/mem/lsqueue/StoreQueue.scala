@@ -305,7 +305,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule
   })
   private val excptUpdateCond = excptSelector.io.out.valid && excptSelector.io.out.bits =/= 1.U(exceptionSrcs.length.W)
   when(excptUpdateCond){
-    exception_info := Mux1H(excptSelector.io.out.bits, storeExceptionInfoDelay)
+    exception_info := Mux1H(excptSelector.io.out.bits, exceptionSrcs)
   }.elsewhen(io.brqRedirect.valid && exception_info.robIdx.needFlush(io.brqRedirect)){
     exception_info.valid := false.B
   }
