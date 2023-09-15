@@ -61,7 +61,7 @@ def io_parser(io_str:str):
       i = i + 1
       if(i == len(words)):
         break
-  
+
   return res
 
 class ModuleMeta:
@@ -87,7 +87,7 @@ class ModuleMeta:
     self.timestamp_io = list(filter(IsTimeStamp, io))
     self.special_io = list(filter(IsSpecial, io))
     self.regular_io = list(filter(IsRegualr, io))
-    
+
   def gen_top(self, odir:str):
     ofile = os.path.join(odir, self.top_name + ".scala")
     with open(ofile, "w") as f:
@@ -177,7 +177,7 @@ class {self.top_name}(mod: {self.module_name})(implicit p: Parameters) extends M
     print("", file=f)
     for i in range(self.func_num):
       print(f"  conn{i}(this, mod)", file=f)
-    
+
   def gen_tail(self, f):
     pfx = f"""
 }}
@@ -239,7 +239,8 @@ if __name__ == "__main__":
   args = parser.parse_args()
 
   curdir = os.path.dirname(__file__)
-  src_path = os.path.join(curdir,args.infile)
+  work_dir = os.getcwd()
+  src_path = os.path.join(work_dir,args.infile)
   cfg_path = os.path.join(curdir,"config/partition.json")
   artf_path = os.path.abspath(args.out)
   out_top_path = os.path.join(artf_path, os.path.basename(src_path))
@@ -285,7 +286,7 @@ if __name__ == "__main__":
       print(new_line, file = of, end = "")
   of.close()
 
-      
+
   for m in module_meta_list:
     for md in meta_dict:
       if(md['module_name'] == m.module_name):
@@ -299,6 +300,6 @@ if __name__ == "__main__":
   with open(out_mk_path, "w") as mk:
     for m in module_meta_list:
       print(f"{m.top_name}:{cfg_path}", file=mk)
-      print(f"\tmill -i XiangShan.runMain {m.top_name}Main \\", file=mk)
+      print(f"\tmill -i XiangShan.runMain top.{m.top_name}Main \\", file=mk)
       print(f"\t{m.comp_args} \\", file=mk)
       print(f"\t-td {artf_path} --output-file {m.top_name}\n", file=mk)
