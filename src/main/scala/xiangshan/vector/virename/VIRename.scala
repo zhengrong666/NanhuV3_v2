@@ -107,7 +107,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   }
 
   for((port, i) <- rollBackList.io.rename.writePorts.zipWithIndex) {
-    port.valid := io.rename(i).in.bits.canRename
+    port.valid := io.rename(i).in.bits.canRename && doRename
   }
   //-------------------------------------------- TODO: commit & walk --------------------------------------------
 
