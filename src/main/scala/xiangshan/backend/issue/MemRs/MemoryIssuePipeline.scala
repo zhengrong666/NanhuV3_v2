@@ -66,7 +66,7 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   io.deq.bits.entryIdxOH := deqDataDriverReg.entryIdxOH
   io.deq.bits.bankIdxOH := deqDataDriverReg.bankIdxOH
 
-  private val isVec = io.deq.bits.uop.ctrl.isVector
+  private val isVec = deqDataDriverReg.info.isVector
   private val isStd = deqDataDriverReg.info.fuType === FuType.std
   when(!isVec && isStd) {
     io.deq.bits.uop.ctrl.srcType(0) := io.enq.bits.uop.ctrl.srcType(1)

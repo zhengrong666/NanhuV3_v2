@@ -55,7 +55,7 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
       } else {
         !in.bits.isOrdered
       }
-      selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond
+      selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond && !io.redirect.valid
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
       selInfo.bits.entryIdxOH := (1 << eidx).U(entryNum.W)
@@ -66,7 +66,12 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
   private val bankNumPerIss = bankNum / issueNum
   finalSelectResult.zipWithIndex.foreach({ case (res, i) =>
     val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
-    res := VecSelectPolicy(selBanks, bankNum, entryNum, p)
+    val selRes = VecSelectPolicy(selBanks, bankNum, entryNum, p)
+    val validReg = RegNext(selRes.valid)
+    val bitsReg = RegEnable(selRes.bits, selRes.valid)
+    val shouldBeFlushed = res.bits.info.robPtr.needFlush(io.redirect)
+    res.valid := validReg && !shouldBeFlushed
+    res.bits := bitsReg
   })
 
   if (needToken) {
@@ -92,5 +97,4 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
       outPort.bits.info := driver.bits.info
     }
   }
-
 }

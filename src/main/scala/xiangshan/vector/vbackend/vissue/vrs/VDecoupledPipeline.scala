@@ -32,21 +32,21 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
     val enq = Flipped(DecoupledIO(new MicroOp))
     val deq = DecoupledIO(new MicroOp)
   })
-    val mem = Reg(Vec(2, new MicroOp))
-    val enqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
-    val deqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
-    val full = enqPtr.value === deqPtr.value && enqPtr.flag =/= deqPtr.flag
-    val empty = enqPtr.value === deqPtr.value && enqPtr.flag === deqPtr.flag
-    val enqFire = io.enq.fire
-    val deqFire = io.deq.fire
+  private val mem = Reg(Vec(2, new MicroOp))
+  private val enqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
+  private val deqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
+  private val full = enqPtr.value === deqPtr.value && enqPtr.flag =/= deqPtr.flag
+  private val empty = enqPtr.value === deqPtr.value && enqPtr.flag === deqPtr.flag
+  private val enqFire = io.enq.fire
 
   private val kills = Wire(Vec(2, Bool()))
   kills.zip(mem).foreach({case(k,u) => k := u.robIdx.needFlush(io.redirect)})
 
   io.enq.ready := !full
-  io.deq.valid := !empty && !kills(deqPtr.value)
-  private val outData = mem(deqPtr.value)
-  io.deq.bits := outData
+  private val s1_valid = !empty && !kills(deqPtr.value)
+  private val s1_data = mem(deqPtr.value)
+  private val s1_ready = Wire(Bool())
+  private val deqFire = s1_valid && s1_ready
 
   when(full && kills((enqPtr - 1.U).value)){
     enqPtr := enqPtr - 1.U
@@ -57,4 +57,16 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
   when(deqFire || (!empty && kills(deqPtr.value))) {
     deqPtr := deqPtr + 1.U
   }
+
+  private val deqValidReg = RegInit(false.B)
+  private val deqBitsReg = Reg(new MicroOp)
+  s1_ready := !deqValidReg || io.deq.ready || (deqValidReg && deqBitsReg.robIdx.needFlush(io.redirect))
+  when(s1_ready){
+    deqValidReg := s1_valid && !s1_data.robIdx.needFlush(io.redirect)
+  }
+  when(deqFire){
+    deqBitsReg := s1_data
+  }
+  io.deq.valid := deqValidReg
+  io.deq.bits := deqBitsReg
 }
