@@ -52,8 +52,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val flushNum = PopCount(redirectMask)
 
   //Enqueue Logics
-  private val allocNum = PopCount(io.enq.needAlloc)
-  io.enq.canAccept := allocNum <= emptyEntriesNum
+//  private val allocNum = PopCount(io.enq.needAlloc)
+  io.enq.canAccept := emptyEntriesNum >= VIDecodeWidth.U
   io.enq.isEmpty := deqPtr === enqPtr
   private val enqAddrDelta = Wire(Vec(VIDecodeWidth, UInt(VIWaitQueueWidth.W)))
   enqAddrDelta.zipWithIndex.foreach({case(d, i) =>

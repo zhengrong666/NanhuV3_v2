@@ -143,9 +143,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val memDispatch2Rs = Module(new MemDispatch2Rs)
 
   //DispatchQueue
-  private val intDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, intDispatch._2.bankNum))
-  private val fpDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, fpDispatch._2.bankNum))
-  private val lsDq = Module(new DispatchQueue(RenameWidth * 3, RenameWidth, lsDispatch._2.bankNum))
+  private val intDq = Module(new DispatchQueue(RenameWidth * 4, RenameWidth, intDispatch._2.bankNum))
+  private val fpDq = Module(new DispatchQueue(RenameWidth * 4, RenameWidth, fpDispatch._2.bankNum))
+  private val lsDq = Module(new DispatchQueue(RenameWidth * 4, RenameWidth, lsDispatch._2.bankNum))
 
   //ROB
   private val rob = outer.rob.module
@@ -265,12 +265,12 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     // Pipeline
     val renamePipe = decPipe.io.out(0)(i)
     renamePipe.ready := rename.io.in(i).ready
-    rename.io.in(i).valid := renamePipe.valid && !fusionDecoder.io.clear(i)
+    rename.io.in(i).valid := renamePipe.valid && !fusionDecoder.io.clear(i) && !rename.io.redirect.valid
     rename.io.in(i).bits  := renamePipe.bits
     rename.io.intReadPorts(i) := rat.io.intReadPorts(i).map(_.data)
     rename.io.fpReadPorts(i)  := rat.io.fpReadPorts(i).map(_.data)
     rename.io.waittable(i)    := RegEnable(waittable.io.rdata(i), decode.io.out(i).fire)
-    rename.io.allowIn := decPipe.io.allowOut(0)
+    rename.io.allowIn := decPipe.io.allowOut(0) && !rename.io.redirect.valid
 
     if (i < RenameWidth - 1) {
       // fusion decoder sees the raw decode info
@@ -296,7 +296,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     }
   }
 
-  rename.io.redirect    := redirectDelay
+  rename.io.redirect    := Pipe(io.redirectIn)
   rename.io.robCommits  := rob.io.commits
   rename.io.ssit        := ssit.io.rdata
   rename.io.vcsrio    <> io.vcsrToRename

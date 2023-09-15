@@ -83,8 +83,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector
-    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn
+    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && !io.redirect.valid
+    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn && !io.redirect.valid
     waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
