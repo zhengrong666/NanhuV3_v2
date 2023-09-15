@@ -49,9 +49,9 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
   private val writeDelay = Wire(Vec(writeBackNum, new WritePort(dataWidth)))
   private val bypassWriteDelay = Wire(Vec(bypassNum, new WritePort(dataWidth)))
   (writeDelay ++ bypassWriteDelay).zip(io.write ++ io.bypassWrite).foreach({case(wd, w) =>
-    wd.en := RegNext(w.en)
+    wd.en := RegNext(w.en, false.B)
+    wd.addr := RegEnable(w.addr, w.en)
     wd.data := RegEnable(w.data, w.en)
-    wd.addr := RegEnable(w.data, w.en)
   })
   private val mem = Reg(Vec(entriesNum, UInt(dataWidth.W)))
   private val writes = writeDelay ++ bypassWriteDelay
