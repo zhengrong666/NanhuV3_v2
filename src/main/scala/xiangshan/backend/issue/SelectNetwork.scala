@@ -141,7 +141,14 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({case(si, bidx) =>
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new SelectResp(bankNum, entryNum)))
-      selInfo.valid := in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
+      val selEn = in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
+      if(regOut){
+        val outPort = io.issueInfo(bidx * issueNum / bankNum)
+        val addrHit = outPort.fire && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
+        selInfo.valid := selEn && !addrHit
+      } else {
+        selInfo.valid := selEn
+      }
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
       selInfo.bits.entryIdxOH := (1 << eidx).U(entryNum.W)
