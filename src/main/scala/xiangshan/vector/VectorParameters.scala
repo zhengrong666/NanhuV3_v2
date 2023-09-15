@@ -35,7 +35,7 @@ case class VectorParameters (
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 48,
-    vWaitQueueNum: Int      = 16,
+    vWaitQueueNum: Int      = 24,
     vVtypeRegsNum: Int      = 16,
     viWalkRobIdxQueueWidth: Int = 48,
     //dispatch
