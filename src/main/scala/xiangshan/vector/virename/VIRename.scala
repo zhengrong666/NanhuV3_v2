@@ -51,11 +51,10 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   val renameReqNum = PopCount(io.rename.map(port => port.in.fire() && (port.in.bits.canRename === true.B)))
 
   //TODO: !redirect && !walk
-  val canAllocateNum = Wire(UInt(log2Up(VIRenameWidth + 1).W))
-  canAllocateNum := freeList.io.canAllocateNum
+  val canAllocateNum = freeList.io.canAllocateNum
 
   val doRename = Wire(Bool())
-  doRename := (renameReqNum <= freeList.io.canAllocateNum) && (!io.redirect.valid) && !io.commit.isWalk // & queue.hasWalk
+  doRename := (renameReqNum <= freeList.io.canAllocateNum) && (!io.redirect.valid) && (!io.commit.isWalk)
 
   //doRename, allocate FreeList Ptr, write rat and rollbackList
   freeList.io.doAllocate := doRename
@@ -93,10 +92,9 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   }
 
   //write RAT
-  val renameMask = VecInit(io.rename.map(_.in.fire()))
   val ratRenamePortW = renameTable.io.renameWritePort
   ratRenamePortW.doRename := doRename
-  ratRenamePortW.mask     := renameMask.asUInt
+  ratRenamePortW.mask     := VecInit(io.rename.map(_.in.fire())).asUInt
   ratRenamePortW.lrIdx    := io.rename.map(_.in.bits.ctrl.ldest)
   ratRenamePortW.prIdx    := freeList.io.allocatePhyReg
 
@@ -114,7 +112,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   //-------------------------------------------- TODO: commit & walk --------------------------------------------
 
   rollBackList.io.commit.rob <> io.commit
-  renameTable.io.commitPort <> rollBackList.io.commit.rat 
+  renameTable.io.commitPort <> rollBackList.io.commit.rat
 
   for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
     rls.valid := rollBackList.io.commit.rat.mask(i)
