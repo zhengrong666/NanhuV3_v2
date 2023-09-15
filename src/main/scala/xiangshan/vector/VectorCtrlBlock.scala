@@ -60,7 +60,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Flipped(ValidIO(new ExuOutput)) //to wait queue
     val mergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))) //to wait queue
-    val commit = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO)) // to rename
+    val commit = Flipped(new RobCommitIO) // to rename
     val redirect = Flipped(ValidIO(new Redirect))
     //from csr vstart
     val vstart = Input(UInt(7.W))
@@ -74,7 +74,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   val videcode    = Module(new VIDecodeUnit)
   val waitqueue   = Module(new NewWaitQueue)
-  val virename    = Module(new VIRenameWrapper)
+  val virename    = Module(new VIRename)
   val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
 
   videcode.io.in <> io.in
@@ -100,20 +100,23 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   waitqueue.io.vtypeWbData    := io.vtypewriteback
   waitqueue.io.robin          := io.robPtr
   waitqueue.io.mergeId        <> io.mergeIdAllocate
-  waitqueue.io.canRename      := virename.io.canAccept
+  waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
   waitqueue.io.redirect       := io.redirect
 
   virename.io.redirect    := io.redirect
-  virename.io.uopIn       <> waitqueue.io.out
+  //virename.io.uopIn       <> waitqueue.io.out
+  for((vrI, wqO) <- virename.io.rename.map(_.in).zip(waitqueue.io.out)) {
+    vrI <> wqO
+  }
   virename.io.commit      <> io.commit
 
-  for((rp, dp) <- virename.io.uopOut zip dispatch.io.req.uop) {
+  for((rp, dp) <- virename.io.rename.map(_.out) zip dispatch.io.req.uop) {
     rp.ready := dispatch.io.req.canDispatch
     dp.bits := rp.bits
     dp.valid := rp.valid
   }
 
-  for((rp, i) <- virename.io.uopOut.zipWithIndex) {
+  for((rp, i) <- virename.io.rename.map(_.out).zipWithIndex) {
     io.vAllocPregs(i).valid := rp.valid && rp.bits.ctrl.vdWen
     io.vAllocPregs(i).bits := rp.bits.pdest
   }

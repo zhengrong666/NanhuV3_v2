@@ -93,7 +93,7 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   val vtypeSetvli   = Wire(new VtypeStruct).vset_parse(zimm_i)
   val vtypeSetvl    = Wire(new VtypeStruct).vset_parse(src2)
 
-  val avl   = Wire(UInt(log2Up(VLEN).W))
+  val avl   = Wire(UInt((log2Up(VLEN) + 1).W))
   val vtype = Wire(new VtypeStruct)
 
   vtype := Mux1H(io.vsetType, Seq(
@@ -115,7 +115,7 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
     )
   )
 
-  val avl_hasRs1 = Wire(UInt(log2Up(VLEN).W))
+  val avl_hasRs1 = Wire(UInt((log2Up(VLEN) + 1).W))
   avl_hasRs1 := Mux(!io.rs1IsX0, src1, Mux(!io.rdIsX0, VLMAX, io.vlOld))
   avl := Mux((io.vsetType === "b001".asUInt), uimm, avl_hasRs1)
 

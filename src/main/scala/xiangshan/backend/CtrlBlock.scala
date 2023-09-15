@@ -323,9 +323,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   
   
   //TODO: select to vCtrl
-  vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
-  vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
-  vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
+  // vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
+  // vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
+  // vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
+  vCtrlBlock.io.commit <> rob.io.commits
 
   io.vAllocPregs := vCtrlBlock.io.vAllocPregs
 
@@ -333,10 +334,6 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   commitVector := rob.io.commits
   for(((v, info), i) <- (commitVector.commitValid zip commitVector.info).zipWithIndex) {
     v := info.isVector && rob.io.commits.commitValid(i)
-  }
-  vCtrlBlock.io.commit.bits.mask := commitVector.commitValid
-  for(i <- 0 until CommitWidth) {
-    vCtrlBlock.io.commit.bits.robIdx(i) := rob.io.commits.robIdx(i)
   }
   vCtrlBlock.io.redirect := Pipe(io.redirectIn)
   vCtrlBlock.io.vstart := io.vstart

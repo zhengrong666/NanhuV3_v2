@@ -29,12 +29,13 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
-class RobDeqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircularQueuePtrHelper {
+class RobCommitHelper(implicit p: Parameters) extends XSModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
     // for commits/flush
     val state = Input(UInt(2.W))
     val deq_v = Vec(CommitWidth, Input(Bool()))
     val deq_w = Vec(CommitWidth, Input(Bool()))
+    val deq_isVec = Vec(CommitWidth, Input(Bool()))
     val exception_state = Flipped(ValidIO(new RobExceptionInfo))
     // for flush: when exception occurs, reset deqPtrs to range(0, CommitWidth)
     val intrBitSetReg = Input(Bool())
@@ -44,7 +45,18 @@ class RobDeqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircular
     // output: the CommitWidth deqPtr
     val out       = Vec(CommitWidth, Output(new RobPtr))
     val next_out  = Vec(CommitWidth, Output(new RobPtr))
+    val commitValid = Vec(CommitWidth, Output(Bool()))
   })
+
+  val canCommitVec = Wire(Vec(CommitWidth, Bool()))
+  for((v, i) <- canCommitVec.zipWithIndex) {
+    val vecNum = PopCount(io.deq_isVec.take(i+1))
+    v := !(vecNum.orR) || (vecNum === 1.U)
+  }
+
+  for((v, i) <- io.commitValid.zipWithIndex) {
+    v := io.deq_v(i) && io.deq_w(i) && canCommitVec(i)
+  }
 
   val deqPtrVec = RegInit(VecInit((0 until CommitWidth).map(_.U.asTypeOf(new RobPtr))))
 
@@ -58,7 +70,7 @@ class RobDeqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircular
   // for normal commits: only to consider when there're no exceptions
   // we don't need to consider whether the first instruction has exceptions since it wil trigger exceptions.
   val commit_exception = io.exception_state.valid && !isAfter(io.exception_state.bits.robIdx, deqPtrVec.last)
-  val canCommit = VecInit((0 until CommitWidth).map(i => io.deq_v(i) && io.deq_w(i)))
+  val canCommit = VecInit((0 until CommitWidth).map(i => io.deq_v(i) && io.deq_w(i) && canCommitVec(i)))
   val normalCommitCnt = PriorityEncoder(canCommit.map(c => !c) :+ true.B)
   // when io.intrBitSetReg or there're possible exceptions in these instructions,
   // only one instruction is allowed to commit
@@ -104,7 +116,6 @@ class RobEnqPtrWrapper(implicit p: Parameters) extends XSModule with HasCircular
   }
 
   io.out := enqPtrVec
-
 }
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
@@ -515,6 +526,30 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val commit_block = VecInit((0 until CommitWidth).map(i => !commit_w(i)))
   val allowOnlyOneCommit = commit_exception || intrBitSetReg
   // for instructions that may block others, we don't allow them to commit
+  val commits_vec = entryDataRead.map(_.isVector)
+  val canCommitVec = Wire(Vec(CommitWidth, Bool()))
+  for((v, i) <- canCommitVec.zipWithIndex) {
+    val vecNum = PopCount(commits_vec.take(i+1))
+    v := (!(vecNum.orR) || (vecNum === 1.U)) && walk_v(i)
+  }
+
+  val canWalkNum = PopCount(io.commits.walkValid)
+
+  val deqPtrGenModule = Module(new RobCommitHelper)
+  val deqPtrVec_next = deqPtrGenModule.io.next_out
+  deqPtrGenModule.io.state := state
+  deqPtrGenModule.io.deq_v := commit_v
+  deqPtrGenModule.io.deq_w := commit_w
+  deqPtrGenModule.io.exception_state  := exceptionDataRead
+  deqPtrGenModule.io.intrBitSetReg    := intrBitSetReg
+  deqPtrGenModule.io.hasNoSpecExec    := hasNoSpecExec
+  deqPtrGenModule.io.interrupt_safe   := interrupt_safe(deqPtr.value)
+  deqPtrGenModule.io.blockCommit      := blockCommit
+  deqPtrGenModule.io.deq_isVec := commits_vec
+  deqPtrVec := deqPtrGenModule.io.out
+
+
+
   for (i <- 0 until CommitWidth) {
     // when intrBitSetReg, allow only one instruction to commit at each clock cycle
     val isBlocked = if (i != 0) {
@@ -522,15 +557,15 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       } else {
         intrEnable || deqHasException
       }
-    io.commits.commitValid(i) := commit_v(i) && commit_w(i) && !isBlocked
-    io.commits.walkValid(i)   := shouldWalkVec(i)
+    io.commits.commitValid(i) := deqPtrGenModule.io.commitValid(i) && !isBlocked
+    io.commits.walkValid(i)   := shouldWalkVec(i) & commits_vec(i)
     io.commits.info(i).pc     := debug_microOp(deqPtrVec(i).value).cf.pc
     io.commits.info(i).connectEntryData(entryDataRead(i))
     io.commits.robIdx(i) := deqPtrVec(i).value
 
-    when (io.commits.isWalk && state === s_walk && shouldWalkVec(i)) {
-      XSError(!walk_v(i), s"why not $i???\n")
-    }
+    // when (io.commits.isWalk && state === s_walk && shouldWalkVec(i)) {
+    //   XSError(!walk_v(i), s"why not $i???\n")
+    // }
     when (state === s_extrawalk) {
       if (i < RenameWidth) {
         io.commits.walkValid(i) := usedSpaceForMPR(RenameWidth - i - 1)
@@ -632,18 +667,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   /**
     * pointers and counters
     */
-  val deqPtrGenModule = Module(new RobDeqPtrWrapper)
-  val deqPtrVec_next = deqPtrGenModule.io.next_out
-  deqPtrGenModule.io.state := state
-  deqPtrGenModule.io.deq_v := commit_v
-  deqPtrGenModule.io.deq_w := commit_w
-  deqPtrGenModule.io.exception_state  := exceptionDataRead
-  deqPtrGenModule.io.intrBitSetReg    := intrBitSetReg
-  deqPtrGenModule.io.hasNoSpecExec    := hasNoSpecExec
-  deqPtrGenModule.io.interrupt_safe   := interrupt_safe(deqPtr.value)
-  deqPtrGenModule.io.blockCommit      := blockCommit
-  deqPtrVec := deqPtrGenModule.io.out
-
   val enqPtrGenModule = Module(new RobEnqPtrWrapper)
   enqPtrGenModule.io.redirect := io.redirect
   enqPtrGenModule.io.allowEnqueue     := allowEnqueue
@@ -651,7 +674,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   enqPtrGenModule.io.enq := VecInit(io.enq.req.map(_.valid))
   enqPtrVec := enqPtrGenModule.io.out
 
-  val thisCycleWalkCount = Mux(walkFinished, walkCounter, CommitWidth.U)
+  val thisCycleWalkCount = Mux(walkFinished, walkCounter, canWalkNum)
   // next walkPtrVec:
   // (1) redirect occurs: update according to state
   // (2) walk: move backwards

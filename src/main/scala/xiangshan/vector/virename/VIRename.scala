@@ -31,115 +31,93 @@ import utils._
 
 import xiangshan.vector._
 
-class VIRenameReqLr(implicit p: Parameters) extends VectorBaseBundle {
-    def robIdxWidth = log2Up(RobSize)
-
-    val lvs1        = UInt(5.W)
-    val lvs2        = UInt(5.W)
-    val lvd         = UInt(5.W)
-    val robIdx      = UInt(robIdxWidth.W)
-    val needRename  = Bool()
-}
-
-// class VIRenameReq(implicit p: Parameters) extends VectorBaseBundle {
-//     val req         = Vec(VIRenameWidth, new VIRenameReqLr)
-//     val mask        = UInt(VIRenameWidth.W)
-// }
-
-class VIRenameResp(implicit p: Parameters) extends VectorBaseBundle {
-    val pvs1    = UInt(VIPhyRegIdxWidth.W)
-    val pvs2    = UInt(VIPhyRegIdxWidth.W)
-    val pvd     = UInt(VIPhyRegIdxWidth.W)
-    val pmask   = UInt(VIPhyRegIdxWidth.W)
-}
-
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
-    val io = IO(new Bundle{
-        val redirect    = Flipped(ValidIO(new Redirect))
-        //rename, from waitqueue
-        val renameReq   = Vec(VIRenameWidth, Flipped(DecoupledIO(new VIRenameReqLr)))
-        val renameResp  = Vec(VIRenameWidth, DecoupledIO(new VIRenameResp))
-        //commit, from ROB
-        val commitReq   = Flipped(DecoupledIO(new VIRobIdxQueueEnqIO))
-        val hasWalk     = Output(Bool())
+  val io = IO(new Bundle{
+    val redirect = Flipped(ValidIO(new Redirect))
+    //rename, from waitqueue
+    val rename = Vec(VIRenameWidth, new Bundle {
+      val in = Flipped(DecoupledIO(new MicroOp))
+      val out = DecoupledIO(new MicroOp)
     })
+    //commit, from ROB
+    val commit = Flipped(new RobCommitIO)
+  })
 
-    val freeList        = Module(new VIFreeList)
-    val renameTable     = Module(new VIRenameTable)
-    val rollBackList    = Module(new VIRollBackList)
-    val robIdxQueue     = Module(new VIRobIdxQueue(VIWalkRobIdxQueueWidth))
+  val freeList        = Module(new VIFreeList)
+  val renameTable     = Module(new VIRenameTable)
+  val rollBackList    = Module(new VIRollBackList)
 
-    //-------------------------------------------- Rename --------------------------------------------
-    
-    val renameReqNum = PopCount(io.renameReq.map(port => port.valid && (port.bits.needRename === true.B)))
+  //-------------------------------------------- Rename --------------------------------------------
+  val renameReqNum = PopCount(io.rename.map(port => port.in.fire() && (port.in.bits.canRename === true.B)))
 
-    //TODO: !redirect && !walk
-    val canAllocateNum = Wire(UInt(log2Up(VIRenameWidth + 1).W))
-    canAllocateNum := freeList.io.canAllocateNum
-    for(i <- 0 until VIRenameWidth) {
-        io.renameReq(i).ready := (i.U < canAllocateNum)
+  //TODO: !redirect && !walk
+  val canAllocateNum = Wire(UInt(log2Up(VIRenameWidth + 1).W))
+  canAllocateNum := freeList.io.canAllocateNum
+
+  val doRename = Wire(Bool())
+  doRename := (renameReqNum <= freeList.io.canAllocateNum) && (!io.redirect.valid) && !io.commit.isWalk // & queue.hasWalk
+
+  //doRename, allocate FreeList Ptr, write rat and rollbackList
+  freeList.io.doAllocate := doRename
+  rollBackList.io.rename.doRename := doRename
+
+  freeList.io.allocateReqNum := renameReqNum
+  renameTable.io.renameWritePort.prIdx := freeList.io.allocatePhyReg
+
+  io.rename.zipWithIndex.foreach {
+    case (port, i) => {
+      port.out.bits := port.in.bits
+      port.in.ready := (i.U < canAllocateNum) && port.out.ready
+      port.out.valid := port.in.valid && (i.U < canAllocateNum)
     }
+  }
 
-    val doRename = Wire(Bool())
-    doRename := (renameReqNum <= freeList.io.canAllocateNum) && (!io.redirect.valid) && (!io.hasWalk)// & queue.hasWalk
+  //read RAT
+  for((rdp, rp) <- renameTable.io.renameReadPorts.zip(io.rename)) {
+    rdp.vd.lrIdx    := rp.in.bits.ctrl.ldest
+    rdp.vs1.lrIdx   := rp.in.bits.ctrl.lsrc(0)
+    rdp.vs2.lrIdx   := rp.in.bits.ctrl.lsrc(1)
+  }
 
-    //doRename, allocate FreeList Ptr, write rat and rollbackList
-    freeList.io.doAllocate                  := doRename
-    rollBackList.io.renamePort.doRename     := doRename
+  for((port, rdp) <- io.rename.zip(renameTable.io.renameReadPorts)) {
+    val srcType = port.in.bits.ctrl.srcType
+    port.out.bits.psrc(0) := Mux(srcType(0)===SrcType.vec, rdp.vs1.prIdx, port.in.bits.psrc(0))
+    port.out.bits.psrc(1) := Mux(srcType(1)===SrcType.vec, rdp.vs2.prIdx, port.in.bits.psrc(1))
+    port.out.bits.pdest := Mux(port.in.bits.canRename, rdp.vd.prIdx, port.in.bits.pdest)
+    port.out.bits.vm := rdp.vmask
+  }
 
-    freeList.io.allocateReqNum := renameReqNum
-    renameTable.io.renameWritePort.prIdx := freeList.io.allocatePhyReg
+  //read old value
+  for((oldRdp, rp) <- renameTable.io.oldPhyRegIdxReadPorts.zip(io.rename)) {
+    oldRdp.lrIdx := rp.in.bits.ctrl.ldest
+  }
 
-    //read RAT
-    val renameReqPort = io.renameReq
-    for((rdp, rp) <- renameTable.io.renameReadPorts.zip(renameReqPort)) {
-        rdp.vd.lrIdx    := rp.bits.lvd
-        rdp.vs1.lrIdx   := rp.bits.lvs1
-        rdp.vs2.lrIdx   := rp.bits.lvs2
-    }
+  //write RAT
+  val renameMask = VecInit(io.rename.map(_.in.fire()))
+  val ratRenamePortW = renameTable.io.renameWritePort
+  ratRenamePortW.doRename := doRename
+  ratRenamePortW.mask     := renameMask.asUInt
+  ratRenamePortW.lrIdx    := io.rename.map(_.in.bits.ctrl.ldest)
+  ratRenamePortW.prIdx    := freeList.io.allocatePhyReg
 
-    for((port, rdp) <- io.renameResp.zip(renameTable.io.renameReadPorts)) {
-        port.bits.pvs1   := rdp.vs1.prIdx
-        port.bits.pvs2   := rdp.vs2.prIdx
-        port.bits.pvd    := rdp.vd.prIdx
-        port.bits.pmask  := rdp.vmask
-    }
+  //write roll back list
+  for((wp, i) <- rollBackList.io.rename.writePorts.zipWithIndex) {
+    wp.bits.lrIdx    := io.rename(i).in.bits.ctrl.ldest
+    wp.bits.newPrIdx := freeList.io.allocatePhyReg(i)
+    wp.bits.oldPrIdx := renameTable.io.oldPhyRegIdxReadPorts(i).prIdx
+    wp.bits.robIdx   := io.rename(i).in.bits.robIdx.value
+  }
 
-    for((resp, req) <- io.renameResp.zip(io.renameReq)) {
-        resp.valid := req.valid
-        //req.ready := resp.ready
-    }
+  for((port, i) <- rollBackList.io.rename.writePorts.zipWithIndex) {
+    port.valid := io.rename(i).in.bits.canRename
+  }
+  //-------------------------------------------- TODO: commit & walk --------------------------------------------
 
-    //read old value
-    for((oldRdp, rp) <- renameTable.io.oldPhyRegIdxReadPorts.zip(renameReqPort)) {
-        oldRdp.lrIdx := rp.bits.lvd
-    }
+  rollBackList.io.commit.rob <> io.commit
+  renameTable.io.commitPort <> rollBackList.io.commit.rat 
 
-    //write RAT
-    val renameMask = VecInit(io.renameReq.map(_.fire()))
-    val ratRenamePortW = renameTable.io.renameWritePort
-    ratRenamePortW.doRename := doRename
-    ratRenamePortW.mask     := renameMask.asUInt
-    ratRenamePortW.lrIdx    := io.renameReq.map(_.bits.lvd)
-    ratRenamePortW.prIdx    := freeList.io.allocatePhyReg
-
-    //write roll back list
-    for((wp, i) <- rollBackList.io.renamePort.writePorts.zipWithIndex) {
-        wp.lrIdx    := io.renameReq(i).bits.lvd
-        wp.newPrIdx := freeList.io.allocatePhyReg(i)
-        wp.oldPrIdx := renameTable.io.oldPhyRegIdxReadPorts(i).prIdx
-        wp.robIdx   := io.renameReq(i).bits.robIdx
-    }
-    rollBackList.io.renamePort.mask := VecInit(io.renameReq.map(e => e.bits.needRename)).asUInt
-
-    //-------------------------------------------- TODO: commit & walk --------------------------------------------
-    robIdxQueue.io.in <> io.commitReq
-
-    rollBackList.io.commitPort.req <> robIdxQueue.io.out
-    renameTable.io.commitPort <> rollBackList.io.commitPort.resp
-    
-    freeList.io.releaseMask := rollBackList.io.commitPort.resp.mask
-    freeList.io.releasePhyReg := Mux(rollBackList.io.commitPort.resp.doCommit, rollBackList.io.commitPort.resp.prIdxOld, rollBackList.io.commitPort.resp.prIdxNew)
-
-    io.hasWalk := robIdxQueue.io.hasWalk
+  for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
+    rls.valid := rollBackList.io.commit.rat.mask(i)
+    rls.bits := Mux(rollBackList.io.commit.rat.doCommit, rollBackList.io.commit.rat.prIdxOld(i), rollBackList.io.commit.rat.prIdxNew(i))
+  }
 }
