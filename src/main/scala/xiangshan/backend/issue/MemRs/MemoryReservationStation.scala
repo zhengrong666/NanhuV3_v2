@@ -32,6 +32,7 @@ import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan.mem.SqPtr
+import xs.utils.LogicShiftRight
 
 object MemRsHelper {
   def WbToWkp(in:Valid[ExuOutput], p:Parameters):Valid[WakeUpInfo] = {
@@ -135,6 +136,11 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     mod.io.stIssued := stIssuedWires
     mod.io.stLastCompelet := RegNext(io.stLastCompelet)
     mod
+  })
+  io.loadEarlyWakeup.zip(internalEarlyWakeup).foreach({case(a, b) =>
+    a.valid := RegNext(b.valid)
+    a.bits := RegEnable(b.bits, b.valid)
+    a.bits.lpv := RegEnable(LogicShiftRight(b.bits.lpv, 1), b.valid)
   })
 
   private val internalEarlyWakeup = Wire(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
