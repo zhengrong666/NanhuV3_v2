@@ -128,7 +128,12 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   val walkPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   walkVec.zip(walkPr).zipWithIndex.foreach {
     case ((wen, pr), i) => {
-      val hitVec = VecInit(io.commit.lrIdx.map(lr => (lr===i.U) && io.commit.doWalk && io.commit.mask(i)))
+      val hitVec = Wire(Vec(8, Bool()))
+      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
+        case ((lr, hit), j) => {
+          hit := lr === i.U && io.commit.doWalk && io.commit.mask(j)
+        }
+      }
       wen := hitVec.asUInt.orR
       pr := Mux1H(hitVec, io.commit.prIdxOld)
     }
@@ -149,7 +154,12 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   val commitPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   commitVec.zip(commitPr).zipWithIndex.foreach {
     case ((wen, pr), i) => {
-      val hitVec = VecInit(io.commit.lrIdx.map(lr => (lr===i.U) && io.commit.doCommit && io.commit.mask(i)))
+      val hitVec = Wire(Vec(8, Bool()))
+      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
+        case ((lr, hit), j) => {
+          hit := lr === i.U && io.commit.doCommit && io.commit.mask(j)
+        }
+      }
       wen := hitVec.asUInt.orR
       pr := Mux1H(hitVec, io.commit.prIdxOld)
     }

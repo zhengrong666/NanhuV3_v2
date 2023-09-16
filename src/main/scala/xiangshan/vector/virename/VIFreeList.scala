@@ -76,6 +76,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   for((alloc, i) <- io.allocatePhyReg.zipWithIndex) {
     val canAlloc = (tailPtr + i.U) < headPtr
     alloc.valid := canAlloc
+    alloc.bits := phyRegCandidates(i)
   }
 
   val allocNum = PopCount(io.allocatePhyReg.map(_.fire()))

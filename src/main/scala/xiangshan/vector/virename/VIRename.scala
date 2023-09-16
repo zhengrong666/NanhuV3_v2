@@ -75,6 +75,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     case ((resp, req), i) => {
       val renameEn = req.fire() && req.bits.canRename
       val allocPhyIdx = freeList.io.allocatePhyReg(i).bits
+      freeList.io.allocatePhyReg(i).ready := renameEn
       // reanme write rat
       renameTable.io.rename(i).in.valid := renameEn
       renameTable.io.rename(i).in.bits.lvd := req.bits.ctrl.ldest
