@@ -137,13 +137,14 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     mod.io.stLastCompelet := RegNext(io.stLastCompelet)
     mod
   })
+
+  private val internalEarlyWakeup = Wire(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
   io.loadEarlyWakeup.zip(internalEarlyWakeup).foreach({case(a, b) =>
     a.valid := RegNext(b.valid)
     a.bits := RegEnable(b.bits, b.valid)
     a.bits.lpv := RegEnable(LogicShiftRight(b.bits.lpv, 1), b.valid)
   })
 
-  private val internalEarlyWakeup = Wire(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
   rsBankSeq.foreach(rb => {
     rb.io.loadEarlyWakeup.zip(internalEarlyWakeup).foreach({case(a, b) =>
       a.valid := b.valid && b.bits.destType === SrcType.reg
