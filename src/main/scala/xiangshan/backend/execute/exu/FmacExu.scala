@@ -21,6 +21,7 @@
 package xiangshan.backend.execute.exu
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
+import chisel3.util.RegEnable
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.backend.execute.fu.fpu.FMA
 
@@ -31,7 +32,7 @@ class FmacExu(id:Int, complexName:String)(implicit p:Parameters) extends BasicEx
     complexName = complexName,
     fuConfigs = Seq(FuConfigs.fmacCfg),
     exuType = ExuType.fmac,
-    speculativeWakeup = true,
+    speculativeWakeup = false,
     writebackToRob = true,
     writebackToVms = false
   )
@@ -58,9 +59,9 @@ class FmacExuImpl(outer:FmacExu, exuCfg:ExuConfig)(implicit p:Parameters) extend
   fmac.midResult.in.valid := false.B
   fmac.midResult.waitForAdd := false.B
 
-  writebackPort.valid := fmac.io.out.valid
+  writebackPort.valid := RegNext(fmac.io.out.valid, false.B)
   fmac.io.out.ready := true.B
-  writebackPort.bits.uop := fmac.io.out.bits.uop
+  writebackPort.bits.uop := RegEnable(fmac.io.out.bits.uop, fmac.io.out.valid)
   writebackPort.bits.data := fmac.io.out.bits.data
   writebackPort.bits.fflags := fmac.fflags
   writebackPort.bits.redirect := DontCare

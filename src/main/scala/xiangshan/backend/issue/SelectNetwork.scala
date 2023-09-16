@@ -126,7 +126,7 @@ object SelectPolicy {
   * }}}
 */
 
-class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, oldest:Boolean, haveEqual:Boolean, name:Option[String] = None)(implicit p: Parameters) extends XSModule {
+class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, oldest:Boolean, haveEqual:Boolean, regOut:Boolean = false, name:Option[String] = None)(implicit p: Parameters) extends XSModule {
   require(issueNum <= bankNum && 0 < issueNum && bankNum % issueNum == 0, "Illegal number of issue ports are supported now!")
   private val fuTypeList = cfg.fuConfigs.map(_.fuType)
   val io = IO(new Bundle{
@@ -141,7 +141,14 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({case(si, bidx) =>
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new SelectResp(bankNum, entryNum)))
-      selInfo.valid := in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
+      val selEn = in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
+      if(regOut){
+        val outPort = io.issueInfo(bidx * issueNum / bankNum)
+        val addrHit = outPort.fire && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
+        selInfo.valid := selEn && !addrHit
+      } else {
+        selInfo.valid := selEn
+      }
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
       selInfo.bits.entryIdxOH := (1 << eidx).U(entryNum.W)
@@ -153,7 +160,18 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
   private val bankNumPerIss = bankNum / issueNum
   finalSelectResult.zipWithIndex.foreach({case(res, i) =>
     val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
-    res := SelectPolicy(selBanks, oldest, haveEqual, bankNum, entryNum, io.redirect, io.earlyWakeUpCancel, p)
+    val selRes = SelectPolicy(selBanks, oldest, haveEqual, bankNum, entryNum, io.redirect, io.earlyWakeUpCancel, p)
+    if(regOut){
+      val validReg = RegNext(selRes.valid)
+      val bitsReg = RegEnable(selRes.bits, selRes.valid)
+      val shouldBeCanceled = res.bits.info.lpv.zip(io.earlyWakeUpCancel).map({case(l, c)=>l(0) & c}).reduce(_|_)
+      val shouldBeFlushed = res.bits.info.robPtr.needFlush(io.redirect)
+      res.valid := validReg && !shouldBeCanceled && !shouldBeFlushed
+      res.bits := bitsReg
+      res.bits.info.lpv.zip(selRes.bits.info.lpv).foreach({case(a,b) => a := RegEnable(LogicShiftRight(b, 1), selRes.valid)})
+    } else {
+      res := selRes
+    }
   })
 
   if(cfg.needToken){

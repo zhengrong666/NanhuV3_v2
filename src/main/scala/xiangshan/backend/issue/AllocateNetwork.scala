@@ -206,21 +206,16 @@ class AllocateNetwork(bankNum:Int, entryNumPerBank:Int, name:Option[String] = No
   randomizer.io.enqFire := io.enqFromDispatch.map(_.fire).reduce(_|_)
   for((s,m) <- (randomizer.io.in zip bankIdxList)){s := m}
 
-  private val squeezer = Module(new SqueezeNetwork[Valid[UInt], UInt](Valid(UInt(bankIdxWidth.W)), bankNum))
-  squeezer.io.in := randomizer.io.out
-
   for((port, sig) <- io.enqToRs.map(_.bits.addrOH) zip entryIdxList.map(_.bits)) {port := sig}
 
-  private val enqPortSelOHList = Seq.tabulate(bankNum)(idx => squeezer.io.out.map(_.bits === idx.U))
+  private val enqPortSelOHList = Seq.tabulate(bankNum)(idx => randomizer.io.out.map(_.bits === idx.U))
   private val portDataList = enqPortSelOHList.map(Mux1H(_,io.enqFromDispatch))
   for((port, data) <- io.enqToRs.zip(portDataList)) {
     port.bits.uop := data.bits
     port.valid := data.fire
   }
 
-  for((port, sig) <- io.enqFromDispatch.zip(squeezer.io.out)){
-    port.ready := sig.valid
-  }
+  io.enqFromDispatch.foreach(e => e.ready := entryIdxList.map(_.valid).reduce(_&_))
   //Start of randomization network function points assertions
   assert(randomizer.io.out(0).bits =/= randomizer.io.out(1).bits)
   assert(randomizer.io.out(0).bits =/= randomizer.io.out(2).bits)
@@ -239,70 +234,4 @@ class AllocateNetwork(bankNum:Int, entryNumPerBank:Int, name:Option[String] = No
   assert(riv(2) === rov(0) || riv(2) === rov(1) || riv(2) === rov(2) || riv(2) === rov(3))
   assert(riv(3) === rov(0) || riv(3) === rov(1) || riv(3) === rov(2) || riv(3) === rov(3))
   //End of randomization network function points assertions
-
-  //Start of squeeze network function points assertions
-  assert(squeezer.io.out(0).bits =/= squeezer.io.out(1).bits)
-  assert(squeezer.io.out(0).bits =/= squeezer.io.out(2).bits)
-  assert(squeezer.io.out(0).bits =/= squeezer.io.out(3).bits)
-  assert(squeezer.io.out(1).bits =/= squeezer.io.out(2).bits)
-  assert(squeezer.io.out(1).bits =/= squeezer.io.out(3).bits)
-  assert(squeezer.io.out(2).bits =/= squeezer.io.out(3).bits)
-
-  private val squeezerInValidBitVec = Cat(squeezer.io.in.map(_.valid).reverse)
-  private val squeezerOutValidBitVec = Cat(squeezer.io.out.map(_.valid).reverse)
-  when(PopCount(squeezerOutValidBitVec) === 1.U){
-    assert(squeezerOutValidBitVec === "b0001".U)
-  }
-  when(PopCount(squeezerOutValidBitVec) === 2.U){
-    assert(squeezerOutValidBitVec === "b0011".U)
-  }
-  when(PopCount(squeezerOutValidBitVec) === 3.U){
-    assert(squeezerOutValidBitVec === "b0111".U)
-  }
-  when(PopCount(squeezerOutValidBitVec) === 4.U){
-    assert(squeezerOutValidBitVec === "b1111".U)
-  }
-
-
-  private val so = squeezer.io.out.map(_.bits)
-  private val si = squeezer.io.in.map(_.bits)
-  when(squeezerInValidBitVec === "b0001".U){assert(so(0) === si(0))}
-  when(squeezerInValidBitVec === "b0010".U){assert(so(0) === si(1))}
-  when(squeezerInValidBitVec === "b0011".U){assert(so(0) === si(0) && so(1) === si(1))}
-  when(squeezerInValidBitVec === "b0100".U){assert(so(0) === si(2))}
-  when(squeezerInValidBitVec === "b0101".U){assert(so(0) === si(0) && so(1) === si(2))}
-  when(squeezerInValidBitVec === "b0110".U){assert(so(0) === si(1) && so(1) === si(2))}
-  when(squeezerInValidBitVec === "b0111".U){assert(so(0) === si(0) && so(1) === si(1) && so(2) === si(2))}
-  when(squeezerInValidBitVec === "b1000".U){assert(so(0) === si(3))}
-  when(squeezerInValidBitVec === "b1001".U){assert(so(0) === si(0) && so(1) === si(3))}
-  when(squeezerInValidBitVec === "b1010".U){assert(so(0) === si(1) && so(1) === si(3))}
-  when(squeezerInValidBitVec === "b1011".U){assert(so(0) === si(0) && so(1) === si(1) && so(2) === si(3))}
-  when(squeezerInValidBitVec === "b1100".U){assert(so(0) === si(2) && so(1) === si(3))}
-  when(squeezerInValidBitVec === "b1101".U){assert(so(0) === si(0) && so(1) === si(2) && so(2) === si(3))}
-  when(squeezerInValidBitVec === "b1110".U){assert(so(0) === si(1) && so(1) === si(2) && so(2) === si(3))}
-  when(squeezerInValidBitVec === "b1111".U){assert(so(0) === si(0) && so(1) === si(1) && so(2) === si(2) && so(3) === si(3))}
-
-  //End of squeeze network function points assertions
-
-  //Start of enqueue routing function points assertions
-  when(io.enqToRs(0).valid && squeezer.io.out(0).bits === 0.U){assert(io.enqFromDispatch(0).bits.robIdx === io.enqToRs(0).bits.uop.robIdx)}
-  when(io.enqToRs(0).valid && squeezer.io.out(1).bits === 0.U){assert(io.enqFromDispatch(1).bits.robIdx === io.enqToRs(0).bits.uop.robIdx)}
-  when(io.enqToRs(0).valid && squeezer.io.out(2).bits === 0.U){assert(io.enqFromDispatch(2).bits.robIdx === io.enqToRs(0).bits.uop.robIdx)}
-  when(io.enqToRs(0).valid && squeezer.io.out(3).bits === 0.U){assert(io.enqFromDispatch(3).bits.robIdx === io.enqToRs(0).bits.uop.robIdx)}
-
-  when(io.enqToRs(1).valid && squeezer.io.out(0).bits === 1.U){assert(io.enqFromDispatch(0).bits.robIdx === io.enqToRs(1).bits.uop.robIdx)}
-  when(io.enqToRs(1).valid && squeezer.io.out(1).bits === 1.U){assert(io.enqFromDispatch(1).bits.robIdx === io.enqToRs(1).bits.uop.robIdx)}
-  when(io.enqToRs(1).valid && squeezer.io.out(2).bits === 1.U){assert(io.enqFromDispatch(2).bits.robIdx === io.enqToRs(1).bits.uop.robIdx)}
-  when(io.enqToRs(1).valid && squeezer.io.out(3).bits === 1.U){assert(io.enqFromDispatch(3).bits.robIdx === io.enqToRs(1).bits.uop.robIdx)}
-
-  when(io.enqToRs(2).valid && squeezer.io.out(0).bits === 2.U){assert(io.enqFromDispatch(0).bits.robIdx === io.enqToRs(2).bits.uop.robIdx)}
-  when(io.enqToRs(2).valid && squeezer.io.out(1).bits === 2.U){assert(io.enqFromDispatch(1).bits.robIdx === io.enqToRs(2).bits.uop.robIdx)}
-  when(io.enqToRs(2).valid && squeezer.io.out(2).bits === 2.U){assert(io.enqFromDispatch(2).bits.robIdx === io.enqToRs(2).bits.uop.robIdx)}
-  when(io.enqToRs(2).valid && squeezer.io.out(3).bits === 2.U){assert(io.enqFromDispatch(3).bits.robIdx === io.enqToRs(2).bits.uop.robIdx)}
-
-  when(io.enqToRs(3).valid && squeezer.io.out(0).bits === 3.U){assert(io.enqFromDispatch(0).bits.robIdx === io.enqToRs(3).bits.uop.robIdx)}
-  when(io.enqToRs(3).valid && squeezer.io.out(1).bits === 3.U){assert(io.enqFromDispatch(1).bits.robIdx === io.enqToRs(3).bits.uop.robIdx)}
-  when(io.enqToRs(3).valid && squeezer.io.out(2).bits === 3.U){assert(io.enqFromDispatch(2).bits.robIdx === io.enqToRs(3).bits.uop.robIdx)}
-  when(io.enqToRs(3).valid && squeezer.io.out(3).bits === 3.U){assert(io.enqFromDispatch(3).bits.robIdx === io.enqToRs(3).bits.uop.robIdx)}
-  //End of enqueue routing function points assertions
 }
