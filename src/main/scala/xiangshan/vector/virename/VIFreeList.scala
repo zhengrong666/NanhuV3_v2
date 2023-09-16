@@ -32,72 +32,65 @@ import utils._
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, CircularShift}
 
 import xiangshan.vector._
-
-class VIFreeListBundle(implicit p: Parameters) extends VectorBaseBundle {
-    def reqNumWidth: Int = log2Up(VIRenameWidth + 1)
-
-    //be different from int and float rename module
-    //freeEntry num, determines whether the requests can enter RenameModule
-    val canAllocateNum  = Output(UInt(reqNumWidth.W))
-    val doAllocate      = Input(Bool())
-
-    //connects with RAT, offer PhyRegIndex
-    val allocateReqNum = Input(UInt(reqNumWidth.W))
-    val allocatePhyReg = Output(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
-
-    //connects with RollBackList
-    val releasePhyReg   = Vec(VICommitWidth, Flipped(ValidIO(UInt(VIPhyRegIdxWidth.W))))
-}
+import freechips.rocketchip.jtag.JtagState
 
 class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
-    val io = IO(new VIFreeListBundle)
+  val io = IO(new Bundle {
+    //be different from int and float rename module
+    //freeEntry num, determines whether the requests can enter RenameModule
+    //connects with RAT, offer PhyRegIndex
+    val allocatePhyReg = Vec(VIRenameWidth, DecoupledIO(UInt(VIPhyRegIdxWidth.W)))
+    //connects with RollBackList
+    val releasePhyReg = Vec(8, Flipped(ValidIO(UInt(VIPhyRegIdxWidth.W))))
+  })
 
-    class VIFreeListPtr extends CircularQueuePtr[VIFreeListPtr](VIPhyRegsNum)
-    object VIFreeListPtr {
-        def apply(f: Boolean, v: Int): VIFreeListPtr = {
-            val ptr = Wire(new VIFreeListPtr)
-            ptr.flag := f.B
-            ptr.value := v.U
-            ptr
-        }
+  class VIFreeListPtr extends CircularQueuePtr[VIFreeListPtr](VIPhyRegsNum)
+  object VIFreeListPtr {
+    def apply(f: Boolean, v: Int): VIFreeListPtr = {
+      val ptr = Wire(new VIFreeListPtr)
+      ptr.flag := f.B
+      ptr.value := v.U
+      ptr
     }
+  }
 
-    //free list
-    val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum)(i => i.U(VIPhyRegIdxWidth.W)))
-    val freeList    = RegInit(freeList_ds)
+  //free list
+  val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum)(i => i.U(VIPhyRegIdxWidth.W)))
+  val freeList = RegInit(freeList_ds)
 
-    //head and tail pointer
-    val headPtr = RegInit(VIFreeListPtr(false, 0))
-    val tailPtr = RegInit(VIFreeListPtr(true, 0))
+  //head and tail pointer
+  val headPtr = RegInit(VIFreeListPtr(false, 0))
+  val tailPtr = RegInit(VIFreeListPtr(true, 0))
 
-    //Allocate
-    val freeEntryNum = Wire(UInt(log2Up(VIPhyRegsNum + 1).W))
-    freeEntryNum := distanceBetween(tailPtr, headPtr)
+  //Allocate
+  // val freeEntryNum = distanceBetween(tailPtr, headPtr)
+  val headPtrOHVec = Wire(Vec(VIRenameWidth, UInt(VIPhyRegsNum.W)))
+  for(i <- 0 until VIRenameWidth) {
+    headPtrOHVec(i) := (headPtr + i.U).toOH
+  }
 
-    io.canAllocateNum := Mux(freeEntryNum >= VIRenameWidth.U, VIRenameWidth.U, freeEntryNum)
+  val phyRegCandidates = Wire(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
+  phyRegCandidates := headPtrOHVec.map(sel => Mux1H(sel, freeList))
 
-    //val allocateNum = io.allocateReqNum
-    val headPtrNext = headPtr + io.allocateReqNum
-    headPtr := Mux(io.doAllocate, headPtrNext, headPtr)
+  // io.canAllocateNum := Mux(freeEntryNum >= VIRenameWidth.U, VIRenameWidth.U, freeEntryNum)
+  for((alloc, i) <- io.allocatePhyReg.zipWithIndex) {
+    val canAlloc = (tailPtr + i.U) < headPtr
+    alloc.valid := canAlloc
+  }
 
-    val headPtrOHVec = Wire(Vec(VIRenameWidth, UInt(VIPhyRegsNum.W)))
-    for(i <- 0 until VIRenameWidth) {
-        headPtrOHVec(i) := (headPtr + i.U).toOH
+  val allocNum = PopCount(io.allocatePhyReg.map(_.fire()))
+  val headPtrNext = headPtr + allocNum
+  headPtr := headPtrNext
+
+  //Release
+  val releaseNum = PopCount(io.releasePhyReg.map(_.valid))
+  val tailPtrNext = tailPtr + releaseNum
+  tailPtr := tailPtrNext
+
+  for((rls, i) <- io.releasePhyReg.zipWithIndex) {
+    val releasePtr = tailPtr + PopCount(io.releasePhyReg.take(i+1).map(_.valid))
+    when(rls.valid === true.B) {
+      freeList(releasePtr.value) := rls.bits
     }
-
-    val phyRegCandidates = Wire(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
-    phyRegCandidates := headPtrOHVec.map(sel => Mux1H(sel, freeList))
-    io.allocatePhyReg := phyRegCandidates
-
-    //Release
-    val releaseNum = PopCount(io.releasePhyReg.map(_.valid))
-    val tailPtrNext = tailPtr + releaseNum
-    tailPtr := tailPtrNext
-
-    for(i <- 0 until VICommitWidth) {
-        val releasePtr = tailPtr + i.U
-        when(io.releasePhyReg(i).valid === 1.U) {
-            freeList(releasePtr.value) := io.releasePhyReg(i).bits
-        }
-    }
+  }
 }

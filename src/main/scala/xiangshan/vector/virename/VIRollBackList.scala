@@ -33,22 +33,13 @@ import xs.utils._
 import xiangshan.vector._
 import xiangshan.backend.execute.exu.ExuType
 
-class RollBackListRenameWritePort(implicit p: Parameters) extends VectorBaseBundle {
+class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
   val robIdx = UInt(log2Up(RobSize).W)
   val lrIdx = UInt(5.W)
   val oldPrIdx = UInt(VIPhyRegIdxWidth.W)
   val newPrIdx = UInt(VIPhyRegIdxWidth.W)
 }
 
-class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
-  val doRename = Input(Bool())
-  val writePorts = Vec(VIRenameWidth, Flipped(ValidIO(new RollBackListRenameWritePort)))
-}
-
-class RollBackListCommitPort(implicit p: Parameters) extends VectorBaseBundle {
-  val rob = Flipped(new RobCommitIO)
-  val rat = Output(new VIRatCommitPort)
-}
 class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
   val robIdx = UInt(log2Up(RobSize).W)
   val logicRegIdx = UInt(5.W)
@@ -58,8 +49,11 @@ class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
 
 class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
-    val commit = new RollBackListCommitPort
-    val rename = new RollBackListRenamePort
+    val rename = Vec(VIRenameWidth, Flipped(ValidIO(new RollBackListRenamePort)))
+    val commit = new Bundle {
+      val rob = Flipped(new RobCommitIO)
+      val rat = Output(new VIRatCommitPort)
+    }
   })
 
   class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)
@@ -81,8 +75,8 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
   val entryNum = distanceBetween(tailPtr, headPtr)
 
   //rename write robIdx、sRAT_old(from sRAT)、sRAT_new(from freeList)
-  for((w, i) <- io.rename.writePorts.zipWithIndex) { 
-    when(io.rename.doRename && io.rename.writePorts(i).fire()) {
+  for((w, i) <- io.rename.zipWithIndex) { 
+    when(w.valid) {
       val writePtr = (headPtr + i.U).value
       rollBackList(writePtr).robIdx := w.bits.robIdx
       rollBackList(writePtr).oldPhyRegIdx := w.bits.oldPrIdx
@@ -119,7 +113,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     }
   }
 
-  headPtr := Mux(io.commit.rob.isWalk, headPtr - PopCount(walkValid), headPtr + PopCount(io.rename.writePorts.map(_.fire())))
+  headPtr := Mux(io.commit.rob.isWalk, headPtr - PopCount(walkValid), headPtr + PopCount(io.rename.map(_.valid)))
   tailPtr := Mux(io.commit.rob.isCommit, tailPtr + PopCount(commitValid), tailPtr)
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
