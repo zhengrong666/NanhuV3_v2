@@ -258,7 +258,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   }
 
 
-  private val loadIssResps = Wire(Vec(lduIssuePortNum, Valid(new SelectResp(param.bankNum, entriesNumPerBank))))
+  private val loadIssResps = Wire(Vec(lduIssuePortNum, Decoupled(new SelectResp(param.bankNum, entriesNumPerBank))))
   private val loadUops = Wire(Vec(lduIssuePortNum, new MicroOp))
   private val sludIssBankNum = param.bankNum / specialLoadIssue.length
   for((sldu_iss, i) <- specialLoadIssue.zipWithIndex){
@@ -275,6 +275,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     specialLoadIssueDriver.io.enq.valid := slRes.valid
     specialLoadIssueDriver.io.enq.bits.selectResp := slRes.bits
     specialLoadIssueDriver.io.enq.bits.uop := loadUops(i)
+    slRes.ready := specialLoadIssueDriver.io.enq.ready
 
     val regularIss = issue(i)._1.issue
     val loadHasIssued = regularIss.valid && regularIss.bits.uop.ctrl.fuType === FuType.ldu
@@ -305,6 +306,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val scalarLoadSel = lduSelectNetwork.io.issueInfo(issuePortIdx).valid && !lduSelectNetwork.io.issueInfo(issuePortIdx).bits.info.isVector
       loadIssResps(issuePortIdx).valid := scalarLoadSel && !(issueDriver.io.hold && issueDriver.io.isLoad)
       loadIssResps(issuePortIdx).bits := lduSelectNetwork.io.issueInfo(issuePortIdx).bits
+      lduSelectNetwork.io.issueInfo(issuePortIdx).ready := respArbiter.io.in(2).ready || loadIssResps(issuePortIdx).fire
       val selResp = respArbiter.io.out
 
       def getSlice[T <: Object](in: Seq[T]): Seq[T] = in.slice(issuePortIdx * issBankNum, issuePortIdx * issBankNum + issBankNum)
