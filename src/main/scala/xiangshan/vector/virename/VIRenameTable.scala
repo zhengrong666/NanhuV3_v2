@@ -32,24 +32,20 @@ import xs.utils.CircularShift
 
 import xiangshan.vector._
 
-class VIRatReadPortSingle(implicit p: Parameters) extends VectorBaseBundle {
-  //input logic reg index, output physical reg index
-  val lrIdx = Input(UInt(5.W))
-  val prIdx = Output(UInt(VIPhyRegIdxWidth.W))
-}
-
-class VIRatReadPortOneInstr(implicit p: Parameters) extends VectorBaseBundle {
-  val vs1 = new VIRatReadPortSingle
-  val vs2 = new VIRatReadPortSingle
-  val vd  = new VIRatReadPortSingle
-  val vmask = Output(UInt(VIPhyRegIdxWidth.W))
-}
-
-class VIRatRenamePort(implicit p: Parameters) extends VectorBaseBundle {
-  val doRename    = Bool()
-  val mask        = UInt(VIRenameWidth.W)
-  val lrIdx       = Vec(VIRenameWidth, UInt(5.W))
-  val prIdx       = Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W))
+class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
+  val in = Flipped(ValidIO(new Bundle {
+    val lvd = UInt(5.W)
+    val lvs1 = UInt(5.W)
+    val lvs2 = UInt(5.W)
+    val allocIdx = UInt(VIPhyRegIdxWidth.W)
+  }))
+  val out = Output(new Bundle {
+    val pvd = UInt(VIPhyRegIdxWidth.W)
+    val pvs1 = UInt(VIPhyRegIdxWidth.W)
+    val pvs2 = UInt(VIPhyRegIdxWidth.W)
+    val oldPvd = UInt(VIPhyRegIdxWidth.W)
+    val pmask = UInt(VIPhyRegIdxWidth.W)
+  })
 }
 
 class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
@@ -63,10 +59,8 @@ class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
 
 class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   val io = IO(new Bundle{
-    val renameReadPorts         = Vec(VIRenameWidth, new VIRatReadPortOneInstr)
-    val oldPhyRegIdxReadPorts   = Vec(VIRenameWidth, new VIRatReadPortSingle) //for RollBackList write
-    val renameWritePort         = Input(new VIRatRenamePort)
-    val commitPort      = Input(new VIRatCommitPort)
+    val rename = Vec(VIRenameWidth, new VIRatRenameIO)
+    val commit      = Input(new VIRatCommitPort)
     val debugReadPorts  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
   })
   //RAT
@@ -77,45 +71,106 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   io.debugReadPorts := aRAT
 
   //read
-  for((port, i) <- io.renameReadPorts.zipWithIndex) {
-    port.vs1.prIdx := (0 until i).foldLeft(sRAT(port.vs1.lrIdx))((p, k) => 
-      Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs1.lrIdx && io.renameWritePort.doRename === true.B), 
-        io.renameWritePort.prIdx(k), p))
-    port.vs2.prIdx := (0 until i).foldLeft(sRAT(port.vs2.lrIdx))((p, k) => 
-      Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs2.lrIdx && io.renameWritePort.doRename === true.B), 
-        io.renameWritePort.prIdx(k), p))
-    port.vd.prIdx := (0 until i).foldLeft(sRAT(port.vd.lrIdx))((p, k) => 
-      Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vd.lrIdx && io.renameWritePort.doRename === true.B), 
-        io.renameWritePort.prIdx(k), p))
-    port.vmask := (0 until i).foldLeft(sRAT(0.U))((p, k) => 
-      Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === 0.U && io.renameWritePort.doRename === true.B), 
-        io.renameWritePort.prIdx(k), p))
+  // for((port, i) <- io.renameReadPorts.zipWithIndex) {
+  //   port.vs1.prIdx := (0 until i).foldLeft(sRAT(port.vs1.lrIdx))((p, k) => 
+  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs1.lrIdx && io.renameWritePort.doRename === true.B), 
+  //       io.renameWritePort.prIdx(k), p))
+  //   port.vs2.prIdx := (0 until i).foldLeft(sRAT(port.vs2.lrIdx))((p, k) => 
+  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs2.lrIdx && io.renameWritePort.doRename === true.B), 
+  //       io.renameWritePort.prIdx(k), p))
+  //   port.vd.prIdx := (0 until i).foldLeft(sRAT(port.vd.lrIdx))((p, k) => 
+  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vd.lrIdx && io.renameWritePort.doRename === true.B), 
+  //       io.renameWritePort.prIdx(k), p))
+  //   port.vmask := (0 until i).foldLeft(sRAT(0.U))((p, k) => 
+  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === 0.U && io.renameWritePort.doRename === true.B), 
+  //       io.renameWritePort.prIdx(k), p))
+  // }
+
+  for(((pi, po), bypassNum) <- io.rename.map(_.in).zip(io.rename.map(_.out)).zipWithIndex) {
+    po.pvd := sRAT(pi.bits.lvd)
+    po.pvs1 := sRAT(pi.bits.lvs1)
+    po.pvs2 := sRAT(pi.bits.lvs2)
+    po.pmask := sRAT(0)
+    po.oldPvd := sRAT(pi.bits.lvd)
+    if(bypassNum != 0) {
+      val renamePorts = io.rename.take(bypassNum)
+      val wmasks = renamePorts.map(_.in.valid)
+      val wlrs = renamePorts.map(_.in.bits.lvd)
+      val wprs = renamePorts.map(_.in.bits.allocIdx)
+      Seq(pi.bits.lvs1, pi.bits.lvs2, 0.U, pi.bits.lvd).zip(
+        Seq(po.pvs1, po.pvs2, po.pmask, po.oldPvd)
+      ).foreach {
+        case(lr, pr) => {
+          for(i <- 0 until bypassNum) {
+            val hit = wmasks(i) && (wlrs(i) === lr)
+            when(hit) {
+              pr := wprs(i)
+            }
+          }
+        }
+      }
+    }
   }
 
   //old regId read, for rollBackList storage
-  val oldLrOHVec = io.oldPhyRegIdxReadPorts.map(port => UIntToOH(port.lrIdx))
-  for((port, i) <- io.oldPhyRegIdxReadPorts.zipWithIndex) {
-    port.prIdx := Mux1H(oldLrOHVec(i), sRAT)
-  }
 
-  //rename write sRAT
-  val prIdxs_rename = io.renameWritePort.prIdx
-  val lrIdxs_rename = io.renameWritePort.lrIdx
-  for((lr, i) <- lrIdxs_rename.zipWithIndex) {
-    when(io.renameWritePort.doRename && (io.renameWritePort.mask(i) === 1.U)) {
-      sRAT(lr) := prIdxs_rename(i)
+  val renameVec = Wire(Vec(32, Bool()))
+  val renamePr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
+  renameVec.zip(renamePr).zipWithIndex.foreach {
+    case ((wen, pr), i) => {
+      val hitVec = VecInit(io.rename.map(req => req.in.valid && req.in.bits.lvd===i.U))
+      wen := hitVec.asUInt.orR
+      pr := Mux1H(hitVec, io.rename.map(_.in.bits.allocIdx))
     }
   }
 
-  val lrIdxs_commit = io.commitPort.lrIdx
-  val prIdxs_commit = Mux(io.commitPort.doCommit, io.commitPort.prIdxNew, io.commitPort.prIdxOld)
-  //XSError((io.commitPort.doCommit && io.commitPort.doWalk), s"commit and walk")
-  //commit write aRAT, rollBack write sRAT
-  for((lr, i) <- lrIdxs_commit.zipWithIndex) {
-    when(io.commitPort.doCommit && (io.commitPort.mask(i) === true.B)) {
-      aRAT(lr) := prIdxs_commit(i)
-    }.elsewhen(io.commitPort.doWalk && (io.commitPort.mask(i) === true.B)) {
-      sRAT(lr) := prIdxs_commit(i)
+  val walkVec = Wire(Vec(32, Bool()))
+  val walkPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
+  walkVec.zip(walkPr).zipWithIndex.foreach {
+    case ((wen, pr), i) => {
+      val hitVec = Wire(Vec(8, Bool()))
+      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
+        case ((lr, hit), j) => {
+          hit := lr === i.U && io.commit.doWalk && io.commit.mask(j)
+        }
+      }
+      wen := hitVec.asUInt.orR
+      pr := Mux1H(hitVec, io.commit.prIdxOld)
     }
   }
+
+  val sratWen = Mux(io.commit.doWalk, walkVec, renameVec)
+  val sratWdata = Mux(io.commit.doCommit, walkPr, renamePr)
+
+  sratWen.zip(sratWdata).zip(sRAT).foreach {
+    case ((wen, data), e) => {
+      when(wen) {
+        e := data
+      }
+    }
+  }
+
+  val commitVec = Wire(Vec(32, Bool()))
+  val commitPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
+  commitVec.zip(commitPr).zipWithIndex.foreach {
+    case ((wen, pr), i) => {
+      val hitVec = Wire(Vec(8, Bool()))
+      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
+        case ((lr, hit), j) => {
+          hit := lr === i.U && io.commit.doCommit && io.commit.mask(j)
+        }
+      }
+      wen := hitVec.asUInt.orR
+      pr := Mux1H(hitVec, io.commit.prIdxOld)
+    }
+  }
+
+  commitVec.zip(commitPr).zip(aRAT).foreach {
+    case ((wen, data), e) => {
+      when(wen) {
+        e := data
+      }
+    }
+  }
+
 }
