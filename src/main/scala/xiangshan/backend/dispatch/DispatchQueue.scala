@@ -86,11 +86,11 @@ class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule {
   private val validsReg = RegInit(VecInit(Seq.fill(deqNum)(false.B)))
   private val bitsRegs = Reg(Vec(deqNum, new MicroOp()))
   io.deq.zip(validsReg).zip(bitsRegs).foreach({case((d, v), b) =>
-    d.valid := v && !io.redirect.valid
+    d.valid := v
     d.bits := b
   })
   private val fireNum = PopCount(io.deq.map(_.fire))
-  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_)
+  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_) && !io.redirect.valid
   io.deqPtrMoveVal := fireNum
 
   for(((in, v), b) <- io.in.zip(validsReg).zip(bitsRegs)){

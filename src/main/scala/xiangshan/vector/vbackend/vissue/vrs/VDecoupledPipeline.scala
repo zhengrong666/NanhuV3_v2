@@ -22,7 +22,7 @@ package xiangshan.vector.vbackend.vissue.vrs
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.{MicroOp, Redirect, XSModule}
+import xiangshan.{MicroOp, Redirect, SrcType, XSModule}
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper}
 sealed class TwoEntryQueuePtr extends CircularQueuePtr[TwoEntryQueuePtr](entries = 2) with HasCircularQueuePtrHelper
 
@@ -31,6 +31,9 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
     val redirect = Input(Valid(new Redirect))
     val enq = Flipped(DecoupledIO(new MicroOp))
     val deq = DecoupledIO(new MicroOp)
+    val specialPsrc = Output(UInt(PhyRegIdxWidth.W))
+    val specialPsrcType = Output(SrcType())
+    val specialPsrcRen = Output(Bool())
   })
   private val mem = Reg(Vec(2, new MicroOp))
   private val enqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
@@ -69,4 +72,7 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
   }
   io.deq.valid := deqValidReg
   io.deq.bits := deqBitsReg
+  io.specialPsrc := s1_data.psrc(0)
+  io.specialPsrcType := s1_data.ctrl.srcType(0)
+  io.specialPsrcRen := s1_valid
 }

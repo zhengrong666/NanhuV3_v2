@@ -30,6 +30,7 @@ import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, Write
 import xiangshan.frontend.Ftq_RF_Components
 import xiangshan.vector.HasVectorParameters
 import xiangshan._
+import xiangshan.backend.execute.exu.ExuType
 import xiangshan.vector.vbackend.vregfile.{MoveReq, VectorRfReadPort}
 import xs.utils.{DelayN, SignExt, ZeroExt}
 
@@ -127,7 +128,13 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
     private val writeIntRfBypass = wb.filter(i => i._2.bypassIntRegfile)
     private val writeIntRf = wb.filter(i => !i._2.bypassIntRegfile && i._2.writeIntRf)
     private val writeFpRfBypass = wb.filter(i => i._2.bypassFpRegfile)
-    private val writeFpRf = wb.filter(i => !i._2.bypassFpRegfile && i._2.writeFpRf)
+    private val writeFpRf = wb.filter(i => !i._2.bypassFpRegfile && i._2.writeFpRf).map({case(wb, cfg) =>
+      if(cfg.exuType == ExuType.mul){
+        (Pipe(wb), cfg)
+      } else {
+        (wb, cfg)
+      }
+    })
 
     private val intReadNum = needIntSrc.map(_._2.intSrcNum).sum
     private val fpReadNum = needFpSrc.filterNot(_._2.hasStd).map(_._2.fpSrcNum).sum
@@ -303,7 +310,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         val rsIdxReg = Reg(new RsIdx)
 
         val allowPipe = !issueValidReg || bo.issue.ready || (issueValidReg && issueExuInReg.uop.robIdx.needFlush(io.redirect))
-        bo.issue.valid := issueValidReg && !issueExuInReg.uop.robIdx.needFlush(io.redirect)
+        bo.issue.valid := issueValidReg
         bo.issue.bits := issueExuInReg
         bo.rsIdx := rsIdxReg
         bo.auxValid := auxValidReg
