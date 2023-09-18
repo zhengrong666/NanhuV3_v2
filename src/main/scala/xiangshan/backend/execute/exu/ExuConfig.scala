@@ -85,7 +85,7 @@ case class ExuConfig
   throughVectorRf:Boolean = false
 ){
   private val intFastWkpSeq = Seq(ExuType.alu, ExuType.jmp, ExuType.mul)
-  private val fpFastWkpSeq = Seq(ExuType.fmac)
+  private val fpFastWkpSeq = Seq(ExuType.fmac, ExuType.mul)
   val intSrcNum:Int = fuConfigs.map(_.numIntSrc).max
   val fpSrcNum:Int = fuConfigs.map(_.numFpSrc).max
   val isIntFastWakeup: Boolean = intFastWkpSeq.contains(exuType)

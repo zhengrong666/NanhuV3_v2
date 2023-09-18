@@ -154,7 +154,7 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     vrf.io.debug_vec_rat := io.debug_vec_rat
     vrf.io.vectorReads.take(loadUnitNum * 2).zip(rf.io.vectorReads).foreach({case(a, b) => a <> b})
     vrf.io.vectorReads.last <> vpBlk.io.rfReadPort.vrf
-    for (elem <- vrf.io.moveOldValReqs.zip(rf.io.vectorRfMoveReq)) {elem._1 := Pipe(elem._2)}
+    for (elem <- vrf.io.moveOldValReqs.zip(rf.io.vectorRfMoveReq)) {elem._1 := Pipe(elem._2, 2)}
     vrf.io.redirect := Pipe(localRedirect)
 
     exuBlocks.foreach(_.module.redirectIn := Pipe(localRedirect))
@@ -168,11 +168,12 @@ class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) ext
     fpRs.io.loadEarlyWakeup := memRs.io.loadEarlyWakeup
     fpRs.io.earlyWakeUpCancel := memBlk.io.earlyWakeUpCancel(1)
     fpRs.io.floatingAllocPregs := io.floatingAllocPregs
+    fpRs.io.mulSpecWakeUp.zip(intRs.io.mulSpecWakeup).foreach({case(a, b) => a := Pipe(b)})
     fpBlk.io.csr_frm := intBlk.io.csrio.fpu.frm
 
     memRs.io.redirect := Pipe(localRedirect)
     memRs.io.aluJmpSpecWakeup := intRs.io.aluJmpSpecWakeup
-    memRs.io.mulSpecWakeup := intRs.io.mulSpecWakeup
+    memRs.io.mulSpecWakeup.zip(intRs.io.mulSpecWakeup).foreach({case(a, b) => a := Pipe(b)})
     memRs.io.fmaSpecWakeup := fpRs.io.fmacSpecWakeUp
     memRs.io.earlyWakeUpCancel := memBlk.io.earlyWakeUpCancel(2)
     memRs.io.integerAllocPregs := io.integerAllocPregs
