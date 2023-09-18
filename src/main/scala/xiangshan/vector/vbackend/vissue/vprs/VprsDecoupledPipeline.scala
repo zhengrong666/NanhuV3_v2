@@ -59,8 +59,8 @@ class VprsDecoupledPipeline(implicit p: Parameters) extends XSModule{
   }
 
   private val deqValidReg = RegInit(false.B)
-  private val deqBitsReg = Reg(new MicroOp)
-  s1_ready := !deqValidReg || io.deq.ready || (deqValidReg && deqBitsReg.robIdx.needFlush(io.redirect))
+  private val deqBitsReg = Reg(new VprsIssueBundle)
+  s1_ready := !deqValidReg || io.deq.ready || (deqValidReg && deqBitsReg.uop.robIdx.needFlush(io.redirect))
   when(s1_ready) {
     deqValidReg := s1_valid && !s1_data.uop.robIdx.needFlush(io.redirect)
   }
