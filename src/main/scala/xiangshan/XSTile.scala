@@ -74,7 +74,7 @@ class XSTileMisc()(implicit p: Parameters) extends LazyModule
   lazy val module = new XSTileMiscImp(this)
 }
 class XSTileMiscImp(outer:XSTileMisc)(implicit p: Parameters) extends LazyModuleImp(outer){
-  val beu_errors = IO(Input(outer.beu.module.io.errors))
+  val beu_errors = IO(Input(chiselTypeOf(outer.beu.module.io.errors)))
   outer.beu.module.io.errors <> beu_errors
 }
 

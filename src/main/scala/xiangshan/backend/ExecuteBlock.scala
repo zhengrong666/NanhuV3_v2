@@ -197,6 +197,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   vpBlk.io.fpAllocPregs := io.floatingAllocPregs
   vpBlk.io.vecAllocPregs := io.vectorAllocPregs
   vpBlk.io.frm := intBlk.io.csrio.fpu.frm
+  vpBlk.io.vstart := intBlk.io.csrio.vcsr.vstart
 
   intBlk.io.csrio.distributedUpdate(0) := memBlk.io.csrUpdate
   memBlk.io.csrCtrl <> intBlk.io.csrio.customCtrl

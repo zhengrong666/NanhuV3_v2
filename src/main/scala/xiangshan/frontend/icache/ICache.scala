@@ -577,6 +577,7 @@ class ICacheImp(outer: ICache) extends LazyModuleImp(outer) with HasICacheParame
       io.prefetch.req.ready := true.B
     }
   } else {
+    io.prefetch.req.ready := true.B
     prefetchPipe.io.fromFtq <> DontCare
   }
 
@@ -614,6 +615,9 @@ class ICacheImp(outer: ICache) extends LazyModuleImp(outer) with HasICacheParame
   // connect bus d
   missUnit.io.mem_grant.valid := false.B
   missUnit.io.mem_grant.bits  := DontCare
+
+  private val errors = mainPipe.io.errors
+  io.error <> RegNext(Mux1H(errors.map(e => e.valid -> e)))
 
   val hasVictim = VecInit(missUnit.io.victimInfor.map(_.valid))
   val victimSetSeq = VecInit(missUnit.io.victimInfor.map(_.vidx))

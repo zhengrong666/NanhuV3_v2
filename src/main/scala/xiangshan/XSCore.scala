@@ -149,6 +149,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.memPredUpdate := exuBlock.io.memPredUpdate
   exuBlock.io.debug_int_rat := ctrlBlock.io.debug_int_rat
   exuBlock.io.debug_fp_rat := ctrlBlock.io.debug_fp_rat
+  exuBlock.io.debug_vec_rat := DontCare
 
   exuBlock.io.perfEventsPTW  := ptw.getPerf
 
