@@ -719,9 +719,9 @@ class Sbuffer(implicit p: Parameters) extends DCacheModule with HasSbufferConst 
   accessIdx(EnsbufferWidth).valid := invalidMask(replaceIdx) || (
     need_replace && !need_drain && !cohHasTimeOut && !missqReplayHasTimeOut && sbuffer_out_s0_cango && activeMask(replaceIdx))
   accessIdx(EnsbufferWidth).bits := replaceIdx
-  val sbuffer_out_s1_evictionIdx = RegEnable(sbuffer_out_s0_evictionIdx, enable = sbuffer_out_s0_fire)
-  val sbuffer_out_s1_evictionPTag = RegEnable(ptag(sbuffer_out_s0_evictionIdx), enable = sbuffer_out_s0_fire)
-  val sbuffer_out_s1_evictionVTag = RegEnable(vtag(sbuffer_out_s0_evictionIdx), enable = sbuffer_out_s0_fire)
+  val sbuffer_out_s1_evictionIdx = RegEnable(sbuffer_out_s0_evictionIdx, sbuffer_out_s0_fire)
+  val sbuffer_out_s1_evictionPTag = RegEnable(ptag(sbuffer_out_s0_evictionIdx), sbuffer_out_s0_fire)
+  val sbuffer_out_s1_evictionVTag = RegEnable(vtag(sbuffer_out_s0_evictionIdx), sbuffer_out_s0_fire)
 
   io.dcache.req.valid := sbuffer_out_s1_valid && !blockDcacheWrite
   io.dcache.req.bits := DontCare

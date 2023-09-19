@@ -33,20 +33,9 @@ class DatamoduleResultBuffer[T <: Data]
   gen: T,
 ) extends Module {
 
-  val genType = if (compileOptions.declaredTypeMustBeUnbound) {
-    requireIsChiselType(gen)
-    gen
-  } else {
-    if (DataMirror.internal.isSynthesizable(gen)) {
-      chiselTypeOf(gen)
-    } else {
-      gen
-    }
-  }
-
   val io = IO(new DatamoduleResultBufferIO[T](gen))
 
-  val data = Reg(Vec(2, genType))
+  val data = Reg(Vec(2, gen))
   val valids = RegInit(VecInit(Seq.fill(2)(false.B)))
   val enq_flag = RegInit(false.B) // head is entry 0
   val deq_flag = RegInit(false.B) // tail is entry 0

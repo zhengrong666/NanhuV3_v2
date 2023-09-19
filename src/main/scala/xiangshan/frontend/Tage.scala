@@ -22,7 +22,6 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import xs.utils._
-import chisel3.experimental.chiselName
 import xs.utils.mbist.MBISTPipeline
 import xs.utils.sram.{FoldedSRAMTemplate, SRAMTemplate}
 
@@ -588,11 +587,11 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   val s1_resps = VecInit(tables.map(_.io.resps))
 
   //val s1_bim = io.in.bits.resp_in(0).s1.full_pred
-  // val s2_bim = RegEnable(s1_bim, enable=io.s1_fire)
+  // val s2_bim = RegEnable(s1_bim, io.s1_fire)
 
   val debug_pc_s0 = s0_pc_dup(4)
-  val debug_pc_s1 = RegEnable(s0_pc_dup(4), enable=io.s0_fire(1))
-  val debug_pc_s2 = RegEnable(debug_pc_s1, enable=io.s1_fire(1))
+  val debug_pc_s1 = RegEnable(s0_pc_dup(4), io.s0_fire(1))
+  val debug_pc_s2 = RegEnable(debug_pc_s1, io.s1_fire(1))
 
   val s1_provideds        = Wire(Vec(numBr, Bool()))
   val s1_providers        = Wire(Vec(numBr, UInt(log2Ceil(TageNTables).W)))

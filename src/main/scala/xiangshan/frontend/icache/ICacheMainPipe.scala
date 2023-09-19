@@ -303,16 +303,16 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
 
   val s1_valid = generatePipeControl(lastFire = s0_fire, thisFire = s1_fire, thisFlush = tlb_miss_flush, lastFlush = false.B)
 
-  val s1_req_vaddr   = RegEnable(next = s0_final_vaddr,    enable = s0_fire)
-  val s1_req_vsetIdx = RegEnable(next = s0_final_vsetIdx, enable = s0_fire)
-  val s1_only_first  = RegEnable(next = s0_final_only_first, enable = s0_fire)
-  val s1_double_line = RegEnable(next = s0_final_double_line, enable = s0_fire)
-  val s1_tlb_miss    = RegEnable(next = tlb_slot.valid, enable = s0_fire)
+  val s1_req_vaddr   = RegEnable( s0_final_vaddr,    s0_fire)
+  val s1_req_vsetIdx = RegEnable( s0_final_vsetIdx, s0_fire)
+  val s1_only_first  = RegEnable( s0_final_only_first, s0_fire)
+  val s1_double_line = RegEnable( s0_final_double_line, s0_fire)
+  val s1_tlb_miss    = RegEnable( tlb_slot.valid, s0_fire)
 
-  val s1_tlb_use_latch = RegEnable(next = tlb_slot.has_latch_resp, enable = s0_fire, init=false.B)
-  val s1_tlb_lath_resp_paddr = RegEnable(next = tlb_slot.tlb_resp_paddr, enable = s0_fire)
-  val s1_tlb_latch_resp_pf = RegEnable(next = tlb_slot.tlb_resp_pf, enable = s0_fire)
-  val s1_tlb_latch_resp_af = RegEnable(next = tlb_slot.tlb_resp_af, enable = s0_fire)
+  val s1_tlb_use_latch = RegEnable( tlb_slot.has_latch_resp, s0_fire, false.B)
+  val s1_tlb_lath_resp_paddr = RegEnable( tlb_slot.tlb_resp_paddr, s0_fire)
+  val s1_tlb_latch_resp_pf = RegEnable( tlb_slot.tlb_resp_pf, s0_fire)
+  val s1_tlb_latch_resp_af = RegEnable( tlb_slot.tlb_resp_af, s0_fire)
 
   s1_ready := s2_ready && tlbRespAllValid  || !s1_valid
   s1_fire  := s1_valid && tlbRespAllValid && s2_ready && !tlb_miss_flush
@@ -418,31 +418,31 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
   /** s2 data */
   val mmio = RegEnable(VecInit(fromPMP.map(port => port.mmio)),s1_fire)  // TODO: handle it
 
-  val (s2_req_paddr , s2_req_vaddr)   = (RegEnable(next = s1_req_paddr, enable = s1_fire), RegEnable(next = s1_req_vaddr, enable = s1_fire))
-  val s2_req_vsetIdx  = RegEnable(next = s1_req_vsetIdx, enable = s1_fire)
-  val s2_req_ptags    = RegEnable(next = s1_req_ptags, enable = s1_fire)
-  val s2_only_first   = RegEnable(next = s1_only_first, enable = s1_fire)
-  val s2_double_line  = RegEnable(next = s1_double_line, enable = s1_fire)
-  val s2_hit          = RegEnable(next = s1_hit   , enable = s1_fire)
-  val s2_port_hit     = RegEnable(next = s1_port_hit, enable = s1_fire)
-  val s2_port_hit_dup_1  = RegEnable(next = s1_port_hit, enable = s1_fire)
-  val s2_port_hit_dup_2  = RegEnable(next = s1_port_hit, enable = s1_fire)
-  val s2_port_hit_dup_3  = RegEnable(next = s1_port_hit, enable = s1_fire)
+  val (s2_req_paddr , s2_req_vaddr)   = (RegEnable( s1_req_paddr, s1_fire), RegEnable( s1_req_vaddr, s1_fire))
+  val s2_req_vsetIdx  = RegEnable( s1_req_vsetIdx, s1_fire)
+  val s2_req_ptags    = RegEnable( s1_req_ptags, s1_fire)
+  val s2_only_first   = RegEnable( s1_only_first, s1_fire)
+  val s2_double_line  = RegEnable( s1_double_line, s1_fire)
+  val s2_hit          = RegEnable( s1_hit   , s1_fire)
+  val s2_port_hit     = RegEnable( s1_port_hit, s1_fire)
+  val s2_port_hit_dup_1  = RegEnable( s1_port_hit, s1_fire)
+  val s2_port_hit_dup_2  = RegEnable( s1_port_hit, s1_fire)
+  val s2_port_hit_dup_3  = RegEnable( s1_port_hit, s1_fire)
 
   val s2_port_hit_dup_vec = Seq(s2_port_hit, s2_port_hit_dup_1, s2_port_hit_dup_2, s2_port_hit_dup_3)
 
-  val s2_bank_miss    = RegEnable(next = s1_bank_miss, enable = s1_fire)
-  val s2_waymask      = RegEnable(next = s1_victim_oh, enable = s1_fire)
-  val s2_tag_match_vec = RegEnable(next = s1_tag_match_vec, enable = s1_fire)
+  val s2_bank_miss    = RegEnable( s1_bank_miss, s1_fire)
+  val s2_waymask      = RegEnable( s1_victim_oh, s1_fire)
+  val s2_tag_match_vec = RegEnable( s1_tag_match_vec, s1_fire)
 
   /** status imply that s2 is a secondary miss (no need to resend miss request) */
   val sec_meet_vec = Wire(Vec(2, Bool()))
   val s2_fixed_hit_vec = VecInit((0 until 2).map(i => s2_port_hit(i) || sec_meet_vec(i)))
   val s2_fixed_hit = (s2_valid && s2_fixed_hit_vec(0) && s2_fixed_hit_vec(1) && s2_double_line) || (s2_valid && s2_fixed_hit_vec(0) && !s2_double_line)
 
-  val s2_meta_errors    = RegEnable(next = s1_meta_errors,    enable = s1_fire)
-  val s2_data_errorBits = RegEnable(next = s1_data_errorBits, enable = s1_fire)
-  val s2_data_cacheline = RegEnable(next = s1_data_cacheline, enable = s1_fire)
+  val s2_meta_errors    = RegEnable( s1_meta_errors,    s1_fire)
+  val s2_data_errorBits = RegEnable( s1_data_errorBits, s1_fire)
+  val s2_data_cacheline = RegEnable( s1_data_cacheline, s1_fire)
 
   val s2_data_errors    = Wire(Vec(PortNumber,Vec(nWays, Bool())))
 

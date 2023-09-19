@@ -161,10 +161,10 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
   val port_1_read_1 = io.read.valid && io.read.bits.vSetIdx(1)(0) && io.read.bits.isDoubleLine
   val port_1_read_0 = io.read.valid && !io.read.bits.vSetIdx(1)(0) && io.read.bits.isDoubleLine
 
-  val port_0_read_0_reg = RegEnable(next = port_0_read_0, enable = io.read.fire)
-  val port_0_read_1_reg = RegEnable(next = port_0_read_1, enable = io.read.fire)
-  val port_1_read_1_reg = RegEnable(next = port_1_read_1, enable = io.read.fire)
-  val port_1_read_0_reg = RegEnable(next = port_1_read_0, enable = io.read.fire)
+  val port_0_read_0_reg = RegEnable(port_0_read_0,io.read.fire)
+  val port_0_read_1_reg = RegEnable(port_0_read_1,io.read.fire)
+  val port_1_read_1_reg = RegEnable(port_1_read_1,io.read.fire)
+  val port_1_read_0_reg = RegEnable(port_1_read_0,io.read.fire)
 
   val bank_0_idx = Mux(port_0_read_0, io.read.bits.vSetIdx(0), io.read.bits.vSetIdx(1))
   val bank_1_idx = Mux(port_0_read_1, io.read.bits.vSetIdx(0), io.read.bits.vSetIdx(1))
@@ -226,7 +226,7 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
       tag_sram_write(i).bits.apply(data=write_meta_bits, setIdx=io.write.bits.virIdx(highestIdxBit,1), waymask=io.write.bits.waymask)
 
       tagArrays(i).io.w.req.valid := RegNext(tag_sram_write(i).valid,init = false.B)
-      tagArrays(i).io.w.req.bits  := RegEnable(tag_sram_write(i).bits, enable =tag_sram_write(i).valid )
+      tagArrays(i).io.w.req.bits  := RegEnable(tag_sram_write(i).bits,tag_sram_write(i).valid )
     }
     else {
       tagArrays(i).io.r.req.valid := port_0_read_1 || port_1_read_1
@@ -235,7 +235,7 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
       tag_sram_write(i).bits.apply(data=write_meta_bits, setIdx=io.write.bits.virIdx(highestIdxBit,1), waymask=io.write.bits.waymask)
 
       tagArrays(i).io.w.req.valid :=  RegNext(tag_sram_write(i).valid, init = false.B)
-      tagArrays(i).io.w.req.bits  := RegEnable(tag_sram_write(i).bits, enable =tag_sram_write(i).valid )
+      tagArrays(i).io.w.req.bits  := RegEnable(tag_sram_write(i).bits,tag_sram_write(i).valid )
 
     }  
   }
@@ -359,10 +359,10 @@ class ICacheDataArray(parentName:String = "Unknown")(implicit p: Parameters) ext
 
   val write_data_bits = Wire(UInt(blockBits.W))
 
-  val port_0_read_0_reg = RegEnable(next = io.read.valid && io.read.bits.head.port_0_read_0, enable = io.read.fire)
-  val port_0_read_1_reg = RegEnable(next = io.read.valid && io.read.bits.head.port_0_read_1, enable = io.read.fire)
-  val port_1_read_1_reg = RegEnable(next = io.read.valid && io.read.bits.head.port_1_read_1, enable = io.read.fire)
-  val port_1_read_0_reg = RegEnable(next = io.read.valid && io.read.bits.head.port_1_read_0, enable = io.read.fire)
+  val port_0_read_0_reg = RegEnable(io.read.valid && io.read.bits.head.port_0_read_0,io.read.fire)
+  val port_0_read_1_reg = RegEnable(io.read.valid && io.read.bits.head.port_0_read_1,io.read.fire)
+  val port_1_read_1_reg = RegEnable(io.read.valid && io.read.bits.head.port_1_read_1,io.read.fire)
+  val port_1_read_0_reg = RegEnable(io.read.valid && io.read.bits.head.port_1_read_0,io.read.fire)
 
   //val bank_0_idx_vec = io.read.bits.map(copy =>  Mux(io.read.bits.dup_valids && copy.port_0_read_0, copy.vSetIdx(0), copy.vSetIdx(1)))
   //val bank_1_idx_vec = io.read.bits.map(copy =>  Mux(io.read.valid && copy.port_0_read_1, copy.vSetIdx(0), copy.vSetIdx(1)))
@@ -396,7 +396,7 @@ class ICacheDataArray(parentName:String = "Unknown")(implicit p: Parameters) ext
     data_sram_write(i).bits.wmask    := io.write.bits.waymask.asTypeOf(Vec(partWayNum, Vec(pWay, Bool())))(i)
 
     dataArrays(i).io.write.valid := RegNext(data_sram_write(i).valid, init = false.B)
-    dataArrays(i).io.write.bits  := RegEnable(data_sram_write(i).bits, enable = data_sram_write(i).valid)
+    dataArrays(i).io.write.bits  := RegEnable(data_sram_write(i).bits,data_sram_write(i).valid)
   }
 
 
@@ -440,7 +440,7 @@ class ICacheDataArray(parentName:String = "Unknown")(implicit p: Parameters) ext
   val dataresp = Wire(Vec(nWays,UInt(blockBits.W) ))
   dataresp := DontCare
 
-  val data_resp_way = RegEnable(dataresp(RegNext(io.cacheOp.req.bits.wayNum(4, 0))), enable = RegNext(cacheOpShouldResp, init = false.B))
+  val data_resp_way = RegEnable(dataresp(RegNext(io.cacheOp.req.bits.wayNum(4, 0))),RegNext(cacheOpShouldResp, init = false.B))
 
   for (w <- 0 until partWayNum) {
     when(io.cache_req_dup(w).valid){

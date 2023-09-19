@@ -274,8 +274,8 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   outer.debugModule.module.io <> debug_module_io
 
   // sync external interrupts
-  require(outer.intSourceNode.out.length == ext_intrs.getWidth)
-  for ((plic_in, interrupt) <- outer.intSourceNode.out.map(_._1).zip(ext_intrs.asBools)) {
+  require(outer.intSourceNode.out.head._1.length == ext_intrs.getWidth)
+  for ((plic_in, interrupt) <- outer.intSourceNode.out.head._1.zip(ext_intrs.asBools)) {
     val ext_intr_sync = RegInit(0.U(3.W))
     ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
     plic_in := ext_intr_sync(2)

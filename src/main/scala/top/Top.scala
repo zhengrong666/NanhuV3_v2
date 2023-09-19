@@ -21,11 +21,12 @@ import xiangshan._
 import utils._
 import system._
 import chisel3.stage.ChiselGeneratorAnnotation
+import circt.stage.FirtoolOption
 import org.chipsalliance.cde.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.jtag.JTAGIO
-import xs.utils.{ResetGen, DFTResetSignals, FileRegisters}
+import xs.utils.{DFTResetSignals, FileRegisters, ResetGen}
 import xs.utils.sram.BroadCastBundle
 import coupledL3._
 
@@ -114,7 +115,8 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     case None =>
   }
 
-  lazy val module = new LazyRawModuleImp(this) {
+  lazy val module = new Impl
+  class Impl extends LazyRawModuleImp(this) {
     FileRegisters.add("dts", dts)
     FileRegisters.add("graphml", graphML)
     FileRegisters.add("json", json)
@@ -265,6 +267,9 @@ object TopMain extends App {
   val (config, firrtlOpts) = ArgParser.parse(args)
   val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
   XiangShanStage.execute(firrtlOpts, Seq(
+    FirtoolOption("-O=release"),
+    FirtoolOption("--disable-all-randomization"),
+    FirtoolOption("--disable-annotation-unknown"),
     ChiselGeneratorAnnotation(() => {
       soc.module
     })

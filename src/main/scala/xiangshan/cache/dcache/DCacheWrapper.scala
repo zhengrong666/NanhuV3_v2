@@ -959,20 +959,18 @@ class DCacheWrapper(parentName:String = "Unknown")(implicit p: Parameters) exten
   if (useDcache) {
     clientNode := dcache.clientNode
   }
-
-  lazy val module = new Impl
-  class Impl extends LazyModuleImp(this) with HasPerfEvents {
-    val io = IO(new DCacheIO)
-    val perfEvents = if (!useDcache) {
-      // a fake dcache which uses dpi-c to access memory, only for debug usage!
-      val fake_dcache = Module(new FakeDCache())
-      io <> fake_dcache.io
-      Seq()
-    }
-    else {
-      io <> dcache.module.io
-      dcache.module.getPerfEvents
-    }
-    generatePerfEvent()
+  lazy val module = new DCacheWrapperImp(this)
+}
+class DCacheWrapperImp(outer:DCacheWrapper) extends LazyModuleImp(outer) with HasPerfEvents {
+  val io = IO(new DCacheIO)
+  val perfEvents = if (!outer.useDcache) {
+    // a fake dcache which uses dpi-c to access memory, only for debug usage!
+    val fake_dcache = Module(new FakeDCache())
+    io <> fake_dcache.io
+    Seq()
+  } else {
+    io <> outer.dcache.module.io
+    outer.dcache.module.getPerfEvents
   }
+  generatePerfEvent()
 }

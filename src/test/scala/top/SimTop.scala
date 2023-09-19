@@ -16,18 +16,16 @@
 
 package top
 
-import org.chipsalliance.cde.config.{Config, Parameters}
+import org.chipsalliance.cde.config.Parameters
 import chisel3.stage.ChiselGeneratorAnnotation
 import chisel3._
 import device.{AXI4RAMWrapper, SimJTAG}
-import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule, LazyModuleImp}
+import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule}
 import xs.utils.GTimer
-import xiangshan.{DebugOptions, DebugOptionsKey}
-import org.chipsalliance.cde.config._
-import freechips.rocketchip.devices.debug._
+import xiangshan.DebugOptionsKey
 import difftest._
-import freechips.rocketchip.util.ElaborationArtefacts
-import top.TopMain.writeOutputFile
+import xs.utils.FileRegisters
+import circt.stage.FirtoolOption
 
 class SimTop(implicit p: Parameters) extends Module {
   val debugOpts = p(DebugOptionsKey)
@@ -107,16 +105,15 @@ class SimTop(implicit p: Parameters) extends Module {
 }
 
 object SimTop extends App {
-  override def main(args: Array[String]): Unit = {
-    // Keep this the same as TopMain except that SimTop is used here instead of XSTop
-    val (config, firrtlOpts) = ArgParser.parse(args)
-    XiangShanStage.execute(firrtlOpts, Seq(
-      ChiselGeneratorAnnotation(() => {
-        DisableMonitors(p => new SimTop()(p))(config)
-      })
-    ))
-    ElaborationArtefacts.files.foreach{ case (extension, contents) =>
-      writeOutputFile("./build", s"XSTop.${extension}", contents())
-    }
-  }
+  // Keep this the same as TopMain except that SimTop is used here instead of XSTop
+  val (config, firrtlOpts) = ArgParser.parse(args)
+  XiangShanStage.execute(firrtlOpts, Seq(
+    FirtoolOption("-O=release"),
+    FirtoolOption("--disable-all-randomization"),
+    FirtoolOption("--disable-annotation-unknown"),
+    ChiselGeneratorAnnotation(() => {
+      DisableMonitors(p => new SimTop()(p))(config)
+    })
+  ))
+  FileRegisters.write(filePrefix = "XSTop")
 }

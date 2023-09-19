@@ -89,7 +89,7 @@ endif
 .DEFAULT_GOAL = verilog
 
 help:
-	mill -i XiangShan.test.runMain $(SIMTOP) --help
+	mill -i XiangShan.test.runMain $(SIMTOP) --xs-help
 
 $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)

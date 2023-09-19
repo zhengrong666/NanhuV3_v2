@@ -51,7 +51,8 @@ class SimMMIO(edge: AXI4EdgeParameters)(implicit p: config.Parameters) extends L
     node.makeIOs()
   }
 
-  lazy val module = new LazyModuleImp(this){
+  lazy val module = new Impl
+  class Impl extends LazyModuleImp(this) {
     val io = IO(new Bundle() {
       val uart = new UARTIO
       val interrupt = new IntrGenIO
@@ -59,5 +60,4 @@ class SimMMIO(edge: AXI4EdgeParameters)(implicit p: config.Parameters) extends L
     io.uart <> uart.module.io.extra.get
     io.interrupt <> intrGen.module.io.extra.get
   }
-
 }
