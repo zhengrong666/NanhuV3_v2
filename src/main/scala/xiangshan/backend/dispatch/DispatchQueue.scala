@@ -129,11 +129,8 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
   private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
-  private val deqPtr_dup_0 = RegInit(deqPtrVec.head)
-  private val deqPtr_dup_1 = RegInit(deqPtrVec.head)
-  private val deqPtr_dup_2 = RegInit(deqPtrVec.head)
-  private val deqPtr_dup_3 = RegInit(deqPtrVec.head)
-  private val validEntriesNum = distanceBetween(enqPtr_dup_0, deqPtr_dup_0)
+  //TODO: ADD THE NUMBER OF PTR AND ACCEPT PORT TO DECREASE FANOUT
+  private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = size.U - validEntriesNum
   io.dqFull := deqPtr_dup_1.value === enqPtrAux.value && deqPtr_dup_1.flag =/= enqPtrAux.flag
 
