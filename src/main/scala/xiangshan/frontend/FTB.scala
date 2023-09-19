@@ -310,11 +310,6 @@ class FTB(parentName:String = "Unknown")(implicit p: Parameters) extends BasePre
       hasShareBus = coreParams.hasShareBus,
       parentName = parentName
     ))
-    val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-      Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
-    } else {
-      None
-    }
     val ftb_r_entries = ftb.io.r.resp.data.map(_.entry)
 
     val pred_rdata   = HoldUnless(ftb.io.r.resp.data, RegNext(io.req_pc.valid && !io.update_access))
