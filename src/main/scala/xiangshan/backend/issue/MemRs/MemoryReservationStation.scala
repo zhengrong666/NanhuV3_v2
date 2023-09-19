@@ -156,7 +156,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
 
   private val regWkpIns = wakeup.filter(_._2.writeIntRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
   private val fpWkpIns = wakeup.filter(_._2.writeFpRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
-  private val vecWkpIns = wakeup.filter(_._2.writeVecRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
+  private val vecWkpIns = wakeup.filter(e => e._2.writeVecRf && e._2.throughVectorRf).map(_._1).map(MemRsHelper.WbToWkp(_, p))
 
   private val floatingBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum, (fpWkpIns ++ io.mulSpecWakeup ++ io.fmaSpecWakeup).length, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
@@ -252,7 +252,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
-    rsBank.io.enq.valid := fromAllocate.valid
+    rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
@@ -384,6 +384,9 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       iss._1.rsFeedback.isFirstIssue := false.B
       iss._1.hold := issueDriver.io.hold
       iss._1.auxValid := issueDriver.io.deq.valid
+      iss._1.specialPsrc := DontCare
+      iss._1.specialPsrcType := DontCare
+      iss._1.specialPsrcRen := false.B
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }

@@ -208,7 +208,7 @@ class ICacheMetaArray(parentName:String = "Unknown")(implicit p: Parameters) ext
     tagArray
   }
   val mbistTagPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistTagPipe")))
+    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistTagPipe")))
   } else {
     None
   }
@@ -385,11 +385,6 @@ class ICacheDataArray(parentName:String = "Unknown")(implicit p: Parameters) ext
 
     dataArray
   }
-  val mbistDataArrayPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistDataArrayPipe")))
-  } else {
-    None
-  }
 
   val data_sram_write = Wire(Vec(partWayNum,dataArrays.head.io.write.cloneType))
 
@@ -538,7 +533,7 @@ class ICacheImp(outer: ICache) extends LazyModuleImp(outer) with HasICacheParame
 
   val prefetchPipe    = Module(new IPrefetchPipe)
   val mbistTagPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(3,s"${outer.parentName}_mbistPipe")))
+    Some(Module(new MBISTPipeline(2,s"${outer.parentName}_mbistPipe")))
   } else {
     None
   }

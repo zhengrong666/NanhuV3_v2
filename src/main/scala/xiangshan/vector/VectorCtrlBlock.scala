@@ -76,6 +76,10 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   val waitqueue   = Module(new NewWaitQueue)
   val virename    = Module(new VIRename)
   val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
+  private val redirectDelay_dup_0 = Pipe(io.redirect)
+  private val redirectDelay_dup_1 = Pipe(io.redirect)
+  private val redirectDelay_dup_2 = Pipe(io.redirect)
+  private val redirectDelay_dup_3 = Pipe(io.redirect)
 
   videcode.io.in <> io.in
 
@@ -83,8 +87,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   videcode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && !io.redirect.valid
-    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn && !io.redirect.valid
+    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && !redirectDelay_dup_0.valid
+    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn && !redirectDelay_dup_0.valid
     waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
@@ -101,9 +105,9 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   waitqueue.io.robin          := io.robPtr
   waitqueue.io.mergeId        <> io.mergeIdAllocate
   waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
-  waitqueue.io.redirect       := io.redirect
+  waitqueue.io.redirect       := redirectDelay_dup_1
 
-  virename.io.redirect    := io.redirect
+  virename.io.redirect    := redirectDelay_dup_2
   //virename.io.uopIn       <> waitqueue.io.out
   for((vrI, wqO) <- virename.io.rename.map(_.in).zip(waitqueue.io.out)) {
     vrI <> wqO
@@ -121,7 +125,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     io.vAllocPregs(i).bits := rp.bits.pdest
   }
 
-  dispatch.io.redirect <> io.redirect
+  dispatch.io.redirect <> redirectDelay_dup_3
 
   io.vDispatch <> dispatch.io.toVectorCommonRS
   io.vpDispatch <> dispatch.io.toVectorPermuRS

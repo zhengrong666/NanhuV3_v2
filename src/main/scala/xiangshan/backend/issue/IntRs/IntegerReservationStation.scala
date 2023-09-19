@@ -178,7 +178,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
-    rsBank.io.enq.valid := fromAllocate.valid
+    rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
@@ -236,6 +236,9 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
       iss._1.rsIdx.entryIdxOH := issueDriver.io.deq.bits.entryIdxOH
       iss._1.hold := false.B
       iss._1.auxValid := issueDriver.io.deq.valid
+      iss._1.specialPsrc := DontCare
+      iss._1.specialPsrcType := DontCare
+      iss._1.specialPsrcRen := false.B
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }

@@ -13,6 +13,7 @@ class VprsIssueBundle(implicit p: Parameters) extends XSBundle{
   val uop: MicroOp = new MicroOp
   val prs: UInt = UInt(PhyRegIdxWidth.W)
   val prsType: UInt = SrcType()
+  val rsRen: Bool = Bool()
   val pvs1: Vec[UInt] = Vec(8, UInt(PhyRegIdxWidth.W))
   val pvs2: Vec[UInt] = Vec(8, UInt(PhyRegIdxWidth.W))
   val pov: Vec[UInt] = Vec(8, UInt(PhyRegIdxWidth.W))
@@ -48,7 +49,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
 
   private val intWkps = wakeup.filter(wkp => wkp._2.writeIntRf)
   private val fpWkps = wakeup.filter(wkp => wkp._2.writeFpRf)
-  private val vecWkps = wakeup.filter(wkp => wkp._2.writeVecRf)
+  private val vecWkps = wakeup.filter(wkp => wkp._2.writeVecRf && wkp._2.throughVectorRf)
 
   private val intWakeupSignals = VecInit(intWkps.map(_._1).map(elm =>{
     val wkp = Wire(Valid(new WakeUpInfo))
@@ -107,6 +108,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   private val issueDriver = Module(new VprsDecoupledPipeline)
 
   arrayWrapper.io.enq <> enq.head
+  arrayWrapper.io.enq.valid := enq.head.valid && !io.redirect.valid
   integerBusyTable.io.read.head.req := enq.head.bits.psrc(0)
   floatingBusyTable.io.read.head.req := enq.head.bits.psrc(0)
   vectorBusyTable.io.read.head.req := enq.head.bits.psrc(0)
@@ -141,6 +143,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   issueDriver.io.enq.bits.pvm := issueInfo.pvm
   issueDriver.io.enq.bits.pvs1 := issueInfo.pvs1
   issueDriver.io.enq.bits.pvs2 := issueInfo.pvs2
+  issueDriver.io.enq.bits.rsRen := DontCare
   issueDriver.io.redirect := io.redirect
 
   io.issue <> issueDriver.io.deq

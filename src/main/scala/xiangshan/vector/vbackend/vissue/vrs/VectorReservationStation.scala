@@ -61,7 +61,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private val wakeupWidth = wakeupSignals.length
   private val wakeupInt = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeIntRf).map(_._1)
   private val wakeupFp = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeFpRf).map(_._1)
-  private val wakeupVec = wakeupSignals.zip(wakeup.map(_._2)).filter(_._2.writeVecRf).map(_._1)
+  private val wakeupVec = wakeupSignals.zip(wakeup.map(_._2)).filter(e => e._2.writeVecRf && e._2.throughVectorRf).map(_._1)
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
     val mod = Module(new VrsBank(entriesNumPerBank, issueWidth, wakeupWidth, loadUnitNum))
     mod.io.redirect := io.redirect
@@ -147,7 +147,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
-    rsBank.io.enq.valid := fromAllocate.valid
+    rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
@@ -192,6 +192,9 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
       iss._1.issue.bits.src := DontCare
       iss._1.rsIdx.bankIdxOH := DontCare
       iss._1.rsIdx.entryIdxOH := DontCare
+      iss._1.specialPsrc := issueDriver.io.specialPsrc
+      iss._1.specialPsrcType := issueDriver.io.specialPsrcType
+      iss._1.specialPsrcRen := issueDriver.io.specialPsrcRen
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }
