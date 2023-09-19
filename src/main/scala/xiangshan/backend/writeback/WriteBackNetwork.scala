@@ -24,8 +24,9 @@ import chisel3._
 import chisel3.util._
 import xiangshan.backend.execute.exu.ExuType
 import freechips.rocketchip.diplomacy._
-import xiangshan.{ExuOutput, HasXSParameter, MemPredUpdateReq, Redirect}
+import xiangshan.{ExuOutput, HasXSParameter, MemPredUpdateReq, Redirect, XSCoreParamsKey}
 import xiangshan.frontend.Ftq_RF_Components
+import difftest._
 
 class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
   val node = new WriteBackNetworkNode
@@ -129,5 +130,28 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
       })
     }
     println("")
+
+    if (env.EnableDifftest || env.AlwaysBasicDiff) {
+      val fpWb = wbSources.filter(_._2.writeFpRf).map(_._1)
+      val intWb = wbSources.filter(_._2.writeIntRf).map(_._1)
+
+      fpWb.foreach(wb => {
+        val difftestFpWb = DifftestModule(new DiffFpWriteback(NRPhyRegs))
+        difftestFpWb.clock := clock
+        difftestFpWb.coreid := p(XSCoreParamsKey).HartId.U
+        difftestFpWb.address := wb.bits.uop.pdest
+        difftestFpWb.valid := wb.valid && wb.bits.uop.ctrl.fpWen
+        difftestFpWb.data := wb.bits.data
+      })
+
+      intWb.foreach(wb => {
+        val difftestIntWb = DifftestModule(new DiffIntWriteback(NRPhyRegs))
+        difftestIntWb.clock := clock
+        difftestIntWb.coreid := p(XSCoreParamsKey).HartId.U
+        difftestIntWb.address := wb.bits.uop.pdest
+        difftestIntWb.valid := wb.valid && wb.bits.uop.ctrl.rfWen
+        difftestIntWb.data := wb.bits.data
+      })
+    }
   }
 }
