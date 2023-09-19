@@ -309,7 +309,7 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
   val s1_double_line = RegEnable( s0_final_double_line, s0_fire)
   val s1_tlb_miss    = RegEnable( tlb_slot.valid, s0_fire)
 
-  val s1_tlb_use_latch = RegEnable( tlb_slot.has_latch_resp, s0_fire, false.B)
+  val s1_tlb_use_latch = RegEnable( tlb_slot.has_latch_resp, false.B, s0_fire)
   val s1_tlb_lath_resp_paddr = RegEnable( tlb_slot.tlb_resp_paddr, s0_fire)
   val s1_tlb_latch_resp_pf = RegEnable( tlb_slot.tlb_resp_pf, s0_fire)
   val s1_tlb_latch_resp_af = RegEnable( tlb_slot.tlb_resp_af, s0_fire)

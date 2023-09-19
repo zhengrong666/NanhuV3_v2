@@ -251,6 +251,7 @@ class WithNKBL2
         reqField = Seq(xs.utils.tl.ReqSourceField()),
         echoField = Seq(coupledL2.DirtyField()),
         elaboratedTopDown = false,
+        enablePerf = false,
         prefetch = Some(coupledL2.prefetch.HyperPrefetchParams()), /*
         del L2 prefetche recv option, move into: prefetch =  PrefetchReceiverParams
         prefetch options:
