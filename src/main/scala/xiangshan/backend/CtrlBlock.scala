@@ -311,6 +311,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vCtrlBlock.io.fromVtpRn := rename.io.toVCtl
   //TODO: vtype writeback here.
   vCtrlBlock.io.vtypewriteback.valid := io.vcsrToRename.vtypeWbToRename.valid
+  vCtrlBlock.io.vtypewriteback.bits := DontCare
   vCtrlBlock.io.vtypewriteback.bits.uop := io.vcsrToRename.vtypeWbToRename.bits.uop
   vCtrlBlock.io.vtypewriteback.bits.data := io.vcsrToRename.vtypeWbToRename.bits.data
 
