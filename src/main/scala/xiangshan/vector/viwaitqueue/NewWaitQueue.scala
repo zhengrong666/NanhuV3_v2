@@ -151,7 +151,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   }
 
   io.out.zip(splitQueue.io.deq).foreach({ case (a, b) =>
-    a.valid := b.valid
+    a.valid := b.valid && !io.redirect.valid
     a.bits := b.bits
     b.ready := a.ready
   })
