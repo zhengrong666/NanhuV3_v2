@@ -577,6 +577,7 @@ class ICacheImp(outer: ICache) extends LazyModuleImp(outer) with HasICacheParame
       io.prefetch.req.ready := true.B
     }
   } else {
+    io.prefetch.req.ready := true.B
     prefetchPipe.io.fromFtq <> DontCare
   }
 
