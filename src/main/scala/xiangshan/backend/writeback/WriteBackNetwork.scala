@@ -97,33 +97,29 @@ class WriteBackNetwork(implicit p:Parameters) extends LazyModule{
         print(cfg)
         val realSrc = WireInit(src)
         if(s._2._1.needWriteback && cfg.speculativeWakeup){
-          val realValid = src.valid && !src.bits.uop.robIdx.needFlush(localRedirectReg)
+          val realValid = src.valid
           realSrc.bits.uop := RegEnable(src.bits.uop, realValid)
-          realSrc.valid := RegNext(realValid, false.B) && !realSrc.bits.uop.robIdx.needFlush(localRedirectReg)
+          realSrc.valid := RegNext(realValid, false.B)
         }
         if(s._2._1.isRob || s._2._1.isVrs || s._2._1.isVprs || s._2._1.isVms || s._2._1.isMemRs && cfg.throughVectorRf){
           dst := PipeWithRedirect(realSrc, 2, p)
         } else if(s._2._1.isIntRs){
           if (cfg.isIntType || cfg.isMemType) {
-            dst := PipeWithRedirect(realSrc, 1, p)
+            dst := Pipe(realSrc)
           } else {
             dst := realSrc
           }
         } else if(s._2._1.isFpRs){
           if (cfg.isFpType || cfg.isMemType) {
-            dst := PipeWithRedirect(realSrc, 1, p)
+            dst := Pipe(realSrc)
           } else {
             dst := realSrc
           }
         } else if(s._2._1.isMemRs){
-          if (cfg.isFpType || cfg.isIntType || cfg.isVecType) {
-            dst := PipeWithRedirect(realSrc, 1, p)
-          } else {
-            dst := realSrc
-          }
+          dst := Pipe(realSrc)
         } else if(s._2._1.isVprs || s._2._1.isVrs) {
           if (cfg.isFpType || cfg.isIntType || cfg.isMemType) {
-            dst := PipeWithRedirect(realSrc, 2, p)
+            dst := Pipe(realSrc, 2)
           } else {
             dst := realSrc
           }

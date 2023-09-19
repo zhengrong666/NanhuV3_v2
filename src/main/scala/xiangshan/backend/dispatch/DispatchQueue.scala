@@ -86,11 +86,11 @@ class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule {
   private val validsReg = RegInit(VecInit(Seq.fill(deqNum)(false.B)))
   private val bitsRegs = Reg(Vec(deqNum, new MicroOp()))
   io.deq.zip(validsReg).zip(bitsRegs).foreach({case((d, v), b) =>
-    d.valid := v && !io.redirect.valid
+    d.valid := v
     d.bits := b
   })
   private val fireNum = PopCount(io.deq.map(_.fire))
-  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_)
+  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_) && !io.redirect.valid
   io.deqPtrMoveVal := fireNum
 
   for(((in, v), b) <- io.in.zip(validsReg).zip(bitsRegs)){
@@ -121,19 +121,28 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val deqDriver = Module(new DeqDriver(deqNum))
   private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
   private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
+  private val enqPtr_dup_0 = RegInit(enqPtr)
+  private val enqPtr_dup_1 = RegInit(enqPtr)
+  private val enqPtr_dup_2 = RegInit(enqPtr)
+  private val enqPtrAux_dup_0 = RegInit(enqPtrAux)
+  private val enqPtrAux_dup_1 = RegInit(enqPtrAux)
   private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
   private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
-  private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
+  private val deqPtr_dup_0 = RegInit(deqPtrVec.head)
+  private val deqPtr_dup_1 = RegInit(deqPtrVec.head)
+  private val deqPtr_dup_2 = RegInit(deqPtrVec.head)
+  private val deqPtr_dup_3 = RegInit(deqPtrVec.head)
+  private val validEntriesNum = distanceBetween(enqPtr_dup_0, deqPtr_dup_0)
   private val emptyEntriesNum = size.U - validEntriesNum
-  io.dqFull := deqPtr.value === enqPtrAux.value && deqPtr.flag =/= enqPtrAux.flag
+  io.dqFull := deqPtr_dup_1.value === enqPtrAux.value && deqPtr_dup_1.flag =/= enqPtrAux.flag
 
   payloadArray.io.redirect := io.redirect
   deqDriver.io.redirect := io.redirect
-  private val enqMask = UIntToMask(enqPtrAux.value, size)
-  private val deqMask = UIntToMask(deqPtr.value, size)
+  private val enqMask = UIntToMask(enqPtrAux_dup_0.value, size)
+  private val deqMask = UIntToMask(deqPtr_dup_2.value, size)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validsMask = Mux(deqPtr.value < enqPtrAux.value || deqPtr === enqPtrAux, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validsMask = Mux(deqPtr_dup_3.value < enqPtrAux_dup_1.value || deqPtr_dup_3 === enqPtrAux_dup_1, enqXorDeq, (~enqXorDeq).asUInt)
   private val redirectMask = validsMask & payloadArray.io.flushVec
   private val flushNum = PopCount(redirectMask)
 
@@ -150,16 +159,26 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   for(idx <- 0 until enqNum){
     payloadArray.io.w(idx).en := io.enq.req(idx).valid && io.enq.canAccept
-    payloadArray.io.w(idx).addr := (enqPtr + enqAddrDelta(idx)).value
+    payloadArray.io.w(idx).addr := (enqPtr_dup_1 + enqAddrDelta(idx)).value
     payloadArray.io.w(idx).data := io.enq.req(idx).bits
   }
   private val actualEnqNum = Mux(io.enq.canAccept, PopCount(io.enq.req.map(_.valid)), 0.U)
   when(io.redirect.valid){
     enqPtr := enqPtr - flushNum
+    enqPtr_dup_0 := enqPtr - flushNum
+    enqPtr_dup_1 := enqPtr - flushNum
+    enqPtr_dup_2 := enqPtr - flushNum
     enqPtrAux := enqPtr - flushNum
+    enqPtrAux_dup_0 := enqPtr - flushNum
+    enqPtrAux_dup_1 := enqPtr - flushNum
   }.elsewhen(actualEnqNum =/= 0.U){
     enqPtr := enqPtr + actualEnqNum
+    enqPtr_dup_0 := enqPtr + actualEnqNum
+    enqPtr_dup_1 := enqPtr + actualEnqNum
+    enqPtr_dup_2 := enqPtr + actualEnqNum
     enqPtrAux := enqPtr + actualEnqNum
+    enqPtrAux_dup_0 := enqPtr + actualEnqNum
+    enqPtrAux_dup_1 := enqPtr + actualEnqNum
   }
 
 
@@ -167,9 +186,9 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     a.addr := b.value
   })
   for(i <- 0 until deqNum){
-    deqDriver.io.in(i).valid := (deqPtrVecNext(i) < enqPtr)
+    deqDriver.io.in(i).valid := (deqPtrVecNext(i) < enqPtr_dup_2)
     deqDriver.io.in(i).bits := payloadArray.io.r(i).data
-    val enqAddrHitsVec = enqAddrDelta.map(d => enqPtr + d).map(_.value === deqPtrVecNext(i).value)
+    val enqAddrHitsVec = enqAddrDelta.map(d => enqPtr_dup_2 + d).map(_.value === deqPtrVecNext(i).value)
     val enqValidVec = io.enq.req.map(_.valid && io.enq.canAccept)
     val enqHitsVec = enqAddrHitsVec.zip(enqValidVec).map({case(a, b) => a && b})
     val enqUpdateEn = Cat(enqHitsVec).orR
@@ -185,6 +204,10 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
       d := dn
     }
   })
+  deqPtr_dup_0 := deqPtr
+  deqPtr_dup_1 := deqPtr
+  deqPtr_dup_2 := deqPtr
+  deqPtr_dup_3 := deqPtr
   io.deq.zip(deqDriver.io.deq).foreach({case(a,b) => a <> b})
 
   private val debug_r = payloadArray.io.r.slice(deqNum, 2 * deqNum)

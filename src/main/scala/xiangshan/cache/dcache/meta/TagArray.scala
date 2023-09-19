@@ -64,11 +64,6 @@ class TagArray(parentName:String = "Unknown")(implicit p: Parameters) extends DC
     hasShareBus = coreParams.hasShareBus,
     parentName = parentName
   ))
-  val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_sub_mbistPipe")))
-  } else {
-    None
-  }
 
   // val ecc_array = Module(new SRAMTemplate(UInt(eccTagBits.W), set = nSets, way = nWays,
   //   shouldReset = false, holdRead = false, singlePort = true))
@@ -328,7 +323,7 @@ class DuplicatedTagArray(readPorts: Int, parentName:String = "Unknown")(implicit
 
   val array = Seq.tabulate(readPorts) { idx => Module(new TagArray(parentName + s"array${idx}_")) }
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
+    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
   } else {
     None
   }

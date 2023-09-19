@@ -358,10 +358,13 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   dispatch.io.singleStep := RegNext(io.csrCtrl.singlestep)
   dispatch.io.enqRob <> rob.io.enq
 
-  private val redirectDelay_dup = Pipe(io.redirectIn)
-  intDq.io.redirect := redirectDelay_dup
-  fpDq.io.redirect := redirectDelay_dup
-  lsDq.io.redirect := redirectDelay_dup
+  private val redirectDelay_dup_0 = Pipe(io.redirectIn)
+  private val redirectDelay_dup_1 = Pipe(io.redirectIn)
+  private val redirectDelay_dup_2 = Pipe(io.redirectIn)
+  private val redirectDelay_dup_3 = Pipe(io.redirectIn)
+  intDq.io.redirect := redirectDelay_dup_0
+  fpDq.io.redirect := redirectDelay_dup_1
+  lsDq.io.redirect := redirectDelay_dup_2
 
   intDeq <> intDq.io.deq
   fpDeq <> fpDq.io.deq
@@ -371,7 +374,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispath
   memDqArb.io.redirect := redirectDelay
 
-  memDispatch2Rs.io.redirect := redirectDelay_dup
+  memDispatch2Rs.io.redirect := redirectDelay_dup_3
   memDispatch2Rs.io.lcommit := rob.io.lsq.lcommit
   memDispatch2Rs.io.scommit := io.sqDeq
   memDispatch2Rs.io.lqCancelCnt := io.lqCancelCnt
