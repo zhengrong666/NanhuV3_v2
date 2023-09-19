@@ -262,11 +262,6 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
         t
       }
     }
-    val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-      Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
-    } else {
-      None
-    }
     sc_fh_info = scTables.map(_.getFoldedHistoryInfo).reduce(_++_).toSet
 
     val scThresholds = List.fill(TageBanks)(RegInit(SCThreshold(5)))

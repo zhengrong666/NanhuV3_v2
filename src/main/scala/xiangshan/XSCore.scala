@@ -28,9 +28,9 @@ import freechips.rocketchip.diplomacy.{BundleBridgeSource, LazyModule, LazyModul
 import freechips.rocketchip.interrupts.{IntSinkNode, IntSinkPortSimple}
 import freechips.rocketchip.tile.HasFPUParameters
 import freechips.rocketchip.tilelink.TLBuffer
-import xs.utils.mbist.MBISTPipeline
+import xs.utils.mbist.{MBISTInterface, MBISTPipeline}
 import xs.utils.sram.SRAMTemplate
-import xs.utils.{ModuleNode, ResetGen, ResetGenNode, DFTResetSignals}
+import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
 import system.HasSoCParameter
 import utils._
 import xiangshan.backend._
@@ -212,15 +212,30 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   } else {
     None
   }
-  val mbist = if(coreParams.hasMbist && coreParams.hasShareBus) Some(IO(mbistPipeline.get.io.mbist.get.cloneType)) else None
-  if(coreParams.hasMbist && coreParams.hasShareBus){
-    mbist.get <> mbistPipeline.get.io.mbist.get
-  }
   val sigFromSrams = if(coreParams.hasMbist) Some(SRAMTemplate.genBroadCastBundleTop()) else None
   val dft = if(coreParams.hasMbist) Some(IO(sigFromSrams.get.cloneType)) else None
   if(coreParams.hasMbist) {
     dft.get <> sigFromSrams.get
     dontTouch(dft.get)
+  }
+
+  val coreMbistIntf = if (outer.coreParams.hasMbist && outer.coreParams.hasShareBus) {
+    val params = mbistPipeline.get.bd.params
+    val node = mbistPipeline.get.node
+    val intf = Some(Module(new MBISTInterface(
+      params = Seq(params),
+      ids = Seq(node.children.flatMap(_.array_id)),
+      name = s"MBIST_intf_core",
+      pipelineNum = 1
+    )))
+    intf.get.toPipeline.head <> mbistPipeline.get.io.mbist.get
+    mbistPipeline.get.genCSV(intf.get.info, "MBIST_Core")
+    intf.get.mbist := DontCare
+    dontTouch(intf.get.mbist)
+    //TODO: add mbist controller connections here
+    intf
+  } else {
+    None
   }
   // Modules are reset one by one
   private val resetTree = ResetGenNode(

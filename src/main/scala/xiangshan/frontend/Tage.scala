@@ -574,12 +574,6 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   bt.io.s0_fire := io.s0_fire(1)
   bt.io.s0_pc   := s0_pc_dup(4)
 
-  val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
-  } else {
-    None
-  }
-
   val bankTickCtrDistanceToTops = Seq.fill(numBr)(RegInit((1 << (TickWidth-1)).U(TickWidth.W)))
   val bankTickCtrs = Seq.fill(numBr)(RegInit(0.U(TickWidth.W)))
   val useAltOnNaCtrs = RegInit(
