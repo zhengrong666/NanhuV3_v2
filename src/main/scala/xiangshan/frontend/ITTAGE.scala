@@ -16,7 +16,7 @@
 
 package xiangshan.frontend
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan._
@@ -139,7 +139,7 @@ class FakeITTageTable()(implicit p: Parameters) extends ITTageModule {
   io.resp := DontCare
 
 }
-@chiselName
+
 class ITTageTable
 (
   val nRows: Int, val histLen: Int, val tagLen: Int, val uBitPeriod: Int, val tableIdx: Int,
@@ -359,7 +359,7 @@ class FakeITTage(implicit p: Parameters) extends BaseITTage {
   io.s2_ready := true.B
 }
 // TODO: check target related logics
-@chiselName
+
 class ITTage(parentName:String = "Unknown")(implicit p: Parameters) extends BaseITTage {
   override val meta_size = 0.U.asTypeOf(new ITTageMeta).getWidth
 
@@ -386,9 +386,9 @@ class ITTage(parentName:String = "Unknown")(implicit p: Parameters) extends Base
   val s1_resps = VecInit(tables.map(t => t.io.resp))
   val s2_resps = RegEnable(s1_resps, s1_fire)
 
-  val debug_pc_s1 = RegEnable(s0_pc_dup(dupForIttage), enable=s0_fire)
-  val debug_pc_s2 = RegEnable(debug_pc_s1, enable=s1_fire)
-  val debug_pc_s3 = RegEnable(debug_pc_s2, enable=s2_fire)
+  val debug_pc_s1 = RegEnable(s0_pc_dup(dupForIttage), s0_fire)
+  val debug_pc_s2 = RegEnable(debug_pc_s1, s1_fire)
+  val debug_pc_s3 = RegEnable(debug_pc_s2, s2_fire)
 
   val s2_tageTaken         = Wire(Bool())
   val s2_tageTarget        = Wire(UInt(VAddrBits.W))

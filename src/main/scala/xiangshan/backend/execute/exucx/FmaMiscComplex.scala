@@ -19,7 +19,7 @@
  ****************************************************************************************/
 package xiangshan.backend.execute.exucx
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import freechips.rocketchip.diplomacy.LazyModule
 import xiangshan.FuType
@@ -32,24 +32,27 @@ class FmaMiscComplex(id: Int)(implicit p:Parameters) extends BasicExuComplex{
   fmisc.issueNode :*= issueNode
   writebackNode :=* fmisc.writebackNode
   writebackNode :=* fmac.writebackNode
-  lazy val module = new BasicExuComplexImp(this, 0){
-    require(issueNode.in.length == 1)
-    require(issueNode.out.length == 2)
-    val csr_frm: UInt = IO(Input(UInt(3.W)))
-    private val issueIn = issueNode.in.head._1
-    private val issueFmac = issueNode.out.filter(_._2._2.exuType == ExuType.fmac).head._1
-    private val issueFmisc = issueNode.out.filter(_._2._2.exuType == ExuType.fmisc).head._1
+  lazy val module = new FmaMiscCxImp(this)
+}
+class FmaMiscCxImp(outer:FmaMiscComplex) extends BasicExuComplexImp(outer, 0){
+  require(outer.issueNode.in.length == 1)
+  require(outer.issueNode.out.length == 2)
+  val csr_frm: UInt = IO(Input(UInt(3.W)))
+  private val issueIn = outer.issueNode.in.head._1
+  private val issueFmac = outer.issueNode.out.filter(_._2._2.exuType == ExuType.fmac).head._1
+  private val issueFmisc = outer.issueNode.out.filter(_._2._2.exuType == ExuType.fmisc).head._1
 
-    issueFmac <> issueIn
-    fmac.module.redirectIn := redirectIn
-    fmac.module.csr_frm := csr_frm
+  issueFmac <> issueIn
+  outer.fmac.module.redirectIn := redirectIn
+  outer.fmac.module.csr_frm := csr_frm
 
-    issueFmisc <> issueIn
-    fmisc.module.redirectIn := redirectIn
-    fmisc.module.csr_frm := csr_frm
+  issueFmisc <> issueIn
+  outer.fmisc.module.redirectIn := redirectIn
+  outer.fmisc.module.csr_frm := csr_frm
 
-    issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.fmac, issueFmac.issue.ready, issueFmisc.issue.ready)
-    private val issueFuHit = issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
-    when(issueIn.issue.valid){assert(issueFuHit)}
+  issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.fmac, issueFmac.issue.ready, issueFmisc.issue.ready)
+  private val issueFuHit = outer.issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
+  when(issueIn.issue.valid) {
+    assert(issueFuHit)
   }
 }

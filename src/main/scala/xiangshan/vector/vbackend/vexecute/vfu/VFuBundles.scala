@@ -3,7 +3,7 @@ package darecreek.exu.fu2
 import chisel3._
 import chisel3.util._
 // import darecreek.exu.fu2.VFUParam._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import xiangshan.{MicroOp, Redirect}
 
 // Temporary. Will replaced by system Uop class.

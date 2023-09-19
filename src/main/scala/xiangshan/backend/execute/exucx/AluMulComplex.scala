@@ -19,7 +19,7 @@
  ****************************************************************************************/
 package xiangshan.backend.execute.exucx
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util.Valid
 import freechips.rocketchip.diplomacy.LazyModule
@@ -34,28 +34,31 @@ class AluMulComplex(id: Int, bypassNum:Int)(implicit p:Parameters) extends Basic
   writebackNode :=* alu.writebackNode
   writebackNode :=* mul.writebackNode
 
-  lazy val module = new BasicExuComplexImp(this, bypassNum){
-    require(issueNode.in.length == 1)
-    require(issueNode.out.length == 2)
-    val io = IO(new Bundle{
-      val bypassOut = Output(Valid(new ExuOutput))
-    })
-    private val issueIn = issueNode.in.head._1
-    private val issueAlu = issueNode.out.filter(_._2._2.exuType == ExuType.alu).head._1
-    private val issueMul = issueNode.out.filter(_._2._2.exuType == ExuType.mul).head._1
+  lazy val module = new AluMulCxImp(this, id, bypassNum)
+}
+class AluMulCxImp(outer:AluMulComplex, id:Int, bypassNum:Int) extends BasicExuComplexImp(outer, bypassNum){
+  require(outer.issueNode.in.length == 1)
+  require(outer.issueNode.out.length == 2)
+  val io = IO(new Bundle {
+    val bypassOut = Output(Valid(new ExuOutput))
+  })
+  private val issueIn = outer.issueNode.in.head._1
+  private val issueAlu = outer.issueNode.out.filter(_._2._2.exuType == ExuType.alu).head._1
+  private val issueMul = outer.issueNode.out.filter(_._2._2.exuType == ExuType.mul).head._1
 
-    issueAlu <> issueIn
-    alu.module.io.bypassIn := bypassIn
-    alu.module.redirectIn := redirectIn
+  issueAlu <> issueIn
+  outer.alu.module.io.bypassIn := bypassIn
+  outer.alu.module.redirectIn := redirectIn
 
-    issueMul <> issueIn
-    mul.module.io.bypassIn := bypassIn
-    mul.module.redirectIn := redirectIn
+  issueMul <> issueIn
+  outer.mul.module.io.bypassIn := bypassIn
+  outer.mul.module.redirectIn := redirectIn
 
-    io.bypassOut := mul.module.io.bypassOut
+  io.bypassOut := outer.mul.module.io.bypassOut
 
-    issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.alu, issueAlu.issue.ready, issueMul.issue.ready)
-    private val issueFuHit = issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
-    when(issueIn.issue.valid){assert(issueFuHit)}
+  issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.alu, issueAlu.issue.ready, issueMul.issue.ready)
+  private val issueFuHit = outer.issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
+  when(issueIn.issue.valid) {
+    assert(issueFuHit)
   }
 }

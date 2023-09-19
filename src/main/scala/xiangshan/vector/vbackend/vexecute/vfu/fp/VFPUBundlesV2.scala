@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 // import darecreek.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
 import darecreek.exu.fu2.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
-import freechips.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import xiangshan.Redirect
 
 class VFPUCtrlSigs extends Bundle {

@@ -16,7 +16,7 @@
 
 package xiangshan.cache
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xs.utils.mbist.MBISTPipeline
@@ -217,7 +217,7 @@ class BankedDataArray(parentName: String = "Unknown")(implicit p: Parameters) ex
     val data_left = Mux1H(r_way_en_reg.tail(half), data_read.take(half))
     val data_right = Mux1H(r_way_en_reg.head(half), data_read.drop(half))
 
-    val sel_low = r_way_en_reg.tail(half).orR()
+    val sel_low = r_way_en_reg.tail(half).orR
     val row_data = Mux(sel_low, data_left, data_right)
 
     io.r.data := row_data
@@ -473,7 +473,7 @@ class BankedDataArray(parentName: String = "Unknown")(implicit p: Parameters) ex
   // error detection
   // normal read ports
   (0 until LoadPipelineWidth).map(rport_index => {
-    // io.read_error_delayed(rport_index) := RegNext(RegNext(io.read(rport_index).fire())) &&
+    // io.read_error_delayed(rport_index) := RegNext(RegNext(io.read(rport_index).fire)) &&
     //   read_bank_error_delayed(RegNext(RegNext(bank_addrs(rport_index)))) &&
     //   !RegNext(io.bank_conflict_slow(rport_index))
     io.read_error_delayed(rport_index) := 0.U.asTypeOf(io.read_error_delayed(rport_index).cloneType)

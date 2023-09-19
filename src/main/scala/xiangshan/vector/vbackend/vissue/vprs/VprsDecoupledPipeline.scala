@@ -19,7 +19,7 @@
  ****************************************************************************************/
 package xiangshan.vector.vbackend.vissue.vprs
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.{MicroOp, Redirect, SrcType, XSModule}

@@ -21,15 +21,13 @@ import xiangshan._
 import utils._
 import system._
 import chisel3.stage.ChiselGeneratorAnnotation
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.jtag.JTAGIO
-import freechips.rocketchip.util.{ElaborationArtefacts, HasRocketChipStageUtils}
-import xs.utils.{ResetGen, DFTResetSignals}
+import xs.utils.{ResetGen, DFTResetSignals, FileRegisters}
 import xs.utils.sram.BroadCastBundle
 import coupledL3._
-import xstransforms.ModulePrefixAnnotation
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
   with BindingScope
@@ -117,10 +115,10 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
   }
 
   lazy val module = new LazyRawModuleImp(this) {
-    ElaborationArtefacts.add("dts", dts)
-    ElaborationArtefacts.add("graphml", graphML)
-    ElaborationArtefacts.add("json", json)
-    ElaborationArtefacts.add("plusArgs", freechips.rocketchip.util.PlusArgArtefacts.serialize_cHeader())
+    FileRegisters.add("dts", dts)
+    FileRegisters.add("graphml", graphML)
+    FileRegisters.add("json", json)
+    FileRegisters.add("plusArgs", freechips.rocketchip.util.PlusArgArtefacts.serialize_cHeader())
 
     val dma = IO(Flipped(misc.dma.cloneType))
     val peripheral = IO(misc.peripheral.cloneType)
@@ -194,7 +192,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     // if(l3cacheOpt.isEmpty || l3cacheOpt.get.rst_nodes.isEmpty){
       // tie off core soft reset
       for(node <- core_rst_nodes){
-        node.out.head._1 := false.B.asAsyncReset()
+        node.out.head._1 := false.B.asAsyncReset
       }
       // if(l3cacheOpt.get.module.dfx_reset.isDefined) {
       //   l3cacheOpt.get.module.dfx_reset.get := dfx_reset
@@ -263,18 +261,13 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
   }
 }
 
-object TopMain extends App with HasRocketChipStageUtils {
-  override def main(args: Array[String]): Unit = {
-    val (config, firrtlOpts) = ArgParser.parse(args)
-    val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
-    XiangShanStage.execute(firrtlOpts, Seq(
-      ModulePrefixAnnotation(config(PrefixKey)),
-      ChiselGeneratorAnnotation(() => {
-        soc.module
-      })
-    ))
-    ElaborationArtefacts.files.foreach{ case (extension, contents) =>
-      writeOutputFile("./build", s"XSTop.${extension}", contents())
-    }
-  }
+object TopMain extends App {
+  val (config, firrtlOpts) = ArgParser.parse(args)
+  val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
+  XiangShanStage.execute(firrtlOpts, Seq(
+    ChiselGeneratorAnnotation(() => {
+      soc.module
+    })
+  ))
+  FileRegisters.write(filePrefix = "XSTop.")
 }

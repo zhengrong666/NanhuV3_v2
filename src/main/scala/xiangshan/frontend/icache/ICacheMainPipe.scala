@@ -16,7 +16,7 @@
 
 package xiangshan.frontend.icache
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan._
@@ -501,7 +501,7 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
   val s2_has_except = s2_valid && (s2_except_tlb_af.reduce(_||_) || s2_except_pf.reduce(_||_))
   //MMIO
   val mmio_judge   = RegEnable(io.pmp(0).resp.mmio,s1_fire)
-  val s2_mmio      = DataHoldBypass(mmio_judge && !s2_except_tlb_af(0) && !s2_except_pmp_af(0) && !s2_except_pf(0), RegNext(s1_fire)).asBool() && s2_valid
+  val s2_mmio      = DataHoldBypass(mmio_judge && !s2_except_tlb_af(0) && !s2_except_pmp_af(0) && !s2_except_pf(0), RegNext(s1_fire)).asBool && s2_valid
 
   //send physical address to PMP
   // io.pmp.zipWithIndex.map { case (p, i) =>
@@ -693,31 +693,31 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
     }
 
     is(wait_one_resp) {
-      when( (miss_0_except_1_latch ||only_0_miss_latch || miss_0_hit_1_latch) && fromMSHR(0).fire()){
+      when( (miss_0_except_1_latch ||only_0_miss_latch || miss_0_hit_1_latch) && fromMSHR(0).fire){
         wait_state := wait_finish
-      }.elsewhen( hit_0_miss_1_latch && fromMSHR(1).fire()){
+      }.elsewhen( hit_0_miss_1_latch && fromMSHR(1).fire){
         wait_state := wait_finish
       }
     }
 
     is(wait_two_resp) {
-      when(fromMSHR(0).fire() && fromMSHR(1).fire()){
+      when(fromMSHR(0).fire && fromMSHR(1).fire){
         wait_state := wait_finish
-      }.elsewhen( !fromMSHR(0).fire() && fromMSHR(1).fire() ){
+      }.elsewhen( !fromMSHR(0).fire && fromMSHR(1).fire ){
         wait_state := wait_0_resp
-      }.elsewhen(fromMSHR(0).fire() && !fromMSHR(1).fire()){
+      }.elsewhen(fromMSHR(0).fire && !fromMSHR(1).fire){
         wait_state := wait_1_resp
       }
     }
 
     is(wait_0_resp) {
-      when(fromMSHR(0).fire()){
+      when(fromMSHR(0).fire){
         wait_state := wait_finish
       }
     }
 
     is(wait_1_resp) {
-      when(fromMSHR(1).fire()){
+      when(fromMSHR(1).fire){
         wait_state := wait_finish
       }
     }
@@ -736,13 +736,13 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
       toMSHR(i).bits.vaddr    := s2_req_vaddr(i)
       toMSHR(i).bits.waymask  := s2_waymask(i)
 
-      when(toMSHR(i).fire() && missStateQueue(j)(i) === m_invalid){
+      when(toMSHR(i).fire && missStateQueue(j)(i) === m_invalid){
         missStateQueue(j)(i)     := m_valid
         missSlot(i).m_vSetIdx := s2_req_vsetIdx(i)
         missSlot(i).m_pTag    := get_phy_tag(s2_req_paddr(i))
       }
 
-      when(fromMSHR(i).fire() && missStateQueue(j)(i) === m_valid ){
+      when(fromMSHR(i).fire && missStateQueue(j)(i) === m_valid ){
         missStateQueue(j)(i)         := m_refilled
         missSlot(i).m_data        := fromMSHR(i).bits.data
         missSlot(i).m_corrupt     := fromMSHR(i).bits.corrupt
@@ -765,7 +765,7 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule
         }
       }
 
-      when(missStateQueue(j)(i) === m_check_final && toMSHR(i).fire()){
+      when(missStateQueue(j)(i) === m_check_final && toMSHR(i).fire){
         missStateQueue(j)(i)     :=  m_valid
         missSlot(i).m_vSetIdx := s2_req_vsetIdx(i)
         missSlot(i).m_pTag    := get_phy_tag(s2_req_paddr(i))

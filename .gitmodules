@@ -1,22 +1,25 @@
 [submodule "rocket-chip"]
 	path = rocket-chip
-	url = https://github.com/OpenXiangShan/rocket-chip.git
+	url = https://github.com/Siudya/rocket-chip
 [submodule "difftest"]
 	path = difftest
-	url = https://github.com/Siudya/difftest.git
-	branch = nanhu-v3
+	url = https://github.com/OpenXiangShan/difftest
+	branch = nh3
 [submodule "ready-to-run"]
 	path = ready-to-run
 	url = https://github.com/Siudya/ready-to-run
 [submodule "huancun"]
 	path = huancun
-	url = https://github.com/Siudya/Huancun
+	url = https://github.com/Siudya/huancun
+	branch = chisel5
 [submodule "fudian"]
 	path = fudian
 	url = https://github.com/Siudya/fudian
+	branch = chisel5
 [submodule "xs-utils"]
 	path = xs-utils
 	url = https://github.com/Siudya/xs-utils
+	branch = chisel5
 [submodule "utility"]
 	path = utility
 	url = https://github.com/OpenXiangShan/utility
@@ -24,3 +27,7 @@
 	path = CoupledL2
 	url = https://github.com/cyril0124/CoupledL2
 	branch = integrate_cpl2_cpl3
+[submodule "coupledL2"]
+	path = coupledL2
+	url = https://github.com/cyril0124/CoupledL2
+	branch = chisel5

@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 import darecreek.exu.fu2._
 // import darecreek.exu.fu2.VFUParam._
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 import xiangshan.Redirect
 
 class Permutation(implicit p: Parameters) extends VFuModule {

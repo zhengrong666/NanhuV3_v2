@@ -23,7 +23,7 @@
 package xiangshan.vector
 
 import chisel3.util._
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 import xiangshan.HasXSParameter
 
 case class VectorParameters (

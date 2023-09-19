@@ -24,7 +24,7 @@ package xiangshan.vector.virename
 
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 
 import xiangshan._
 import utils._
@@ -56,7 +56,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   io.rename.map(_.in).zip(freeList.io.allocatePhyReg).zip(io.rename.map(_.out)).foreach {
     case ((rin, alloc), ro) =>
       rin.ready := alloc.valid && ro.ready && doRename
-      ro.valid := rin.fire()
+      ro.valid := rin.fire
   }
 
   //allocate FreeList Ptr, write rat and rollbackList
@@ -73,7 +73,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   */
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
     case ((resp, req), i) => {
-      val renameEn = req.fire() && req.bits.canRename
+      val renameEn = req.fire && req.bits.canRename
       val allocPhyIdx = freeList.io.allocatePhyReg(i).bits
       freeList.io.allocatePhyReg(i).ready := renameEn
       // reanme write rat
@@ -94,7 +94,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   // write rollbacklist
   io.rename.map(_.in).zip(rollBackList.io.rename).zipWithIndex.foreach {
     case ((req, rlb), i) => {
-      rlb.valid := req.fire() && req.bits.canRename
+      rlb.valid := req.fire && req.bits.canRename
       rlb.bits.robIdx := req.bits.robIdx.value
       rlb.bits.lrIdx := req.bits.ctrl.ldest
       rlb.bits.oldPrIdx := renameTable.io.rename(i).out.pvd

@@ -3,7 +3,7 @@ package darecreek.exu.fu2.fp
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import darecreek.exu.fu2._
 import xiangshan.Redirect
 

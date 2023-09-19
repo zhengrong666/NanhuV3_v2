@@ -16,7 +16,7 @@
 
 package utils
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.DebugOptionsKey
@@ -181,11 +181,12 @@ trait HasPerfEvents { this: RawModule =>
   def getPerf: Vec[PerfEvent] = io_perf
 }
 
+class HPerfCounterIO(val numPCnt: Int)(implicit p: Parameters) extends XSBundle {
+  val hpm_event = Input(UInt(XLEN.W))
+  val events_sets = Input(Vec(numPCnt, new PerfEvent))
+}
 class HPerfCounter(val numPCnt: Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
-  val io = IO(new Bundle {
-    val hpm_event   = Input(UInt(XLEN.W))
-    val events_sets = Input(Vec(numPCnt, new PerfEvent))
-  })
+  val io = IO(new HPerfCounterIO(numPCnt))
 
   val events_incr_0 = RegNext(io.events_sets(io.hpm_event( 9,  0)))
   val events_incr_1 = RegNext(io.events_sets(io.hpm_event(19, 10)))
@@ -215,11 +216,12 @@ class HPerfCounter(val numPCnt: Int)(implicit p: Parameters) extends XSModule wi
   generatePerfEvent()
 }
 
+class HPerfMonitorIO(numCSRPCnt: Int, numPCnt: Int)(implicit p: Parameters) extends XSBundle{
+  val hpm_event = Input(Vec(numCSRPCnt, UInt(XLEN.W)))
+  val events_sets = Input(Vec(numPCnt, new PerfEvent))
+}
 class HPerfMonitor(numCSRPCnt: Int, numPCnt: Int)(implicit p: Parameters) extends XSModule with HasPerfEvents {
-  val io = IO(new Bundle {
-    val hpm_event   = Input(Vec(numCSRPCnt, UInt(XLEN.W)))
-    val events_sets = Input(Vec(numPCnt, new PerfEvent))
-  })
+  val io = IO(new HPerfMonitorIO(numCSRPCnt, numPCnt))
 
   val perfEvents = io.hpm_event.zipWithIndex.map{ case (hpm, i) =>
     val hpc = Module(new HPerfCounter(numPCnt))

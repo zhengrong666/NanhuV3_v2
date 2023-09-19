@@ -16,26 +16,17 @@
 
 package top
 
-import chisel3.stage.ChiselCli
+import circt.stage._
 import firrtl.AnnotationSeq
-import firrtl.options.{Dependency, HasShellOptions, Shell, ShellOption}
-import firrtl.stage.{FirrtlCli, RunFirrtlTransformAnnotation}
-import freechips.rocketchip.transforms.naming.{OverrideDesiredNameAnnotation, RenameDesiredNames}
-import xstransforms._
+import firrtl.options.Shell
 
 trait XiangShanCli { this: Shell =>
   parser.note("XiangShan Options")
-  DisablePrintfAnnotation.addOptions(parser)
-  EnablePrintfAnnotation.addOptions(parser)
-  DisableAllPrintAnnotation.addOptions(parser)
-  RemoveAssertAnnotation.addOptions(parser)
 }
 
-class XiangShanStage extends chisel3.stage.ChiselStage {
-  override val shell: Shell = new Shell("xiangshan")
-    with XiangShanCli
-    with ChiselCli
-    with FirrtlCli
+class XiangShanShell extends Shell("xiangshan") with CLI with XiangShanCli
+class XiangShanStage extends ChiselStage {
+  override val shell: XiangShanShell = new XiangShanShell
 }
 
 object XiangShanStage {
@@ -44,14 +35,6 @@ object XiangShanStage {
     args: Array[String],
     annotations: AnnotationSeq
   ): AnnotationSeq = {
-    (new XiangShanStage).execute(
-      args,
-      annotations ++ Seq(
-        RunFirrtlTransformAnnotation(new PrintControl),
-        RunFirrtlTransformAnnotation(new PrintModuleName),
-        RunFirrtlTransformAnnotation(new RenameDesiredNames),
-        RunFirrtlTransformAnnotation(new AddModulePrefix)
-      )
-    )
+    (new XiangShanStage).execute(args, annotations)
   }
 }

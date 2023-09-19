@@ -75,11 +75,11 @@ class DatamoduleResultBuffer[T <: Data]
   assert(!(io.deq(1).ready && !io.deq(0).ready))
 
   entry_allowin(0) := !valids(0) ||
-    io.deq(0).fire() && !deq_flag ||
-    io.deq(1).fire() && deq_flag
+    io.deq(0).fire && !deq_flag ||
+    io.deq(1).fire && deq_flag
   entry_allowin(1) := !valids(1) ||
-    io.deq(0).fire() && deq_flag ||
-    io.deq(1).fire() && !deq_flag
+    io.deq(0).fire && deq_flag ||
+    io.deq(1).fire && !deq_flag
 
   io.enq(0).ready := Mux(enq_flag,
     entry_allowin(1),
@@ -93,7 +93,7 @@ class DatamoduleResultBuffer[T <: Data]
   assert(!(io.enq(1).ready && !io.enq(0).ready))
   assert(!(io.enq(1).valid && !io.enq(0).valid))
 
-  when(io.deq(0).fire()){
+  when(io.deq(0).fire){
     when(deq_flag){
       valids(1) := false.B
     }.otherwise{
@@ -101,7 +101,7 @@ class DatamoduleResultBuffer[T <: Data]
     }
     deq_flag := ~deq_flag
   }
-  when(io.deq(1).fire()){
+  when(io.deq(1).fire){
     when(deq_flag){
       valids(0) := false.B
     }.otherwise{
@@ -110,7 +110,7 @@ class DatamoduleResultBuffer[T <: Data]
     deq_flag := deq_flag
   }
 
-  when(io.enq(0).fire()){
+  when(io.enq(0).fire){
     when(enq_flag){
       valids(1) := true.B
       data(1) := io.enq(0).bits
@@ -120,7 +120,7 @@ class DatamoduleResultBuffer[T <: Data]
     }
     enq_flag := ~enq_flag
   }
-  when(io.enq(1).fire()){
+  when(io.enq(1).fire){
     when(enq_flag){
       valids(0) := true.B
       data(0) := io.enq(1).bits

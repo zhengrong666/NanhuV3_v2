@@ -1,14 +1,14 @@
 package xiangshan
 
 import chisel3._
-import chipsalliance.rocketchip.config.{Config, Parameters}
+import org.chipsalliance.cde.config.{Config, Parameters}
 import chisel3.experimental.hierarchy.{Definition, instantiable, public, Instance}
 import chisel3.util.{Valid, ValidIO}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.interrupts._
 import freechips.rocketchip.tile.{BusErrorUnit, BusErrorUnitParams, BusErrors}
 import freechips.rocketchip.tilelink._
-import huancun.debug.TLLogger
+import xs.utils.tl.TLLogger
 import xs.utils.mbist.MBISTInterface
 import huancun.{HCCacheParamsKey, HuanCun}
 import coupledL2.{L2ParamKey, CoupledL2}
@@ -71,10 +71,11 @@ class XSTileMisc()(implicit p: Parameters) extends LazyModule
   beu.node := TLBuffer.chainNode(3) := mmio_xbar
   mmio_port := TLBuffer.chainNode(3) := mmio_xbar
 
-  lazy val module = new LazyModuleImp(this){
-    val beu_errors = IO(Input(chiselTypeOf(beu.module.io.errors)))
-    beu.module.io.errors <> beu_errors
-  }
+  lazy val module = new XSTileMiscImp(this)
+}
+class XSTileMiscImp(outer:XSTileMisc)(implicit p: Parameters) extends LazyModuleImp(outer){
+  val beu_errors = IO(Input(outer.beu.module.io.errors))
+  outer.beu.module.io.errors <> beu_errors
 }
 
 class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyHardenModule[XSTileImp]
@@ -259,8 +260,8 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyHardenModuleI
   // reset ----> OR_SYNC --> {Misc, L2 Cache, Cores}
   val resetChain = Seq(
     Seq(outer.misc.module, outer.core.module) ++
-      outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[MultiIOModule]) ++
-      outer.ptw_to_l2_buffers.map(_.module.asInstanceOf[MultiIOModule]) ++
+      outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
+      outer.ptw_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
       outer.l1d_to_l2_bufferOpt.map(_.module) ++
       outer.l2cache.map(_.module)
   )

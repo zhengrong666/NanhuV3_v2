@@ -16,7 +16,7 @@
 
 package xiangshan.cache
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.experimental.ExtModule
 import chisel3.util._
@@ -28,7 +28,7 @@ import freechips.rocketchip.util.{BundleFieldBase, UIntToOH1}
 import device.RAMHelper
 import xs.utils._
 import coupledL2.{AliasField, AliasKey, DirtyField, PrefetchField}
-import huancun.utils.FastArbiter
+import xs.utils.FastArbiter
 import mem.AddPipelineReg
 import xiangshan.backend.rob.RobPtr
 import xs.utils.mbist.MBISTPipeline
@@ -776,7 +776,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   wb.io.probe_ttob_check_req <> mainPipe.io.probe_ttob_check_req
   wb.io.probe_ttob_check_resp <> mainPipe.io.probe_ttob_check_resp
 
-  io.lsu.release.valid := RegNext(wb.io.req.fire())
+  io.lsu.release.valid := RegNext(wb.io.req.fire)
   io.lsu.release.bits.paddr := RegNext(wb.io.req.bits.addr)
   // Note: RegNext() is required by:
   // * load queue released flag update logic
@@ -798,7 +798,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   } .elsewhen (bus.d.bits.opcode === TLMessages.ReleaseAck) {
     wb.io.mem_grant <> bus.d
   } .otherwise {
-    assert (!bus.d.fire())
+    assert (!bus.d.fire)
   }
 
 
@@ -862,13 +862,13 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   //----------------------------------------
   // assertions
   // dcache should only deal with DRAM addresses
-  when (bus.a.fire()) {
+  when (bus.a.fire) {
     assert(bus.a.bits.address >= 0x80000000L.U)
   }
-  when (bus.b.fire()) {
+  when (bus.b.fire) {
     assert(bus.b.bits.address >= 0x80000000L.U)
   }
-  when (bus.c.fire()) {
+  when (bus.c.fire) {
     assert(bus.c.bits.address >= 0x80000000L.U)
   }
 
@@ -907,7 +907,7 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
 
   //----------------------------------------
   // performance counters
-  val num_loads = PopCount(ldu.map(e => e.io.lsu.req.fire()))
+  val num_loads = PopCount(ldu.map(e => e.io.lsu.req.fire))
   XSPerfAccumulate("num_loads", num_loads)
 
   io.mshrFull := missQueue.io.full
@@ -917,11 +917,11 @@ class DCacheImp(outer: DCache) extends LazyModuleImp(outer) with HasDCacheParame
   val st_access = Wire(ld_access.last.cloneType)
   ld_access.zip(ldu).foreach {
     case (a, u) =>
-      a.valid := RegNext(u.io.lsu.req.fire()) && !u.io.lsu.s1_kill
+      a.valid := RegNext(u.io.lsu.req.fire) && !u.io.lsu.s1_kill
       a.bits.idx := RegNext(get_idx(u.io.lsu.req.bits.addr))
       a.bits.tag := get_tag(u.io.lsu.s1_paddr_dup_dcache)
   }
-  st_access.valid := RegNext(mainPipe.io.store_req.fire())
+  st_access.valid := RegNext(mainPipe.io.store_req.fire)
   st_access.bits.idx := RegNext(get_idx(mainPipe.io.store_req.bits.vaddr))
   st_access.bits.tag := RegNext(get_tag(mainPipe.io.store_req.bits.addr))
   val access_info = ld_access.toSeq ++ Seq(st_access)
@@ -960,7 +960,8 @@ class DCacheWrapper(parentName:String = "Unknown")(implicit p: Parameters) exten
     clientNode := dcache.clientNode
   }
 
-  lazy val module = new LazyModuleImp(this) with HasPerfEvents {
+  lazy val module = new Impl
+  class Impl extends LazyModuleImp(this) with HasPerfEvents {
     val io = IO(new DCacheIO)
     val perfEvents = if (!useDcache) {
       // a fake dcache which uses dpi-c to access memory, only for debug usage!

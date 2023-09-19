@@ -16,10 +16,10 @@
 
 package system
 
-import chipsalliance.rocketchip.config.{Field, Parameters}
+import org.chipsalliance.cde.config.{Field, Parameters}
 import chisel3._
 import chisel3.util._
-import device.{DebugModule, TLPMA, TLPMAIO}
+import device.{DebugModule, DebugModuleIO, TLPMA, TLPMAIO}
 import freechips.rocketchip.devices.tilelink.{CLINT, CLINTParams, DevNullParams, PLICParams, TLError, TLPLIC}
 import freechips.rocketchip.diplomacy.{AddressSet, IdRange, InModuleBody, LazyModule, LazyModuleImp, MemoryDevice, RegionType, SimpleDevice, TransferSizes}
 import freechips.rocketchip.interrupts.{IntSourceNode, IntSourcePortSimple}
@@ -29,7 +29,7 @@ import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.tilelink._
 import top.BusPerfMonitor
 import huancun._
-import huancun.debug.TLLogger
+import xs.utils.tl.TLLogger
 import xiangshan.backend.execute.fu.PMAConst
 import coupledL3._
 
@@ -253,18 +253,11 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   val clint = LazyModule(new CLINT(CLINTParams(0x38000000L), 8))
   clint.node := peripheralXbar
 
-  class IntSourceNodeToModule(val num: Int)(implicit p: Parameters) extends LazyModule {
-    val sourceNode = IntSourceNode(IntSourcePortSimple(num, ports = 1, sources = 1))
-    lazy val module = new LazyModuleImp(this){
-      val in = IO(Input(Vec(num, Bool())))
-      in.zip(sourceNode.out.head._1).foreach{ case (i, s) => s := i }
-    }
-  }
 
   val plic = LazyModule(new TLPLIC(PLICParams(0x3c000000L), 8))
-  val plicSource = LazyModule(new IntSourceNodeToModule(NrExtIntr))
+  val intSourceNode = IntSourceNode(IntSourcePortSimple(NrExtIntr, ports = 1, sources = 1))
 
-  plic.intnode := plicSource.sourceNode
+  plic.intnode := intSourceNode
   plic.node := peripheralXbar
 
   val debugModule = LazyModule(new DebugModule(NumCores)(p))
@@ -272,26 +265,25 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   debugModule.debug.dmInner.dmInner.sb2tlOpt.foreach { sb2tl  =>
     l3_xbar := TLBuffer() := TLWidthWidget(1) := sb2tl.node
   }
+  lazy val module = new SoCMiscImp(this)
+}
+class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(outer) {
+  val debug_module_io = IO(new DebugModuleIO(outer.NumCores))
+  val ext_intrs = IO(Input(UInt(outer.NrExtIntr.W)))
 
-  lazy val module = new LazyModuleImp(this){
+  outer.debugModule.module.io <> debug_module_io
 
-    val debug_module_io = IO(chiselTypeOf(debugModule.module.io))
-    val ext_intrs = IO(Input(UInt(NrExtIntr.W)))
-
-    debugModule.module.io <> debug_module_io
-
-    // sync external interrupts
-    require(plicSource.module.in.length == ext_intrs.getWidth)
-    for ((plic_in, interrupt) <- plicSource.module.in.zip(ext_intrs.asBools)) {
-      val ext_intr_sync = RegInit(0.U(3.W))
-      ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
-      plic_in := ext_intr_sync(2)
-    }
-
-    val freq = 100
-    val cnt = RegInit((freq - 1).U)
-    val tick = cnt === 0.U
-    cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
-    clint.module.io.rtcTick := tick
+  // sync external interrupts
+  require(outer.intSourceNode.out.length == ext_intrs.getWidth)
+  for ((plic_in, interrupt) <- outer.intSourceNode.out.map(_._1).zip(ext_intrs.asBools)) {
+    val ext_intr_sync = RegInit(0.U(3.W))
+    ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
+    plic_in := ext_intr_sync(2)
   }
+
+  val freq = 100
+  val cnt = RegInit((freq - 1).U)
+  val tick = cnt === 0.U
+  cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
+  outer.clint.module.io.rtcTick := tick
 }

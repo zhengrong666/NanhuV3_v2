@@ -1,6 +1,6 @@
 package xiangshan.vector.vbackend.vregfile
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.experimental.prefix
 import chisel3.util._
@@ -58,8 +58,8 @@ object VRegfileTopUtil{
 class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
   val issueNode = new RegFileNode
   val writebackMergeNode = new VectorWritebackMergeNode
-
-  lazy val module = new LazyModuleImp(this) {
+  lazy val module = new Impl
+  class Impl extends LazyModuleImp(this){
     val rfReadNum:Int = issueNode.in.length
 
     val io = IO(new Bundle {

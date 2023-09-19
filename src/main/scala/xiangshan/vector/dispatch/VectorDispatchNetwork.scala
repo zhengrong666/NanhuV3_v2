@@ -22,7 +22,7 @@
 
 package xiangshan.vector.dispatch
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import difftest._
@@ -40,7 +40,7 @@ class VectorDispatchNetwork(implicit p: Parameters) extends VectorBaseModule {
         val memMask         = Output(UInt(VIRenameWidth.W))
     })
 
-    val req_mask = io.fromRename.map(_.fire())
+    val req_mask = io.fromRename.map(_.fire)
     
     class VectorInstrSelectNetwork(typeNum: Int) extends RawModule {
         val io = IO(new Bundle {

@@ -22,7 +22,7 @@
 
 package xiangshan.vector.dispatch
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import difftest._
@@ -46,8 +46,8 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
     val memCanDeqVec = Wire(Vec(arbWidth, Bool()))
     val hasVVec = Wire(Vec(arbWidth, Bool()))
     val vmemCanDeqVec = Wire(Vec(arbWidth, Bool()))
-    val memDeqNum = PopCount(io.memIn.map(_.fire()))
-    val vmemDeqNum = PopCount(io.vmemIn.map(_.fire()))
+    val memDeqNum = PopCount(io.memIn.map(_.fire))
+    val vmemDeqNum = PopCount(io.vmemIn.map(_.fire))
 
     val vRobIdx = Reg(new RobPtr)
     val vRobIdxValid = RegInit(Bool(), false.B)
@@ -76,7 +76,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
 
     
 
-    when(arbState === s_mem && io.memIn(0).fire() && io.memIn(0).bits.ctrl.isVector) {
+    when(arbState === s_mem && io.memIn(0).fire && io.memIn(0).bits.ctrl.isVector) {
         arbState := s_vmem
         vRobIdx := io.memIn(0).bits.robIdx
     }

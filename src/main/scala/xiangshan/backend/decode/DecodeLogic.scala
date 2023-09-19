@@ -2,8 +2,9 @@
 
 package xiangshan.backend.decode
 
-import Chisel._
+import chisel3._
 import chisel3.util.experimental.decode._
+import chisel3.util.BitPat
 
 object DecodeLogic
 {

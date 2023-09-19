@@ -21,7 +21,7 @@ package xiangshan.backend.dispatch
 
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import utils.{HasPerfEvents, XSPerfHistogram}
 import xiangshan._
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, ParallelPriorityEncoder, ParallelPriorityMux, UIntToMask}

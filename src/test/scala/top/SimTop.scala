@@ -16,14 +16,14 @@
 
 package top
 
-import chipsalliance.rocketchip.config.{Config, Parameters}
+import org.chipsalliance.cde.config.{Config, Parameters}
 import chisel3.stage.ChiselGeneratorAnnotation
 import chisel3._
 import device.{AXI4RAMWrapper, SimJTAG}
 import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule, LazyModuleImp}
 import xs.utils.GTimer
 import xiangshan.{DebugOptions, DebugOptionsKey}
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 import freechips.rocketchip.devices.debug._
 import difftest._
 import freechips.rocketchip.util.ElaborationArtefacts

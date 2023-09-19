@@ -19,7 +19,7 @@
  ****************************************************************************************/
 package xiangshan.backend.execute.exublock
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import xiangshan.backend.execute.exucx.{AluDivComplex, AluJmpComplex, AluMulComplex}
 import freechips.rocketchip.diplomacy.LazyModule
 import chisel3._
@@ -30,32 +30,33 @@ import xiangshan.backend.execute.fu.csr.CSRFileIO
 
 class IntegerBlock(implicit p:Parameters) extends BasicExuBlock {
   require(jmpNum == 1)
-  private val aluMuls = Seq.tabulate(mulNum)(idx => LazyModule(new AluMulComplex(idx, 0)))
-  private val aluDivs = Seq.tabulate(divNum)(idx => LazyModule(new AluDivComplex(idx, 0)))
-  private val aluJmps = Seq.tabulate(jmpNum)(idx => LazyModule(new AluJmpComplex(idx, 0)))
-  private val intComplexes = aluMuls ++ aluDivs ++ aluJmps
+  val aluMuls = Seq.tabulate(mulNum)(idx => LazyModule(new AluMulComplex(idx, 0)))
+  val aluDivs = Seq.tabulate(divNum)(idx => LazyModule(new AluDivComplex(idx, 0)))
+  val aluJmps = Seq.tabulate(jmpNum)(idx => LazyModule(new AluJmpComplex(idx, 0)))
+  val intComplexes = aluMuls ++ aluDivs ++ aluJmps
   intComplexes.foreach(exucx => {
     exucx.issueNode :*= issueNode
     writebackNode :=* exucx.writebackNode
   })
 
-  lazy val module = new BasicExuBlockImp(this){
-    val io = IO(new Bundle {
-      val fenceio = new FenceIO
-      val csrio = new CSRFileIO
-      val issueToMou = Decoupled(new ExuInput)
-      val writebackFromMou = Flipped(Decoupled(new ExuOutput))
-      val prefetchI = Output(Valid(UInt(p(XSCoreParamsKey).XLEN.W)))
-    })
-    intComplexes.foreach(_.module.redirectIn := Pipe(redirectIn))
+  lazy val module = new IntegerBlockImp(this)
+}
+class IntegerBlockImp(outer:IntegerBlock) extends BasicExuBlockImp(outer){
+  val io = IO(new Bundle {
+    val fenceio = new FenceIO
+    val csrio = new CSRFileIO
+    val issueToMou = Decoupled(new ExuInput)
+    val writebackFromMou = Flipped(Decoupled(new ExuOutput))
+    val prefetchI = Output(Valid(UInt(p(XSCoreParamsKey).XLEN.W)))
+  })
+  outer.intComplexes.foreach(_.module.redirectIn := Pipe(redirectIn))
 
-    (aluJmps ++ aluDivs ++ aluMuls).foreach(cplx => cplx.module.bypassIn.zip(aluMuls.map(_.module.io.bypassOut)).foreach({ case (a, b) => a := b }))
+  (outer.aluJmps ++ outer.aluDivs ++ outer.aluMuls).foreach(cplx => cplx.module.bypassIn.zip(outer.aluMuls.map(_.module.io.bypassOut)).foreach({ case (a, b) => a := b }))
 
-    aluJmps.head.module.io.fenceio <> io.fenceio
-    aluJmps.head.module.io.fenceio.sbuffer.sbIsEmpty := io.fenceio.sbuffer.sbIsEmpty
-    aluJmps.head.module.io.csrio <> io.csrio
-    aluJmps.head.module.io.issueToMou <> io.issueToMou
-    aluJmps.head.module.io.writebackFromMou <> io.writebackFromMou
-    io.prefetchI := aluJmps.head.module.io.prefetchI
-  }
+  outer.aluJmps.head.module.io.fenceio <> io.fenceio
+  outer.aluJmps.head.module.io.fenceio.sbuffer.sbIsEmpty := io.fenceio.sbuffer.sbIsEmpty
+  outer.aluJmps.head.module.io.csrio <> io.csrio
+  outer.aluJmps.head.module.io.issueToMou <> io.issueToMou
+  outer.aluJmps.head.module.io.writebackFromMou <> io.writebackFromMou
+  io.prefetchI := outer.aluJmps.head.module.io.prefetchI
 }

@@ -1,6 +1,6 @@
 // package darecreek.exu.fu2.fp
 
-// import chipsalliance.rocketchip.config._
+// import org.chipsalliance.cde.config._
 // // import darecreek.{DarecreekParameters, LaneWidth, xLen}
 // import darecreek.exu.fu2._
 // // import darecreek.exu.fu2.DarecreekParamVFU._

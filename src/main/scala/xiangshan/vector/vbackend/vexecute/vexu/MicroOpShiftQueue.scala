@@ -1,16 +1,19 @@
 package xiangshan.vector.vbackend.vexecute.vexu
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.backend.issue.WakeUpInfo
-import xiangshan.{MicroOp, Redirect, XSModule}
+import xiangshan.{MicroOp, Redirect, XSModule, XSBundle}
 import xs.utils.LogicShiftRight
+
+class MicroOpShiftQueueIO(implicit p: Parameters) extends XSBundle {
+  val in = Input(Valid(new MicroOp))
+  val out = Output(Valid(new MicroOp))
+  val redirect = Input(Valid(new Redirect))
+}
+
 class MicroOpShiftQueue(latency:Int)(implicit p: Parameters) extends XSModule{
-  val io = IO(new Bundle{
-    val in = Input(Valid(new MicroOp))
-    val out = Output(Valid(new MicroOp))
-    val redirect = Input(Valid(new Redirect))
-  })
+  val io = IO(new MicroOpShiftQueueIO)
   require(latency > 0)
 
   private def DelayInput(in: Valid[MicroOp], l: Int): Valid[MicroOp] = {

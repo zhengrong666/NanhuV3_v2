@@ -20,8 +20,8 @@
 
 package xiangshan
 
-import chipsalliance.rocketchip.config
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy.{BundleBridgeSource, LazyModule, LazyModuleImp}
@@ -38,22 +38,10 @@ import xiangshan.cache.mmu._
 import xiangshan.frontend._
 import xiangshan.vector.HasVectorParameters
 
-abstract class XSModule(implicit val p: Parameters) extends MultiIOModule
+abstract class XSModule(implicit val p: Parameters) extends Module
   with HasXSParameter
   with HasFPUParameters
   with HasVectorParameters{
-  def io: Record
-}
-
-//remove this trait after impl module logic
-trait NeedImpl {
-  this: RawModule =>
-  override protected def IO[T <: Data](iodef: T): T = {
-    println(s"[Warn]: (${this.name}) please reomve 'NeedImpl' after implement this module")
-    val io = chisel3.experimental.IO(iodef)
-    io <> DontCare
-    io
-  }
 }
 
 abstract class XSBundle(implicit val p: Parameters) extends Bundle

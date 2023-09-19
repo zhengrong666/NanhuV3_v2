@@ -21,7 +21,7 @@ import chisel3.util._
 import xiangshan._
 import utils._
 import system._
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 import freechips.rocketchip.tile.{BusErrorUnit, BusErrorUnitParams, XLen}
 import xiangshan.frontend.icache.ICacheParameters
 import freechips.rocketchip.devices.debug._
@@ -248,7 +248,7 @@ class WithNKBL2
           ways = p.dcacheParametersOpt.get.nWays,
           aliasBitsOpt = p.dcacheParametersOpt.get.aliasBitsOpt
         )),
-        reqField = Seq(utility.ReqSourceField()),
+        reqField = Seq(xs.utils.tl.ReqSourceField()),
         echoField = Seq(coupledL2.DirtyField()),
         elaboratedTopDown = false,
         prefetch = Some(coupledL2.prefetch.HyperPrefetchParams()), /*

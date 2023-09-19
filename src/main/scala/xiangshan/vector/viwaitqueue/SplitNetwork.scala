@@ -1,7 +1,7 @@
 package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import xiangshan.backend.rob.RobPtr
 import xiangshan.{MicroOp, Redirect, Widen, XSModule}
 import xiangshan.vector.HasVectorParameters
@@ -19,7 +19,16 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     //TODO: Fill split logics here
     val vl = in.bits.vCsrInfo.vl
     val sew = in.bits.vCsrInfo.vsew
-    val nf = in.bits.ctrl.NFToInt()
+    val nf = MuxCase(0.U, Seq(
+      (in.bits.ctrl.NFiled === 0.U) -> 1.U,
+      (in.bits.ctrl.NFiled === 1.U) -> 2.U,
+      (in.bits.ctrl.NFiled === 2.U) -> 3.U,
+      (in.bits.ctrl.NFiled === 3.U) -> 4.U,
+      (in.bits.ctrl.NFiled === 4.U) -> 5.U,
+      (in.bits.ctrl.NFiled === 5.U) -> 6.U,
+      (in.bits.ctrl.NFiled === 6.U) -> 7.U,
+      (in.bits.ctrl.NFiled === 7.U) -> 8.U,
+    ))
     val elementInReg = Wire(UInt(8.W))
     val tailReg = Wire(UInt(4.W))
     val prestartReg = Wire(UInt(4.W))
@@ -34,9 +43,9 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
       o.bits.uopIdx := currentnum
       o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
       o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
-      o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf.U, false.B, true.B),
+      o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf, false.B, true.B),
         Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
-      val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf.U,
+      val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf,
         Mux(in.bits.ctrl.isVLS, currentnum % elementInReg, currentnum))
       o.bits.ctrl.lsrc(0) := in.bits.ctrl.lsrc(0) + tempnum
       o.bits.ctrl.lsrc(1) := in.bits.ctrl.lsrc(1) + tempnum
@@ -48,11 +57,19 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     //TODO: Fill uopNum gen logics here
     val uopnum = Wire(UInt(8.W))
     val sew = in.vCsrInfo.vsew
-    val lmul = in.vCsrInfo.LmulToInt()
-    val lmulWiden = lmul << 1
-    val lmulWidenReal = Mux(lmulWiden.U <= 8.U, lmulWiden.U, 8.U)
-    val elementInRegGroup = (lmul << 4).U >> sew
-    uopnum := Mux(in.ctrl.isVLS, elementInRegGroup, Mux(in.ctrl.widen === Widen.NotWiden, lmul.U, lmulWidenReal))
+    val lmul = MuxCase(0.U, Seq(
+      (in.vCsrInfo.vlmul === 0.U) -> 1.U,
+      (in.vCsrInfo.vlmul === 1.U) -> 2.U,
+      (in.vCsrInfo.vlmul === 2.U) -> 4.U,
+      (in.vCsrInfo.vlmul === 3.U) -> 8.U,
+    ))
+    val lmulWiden = MuxCase(8.U, Seq(
+      (in.vCsrInfo.vlmul === 0.U) -> 2.U,
+      (in.vCsrInfo.vlmul === 1.U) -> 4.U,
+      (in.vCsrInfo.vlmul === 2.U) -> 8.U,
+    ))
+    val elementInRegGroup = Cat(lmul, 0.U(4.W)) >> sew
+    uopnum := Mux(in.ctrl.isVLS, elementInRegGroup, Mux(in.ctrl.widen === Widen.NotWiden, lmul, lmulWiden))
     uopnum
   }
 

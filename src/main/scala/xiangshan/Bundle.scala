@@ -30,7 +30,7 @@ import xiangshan.frontend.BPUCtrl
 import xiangshan.frontend.FtqPtr
 import xiangshan.frontend.CGHPtr
 import xiangshan.frontend.FtqToCtrlIO
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3.util.BitPat.bitPatToUInt
 import xiangshan.backend.execute.fu.alu.ALUOpType
 import xiangshan.backend.execute.fu.csr.CSROpType
@@ -158,21 +158,6 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val NFiled = UInt(3.W)
   val vm = Bool()
   val isSeg = Bool()
-
-  def NFToInt() = {
-    var nf = 0
-    switch(NFiled) {
-      is(0.U) {nf = 1}
-      is(1.U) {nf = 2}
-      is(2.U) {nf = 3}
-      is(3.U) {nf = 4}
-      is(4.U) {nf = 5}
-      is(5.U) {nf = 6}
-      is(6.U) {nf = 7}
-      is(7.U) {nf = 8}
-    }
-    nf
-  }
 
   private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isOrder, widen, narrow, selImm)
@@ -495,29 +480,6 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
     ))
     VLMAX
   }
-
-  def SewToInt()  = {
-    var sew = 0
-    switch(vsew) {
-      is(0.U) { sew = 8 }
-      is(1.U) { sew = 16 }
-      is(2.U) { sew = 32 }
-      is(3.U) { sew = 64 }
-    }
-    sew
-  }
-
-  def LmulToInt() = {
-    var lmul = 0
-    switch(vlmul) {
-      is(0.U) { lmul = 1 }
-      is(1.U) { lmul = 2 }
-      is(2.U) { lmul = 4 }
-      is(3.U) { lmul = 8 }
-    }
-    lmul
-  }
-
 }
 
 class CustomCSRCtrlIO(implicit p: Parameters) extends XSBundle {

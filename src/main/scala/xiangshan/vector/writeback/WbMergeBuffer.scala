@@ -25,7 +25,7 @@
 
 package xiangshan.vector.writeback
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 
@@ -96,7 +96,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
         val mergeWen = mergeVec.asUInt.orR
 
         val allocateVec = Wire(Vec(allocateWidth, Bool()))
-        allocateVec := io.waitqueue.map(w => w.fire() && (w.bits.value === i.U))
+        allocateVec := io.waitqueue.map(w => w.fire && (w.bits.value === i.U))
         val allocateWen = allocateVec.asUInt.orR
         
         when(mergeWen) {

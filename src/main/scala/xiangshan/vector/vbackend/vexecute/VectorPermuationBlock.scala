@@ -1,5 +1,5 @@
 package xiangshan.vector.vbackend.vexecute
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import darecreek.exu.fu2.perm.Permutation
@@ -31,7 +31,8 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
   )
   val writebackNode = new ExuOutputNode(cfg)
   val vprs = LazyModule(new VpReservationStation)
-  lazy val module = new LazyModuleImp(this) with HasXSParameter with HasVectorParameters {
+  lazy val module = new Impl
+  class Impl extends LazyModuleImp(this) with HasXSParameter with HasVectorParameters {
     val io = IO(new Bundle{
       val redirect = Input(Valid(new Redirect))
       val intAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))

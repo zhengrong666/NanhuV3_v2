@@ -156,16 +156,20 @@ clean:
 
 init:
 	git submodule update --init
-	cd rocket-chip && git submodule update --init api-config-chipsalliance hardfloat
+	cd rocket-chip && git submodule update --init cde hardfloat
 
 bump:
 	git submodule foreach "git fetch origin&&git checkout master&&git reset --hard origin/master"
+
+comp:
+	mill -i XiangShan.compile
+	mill -i XiangShan.test.compile
 
 bsp:
 	mill -i mill.bsp.BSP/install
 
 idea:
-	mill -i mill.scalalib.GenIdea/idea
+	mill -i mill.idea.GenIdea/idea
 
 # verilator simulation
 emu:

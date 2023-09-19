@@ -18,7 +18,7 @@
  * Date: 2023-06-19
  ****************************************************************************************/
 package xiangshan.backend.execute.exucx
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy.LazyModule
@@ -33,36 +33,39 @@ class AluJmpComplex(id: Int, bypassNum:Int)(implicit p:Parameters) extends Basic
   jmp.issueNode :*= issueNode
   writebackNode :=* alu.writebackNode
   writebackNode :=* jmp.writebackNode
-  lazy val module = new BasicExuComplexImp(this, bypassNum){
-    require(issueNode.in.length == 1)
-    require(issueNode.out.length == 2)
-    private val issueIn = issueNode.in.head._1
-    private val issueAlu = issueNode.out.filter(_._2._2.exuType == ExuType.alu).head._1
-    private val issueJmp = issueNode.out.filter(_._2._2.exuType == ExuType.jmp).head._1
-    val io = IO(new Bundle {
-      val fenceio = new FenceIO
-      val csrio = new CSRFileIO
-      val issueToMou = Decoupled(new ExuInput)
-      val writebackFromMou = Flipped(Decoupled(new ExuOutput))
-      val prefetchI = Output(Valid(UInt(p(XSCoreParamsKey).XLEN.W)))
-    })
+  lazy val module = new AluJmpComplexImp(this, id, bypassNum)
+}
+class AluJmpComplexImp(outer:AluJmpComplex, id: Int, bypassNum:Int) extends BasicExuComplexImp(outer, bypassNum) {
+  require(outer.issueNode.in.length == 1)
+  require(outer.issueNode.out.length == 2)
+  private val issueIn = outer.issueNode.in.head._1
+  private val issueAlu = outer.issueNode.out.filter(_._2._2.exuType == ExuType.alu).head._1
+  private val issueJmp = outer.issueNode.out.filter(_._2._2.exuType == ExuType.jmp).head._1
+  val io = IO(new Bundle {
+    val fenceio = new FenceIO
+    val csrio = new CSRFileIO
+    val issueToMou = Decoupled(new ExuInput)
+    val writebackFromMou = Flipped(Decoupled(new ExuOutput))
+    val prefetchI = Output(Valid(UInt(p(XSCoreParamsKey).XLEN.W)))
+  })
 
-    issueAlu <> issueIn
-    alu.module.io.bypassIn := bypassIn
-    alu.module.redirectIn := redirectIn
+  issueAlu <> issueIn
+  outer.alu.module.io.bypassIn := bypassIn
+  outer.alu.module.redirectIn := redirectIn
 
-    issueJmp <> issueIn
-    jmp.module.io.bypassIn := bypassIn
-    jmp.module.redirectIn := redirectIn
+  issueJmp <> issueIn
+  outer.jmp.module.io.bypassIn := bypassIn
+  outer.jmp.module.redirectIn := redirectIn
 
-    jmp.module.io.fenceio <> io.fenceio
-    jmp.module.io.csrio <> io.csrio
-    io.prefetchI := jmp.module.io.prefetchI
-    io.issueToMou <> jmp.module.io.issueToMou
-    io.writebackFromMou <> jmp.module.io.writebackFromMou
+  outer.jmp.module.io.fenceio <> io.fenceio
+  outer.jmp.module.io.csrio <> io.csrio
+  io.prefetchI := outer.jmp.module.io.prefetchI
+  io.issueToMou <> outer.jmp.module.io.issueToMou
+  io.writebackFromMou <> outer.jmp.module.io.writebackFromMou
 
-    issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.alu, issueAlu.issue.ready, issueJmp.issue.ready)
-    private val issueFuHit = issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
-    when(issueIn.issue.valid){assert(issueFuHit)}
+  issueIn.issue.ready := Mux(issueIn.issue.bits.uop.ctrl.fuType === FuType.alu, issueAlu.issue.ready, issueJmp.issue.ready)
+  private val issueFuHit = outer.issueNode.in.head._2._2.exuConfigs.flatMap(_.fuConfigs).map(_.fuType === issueIn.issue.bits.uop.ctrl.fuType).reduce(_ | _)
+  when(issueIn.issue.valid) {
+    assert(issueFuHit)
   }
 }

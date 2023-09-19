@@ -2,16 +2,10 @@ package xiangshan.backend.execute.fu.csr.vcsr
 
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 
-import utils._
 import xiangshan._
-
 import xiangshan.vector._
-import utility.MaskedRegMap
-import xiangshan.backend.execute.fu.FUWithRedirect
-import xs.utils._
-import xiangshan.backend.execute.fu.csr._
 import xiangshan.backend.execute.fu.FuOutput
 
 class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {

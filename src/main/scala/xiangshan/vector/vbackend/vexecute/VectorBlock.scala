@@ -1,5 +1,5 @@
 package xiangshan.vector.vbackend.vexecute
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import xiangshan.backend.execute.exublock.{BasicExuBlock, BasicExuBlockImp}
 import freechips.rocketchip.diplomacy.LazyModule
 import chisel3._

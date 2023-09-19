@@ -25,7 +25,7 @@ package xiangshan.vector.virename
 
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 
 import xiangshan._
 import utils._
@@ -79,7 +79,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
     alloc.bits := phyRegCandidates(i)
   }
 
-  val allocNum = PopCount(io.allocatePhyReg.map(_.fire()))
+  val allocNum = PopCount(io.allocatePhyReg.map(_.fire))
   val headPtrNext = headPtr + allocNum
   headPtr := headPtrNext
 

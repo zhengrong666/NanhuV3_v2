@@ -16,7 +16,7 @@
 
 package xiangshan.frontend
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan._
@@ -140,7 +140,7 @@ trait TBTParams extends HasXSParameter with TageParams {
   val bypassEntries = 8
 }
 
-@chiselName
+
 class TageBTable(parentName:String = "Unknown")(implicit p: Parameters) extends XSModule with TBTParams{
   val io = IO(new Bundle {
     val s0_fire = Input(Bool())
@@ -232,13 +232,13 @@ class TageBTable(parentName:String = "Unknown")(implicit p: Parameters) extends 
     valid = io.update_mask.reduce(_||_) || doing_reset,
     data = Mux(doing_reset, VecInit(Seq.fill(numBr)(2.U(2.W))), newCtrs),
     setIdx = Mux(doing_reset, resetRow, u_idx),
-    waymask = Mux(doing_reset, Fill(numBr, 1.U(1.W)).asUInt(), updateWayMask)
+    waymask = Mux(doing_reset, Fill(numBr, 1.U(1.W)).asUInt, updateWayMask)
   )
 
 }
 
 
-@chiselName
+
 class TageTable
 (
   val nRows: Int, val histLen: Int, val tagLen: Int, val tableIdx: Int, parentName:String = "Unknown"
@@ -555,7 +555,7 @@ class FakeTage(implicit p: Parameters) extends BaseTage {
   io.s2_ready := true.B
 }
 
-@chiselName
+
 class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends BaseTage {
 
   val resp_meta = Wire(new TageMeta)

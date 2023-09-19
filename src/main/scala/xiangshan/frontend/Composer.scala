@@ -16,14 +16,13 @@
 
 package xiangshan.frontend
 
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import chisel3._
-import chisel3.experimental.chiselName
 import xs.utils.mbist.MBISTPipeline
 import utils._
 import xs.utils._
 
-@chiselName
+
 class Composer(parentName:String = "Unknown")(implicit p: Parameters) extends BasePredictor with HasBPUConst with HasPerfEvents {
   val (components, resp) = getBPDComponents(io.in.bits.resp_in(0), p, parentName = parentName)
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {

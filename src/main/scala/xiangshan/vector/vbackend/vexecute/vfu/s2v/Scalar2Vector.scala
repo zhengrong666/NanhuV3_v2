@@ -1,7 +1,7 @@
 package xiangshan.vector.vbackend.vexecute.vfu.s2v
 import chisel3._
 import chisel3.util._
-import chipsalliance.rocketchip.config.Parameters
+import org.chipsalliance.cde.config.Parameters
 import darecreek.exu.fu2.{VAluOutput, VFuInput}
 import xiangshan.XSModule
 class Scalar2Vector(implicit p: Parameters) extends XSModule{

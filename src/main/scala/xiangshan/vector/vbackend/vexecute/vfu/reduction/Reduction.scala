@@ -5,7 +5,7 @@ import chisel3.util._
 import chisel3.util.experimental.decode._
 import darecreek.exu.fu2._
 // import darecreek.exu.fu2.VFUParam._
-import chipsalliance.rocketchip.config._
+import org.chipsalliance.cde.config._
 
 class Reduction(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
