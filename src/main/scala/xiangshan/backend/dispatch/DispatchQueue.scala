@@ -127,14 +127,14 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   //TODO: ADD THE NUMBER OF PTR AND ACCEPT PORT TO DECREASE FANOUT
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = size.U - validEntriesNum
-  io.dqFull := deqPtr_dup_1.value === enqPtrAux.value && deqPtr_dup_1.flag =/= enqPtrAux.flag
+  io.dqFull := deqPtr.value === enqPtrAux.value && deqPtr.flag =/= enqPtrAux.flag
 
   payloadArray.io.redirect := io.redirect
   deqDriver.io.redirect := io.redirect
   private val enqMask = UIntToMask(enqPtrAux.value, size)
-  private val deqMask = UIntToMask(deqPtr_dup_2.value, size)
+  private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validsMask = Mux(deqPtr_dup_3.value < enqPtrAux.value || deqPtr_dup_3 === enqPtrAux, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validsMask = Mux(deqPtr.value < enqPtrAux.value || deqPtr === enqPtrAux, enqXorDeq, (~enqXorDeq).asUInt)
   private val redirectMask = validsMask & payloadArray.io.flushVec
   private val flushNum = PopCount(redirectMask)
 
