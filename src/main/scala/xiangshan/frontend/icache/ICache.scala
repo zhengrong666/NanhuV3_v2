@@ -23,8 +23,6 @@ import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp, Trans
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util.BundleFieldBase
 import xs.utils.mbist.MBISTPipeline
-import huancun.PreferCacheField
-import coupledL2.{AliasField, DirtyField, PrefetchField}
 import xiangshan._
 import xiangshan.frontend._
 import xiangshan.cache._
@@ -53,11 +51,8 @@ case class ICacheParameters(
 
   val setBytes = nSets * blockBytes //* 2
   val aliasBitsOpt = if(setBytes > pageSize) Some(log2Ceil(setBytes / pageSize)) else None
-  val reqFields: Seq[BundleFieldBase] = Seq(
-    PrefetchField(),
-    PreferCacheField()
-  ) ++ aliasBitsOpt.map(AliasField)
-  val echoFields: Seq[BundleFieldBase] = Seq(DirtyField())
+  val reqFields: Seq[BundleFieldBase] = Seq()
+  val echoFields: Seq[BundleFieldBase] = Seq()
   def tagCode: Code = Code.fromString(tagECC)
   def dataCode: Code = Code.fromString(dataECC)
   def replacement = ReplacementPolicy.fromString(replacer,nWays,nSets)

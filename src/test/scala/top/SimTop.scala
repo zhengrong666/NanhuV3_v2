@@ -116,5 +116,5 @@ object SimTop extends App {
       DisableMonitors(p => new SimTop()(p))(config)
     })
   ))
-  FileRegisters.write(filePrefix = "XSTop")
+  FileRegisters.write(filePrefix = config(PrefixKey) + "XSTop")
 }

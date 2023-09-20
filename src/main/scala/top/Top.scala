@@ -277,5 +277,5 @@ object TopMain extends App {
       soc.module
     })
   ))
-  FileRegisters.write(filePrefix = "XSTop.")
+  FileRegisters.write(filePrefix = config(PrefixKey) + "XSTop.")
 }
