@@ -15,7 +15,7 @@
 ***************************************************************************************/
 
 package top
-
+import circt.stage._
 import firrtl.AnnotationSeq
 import firrtl.options.{Dependency, Phase, PhaseManager, Shell, Stage}
 import circt.stage.CLI
@@ -25,7 +25,7 @@ trait XiangShanCli { this: Shell =>
 }
 
 class XiangShanShell extends Shell("xiangshan") with CLI with XiangShanCli
-class XiangShanStage extends Stage{
+class XiangShanStage extends Stage {
   override def prerequisites = Seq.empty
   override def optionalPrerequisites = Seq.empty
   override def optionalPrerequisiteOf = Seq.empty
