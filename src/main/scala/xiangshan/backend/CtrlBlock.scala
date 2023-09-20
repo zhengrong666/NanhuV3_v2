@@ -96,7 +96,6 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     //to waitQueue
     val vstart = Input(UInt(7.W))
     val vcsrToRename  = Flipped(new VCSRWithVtypeRenameIO)
-    val vcsrToEXU = Flipped(new VCSRWithRobIO)
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))

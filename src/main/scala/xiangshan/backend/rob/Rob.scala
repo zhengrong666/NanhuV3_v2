@@ -29,8 +29,6 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
-
-
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
   val writebackNode = new WriteBackSinkNode(wbNodeParam)
@@ -537,6 +535,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.lsq.pendingld := RegNext(io.commits.isCommit && io.commits.info(0).commitType === CommitType.LOAD && valid(deqPtr.value))
   io.lsq.pendingst := RegNext(io.commits.isCommit && io.commits.info(0).commitType === CommitType.STORE && valid(deqPtr.value))
   io.lsq.commit := RegNext(io.commits.isCommit && io.commits.commitValid(0))
+  io.lsq.pendingOrdered := RegNext(io.commits.isCommit && io.commits.info(0).isOrder && valid(deqPtr.value))
 
   /**
     * state changes
@@ -739,6 +738,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.wvcsr       := false.B
       wdata.vtypeWb     := req.ctrl.isVtype
       wdata.isVector    := req.ctrl.isVector && !req.ctrl.isVtype
+      wdata.isOrder := req.ctrl.isOrder
   }
 
   for(i <- 0 until fflagsWbNums) {

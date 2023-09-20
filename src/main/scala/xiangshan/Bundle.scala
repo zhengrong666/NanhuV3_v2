@@ -360,6 +360,7 @@ class RobEntryData(implicit p: Parameters) extends XSBundle {
   val ftqOffset = UInt(log2Up(PredictWidth).W)
   val vtypeWb = Bool()
   val isVector = Bool()
+  val isOrder = Bool()
 }
 
 class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
@@ -380,6 +381,7 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
     ftqOffset := data.ftqOffset
     vtypeWb := data.vtypeWb
     isVector := data.isVector
+    isOrder := data.isOrder
   }
 }
 
