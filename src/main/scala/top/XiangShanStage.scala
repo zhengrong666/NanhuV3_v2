@@ -15,26 +15,42 @@
 ***************************************************************************************/
 
 package top
-
 import circt.stage._
 import firrtl.AnnotationSeq
-import firrtl.options.Shell
+import firrtl.options.{Dependency, Phase, PhaseManager, Shell, Stage}
+import circt.stage.CLI
 
 trait XiangShanCli { this: Shell =>
   parser.note("XiangShan Options")
 }
 
 class XiangShanShell extends Shell("xiangshan") with CLI with XiangShanCli
-class XiangShanStage extends ChiselStage {
-  override val shell: XiangShanShell = new XiangShanShell
-}
-
-object XiangShanStage {
-  def execute
-  (
-    args: Array[String],
-    annotations: AnnotationSeq
-  ): AnnotationSeq = {
-    (new XiangShanStage).execute(args, annotations)
+class XiangShanStage extends Stage {
+  override def prerequisites = Seq.empty
+  override def optionalPrerequisites = Seq.empty
+  override def optionalPrerequisiteOf = Seq.empty
+  override def invalidates(a: Phase) = false
+  override val shell = new XiangShanShell
+  override def run(annotations: AnnotationSeq): AnnotationSeq = {
+    val pm = new PhaseManager(
+      targets = Seq(
+        Dependency[chisel3.stage.phases.Checks],
+        Dependency[chisel3.stage.phases.AddImplicitOutputFile],
+        Dependency[chisel3.stage.phases.AddImplicitOutputAnnotationFile],
+        Dependency[chisel3.stage.phases.MaybeAspectPhase],
+        Dependency[chisel3.stage.phases.AddSerializationAnnotations],
+        Dependency[chisel3.stage.phases.Convert],
+        Dependency[xsphase.Prefixing],
+        Dependency[chisel3.stage.phases.MaybeInjectingPhase],
+        Dependency[circt.stage.phases.AddImplicitOutputFile],
+        Dependency[circt.stage.phases.Checks],
+        Dependency[circt.stage.phases.CIRCT]
+      ),
+      currentState = Seq(
+        Dependency[firrtl.stage.phases.AddDefaults],
+        Dependency[firrtl.stage.phases.Checks]
+      )
+    )
+    pm.transform(annotations)
   }
 }

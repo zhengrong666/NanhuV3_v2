@@ -265,14 +265,17 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
 
 object TopMain extends App {
   val (config, firrtlOpts) = ArgParser.parse(args)
+  xsphase.PrefixingHelper.prefix = config(PrefixKey)
   val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
-  XiangShanStage.execute(firrtlOpts, Seq(
+  (new XiangShanStage).execute(firrtlOpts, Seq(
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
+    FirtoolOption("--emit-chisel-asserts-as-sva"),
+    FirtoolOption("--lowering-options=noAlwaysComb, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       soc.module
     })
   ))
-  FileRegisters.write(filePrefix = "XSTop.")
+  FileRegisters.write(filePrefix = config(PrefixKey) + "XSTop.")
 }

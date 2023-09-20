@@ -29,8 +29,6 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
-
-
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
   val writebackNode = new WriteBackSinkNode(wbNodeParam)
@@ -141,7 +139,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   //************************data for debug************************
   // Warn: debug_* prefix should not exist in generated verilog.
-  val debug_microOp   = Mem(RobSize, new MicroOp)
+  // TODO: modify it to Reg, for generated verilog
+  val debug_microOp   = Reg(Vec(RobSize, new MicroOp))
   val debug_exuData   = Reg(Vec(RobSize, UInt(XLEN.W)))
   val debug_exuDebug  = Reg(Vec(RobSize, new DebugBundle))
 
@@ -476,7 +475,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     io.commits.walkValid(i)   := shouldWalkVec(i) & canCommitVec(i)
     io.commits.info(i).pc     := debug_microOp(deqPtrVec(i).value).cf.pc
     io.commits.info(i).connectEntryData(entryDataRead(i))
-    io.commits.robIdx(i) := deqPtrVec(i).value
+    io.commits.robIdx(i) := Mux(state === s_idle, deqPtrVec(i).value, walkPtrVec(i).value)
 
     // when (io.commits.isWalk && state === s_walk && shouldWalkVec(i)) {
     //   XSError(!walk_v(i), s"why not $i???\n")
@@ -537,6 +536,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.lsq.pendingld := RegNext(io.commits.isCommit && io.commits.info(0).commitType === CommitType.LOAD && valid(deqPtr.value))
   io.lsq.pendingst := RegNext(io.commits.isCommit && io.commits.info(0).commitType === CommitType.STORE && valid(deqPtr.value))
   io.lsq.commit := RegNext(io.commits.isCommit && io.commits.commitValid(0))
+  io.lsq.pendingOrdered := RegNext(io.commits.isCommit && io.commits.info(0).isOrder && valid(deqPtr.value))
 
   /**
     * state changes
@@ -739,6 +739,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.wvcsr       := false.B
       wdata.vtypeWb     := req.ctrl.isVtype
       wdata.isVector    := req.ctrl.isVector && !req.ctrl.isVtype
+      wdata.isOrder := req.ctrl.isOrder
   }
 
   for(i <- 0 until fflagsWbNums) {

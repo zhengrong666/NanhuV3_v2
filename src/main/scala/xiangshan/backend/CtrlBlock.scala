@@ -96,7 +96,6 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     //to waitQueue
     val vstart = Input(UInt(7.W))
     val vcsrToRename  = Flipped(new VCSRWithVtypeRenameIO)
-    val vcsrToEXU = Flipped(new VCSRWithRobIO)
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
@@ -308,10 +307,13 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //vector instr from scalar
   require(RenameWidth == VIDecodeWidth)
-  vCtrlBlock.io.fromVtpRn  := rename.io.toVCtl
+  vCtrlBlock.io.fromVtpRn := rename.io.toVCtl
   //TODO: vtype writeback here.
-  vCtrlBlock.io.vtypewriteback.valid := false.B
+  vCtrlBlock.io.vtypewriteback.valid := io.vcsrToRename.vtypeWbToRename.valid
   vCtrlBlock.io.vtypewriteback.bits := DontCare
+  vCtrlBlock.io.vtypewriteback.bits.uop := io.vcsrToRename.vtypeWbToRename.bits.uop
+  vCtrlBlock.io.vtypewriteback.bits.data := io.vcsrToRename.vtypeWbToRename.bits.data
+
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
   for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {
     port.bits := robId
@@ -326,7 +328,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   // vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
   // vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
   // vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
-  vCtrlBlock.io.commit <> rob.io.commits
+  vCtrlBlock.io.commit := RegNext(rob.io.commits)
 
   io.vAllocPregs := vCtrlBlock.io.vAllocPregs
 
@@ -370,6 +372,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   //mem and vmem dispatch merge
   memDqArb.io.memIn <> lsDq.io.deq
   memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispath
+  memDqArb.io.redirect := redirectDelay
 
   memDispatch2Rs.io.redirect := redirectDelay_dup_3
   memDispatch2Rs.io.lcommit := rob.io.lsq.lcommit

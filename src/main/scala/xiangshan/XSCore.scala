@@ -98,6 +98,10 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   private val ptw_to_l2_buffer = outer.ptw_to_l2_buffer.module
   private val csrioIn = exuBlock.io.csrio
   private val fenceio = exuBlock.io.fenceio
+  //TODO:
+  fenceio.sbuffer.sbIsEmpty := DontCare
+  csrioIn.memExceptionVAddr := DontCare
+  csrioIn.distributedUpdate := DontCare
 
   frontend.io.hartId  := io.hartId
   ctrlBlock.io.hartId := io.hartId
@@ -107,6 +111,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   exuBlock.io.hartId := io.hartId
   frontend.io.reset_vector := io.reset_vector
 
+  io.beu_errors := DontCare
   io.beu_errors.icache := frontend.io.error.toL1BusErrorUnitInfo()
   io.beu_errors.dcache := exuBlock.io.l1Error.toL1BusErrorUnitInfo()
 
@@ -121,7 +126,13 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   //TODO:
   ctrlBlock.io.vstart := csrioIn.vcsr.vstart
 
-  csrioIn.vcsr.robWb <> ctrlBlock.io.vcsrToEXU
+  //TODO:
+  csrioIn.vcsr.robWb.vstartW.valid := ctrlBlock.io.robio.toCSR.vstart.valid
+  csrioIn.vcsr.robWb.vstartW.bits := ctrlBlock.io.robio.toCSR.vstart.bits
+
+  csrioIn.vcsr.robWb.vxsatW.valid := ctrlBlock.io.robio.toCSR.vxsat.valid
+  csrioIn.vcsr.robWb.vxsatW.bits := ctrlBlock.io.robio.toCSR.vxsat.bits
+
   csrioIn.vcsr.vtype <> ctrlBlock.io.vcsrToRename
   
   
@@ -149,6 +160,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.memPredUpdate := exuBlock.io.memPredUpdate
   exuBlock.io.debug_int_rat := ctrlBlock.io.debug_int_rat
   exuBlock.io.debug_fp_rat := ctrlBlock.io.debug_fp_rat
+  exuBlock.io.debug_vec_rat := DontCare
 
   exuBlock.io.perfEventsPTW  := ptw.getPerf
 
