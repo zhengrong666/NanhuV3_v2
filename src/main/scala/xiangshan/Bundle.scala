@@ -386,14 +386,10 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
 class RobCommitIO(implicit p: Parameters) extends XSBundle {
   val isCommit = Output(Bool())
   val commitValid = Vec(CommitWidth, Output(Bool()))
-
   val isWalk = Output(Bool())
-  // valid bits optimized for walk
   val walkValid = Vec(CommitWidth, Output(Bool()))
-
   val info = Vec(CommitWidth, Output(new RobCommitInfo))
-
-  val robIdx = Vec(CommitWidth, UInt(log2Up(RobSize).W))
+  val robIdx = Vec(CommitWidth, Output(UInt(log2Up(RobSize).W)))
 
   def hasWalkInstr: Bool = isWalk && walkValid.asUInt.orR
   def hasCommitInstr: Bool = isCommit && commitValid.asUInt.orR

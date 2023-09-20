@@ -534,12 +534,17 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val vxsat   = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
   val vcsr    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
 
+  val fakeVtype = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+  val fakeVl = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
+
   val vcsrMapping = Map(
     MaskedRegMap(Vlenb,   vlenb),
     MaskedRegMap(Vstart,  vstart),
     MaskedRegMap(Vxrm,    vxrm),
     MaskedRegMap(Vxsat,   vxsat),
-    MaskedRegMap(Vcsr,    vcsr)
+    MaskedRegMap(Vcsr,    vcsr),
+    MaskedRegMap(Vtype,   fakeVtype),
+    MaskedRegMap(Vl,      fakeVl)
   )
 
     // vcsr
@@ -775,8 +780,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
   io.out.bits.data := Mux(isVset, vsetFu.io.vlNew, Mux(needReadVtype, csrio.vcsr.vtype.vtypeRead.data.bits, rdata))
   io.out.bits.uop := io.in.bits.uop
-  io.out.bits.uop.cf := cfOut
-  io.out.bits.uop.ctrl.flushPipe := flushPipe
+  io.out.bits.uop.cf := Mux(isVset, cfIn, cfOut)
+  io.out.bits.uop.ctrl.flushPipe := flushPipe && !isVset
 
   // send distribute csr a w signal
   csrio.customCtrl.distribute_csr.w.valid := wen && permitted
