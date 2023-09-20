@@ -98,7 +98,10 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   private val ptw_to_l2_buffer = outer.ptw_to_l2_buffer.module
   private val csrioIn = exuBlock.io.csrio
   private val fenceio = exuBlock.io.fenceio
+  //TODO:
   fenceio.sbuffer.sbIsEmpty := DontCare
+  csrioIn.memExceptionVAddr := DontCare
+  csrioIn.distributedUpdate := DontCare
 
   frontend.io.hartId  := io.hartId
   ctrlBlock.io.hartId := io.hartId

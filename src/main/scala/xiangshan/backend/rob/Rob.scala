@@ -139,7 +139,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   //************************data for debug************************
   // Warn: debug_* prefix should not exist in generated verilog.
-  val debug_microOp   = Mem(RobSize, new MicroOp)
+  // TODO: modify it to Reg, for generated verilog
+  val debug_microOp   = Reg(Vec(RobSize, new MicroOp))
   val debug_exuData   = Reg(Vec(RobSize, UInt(XLEN.W)))
   val debug_exuDebug  = Reg(Vec(RobSize, new DebugBundle))
 

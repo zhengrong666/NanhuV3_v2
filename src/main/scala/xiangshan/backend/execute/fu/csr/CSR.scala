@@ -547,6 +547,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     MaskedRegMap(Vl,      fakeVl)
   )
 
+  csrio.vcsr.vcsr := vcsr(2, 0)
+
     // vcsr
   // val vcsr = Module(new VCSR)
   // vcsr.io.in.bits := io.in.bits
