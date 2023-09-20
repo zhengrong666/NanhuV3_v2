@@ -18,6 +18,7 @@ package top
 
 import firrtl.AnnotationSeq
 import firrtl.options.{Dependency, Phase, PhaseManager, Shell, Stage}
+import circt.stage.CLI
 
 trait XiangShanCli { this: Shell =>
   parser.note("XiangShan Options")
