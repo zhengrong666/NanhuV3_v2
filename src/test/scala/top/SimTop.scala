@@ -24,7 +24,7 @@ import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule}
 import xs.utils.GTimer
 import xiangshan.DebugOptionsKey
 import difftest._
-import top.TopMain.config
+import circt.stage.FirtoolOption
 import xs.utils.FileRegisters
 
 class SimTop(implicit p: Parameters) extends Module {
@@ -108,7 +108,7 @@ object SimTop extends App {
   // Keep this the same as TopMain except that SimTop is used here instead of XSTop
   val (config, firrtlOpts) = ArgParser.parse(args)
   xsphase.PrefixingHelper.prefix = config(PrefixKey)
-  XiangShanStage.execute(firrtlOpts, Seq(
+  (new XiangShanStage).execute(firrtlOpts, Seq(
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),

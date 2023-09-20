@@ -267,7 +267,7 @@ object TopMain extends App {
   val (config, firrtlOpts) = ArgParser.parse(args)
   xsphase.PrefixingHelper.prefix = config(PrefixKey)
   val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(config)
-  XiangShanStage.execute(firrtlOpts, Seq(
+  (new XiangShanStage).execute(firrtlOpts, Seq(
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
