@@ -271,6 +271,8 @@ object TopMain extends App {
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
+    FirtoolOption("--emit-chisel-asserts-as-sva"),
+    FirtoolOption("--lowering-options=noAlwaysComb, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       soc.module
     })
