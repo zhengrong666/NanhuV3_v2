@@ -297,7 +297,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   }
 
   rename.io.redirect    := Pipe(io.redirectIn)
-  rename.io.robCommits  := rob.io.commits
+  rename.io.robCommits  := commitScalar
   rename.io.ssit        := ssit.io.rdata
   rename.io.vcsrio    <> io.vcsrToRename
 
@@ -325,21 +325,21 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   outer.wbMergeBuffer.module.io.redirect := Pipe(io.redirectIn)
   
   
-  //TODO: select to vCtrl
-  // vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
-  // vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
-  // vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
-  vCtrlBlock.io.commit := RegNext(rob.io.commits)
-
-  io.vAllocPregs := vCtrlBlock.io.vAllocPregs
-
   val commitVector = Wire(new RobCommitIO)
   commitVector := rob.io.commits
   for(((v, info), i) <- (commitVector.commitValid zip commitVector.info).zipWithIndex) {
     v := info.isVector && rob.io.commits.commitValid(i)
   }
+
+  //TODO: select to vCtrl
+  // vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
+  // vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
+  // vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
+  vCtrlBlock.io.commit := RegNext(commitVector)
   vCtrlBlock.io.redirect := Pipe(io.redirectIn)
   vCtrlBlock.io.vstart := io.vstart
+
+  io.vAllocPregs := vCtrlBlock.io.vAllocPregs
 
   //vectorCtrlBlock
   //vCtrlBlock.io.hartId := io.hartId
