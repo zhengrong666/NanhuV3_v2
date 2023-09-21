@@ -1007,15 +1007,15 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   val splitNum = 5
   require(LoadQueueSize % splitNum == 0)
-  val needCancelCntSub = Wire(Vec(splitNum, UInt(log2Up(LoadQueueSize).W)))
+  val needCancelCntSub = Seq.fill(splitNum)(RegInit(0.U(log2Up(LoadQueueSize).W)))
+
   (0 until splitNum).foreach({ case i => {
     needCancelCntSub(i) := PopCount(needCancel.asUInt((i + 1) * (LoadQueueSize / splitNum) - 1, i * (LoadQueueSize / splitNum)))
-  }
-  })
+  }})
   val needCancelCnt = needCancelCntSub.reduce(_ + _)
-  val needCancelReg = RegInit(0.U(LoadQueueSize.W))
-  needCancelReg := needCancelCnt
-  val lastCycleCancelCount = needCancelReg
+//  val needCancelReg = RegInit(0.U(LoadQueueSize.W))
+//  needCancelReg := needCancelCnt
+  val lastCycleCancelCount = needCancelCnt
 
 
   /**
