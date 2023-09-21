@@ -14,13 +14,12 @@
 # See the Mulan PSL v2 for more details.
 #***************************************************************************************
 
-TOP = XSTop
-SIM_TOP   = SimTop
+TOP = $(PREFIX)XSTop
+SIM_TOP   = $(PREFIX)SimTop
 FPGATOP = top.TopMain
 BUILD_DIR ?= ./build
-TOP_V =
 
-TOP_V += $(BUILD_DIR)/$(TOP).sv
+TOP_V = $(BUILD_DIR)/$(TOP).sv
 SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).sv
 
 SCALA_FILE = $(shell find ./src/main/scala -name '*.scala')
@@ -72,14 +71,6 @@ endif
 RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
 DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
 
-ifeq ($(VCS), 1)
-RELEASE_ARGS += --target systemverilog
-DEBUG_ARGS += --target systemverilog
-else
-RELEASE_ARGS += --target verilog
-DEBUG_ARGS += --target verilog
-endif
-
 ifeq ($(RELEASE),1)
 override SIM_ARGS += $(RELEASE_ARGS)
 else
@@ -95,25 +86,18 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	time -o $(@D)/time.log mill -i XiangShan.runMain $(FPGATOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(RELEASE_ARGS) | tee build/make.log
-ifneq ($(VCS), 1)
-	mv $(BUILD_DIR)/$(TOP).v $@
-	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
+		$(RELEASE_ARGS) --target systemverilog | tee build/make.log
+ifeq ($(VCS), 1)
+	sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
+else
+	sed -i 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
-	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
-	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@ > $(BUILD_DIR)/tmp.v
-	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
-	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $(BUILD_DIR)/tmp.v > $(BUILD_DIR)/tmp1.v
-	rm $@ $(BUILD_DIR)/tmp.v
-	mv $(BUILD_DIR)/tmp1.v $@
-	python3 scripts/assertion_alter.py -o $@ $@
-	@git log -n 1 >> .__head__
-	@git diff >> .__diff__
-	@sed -i 's/^/\/\// ' .__head__
-	@sed -i 's/^/\/\//' .__diff__
-	@cat .__head__ .__diff__ $@ > .__out__
-	@mv .__out__ $@
-	@rm .__head__ .__diff__
+	sed -i 's/\(ram_?.*_[0-9]\+x[0-9]\+\)/$(PREFIX)\1/g' $@
+	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
+	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
+	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
+	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
+	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
 
 verilog: $(TOP_V)
 
@@ -123,26 +107,18 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	@date -R | tee -a $(@D)/time.log
 	time -o $(@D)/time.log mill -i XiangShan.test.runMain $(SIMTOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(SIM_ARGS) | tee build/make.log
-ifneq ($(VCS), 1)
-	mv $(BUILD_DIR)/$(SIM_TOP).v $@
+		$(SIM_ARGS) --target systemverilog | tee build/make.log
+ifeq ($(VCS), 1)
+	sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
+else
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
-	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
-  	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@ > $(BUILD_DIR)/tmp.v
-	sed -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
-	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $(BUILD_DIR)/tmp.v > $(BUILD_DIR)/tmp1.v
-	rm $@ $(BUILD_DIR)/tmp.v
-	mv $(BUILD_DIR)/tmp1.v $@
-#	python3 scripts/assertion_alter.py -o $@ $@
-
-	@git log -n 1 >> .__head__
-	@git diff >> .__diff__
-	@sed -i 's/^/\/\// ' .__head__
-	@sed -i 's/^/\/\//' .__diff__
-	@cat .__head__ .__diff__ $@ > .__out__
-	@mv .__out__ $@
-	@rm .__head__ .__diff__
+	sed -i 's/\(ram_?.*_[0-9]\+x[0-9]\+\)/$(PREFIX)\1/g' $@
+	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
+	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
+	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
+	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
+	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
 
 FILELIST := $(ABS_WORK_DIR)/build/cpu_flist.f
 

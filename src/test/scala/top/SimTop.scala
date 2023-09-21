@@ -87,14 +87,17 @@ class SimTop(implicit p: Parameters) extends Module {
 
   if (!debugOpts.FPGAPlatform && (debugOpts.EnableDebug || debugOpts.EnablePerfDebug)) {
     val timer = GTimer()
-    //val logEnable = (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
-    //ExcitingUtils.addSource(logEnable, "DISPLAY_LOG_ENABLE")
+    val logEnable = Wire(Bool())
+    logEnable := (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
+    ExcitingUtils.addSource(logEnable, "DISPLAY_LOG_ENABLE")
     ExcitingUtils.addSource(timer, "logTimestamp")
   }
 
   if (!debugOpts.FPGAPlatform && debugOpts.EnablePerfDebug) {
-    val clean = io.perfInfo.clean
-    val dump = io.perfInfo.dump
+    val clean = Wire(Bool())
+    val dump = Wire(Bool())
+    clean := io.perfInfo.clean
+    dump := io.perfInfo.dump
     ExcitingUtils.addSource(clean, "XSPERF_CLEAN")
     ExcitingUtils.addSource(dump, "XSPERF_DUMP")
   }
@@ -112,9 +115,10 @@ object SimTop extends App {
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
+    FirtoolOption("--lowering-options=noAlwaysComb, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       DisableMonitors(p => new SimTop()(p))(config)
     })
   ))
-  FileRegisters.write(filePrefix = config(PrefixKey) + "XSTop")
+  FileRegisters.write(filePrefix = config(PrefixKey) + "XSTop.")
 }

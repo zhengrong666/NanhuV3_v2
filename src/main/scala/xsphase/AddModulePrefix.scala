@@ -1,8 +1,7 @@
 package xsphase
-
 import firrtl.AnnotationSeq
 import firrtl.annotations._
-import firrtl.ir.{Block, DefInstance, ExtModule, Module, Statement}
+import firrtl.ir._
 import firrtl.options.Phase
 import firrtl.renamemap.MutableRenameMap
 import firrtl.stage.FirrtlCircuitAnnotation
@@ -12,7 +11,8 @@ object PrefixingHelper {
   def StatementsWalker(stmt:Statement):Statement = {
     stmt match {
       case s: DefInstance => s.copy(module = prefix + s.module)
-      case s :Block => {
+      case s: Conditionally => s.copy(conseq = StatementsWalker(s.conseq), alt = StatementsWalker(s.alt))
+      case s: Block => {
         val stmts = s.stmts.map(StatementsWalker)
         s.copy(stmts = stmts)
       }
@@ -38,8 +38,12 @@ class Prefixing extends Phase {
             mm.copy(name = prefix + name, body = nst)
           }
           case em@ExtModule(_, name, _, defname, _) => {
-            renameMap.record(ModuleTarget(a.circuit.main, name), ModuleTarget(prefix + a.circuit.main, name))
+            renameMap.record(ModuleTarget(a.circuit.main, name), ModuleTarget(prefix + a.circuit.main, prefix + name))
             em.copy(name = prefix + name, defname = prefix + defname)
+          }
+          case im@IntModule(_, name, _, _, _) => {
+            renameMap.record(ModuleTarget(a.circuit.main, name), ModuleTarget(prefix + a.circuit.main, prefix + name))
+            im.copy(name = prefix + name)
           }
           case other => other
         }
