@@ -88,6 +88,8 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
   val commitRobSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   val commitRobIdx = Mux1H(commitRobSel, io.commit.rob.robIdx)
 
+  val needCommit = commitRobSel.asUInt.orR
+
   val commitCandidates = Wire(Vec(8, new RollBackListEntry))
   val commitValid = Wire(Vec(8, Bool()))
   val walkCandidates = Wire(Vec(8, new RollBackListEntry))
@@ -109,7 +111,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
         }
       }
       e := Mux1H(selVec, rollBackList)
-      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U)
+      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
     }
   }
 
@@ -122,7 +124,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
         }
       }
       e := Mux1H(selVec, rollBackList)
-      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U)
+      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
     }
   }
 
