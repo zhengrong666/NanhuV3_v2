@@ -292,21 +292,6 @@ class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with H
   cache.io.refill.bits.levelOH(refill_level, refill_valid)
   cache.io.refill.bits.sel_pte_dup.map(_ := RegNext(sel_data(refill_data_tmp.asUInt, req_addr_low(mem.d.bits.source))))
 
-  if (env.EnableDifftest) {
-    val difftest_ptw_addr = RegInit(VecInit(Seq.fill(MemReqWidth)(0.U(PAddrBits.W))))
-    when(mem.a.valid) {
-      difftest_ptw_addr(mem.a.bits.source) := mem.a.bits.address
-    }
-    val difftestRefill = DifftestModule(new DiffRefillEvent)
-    difftestRefill.clock := clock
-    difftestRefill.coreid := p(XSCoreParamsKey).HartId.asUInt
-    difftestRefill.index := 2.U
-    difftestRefill.idtfr := 2.U
-    difftestRefill.valid := cache.io.refill.valid
-    difftestRefill.addr := difftest_ptw_addr(RegNext(mem.d.bits.source))
-    difftestRefill.data := refill_data.asTypeOf(difftestRefill.data)
-  }
-
   // pmp
   pmp_check(0).req <> ptw.io.pmp.req
   ptw.io.pmp.resp <> pmp_check(0).resp
