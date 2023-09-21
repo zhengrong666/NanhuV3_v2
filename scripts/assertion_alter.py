@@ -22,8 +22,6 @@ def alter_print_info(file_queue):
     line = file_queue.get()
     is_single_line = match(line, rex_assert_begin) and match(line, rex_assert_end)
     is_begin = match(line, rex_assert_begin)
-    if(is_begin):
-      print(line)
     if(is_single_line):
       if(match(line, rex_assert_body)):
         res_queue.put(gen_prefix(line) + "$error(\"Assertion failed: %m @ %t\", $time);\n")
