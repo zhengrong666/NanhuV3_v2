@@ -568,6 +568,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.vcsr.vtype.vtypeWbToRename.bits.uop := io.in.bits.uop
   csrio.vcsr.vtype.vtypeWbToRename.valid := io.in.valid && io.in.bits.uop.ctrl.isVtype
 
+  csrio.vcsr.vcsr := vcsr(2, 0)
+
   when(csrio.vcsr.robWb.vstartW.valid) {
     vstart := csrio.vcsr.robWb.vstartW.bits
   }
