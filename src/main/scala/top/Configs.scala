@@ -37,13 +37,15 @@ import xiangshan.mem.prefetch.SMSParams
 
 import darecreek.exu.fu2._
 case object PrefixKey extends Field[String]
-class BaseConfig(n: Int) extends Config((site, here, up) => {
+class BaseConfig(n: Int, mbist:Boolean = false) extends Config((site, here, up) => {
   case XLen => 64
   case DebugOptionsKey => DebugOptions()
-  case SoCParamsKey => SoCParameters()
+  case SoCParamsKey => SoCParameters(
+    hasShareBus = mbist, hasMbist = mbist
+  )
   case PMParameKey => PMParameters()
   case XSTileKey => Seq.tabulate(n){
-    i => XSCoreParameters(HartId = i, hasMbist = false, hasShareBus = false,
+    i => XSCoreParameters(HartId = i, hasMbist = mbist, hasShareBus = mbist,
     prefetcher = Some(SMSParams()))
   }
   case ExportDebug => DebugAttachParams(protocols = Set(JTAG))
@@ -260,7 +262,7 @@ class WithNKBL2
           PrefetchReceiverParams => sms+bop
           HyperPrefetchParams    => spp+bop+sms
         */
-        sppMultiLevelRefill = None,//Some(coupledL2.prefetch.PrefetchReceiverParams()),
+        sppMultiLevelRefill = Some(coupledL2.prefetch.PrefetchReceiverParams()),
         /*must has spp, otherwise Assert Fail
         sppMultiLevelRefill options:
         PrefetchReceiverParams() => spp has cross level refill
@@ -288,20 +290,28 @@ class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1
     }.sum
     up(SoCParamsKey).copy(
       L3NBanks = banks,
-      L3CacheParamsOpt = Some(L3Param(
+      L3CacheParamsOpt = Some(HCCacheParameters(
         name = "L3",
+        level = 3,
         ways = ways,
         sets = sets,
-        inclusionPolicy = "NINE",
+        inclusive = inclusive,
         clientCaches = tiles.map{ core =>
           val l2params = core.L2CacheParamsOpt.get.toCacheParams
-          l2params.copy(
-            sets = l2params.sets,
-            ways = (l2params.ways + 1) * core_num,
-            blockGranularity = log2Ceil(clientDirBytes / core.L2NBanks / l2params.ways / 64 / tiles.size)
-          )
+          l2params.copy(sets = 2 * clientDirBytes / core.L2NBanks / l2params.ways / 64, ways = l2params.ways + 2)
         },
-        enablePerf = false
+        enablePerf = true,
+        prefetch = None,
+        prefetchRecv = Some(huancun.prefetch.PrefetchReceiverParams()),
+        ctrl = None,
+        reqField = Seq(xs.utils.tl.ReqSourceField()),
+        sramClkDivBy2 = true,
+        sramDepthDiv = 4,
+        hasMbist = up(SoCParamsKey).hasMbist,
+        hasShareBus = up(SoCParamsKey).hasShareBus,
+        tagECC = Some("secded"),
+        dataECC = Some("secded"),
+        simulation = !site(DebugOptionsKey).FPGAPlatform
       ))
     )
 })
