@@ -24,8 +24,8 @@ def alter_print_info(file_queue):
     is_begin = match(line, rex_assert_begin)
     if(is_single_line):
       if(match(line, rex_assert_body)):
-        res_queue.put(gen_prefix(line) + "$error(\"Assertion failed: %m @ %t\", $time);\n")
-        line = line.replace("Assertion failed: ", "")
+        res_queue.put(gen_prefix(line) + "$fwrite(32'h80000002, \"Assertion failed: %m @ %t\", $time);\n")
+        line = line.replace("Assertion failed: ", "").replace("$error(", "$fwrite(32'h80000002, ")
       res_queue.put(line)
 
     elif(is_begin):
@@ -38,13 +38,13 @@ def alter_print_info(file_queue):
         line = file_queue.get()
         if(match(line, rex_assert_body)):
           is_assert = True
-          line = line.replace("Assertion failed: ", "")
+          line = line.replace("Assertion failed: ", "").replace("$error(", "$fwrite(32'h80000002, ")
 
         assertion_queue.put(line)
         if(match(line, rex_assert_end)):
           if(is_assert):
             ol = assertion_queue.get()
-            res_queue.put(gen_prefix(ol) + "$error(\"Assertion failed: %m @ %t\", $time);\n")
+            res_queue.put(gen_prefix(ol) + "$fwrite(32'h80000002, \"Assertion failed: %m @ %t\", $time);\n")
             res_queue.put(ol)
 
           while(not assertion_queue.empty()):

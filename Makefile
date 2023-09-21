@@ -93,7 +93,7 @@ else
 	sed -i 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
 	python3 scripts/assertion_alter.py -o $@ $@
-	sed -i 's/\(ram_?.*_[0-9]\+x[0-9]\+\)/$(PREFIX)\1/g' $@
+	sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
 	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
 	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
@@ -115,7 +115,7 @@ else
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
 	python3 scripts/assertion_alter.py -o $@ $@
-	sed -i 's/\(ram_?.*_[0-9]\+x[0-9]\+\)/$(PREFIX)\1/g' $@
+	sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
 	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
 	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
