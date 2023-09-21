@@ -87,8 +87,8 @@ class SimTop(implicit p: Parameters) extends Module {
 
   if (!debugOpts.FPGAPlatform && (debugOpts.EnableDebug || debugOpts.EnablePerfDebug)) {
     val timer = GTimer()
-    val logEnable = (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
-    ExcitingUtils.addSource(logEnable, "DISPLAY_LOG_ENABLE")
+    //val logEnable = (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
+    //ExcitingUtils.addSource(logEnable, "DISPLAY_LOG_ENABLE")
     ExcitingUtils.addSource(timer, "logTimestamp")
   }
 

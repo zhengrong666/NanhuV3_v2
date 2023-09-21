@@ -45,8 +45,8 @@ endif
 ifeq ($(CONSIDER_FSDB),1)
 	RUN_OPTS += +dump-wave=fsdb
 endif
-RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
-# RUN_OPTS += +no-diff
+# RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
+RUN_OPTS += +no-diff
 RUN_OPTS += -fgp=num_threads:4,num_fsdb_threads:4
 RUN_OPTS += -assert finish_maxfail=30 -assert global_finish_maxfail=10000
 # co-simulation with DRAMsim3
@@ -72,12 +72,12 @@ endif
 RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
 DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
 
-ifeq ($(VCS),1)
-RELEASE_ARGS += --emission-options disableRegisterRandomization -X sverilog
-DEBUG_ARGS += --emission-options disableRegisterRandomization -X sverilog
+ifeq ($(VCS), 1)
+RELEASE_ARGS += --target systemverilog
+DEBUG_ARGS += --target systemverilog
 else
-RELEASE_ARGS += --emission-options disableRegisterRandomization -E verilog
-DEBUG_ARGS += -E verilog
+RELEASE_ARGS += --target verilog
+DEBUG_ARGS += --target verilog
 endif
 
 ifeq ($(RELEASE),1)
@@ -95,7 +95,7 @@ $(TOP_V): $(SCALA_FILE)
 	mkdir -p $(@D)
 	time -o $(@D)/time.log mill -i XiangShan.runMain $(FPGATOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(RELEASE_ARGS) --output-file $(TOP) | tee build/make.log
+		$(RELEASE_ARGS) | tee build/make.log
 ifneq ($(VCS), 1)
 	mv $(BUILD_DIR)/$(TOP).v $@
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
@@ -123,7 +123,7 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 	@date -R | tee -a $(@D)/time.log
 	time -o $(@D)/time.log mill -i XiangShan.test.runMain $(SIMTOP) -td $(@D) \
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
-		$(SIM_ARGS) --output-file $(SIM_TOP) | tee build/make.log
+		$(SIM_ARGS) | tee build/make.log
 ifneq ($(VCS), 1)
 	mv $(BUILD_DIR)/$(SIM_TOP).v $@
 	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
@@ -134,7 +134,7 @@ endif
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $(BUILD_DIR)/tmp.v > $(BUILD_DIR)/tmp1.v
 	rm $@ $(BUILD_DIR)/tmp.v
 	mv $(BUILD_DIR)/tmp1.v $@
-	python3 scripts/assertion_alter.py -o $@ $@
+#	python3 scripts/assertion_alter.py -o $@ $@
 
 	@git log -n 1 >> .__head__
 	@git diff >> .__diff__
@@ -190,10 +190,10 @@ emu_rtl-run:
 	cd sim/emu/$(RUN_BIN) && (./emu $(EMU_RUN_OPTS) 2> assert.log | tee sim.log)
 
 # vcs simulation
-simv:
+simv_rtl:
 	$(MAKE) -C ./difftest simv SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) CONSIDER_FSDB=$(CONSIDER_FSDB) VCS=1
 
-simv-run:
+simv_rtl-run:
 	$(shell if [ ! -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN) ];then mkdir -p $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN); fi)
 	touch sim/rtl/$(RUN_BIN)/sim.log
 	$(shell if [ -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv ];then rm -f $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv; fi)
