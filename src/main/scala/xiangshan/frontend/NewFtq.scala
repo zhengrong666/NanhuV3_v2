@@ -71,7 +71,7 @@ class FtqNRSRAM[T <: Data](gen: T, numRead: Int, parentName:String = "Unknown")(
     sram.io.w.req.bits.data := VecInit(io.wdata)
   }
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
+    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
   } else {
     None
   }
@@ -544,7 +544,7 @@ class Ftq(parentName:String = "Unknown")(implicit p: Parameters) extends XSModul
   ftq_meta_1r_sram.io.wdata.meta := io.fromBpu.resp.bits.last_stage_meta
 
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(3,s"${parentName}_mbistPipe")))
+    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
   } else {
     None
   }

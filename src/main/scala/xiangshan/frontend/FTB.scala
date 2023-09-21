@@ -311,7 +311,7 @@ class FTB(parentName:String = "Unknown")(implicit p: Parameters) extends BasePre
       parentName = parentName
     ))
     val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-      Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
+      Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
     } else {
       None
     }
@@ -420,6 +420,11 @@ class FTB(parentName:String = "Unknown")(implicit p: Parameters) extends BasePre
   } // FTBBank
 
   val ftbBank = Module(new FTBBank(numSets, numWays))
+  val mbistPipeline = if (coreParams.hasMbist && coreParams.hasShareBus) {
+    Some(Module(new MBISTPipeline(1, s"${parentName}_mbistPipe")))
+  } else {
+    None
+  }
 
   ftbBank.io.req_pc.valid := io.s0_fire(dupForFtb)
   ftbBank.io.req_pc.bits := s0_pc_dup(dupForFtb)

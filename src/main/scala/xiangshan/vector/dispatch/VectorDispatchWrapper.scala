@@ -101,7 +101,26 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
     dqPermu.io.enq.req(i).valid := dqPermuMask(i) && dqMemCanAccept && dqCommonCanAccept
   }
 
-  io.toVectorCommonRS <> dqCommon.io.deq
-  io.toVectorPermuRS <> dqPermu.io.deq
-  io.toMem2RS <> dqMem.io.deq
+//  io.toVectorCommonRS <> dqCommon.io.deq
+//  io.toVectorPermuRS <> dqPermu.io.deq
+//  io.toMem2RS <> dqMem.io.deq
+
+  io.toVectorCommonRS.zip(dqCommon.io.deq).foreach({ case (a, b) =>
+    a.valid := b.valid && !io.redirect.valid
+    a.bits := b.bits
+    b.ready := a.ready
+  })
+
+  io.toVectorPermuRS.zip(dqPermu.io.deq).foreach({ case (a, b) =>
+    a.valid := b.valid && !io.redirect.valid
+    a.bits := b.bits
+    b.ready := a.ready
+  })
+
+  io.toMem2RS.zip(dqMem.io.deq).foreach({ case (a, b) =>
+    a.valid := b.valid && !io.redirect.valid
+    a.bits := b.bits
+    b.ready := a.ready
+  })
+
 }

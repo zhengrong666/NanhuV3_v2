@@ -98,11 +98,6 @@ class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with H
   } else {
     None
   }
-  val mbistPipeline1 = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(4,s"${outer.parentName}_mbistPipe1")))
-  } else {
-    None
-  }
   val ptw = Module(new PtwFsm)
   val llptw = Module(new LLPTW)
   val blockmq = Module(new BlockHelper(3))

@@ -372,11 +372,6 @@ class ITTage(parentName:String = "Unknown")(implicit p: Parameters) extends Base
       t.io.req.bits.folded_hist := io.in.bits.folded_hist(dupForIttage)
       t
   }
-  val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${parentName}_mbistPipe")))
-  } else {
-    None
-  }
   override def getFoldedHistoryInfo = Some(tables.map(_.getFoldedHistoryInfo).reduce(_++_))
 
 

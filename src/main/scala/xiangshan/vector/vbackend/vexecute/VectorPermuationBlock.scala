@@ -52,6 +52,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
 
     io.rfReadPort.srf.addr := vprs.module.io.issue.bits.prs
     io.rfReadPort.srf.isFp := vprs.module.io.issue.bits.prsType === SrcType.fp
+    private val rsData = RegEnable(io.rfReadPort.srf.data, vprs.module.io.issue.bits.rsRen)
 
     private val issueDataReg = Reg(new VprsIssueBundle)
     private val issueScalarDataReg = Reg(UInt(XLEN.W))
@@ -62,7 +63,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     }
     when(allowPipe && vprs.module.io.issue.valid){
       issueDataReg := vprs.module.io.issue.bits
-      issueScalarDataReg := io.rfReadPort.srf.data
+      issueScalarDataReg := rsData
     }
     vprs.module.io.issue.ready := allowPipe
 

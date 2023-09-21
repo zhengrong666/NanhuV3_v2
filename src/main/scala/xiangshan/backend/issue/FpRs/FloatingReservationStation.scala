@@ -63,18 +63,23 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
   private val issueWidth = issue.length
   private val entriesNumPerBank = param.entriesNum / param.bankNum
 
+  private val mulNum = coreParams.exuParameters.mulNum
+
   val io = IO(new Bundle{
     val redirect = Input(Valid(new Redirect))
     val loadEarlyWakeup = Input(Vec(loadUnitNum, Valid(new EarlyWakeUpInfo)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val floatingAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
-    val fmacSpecWakeUp = Vec(fmacIssue.length, Valid(new WakeUpInfo()))
+    val mulSpecWakeUp = Input(Vec(mulNum, Valid(new WakeUpInfo())))
+    val fmacSpecWakeUp = Output(Vec(fmacIssue.length, Valid(new WakeUpInfo())))
   })
   require(outer.dispatchNode.in.length == 1)
   private val enq = outer.dispatchNode.in.map(_._1).head
 
   private val rsFmacWkp = Wire(Vec(fmacIssue.length, Valid(new WakeUpInfo)))
   io.fmacSpecWakeUp := rsFmacWkp
+
+  private val mulWkp = io.mulSpecWakeUp.map(w => Pipe(w, 2))
 
   private val wakeupSignals = VecInit(wakeup.map(_._1).map(elm =>{
     val wkp = Wire(Valid(new WakeUpInfo))
@@ -86,9 +91,9 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     wkp
   }))
   private val rsBankSeq = Seq.tabulate(param.bankNum)( _ => {
-    val mod = Module(new FloatingReservationBank(entriesNumPerBank, issueWidth, wakeup.length + fmacIssue.length, loadUnitNum))
+    val mod = Module(new FloatingReservationBank(entriesNumPerBank, issueWidth, wakeup.length + fmacIssue.length + mulWkp.length, loadUnitNum))
     mod.io.redirect := io.redirect
-    mod.io.wakeup := wakeupSignals ++ rsFmacWkp
+    mod.io.wakeup := wakeupSignals ++ rsFmacWkp ++ mulWkp
     mod.io.loadEarlyWakeup.zip(io.loadEarlyWakeup).foreach({case(a,b) =>
       val vreg = RegNext(b.valid, false.B)
       val breg = RegEnable(b.bits, b.valid)
@@ -99,11 +104,11 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     mod.io.earlyWakeUpCancel := io.earlyWakeUpCancel
     mod
   })
-  private val wakeupWidth = (wakeupSignals ++ rsFmacWkp).length
+  private val wakeupWidth = (wakeupSignals ++ rsFmacWkp ++ mulWkp).length
   private val allocateNetwork = Module(new AllocateNetwork(param.bankNum, entriesNumPerBank, Some("FloatingAllocateNetwork")))
   private val floatingBusyTable = Module(new BusyTable(NRPhyRegs, param.bankNum * 3, wakeupWidth, RenameWidth))
   floatingBusyTable.io.allocPregs := io.floatingAllocPregs
-  floatingBusyTable.io.wbPregs.zip(wakeupSignals ++ rsFmacWkp).foreach({ case (bt, wb) =>
+  floatingBusyTable.io.wbPregs.zip(wakeupSignals ++ rsFmacWkp ++ mulWkp).foreach({ case (bt, wb) =>
     bt.valid := wb.valid && wb.bits.destType === SrcType.fp
     bt.bits := wb.bits.pdest
   })
@@ -156,7 +161,7 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
-    rsBank.io.enq.valid := fromAllocate.valid
+    rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
@@ -217,6 +222,9 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
       iss._1.rsIdx.entryIdxOH := issueDriver.io.deq.bits.entryIdxOH
       iss._1.hold := false.B
       iss._1.auxValid := issueDriver.io.deq.valid
+      iss._1.specialPsrc := DontCare
+      iss._1.specialPsrcType := DontCare
+      iss._1.specialPsrcRen := false.B
       issueDriver.io.deq.ready := iss._1.issue.ready
     }
   }

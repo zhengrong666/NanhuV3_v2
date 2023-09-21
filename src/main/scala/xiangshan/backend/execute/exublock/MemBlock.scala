@@ -330,7 +330,9 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
 
   private val atomicsUnit = Module(new AtomicsUnit)
 
-  io.writebackFromMou <> atomicsUnit.io.out
+  io.writebackFromMou.valid := RegNext(atomicsUnit.io.out.valid, false.B)
+  io.writebackFromMou.bits := RegEnable(atomicsUnit.io.out.bits, atomicsUnit.io.out.valid)
+  atomicsUnit.io.out.ready := true.B
 
   private val stOut = stuWritebacks
 
@@ -530,10 +532,12 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     val bnpi = outer.lduIssueNodes(i).in.head._2._1.bankNum / exuParameters.LduCnt
     slduIssues(i).rsFeedback := DontCare
     val selSldu = slduIssues(i).auxValid
+    val slduValid = slduIssues(i).issue.valid && !slduIssues(i).issue.bits.uop.robIdx.needFlush(loadUnits(i).io.redirect)
+    val lduValid = lduIssues(i).issue.valid && !lduIssues(i).issue.bits.uop.robIdx.needFlush(loadUnits(i).io.redirect)
     loadUnits(i).io.rsIdx := Mux(selSldu, slduIssues(i).rsIdx, lduIssues(i).rsIdx)
     loadUnits(i).io.isFirstIssue := Mux(selSldu, slduIssues(i).rsFeedback.isFirstIssue, lduIssues(i).rsFeedback.isFirstIssue)
     // get input form dispatch
-    loadUnits(i).io.ldin.valid := Mux(selSldu, slduIssues(i).issue.valid, lduIssues(i).issue.valid)
+    loadUnits(i).io.ldin.valid := Mux(selSldu, slduValid, lduValid)
     loadUnits(i).io.ldin.bits := Mux(selSldu,slduIssues(i).issue.bits, lduIssues(i).issue.bits)
     loadUnits(i).io.auxValid := Mux(selSldu, slduIssues(i).auxValid, lduIssues(i).auxValid)
     slduIssues(i).issue.ready := loadUnits(i).io.ldin.ready
@@ -841,7 +845,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   io.memInfo.dcacheMSHRFull := RegNext(dcache.io.mshrFull)
 
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(4,s"${outer.parentName}_mbistPipe")))
+    Some(Module(new MBISTPipeline(2,s"${outer.parentName}_mbistPipe")))
   } else {
     None
   }
