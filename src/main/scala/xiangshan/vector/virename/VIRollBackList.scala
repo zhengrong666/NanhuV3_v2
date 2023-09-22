@@ -72,7 +72,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
   val headPtr = RegInit(RollBackListPtr(false, 0))
   val tailPtr = RegInit(RollBackListPtr(false, 0))
 
-  val entryNum = distanceBetween(tailPtr, headPtr)
+  val entryNum = distanceBetween(headPtr, tailPtr)
 
   //rename write robIdx、sRAT_old(from sRAT)、sRAT_new(from freeList)
   for((w, i) <- io.rename.zipWithIndex) { 
@@ -85,41 +85,58 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
   }
 
   //commit
-
-  val commitCandidates = Wire(Vec(8, new RollBackListEntry))
-  val commitValid = Wire(Vec(8, Bool()))
-  val walkCandidiates = Wire(Vec(8, new RollBackListEntry))
-  val walkValid = Wire(Vec(8, Bool()))
-
-  commitCandidates.zip(walkCandidiates).zipWithIndex.foreach {
-    case ((ct, wk), i) => {
-      ct := rollBackList((tailPtr + i.U).value)
-      wk := rollBackList((headPtr - i.U).value)
-    }
-  }
-
   val commitRobSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   val commitRobIdx = Mux1H(commitRobSel, io.commit.rob.robIdx)
 
-  commitValid.zip(commitCandidates).zipWithIndex.foreach {
-    case ((v, ct), i) => {
-      v := (ct.robIdx === commitRobIdx) && (entryNum > i.U) && io.commit.rob.isCommit
+  val needCommit = commitRobSel.asUInt.orR
+
+  val commitCandidates = Wire(Vec(8, new RollBackListEntry))
+  val commitValid = Wire(Vec(8, Bool()))
+  val walkCandidates = Wire(Vec(8, new RollBackListEntry))
+  val walkValid = Wire(Vec(8, Bool()))
+
+  val commitSelVec = Wire(Vec(8, UInt(VIPhyRegIdxWidth.W)))
+  val walkSelVec = Wire(Vec(8, UInt(VIPhyRegIdxWidth.W)))
+  for(((c, w), i) <- commitSelVec.zip(walkSelVec).zipWithIndex) {
+    c := (tailPtr + i.U).value
+    w := (headPtr - i.U).value
+  }
+
+  commitCandidates.zip(commitSelVec).zip(commitValid).zipWithIndex.foreach {
+    case (((e, id), v), i) => {
+      val selVec = Wire(Vec(VIPhyRegsNum, Bool()))
+      rollBackList.zip(selVec).foreach {
+        case (re, sel) => {
+          sel := (re.robIdx === commitRobIdx) && (entryNum > i.U)
+        }
+      }
+      e := Mux1H(selVec, rollBackList)
+      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
     }
   }
 
-  walkValid.zip(walkCandidiates).zipWithIndex.foreach {
-    case ((v, wk), i) => {
-      v := (wk.robIdx === commitRobIdx) && (entryNum > i.U) && io.commit.rob.isWalk
+  walkCandidates.zip(walkSelVec).zip(walkValid).zipWithIndex.foreach {
+    case (((e, id), v), i) => {
+      val selVec = Wire(Vec(VIPhyRegsNum, Bool()))
+      rollBackList.zip(selVec).foreach {
+        case (re, sel) => {
+          sel := (re.robIdx === commitRobIdx) && (entryNum > i.U)
+        }
+      }
+      e := Mux1H(selVec, rollBackList)
+      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
     }
   }
+
+  val realCommit = io.commit.rob.isCommit 
 
   headPtr := Mux(io.commit.rob.isWalk, headPtr - PopCount(walkValid), headPtr + PopCount(io.rename.map(_.valid)))
   tailPtr := Mux(io.commit.rob.isCommit, tailPtr + PopCount(commitValid), tailPtr)
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
   io.commit.rat.doWalk := io.commit.rob.isWalk
-  io.commit.rat.lrIdx := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.logicRegIdx)), VecInit(walkCandidiates.map(_.logicRegIdx)))
-  io.commit.rat.prIdxNew := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.newPhyRegIdx)), VecInit(walkCandidiates.map(_.newPhyRegIdx)))
-  io.commit.rat.prIdxOld := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.oldPhyRegIdx)), VecInit(walkCandidiates.map(_.oldPhyRegIdx)))
+  io.commit.rat.lrIdx := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.logicRegIdx)), VecInit(walkCandidates.map(_.logicRegIdx)))
+  io.commit.rat.prIdxNew := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.newPhyRegIdx)), VecInit(walkCandidates.map(_.newPhyRegIdx)))
+  io.commit.rat.prIdxOld := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.oldPhyRegIdx)), VecInit(walkCandidates.map(_.oldPhyRegIdx)))
   io.commit.rat.mask := Mux(io.commit.rob.isCommit, commitValid.asUInt, walkValid.asUInt)
 }

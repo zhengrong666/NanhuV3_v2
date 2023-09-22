@@ -28,6 +28,7 @@ import freechips.rocketchip.tilelink._
 import xiangshan.backend.execute.fu.fence.SfenceBundle
 import xiangshan.backend.execute.fu.{PMPConfig, PMPReqBundle}
 import xs.utils.Code
+import freechips.rocketchip.tile._
 
 
 abstract class TlbBundle(implicit p: Parameters) extends XSBundle with HasTlbConst
@@ -563,7 +564,7 @@ class PtwEntry(tagLen: Int, hasPerm: Boolean = false, hasLevel: Boolean = false)
     }
   }
 
-  def refill(vpn: UInt, asid: UInt, pte: UInt, level: UInt = 0.U, prefetch: Bool, valid: Bool = false.B) {
+  def refill(vpn: UInt, asid: UInt, pte: UInt, level: UInt = 0.U, prefetch: Bool, valid: Bool = false.B) = {
     require(this.asid.getWidth <= asid.getWidth) // maybe equal is better, but ugly outside
 
     tag := vpn(vpnLen - 1, vpnLen - tagLen)
@@ -601,7 +602,7 @@ class PtwEntries(num: Int, tagLen: Int, level: Int, hasPerm: Boolean)(implicit p
   val vs   = Vec(num, Bool())
   val perms = if (hasPerm) Some(Vec(num, new PtePermBundle)) else None
   val prefetch = Bool()
-  val reserved = Bool() //for mbist
+  
   // println(s"PtwEntries: tag:1*${tagLen} ppns:${num}*${ppnLen} vs:${num}*1")
   // NOTE: vs is used for different usage:
   // for l3, which store the leaf(leaves), vs is page fault or not.
@@ -644,8 +645,6 @@ class PtwEntries(num: Int, tagLen: Int, level: Int, hasPerm: Boolean)(implicit p
       ps.perms.map(_(i) := pte.perm)
     }
 
-    ps.reserved := {if(hasPerm) true.B else DontCare}
-
     ps
   }
 
@@ -664,6 +663,8 @@ class PTWEntriesWithEcc(eccCode: Code, num: Int, tagLen: Int, level: Int, hasPer
   val ecc_block = XLEN
   val ecc_info = get_ecc_info()
   val ecc = UInt(ecc_info._1.W)
+
+  val unused = if(hasPerm) Some(Bool()) else None
 
   def get_ecc_info(): (Int, Int, Int, Int) = {
     val eccBits_per = eccCode.width(ecc_block) - ecc_block
@@ -707,6 +708,9 @@ class PTWEntriesWithEcc(eccCode: Code, num: Int, tagLen: Int, level: Int, hasPer
   def gen(vpn: UInt, asid: UInt, data: UInt, levelUInt: UInt, prefetch: Bool) = {
     this.entries := entries.genEntries(vpn, asid, data, levelUInt, prefetch)
     this.encode()
+    if(hasPerm) {
+      unused.get := true.B
+    }
   }
 
 }
