@@ -104,5 +104,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     o.bits := out_v(i).bits
   })
 
-  when(remainUpdate){assert(leaving <= remain)}
+  private val assertValid = RegInit(false.B)
+  assertValid := io.in.valid
+  when(assertValid){assert(leaving <= remain)}
 }
