@@ -150,6 +150,16 @@ object huancun extends SbtModule with ScalafmtModule with CommonModule {
   override def moduleDeps = super.moduleDeps ++ Seq(rocketchip, xsutils)
 }
 
+object axi2tl extends CommonModule with SbtModule {
+
+  override def millSourcePath = os.pwd / "coupledL2" / "AXItoTL"
+
+  override def moduleDeps = super.moduleDeps ++ Seq(
+    rocketchip,
+    xsutils
+  )
+}
+
 object coupledL2 extends SbtModule with ScalafmtModule with CommonModule {
 
   override def ivyDeps = Agg(getVersion("chisel"))
@@ -159,7 +169,8 @@ object coupledL2 extends SbtModule with ScalafmtModule with CommonModule {
   override def moduleDeps = super.moduleDeps ++ Seq(
     rocketchip,
     huancun,
-    xsutils
+    xsutils,
+    axi2tl
   )
 }
 
@@ -180,7 +191,8 @@ object XiangShan extends SbtModule with ScalafmtModule with CommonModule {
     huancun,
     difftest,
     coupledL2,
-    fudian
+    fudian,
+    axi2tl
   )
 
   object test extends SbtModuleTests with TestModule.ScalaTest {

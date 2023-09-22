@@ -28,7 +28,7 @@ import freechips.rocketchip.tilelink._
 import freechips.rocketchip.jtag.JTAGIO
 import xs.utils.{DFTResetSignals, FileRegisters, ResetGen}
 import xs.utils.sram.BroadCastBundle
-import coupledL3._
+import huancun.{HCCacheParamsKey, HuanCun}
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
   with BindingScope
@@ -66,16 +66,11 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     })))
   })
 
-  // val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
-  //   LazyModule(new HuanCun("XSTop_L3_")(new Config((_, _, _) => {
-  //     case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
-  //   })))
-  // )
-  val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
-    LazyModule(new CoupledL3()(new Config((_, _, _) => {
-      case L3ParamKey => l3param
-    })))
-  )
+   val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
+     LazyModule(new HuanCun("XSTop_L3_")(new Config((_, _, _) => {
+       case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
+     })))
+   )
 
   for (i <- 0 until NumCores) {
     core_with_l2(i).clint_int_sink := misc.clint.intnode
@@ -86,17 +81,17 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     misc.core_to_l3_ports(i) :=* core_with_l2(i).memory_port
   }
 
-  // (core_with_l2.head.l2cache.get.spp_send_node, core_with_l2.last.l2cache.get.spp_send_node) match{
-  //   case(Some(l2_0),Some(l2_1))=>{
-  //     val l3pf_RecvXbar = LazyModule(new coupledL2.prefetch.PrefetchReceiverXbar(NumCores))
-  //     for (i <- 0 until NumCores) {
-  //       println(s"Connecting L2 prefecher_sender_${i} to L3!")
-  //       l3pf_RecvXbar.inNode(i) := core_with_l2(i).l2cache.get.spp_send_node.get
-  //     }
-  //     l3cacheOpt.get.pf_l3recv_node.map(l3Recv => l3Recv := l3pf_RecvXbar.outNode.head)
-  //   }
-  //   case(_,_) => None
-  // }
+  (core_with_l2.head.l2cache.get.spp_send_node, core_with_l2.last.l2cache.get.spp_send_node) match {
+    case (Some(l2_0), Some(l2_1)) => {
+      val l3pf_RecvXbar = LazyModule(new coupledL2.prefetch.PrefetchReceiverXbar(NumCores))
+      for (i <- 0 until NumCores) {
+        println(s"Connecting L2 prefecher_sender_${i} to L3!")
+        l3pf_RecvXbar.inNode(i) := core_with_l2(i).l2cache.get.spp_send_node.get
+      }
+      l3cacheOpt.get.pf_l3recv_node.map(l3Recv => l3Recv := l3pf_RecvXbar.outNode.head)
+    }
+    case (_, _) => None
+  }
 
   // val core_rst_nodes = if(l3cacheOpt.nonEmpty && l3cacheOpt.get.rst_nodes.nonEmpty){
   //   l3cacheOpt.get.rst_nodes.get
@@ -226,14 +221,13 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       None
     }
     val mbistBroadCastToL3 = if(l3cacheOpt.isDefined) {
-      // if(l3cacheOpt.get.module.dft.isDefined){
-      //   val res = Some(Wire(new BroadCastBundle))
-      //   l3cacheOpt.get.module.dft.get := res.get
-      //   res
-      // } else {
-      //   None
-      // }
-      None
+       if(l3cacheOpt.get.module.dft.isDefined){
+         val res = Some(Wire(new BroadCastBundle))
+         l3cacheOpt.get.module.dft.get := res.get
+         res
+       } else {
+         None
+       }
     } else {
       None
     }
@@ -247,7 +241,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
         mbistBroadCastToTile.get := dft.get
       }
       if(mbistBroadCastToL3.isDefined){
-        // mbistBroadCastToL3.get := dft.get
+         mbistBroadCastToL3.get := dft.get
       }
       dontTouch(dft.get)
     }
@@ -272,6 +266,7 @@ object TopMain extends App {
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
     FirtoolOption("--strip-debug-info"),
+    FirtoolOption("--lower-memories"),
     FirtoolOption("--lowering-options=noAlwaysComb, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       soc.module
