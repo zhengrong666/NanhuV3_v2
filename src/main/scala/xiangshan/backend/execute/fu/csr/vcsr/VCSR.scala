@@ -29,7 +29,12 @@ class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
   val vtype = new VCSRWithVtypeRenameIO
   val robWb = new VCSRWithRobIO
   val vstart = Output(UInt(7.W))
-  val vcsr = Output(UInt(3.W))
+  
+  //val vlenb   = Output(UInt(XLEN.W)) //is read-only
+  //val vstart  = Output(UInt(XLEN.W))
+  //val vxrm    = Output(UInt(XLEN.W))
+  //val vxsat   = Output(UInt(XLEN.W))
+  val vcsr    = Output(UInt(3.W))
 }
 
 /*
