@@ -61,14 +61,14 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   val io = IO(new Bundle{
     val rename = Vec(VIRenameWidth, new VIRatRenameIO)
     val commit      = Input(new VIRatCommitPort)
-    val debugReadPorts  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
+    val debug  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
   })
   //RAT
   val rat_ds = VecInit.tabulate(32)(i => i.U(VIPhyRegIdxWidth.W))
   val sRAT = RegInit(rat_ds)
   val aRAT = RegInit(rat_ds)
 
-  io.debugReadPorts := aRAT
+  io.debug := aRAT
 
   //read
   // for((port, i) <- io.renameReadPorts.zipWithIndex) {
