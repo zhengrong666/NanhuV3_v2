@@ -77,14 +77,14 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
     case ((in, out), i) => {
       val isMem = !in.bits.ctrl.isVector
       val isVMem = in.bits.ctrl.isVector
-      val canOut = (isMem && memCanDeqVec(i)) || (isVMem && PopCount(memCanDeqVec) === i.U)
+      val canOut = ((isMem && memCanDeqVec(i)) || (isVMem && PopCount(memCanDeqVec) === i.U)) && in.valid
       in.ready := (arbState===s_mem) && out.ready && canOut
     }
   }
 
   io.vmemIn.zip(io.toMem2RS).zipWithIndex.foreach {
     case ((in, out), i) => {
-      in.ready := (arbState===s_vmem) && out.ready
+      in.ready := (arbState===s_vmem) && out.ready && in.valid
     }
   }
 
