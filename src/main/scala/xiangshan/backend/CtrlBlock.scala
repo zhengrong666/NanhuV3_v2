@@ -99,6 +99,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     //for debug
     val debug_int_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
     val debug_fp_rat = Vec(32, Output(UInt(PhyRegIdxWidth.W)))
+    val debug_vec_rat = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
 
     val lsqVecDeqCnt = Input(new LsqVecDeqIO)
   })
@@ -151,6 +152,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //Vector
   private val vCtrlBlock = Module(new VectorCtrlBlock(vdWidth, vpdWidth, mempdWidth))
+  io.debug_vec_rat := vCtrlBlock.io.debug
+
   private val memDqArb = Module(new MemDispatchArbiter(coreParams.rsBankNum))
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 

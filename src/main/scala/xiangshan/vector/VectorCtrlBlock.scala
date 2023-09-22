@@ -70,6 +70,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val vmemDispath = Vec(memDpWidth, DecoupledIO(new MicroOp))
 
     val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
+
+    val debug = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   })
 
   val videcode    = Module(new VIDecodeUnit)
@@ -80,6 +82,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   private val redirectDelay_dup_1 = Pipe(io.redirect)
   private val redirectDelay_dup_2 = Pipe(io.redirect)
   private val redirectDelay_dup_3 = Pipe(io.redirect)
+
+  io.debug := virename.io.debug
 
   videcode.io.in <> io.in
 
