@@ -35,7 +35,7 @@ object XSLogLevel extends Enumeration {
 }
 
 object XSLog {
-  val MagicStr = "9527"
+  val MagicStr = "_LOG_MODULE_PATH_"
   def apply(debugLevel: XSLogLevel)
            (prefix: Boolean, cond: Bool, pable: Printable)(implicit p: Parameters): Any =
   {

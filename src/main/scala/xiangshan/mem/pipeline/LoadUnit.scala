@@ -776,18 +776,25 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
 
   //--------------------------------------------------------------------------------
   private val hitLoadOutValidReg = RegNext(hitLoadOut.valid, false.B)
+  val hitLoadOutValidReg_dup = Seq.fill(8)(RegNext(hitLoadOut.valid, false.B))
+
   val s3_uop = Mux(hitLoadOutValidReg,s3_loadDataFromDcache.uop,s3_loadDataFromLQ.uop)
   val s3_offset = Mux(hitLoadOutValidReg,s3_loadDataFromDcache.addrOffset,s3_loadDataFromLQ.addrOffset)
-  val s3_rdata = Mux(hitLoadOutValidReg,s3_rdataDcache,s3_rdataLQ)
+//  val s3_rdata = Mux(hitLoadOutValidReg,s3_rdataDcache,s3_rdataLQ)
+  val s3_rdata_dup = WireInit(VecInit(List.fill(8)(0.U(64.W))))
+  s3_rdata_dup.zipWithIndex.foreach({case(d,i) => {
+    d := Mux(hitLoadOutValidReg_dup(i),s3_rdataDcache,s3_rdataLQ)
+  }})
+
   val s3_sel_rdata = LookupTree(s3_offset,List(
-    "b000".U -> s3_rdata(63, 0),
-    "b001".U -> s3_rdata(63, 8),
-    "b010".U -> s3_rdata(63, 16),
-    "b011".U -> s3_rdata(63, 24),
-    "b100".U -> s3_rdata(63, 32),
-    "b101".U -> s3_rdata(63, 40),
-    "b110".U -> s3_rdata(63, 48),
-    "b111".U -> s3_rdata(63, 56)
+    "b000".U -> s3_rdata_dup(0)(63, 0),
+    "b001".U -> s3_rdata_dup(1)(63, 8),
+    "b010".U -> s3_rdata_dup(2)(63, 16),
+    "b011".U -> s3_rdata_dup(3)(63, 24),
+    "b100".U -> s3_rdata_dup(4)(63, 32),
+    "b101".U -> s3_rdata_dup(5)(63, 40),
+    "b110".U -> s3_rdata_dup(6)(63, 48),
+    "b111".U -> s3_rdata_dup(7)(63, 56)
   ))
   val s3_rdataPartialLoad = rdataHelper(s3_uop,s3_sel_rdata)
 
