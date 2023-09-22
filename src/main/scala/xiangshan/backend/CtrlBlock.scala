@@ -301,8 +301,10 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.vcsrio    <> io.vcsrToRename
 
   //pipeline between rename and dispatch
-  for (i <- 0 until RenameWidth) {
-    PipelineConnect(rename.io.out(i), dispatch.io.fromRename(i), dispatch.io.recv(i), redirectDelay.valid)
+  for (d <- 0 until RenameWidth) {
+    for (i <- 0 until RenameWidth) {
+      PipelineConnect(rename.io.out(i), dispatch.io.fromRename(d)(i), dispatch.io.recv(i), redirectDelay.valid)
+    }
   }
 
   //vector instr from scalar
@@ -351,9 +353,23 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   dispatch.io.hartId := io.hartId
   dispatch.io.redirect := redirectDelay
-  dispatch.io.toIntDq <> intDq.io.enq
-  dispatch.io.toFpDq <> fpDq.io.enq
-  dispatch.io.toLsDq <> lsDq.io.enq
+  //  dispatch.io.toIntDq <> intDq.io.enq
+  intDq.io.enq.req := dispatch.io.toIntDq.req
+  intDq.io.enq.needAlloc := dispatch.io.toIntDq.needAlloc
+//  dispatch.io.toFpDq <> fpDq.io.enq
+  fpDq.io.enq.req := dispatch.io.toFpDq.req
+  fpDq.io.enq.needAlloc := dispatch.io.toFpDq.needAlloc
+//  dispatch.io.toLsDq <> lsDq.io.enq
+  lsDq.io.enq.req := dispatch.io.toLsDq.req
+  lsDq.io.enq.needAlloc := dispatch.io.toLsDq.needAlloc
+  for (i <- 1 until DecodeWidth) {
+    dispatch.io.toIntDq.canAccept(i) := intDq.io.enq.canAccept_dup(i-1)
+    dispatch.io.toFpDq.canAccept(i) := fpDq.io.enq.canAccept_dup(i-1)
+    dispatch.io.toLsDq.canAccept(i) := lsDq.io.enq.canAccept_dup(i-1)
+  }
+  dispatch.io.toIntDq.canAccept(0) := intDq.io.enq.canAccept
+  dispatch.io.toFpDq.canAccept(0) := fpDq.io.enq.canAccept
+  dispatch.io.toLsDq.canAccept(0) := lsDq.io.enq.canAccept
   dispatch.io.allocPregs <> io.allocPregs
   dispatch.io.singleStep := RegNext(io.csrCtrl.singlestep)
   dispatch.io.enqRob <> rob.io.enq
