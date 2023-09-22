@@ -176,26 +176,14 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       core.moduleInstance.io.reset_vector:= io.riscv_rst_vec(i)
       io.riscv_halt(i) := core.moduleInstance.io.cpu_halt
     }
+    core_rst_nodes.foreach(_.out.head._1 := false.B.asAsyncReset)
 
-    // if(l3cacheOpt.isEmpty || l3cacheOpt.get.rst_nodes.isEmpty){
-    //   // tie off core soft reset
-    //   for(node <- core_rst_nodes){
-    //     node.out.head._1 := false.B.asAsyncReset()
-    //   }
-    //   if(l3cacheOpt.get.module.dfx_reset.isDefined) {
-    //     l3cacheOpt.get.module.dfx_reset.get := dfx_reset
-    //   }
-    // }
-    // if(l3cacheOpt.isEmpty || l3cacheOpt.get.rst_nodes.isEmpty){
-      // tie off core soft reset
-      for(node <- core_rst_nodes){
-        node.out.head._1 := false.B.asAsyncReset
+    if(l3cacheOpt.isDefined){
+      if(l3cacheOpt.get.module.dfx_reset.isDefined) {
+        l3cacheOpt.get.module.dfx_reset.get := dfx_reset
       }
-      // if(l3cacheOpt.get.module.dfx_reset.isDefined) {
-      //   l3cacheOpt.get.module.dfx_reset.get := dfx_reset
-      // }
-    // }
-
+    }
+    
     misc.module.debug_module_io.resetCtrl.hartIsInReset := core_with_l2.map(_.moduleInstance.ireset.asBool)
     misc.module.debug_module_io.clock := io.clock
     misc.module.debug_module_io.reset := misc.module.reset
