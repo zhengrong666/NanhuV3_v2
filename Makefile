@@ -44,8 +44,8 @@ endif
 ifeq ($(CONSIDER_FSDB),1)
 	RUN_OPTS += +dump-wave=fsdb
 endif
-RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
-# RUN_OPTS += +no-diff
+# RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
+RUN_OPTS += +no-diff
 RUN_OPTS += -fgp=num_threads:4,num_fsdb_threads:4
 RUN_OPTS += -assert finish_maxfail=30 -assert global_finish_maxfail=10000
 # co-simulation with DRAMsim3
@@ -88,16 +88,17 @@ $(TOP_V): $(SCALA_FILE)
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
 		$(RELEASE_ARGS) --target systemverilog | tee build/make.log
 ifeq ($(VCS), 1)
-	sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
+	@sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
 else
-	sed -i 's/$$fatal/xs_assert(`__LINE__)/g' $@
+	@sed -i 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
-	python3 scripts/assertion_alter.py -o $@ $@
-	sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
-	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
-	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
+	@python3 scripts/assertion_alter.py -o $@ $@
+	@sed -i 's/_LOG_MODULE_PATH_/%m/g' $@
+	@sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
+	@sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
+	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
-	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
+	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
 
 verilog: $(TOP_V)
@@ -110,16 +111,17 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 		--config $(CONFIG) --full-stacktrace --num-cores $(NUM_CORES) \
 		$(SIM_ARGS) --target systemverilog | tee build/make.log
 ifeq ($(VCS), 1)
-	sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
+	@sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
 else
-	sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
+	@sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
-	python3 scripts/assertion_alter.py -o $@ $@
-	sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
-	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
-	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
+	@python3 scripts/assertion_alter.py -o $@ $@
+	@sed -i 's/_LOG_MODULE_PATH_/%m/g' $@
+	@sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
+	@sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
+	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_bits_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
-	sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
+	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
 
 FILELIST := $(ABS_WORK_DIR)/build/cpu_flist.f
@@ -169,10 +171,10 @@ emu_rtl-run:
 	cd sim/emu/$(RUN_BIN) && (./emu $(EMU_RUN_OPTS) 2> assert.log | tee sim.log)
 
 # vcs simulation
-simv:
+simv_rtl:
 	$(MAKE) -C ./difftest simv SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) CONSIDER_FSDB=$(CONSIDER_FSDB) VCS=1
 
-simv-run:
+simv_rtl-run:
 	$(shell if [ ! -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN) ];then mkdir -p $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN); fi)
 	touch sim/rtl/$(RUN_BIN)/sim.log
 	$(shell if [ -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv ];then rm -f $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN)/simv; fi)

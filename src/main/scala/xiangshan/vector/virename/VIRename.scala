@@ -104,7 +104,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
 
   //-------------------------------------------- TODO: commit & walk --------------------------------------------
 
-  rollBackList.io.commit.rob := io.commit
+  rollBackList.io.commit.rob <> io.commit
   renameTable.io.commit := rollBackList.io.commit.rat
 
   for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
