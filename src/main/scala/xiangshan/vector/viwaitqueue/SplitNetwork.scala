@@ -95,7 +95,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid
   in_v.bits := io.in.bits
-  in_v.bits.uopNum := uopNum
+  in_v.bits.uopNum := uopNum - 1.U
 
   private val out_v = SplitUop(in_v, remainWire, io.vstart)
 
