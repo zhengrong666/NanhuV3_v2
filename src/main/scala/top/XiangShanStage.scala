@@ -40,7 +40,7 @@ class XiangShanStage extends Stage {
         Dependency[chisel3.stage.phases.MaybeAspectPhase],
         Dependency[chisel3.stage.phases.AddSerializationAnnotations],
         Dependency[chisel3.stage.phases.Convert],
-        Dependency[xsphase.CoreDedup],
+//        Dependency[xsphase.CoreDedup],
         Dependency[xsphase.Prefix],
         Dependency[chisel3.stage.phases.MaybeInjectingPhase],
         Dependency[circt.stage.phases.AddImplicitOutputFile],
