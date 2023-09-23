@@ -194,7 +194,7 @@ class PtwCache(parentName:String = "Unknown")(implicit p: Parameters) extends XS
     parentName = parentName + "l3_"
   ))
   val mbistL3Pipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistL3Pipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistL3Pipe")
   } else {
     None
   }

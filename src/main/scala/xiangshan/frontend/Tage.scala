@@ -328,7 +328,7 @@ class TageTable
     )))
 
   val mbistTablePipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}mbistTablePipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistTablePipe")
   } else {
     None
   }
