@@ -160,7 +160,7 @@ class TageBTable(parentName:String = "Unknown")(implicit p: Parameters) extends 
     parentName = parentName
   ))
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistPipe", true)
   } else {
     None
   }

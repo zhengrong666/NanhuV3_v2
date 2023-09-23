@@ -31,7 +31,6 @@ import coupledL2.{AliasField, AliasKey, DirtyField, PrefetchField}
 import xs.utils.FastArbiter
 import mem.AddPipelineReg
 import xiangshan.backend.rob.RobPtr
-import xs.utils.mbist.MBISTPipeline
 
 import scala.math.max
 

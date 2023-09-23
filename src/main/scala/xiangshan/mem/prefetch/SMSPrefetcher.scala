@@ -510,7 +510,7 @@ class PatternHistoryTable(parentName: String = "Unknown")(implicit p: Parameters
     parentName = parentName + s"ram_"
   ))
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistPipe")
   } else {
     None
   }

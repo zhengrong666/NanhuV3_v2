@@ -162,7 +162,7 @@ class PtwCache(parentName:String = "Unknown")(implicit p: Parameters) extends XS
     parentName = parentName + "l2_"
   ))
   val mbistL2Pipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistL2Pipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistL2Pipe")
   } else {
     None
   }

@@ -84,7 +84,7 @@ class SCTable(val nRows: Int, val ctrBits: Int, val histLen: Int, parentName:Str
     parentName = parentName + "table_"
   ))
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1,s"${parentName}_mbistPipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistPipe", true)
   } else {
     None
   }

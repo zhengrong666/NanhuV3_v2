@@ -416,7 +416,7 @@ class FTB(parentName:String = "Unknown")(implicit p: Parameters) extends BasePre
 
   val ftbBank = Module(new FTBBank(numSets, numWays))
   val mbistPipeline = if (coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(1, s"${parentName}_mbistPipe")))
+    MBISTPipeline.PlaceMbistPipeline(1, s"${parentName}_mbistPipe")
   } else {
     None
   }

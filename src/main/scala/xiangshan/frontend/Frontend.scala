@@ -19,7 +19,6 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-import xs.utils.mbist.MBISTPipeline
 import utils._
 import xs.utils._
 import xiangshan._

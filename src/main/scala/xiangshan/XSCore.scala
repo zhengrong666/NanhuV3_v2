@@ -208,7 +208,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   io.l2_pf_enable := csrioIn.customCtrl.l2_pf_enable
 
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(Int.MaxValue,s"MBIST_Core")))
+    MBISTPipeline.PlaceMbistPipeline(Int.MaxValue, s"MBIST_Core", true)
   } else {
     None
   }
@@ -220,15 +220,14 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   }
 
   val coreMbistIntf = if (outer.coreParams.hasMbist && outer.coreParams.hasShareBus) {
-    val params = mbistPipeline.get.bd.params
-    val node = mbistPipeline.get.node
+    val params = mbistPipeline.get.nodeParams
     val intf = Some(Module(new MBISTInterface(
       params = Seq(params),
-      ids = Seq(node.children.flatMap(_.array_id)),
+      ids = Seq(mbistPipeline.get.childrenIds),
       name = s"MBIST_intf_core",
       pipelineNum = 1
     )))
-    intf.get.toPipeline.head <> mbistPipeline.get.io.mbist.get
+    intf.get.toPipeline.head <> mbistPipeline.get.mbist
     mbistPipeline.get.genCSV(intf.get.info, "MBIST_Core")
     intf.get.mbist := DontCare
     dontTouch(intf.get.mbist)

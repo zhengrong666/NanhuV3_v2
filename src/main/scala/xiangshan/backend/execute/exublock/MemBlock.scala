@@ -845,7 +845,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   io.memInfo.dcacheMSHRFull := RegNext(dcache.io.mshrFull)
 
   val mbistPipeline = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${outer.parentName}_mbistPipe")))
+    MBISTPipeline.PlaceMbistPipeline(2, s"${outer.parentName}_mbistPipe", true)
   } else {
     None
   }

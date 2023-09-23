@@ -95,7 +95,7 @@ class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with H
   val missQueue = Module(new L2TlbMissQueue)
   val cache = Module(new PtwCache(parentName = outer.parentName + "cache_"))
   val mbistPipeline0 = if(coreParams.hasMbist && coreParams.hasShareBus) {
-    Some(Module(new MBISTPipeline(2,s"${outer.parentName}_mbistPipe0")))
+    MBISTPipeline.PlaceMbistPipeline(2, s"${outer.parentName}_mbistPipe")
   } else {
     None
   }
