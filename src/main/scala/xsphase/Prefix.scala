@@ -6,7 +6,7 @@ import firrtl.options.Phase
 import firrtl.renamemap.MutableRenameMap
 import firrtl.stage.FirrtlCircuitAnnotation
 
-object PrefixingHelper {
+object PrefixHelper {
   var prefix = "bosc_"
   def StatementsWalker(stmt:Statement):Statement = {
     stmt match {
@@ -21,12 +21,12 @@ object PrefixingHelper {
   }
 }
 
-class Prefixing extends Phase {
+class Prefix extends Phase {
   override def prerequisites: Seq[Nothing] = Seq.empty
   override def optionalPrerequisites: Seq[Nothing] = Seq.empty
   override def optionalPrerequisiteOf: Seq[Nothing] = Seq.empty
   override def invalidates(a: Phase) = false
-  private val prefix = PrefixingHelper.prefix
+  private val prefix = PrefixHelper.prefix
   private val renameMap = MutableRenameMap()
   def transform(annotations: AnnotationSeq): AnnotationSeq = {
     val prefixedAS = annotations.flatMap {
@@ -34,7 +34,7 @@ class Prefixing extends Phase {
         val mods = a.circuit.modules.map {
           case mm@Module(_, name, _, body) => {
             renameMap.record(ModuleTarget(a.circuit.main, name), ModuleTarget(prefix + a.circuit.main, prefix + name))
-            val nst = PrefixingHelper.StatementsWalker(body)
+            val nst = PrefixHelper.StatementsWalker(body)
             mm.copy(name = prefix + name, body = nst)
           }
           case em@ExtModule(_, name, _, defname, _) => {
