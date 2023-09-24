@@ -7,10 +7,18 @@ import firrtl.renamemap.MutableRenameMap
 import firrtl.stage.FirrtlCircuitAnnotation
 
 object PrefixHelper {
+  val coreNamePat = "XSTile_?[0-9]+"
   var prefix = "bosc_"
   def StatementsWalker(stmt:Statement):Statement = {
     stmt match {
-      case s: DefInstance => s.copy(module = prefix + s.module)
+      case s: DefInstance =>{
+        if(s.module.matches(coreNamePat)){
+          println(s"Rename ${s.module} calling to XSTile!")
+          s.copy(module = prefix + "XSTile")
+        } else {
+          s.copy(module = prefix + s.module)
+        }
+      }
       case s: Conditionally => s.copy(conseq = StatementsWalker(s.conseq), alt = StatementsWalker(s.alt))
       case s: Block => {
         val stmts = s.stmts.map(StatementsWalker)

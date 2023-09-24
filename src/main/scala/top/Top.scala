@@ -171,10 +171,10 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     misc.module.ext_intrs := io.extIntrs
 
     for ((core, i) <- core_with_l2.zipWithIndex) {
-      core.moduleInstance.io.hartId := i.U
-      core.moduleInstance.io.dfx_reset:= dfx_reset
-      core.moduleInstance.io.reset_vector:= io.riscv_rst_vec(i)
-      io.riscv_halt(i) := core.moduleInstance.io.cpu_halt
+      core.module.io.hartId := i.U
+      core.module.io.dfx_reset:= dfx_reset
+      core.module.io.reset_vector:= io.riscv_rst_vec(i)
+      io.riscv_halt(i) := core.module.io.cpu_halt
     }
     core_rst_nodes.foreach(_.out.head._1 := false.B.asAsyncReset)
 
@@ -184,7 +184,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       }
     }
     
-    misc.module.debug_module_io.resetCtrl.hartIsInReset := core_with_l2.map(_.moduleInstance.ireset.asBool)
+    misc.module.debug_module_io.resetCtrl.hartIsInReset := core_with_l2.map(_.module.ireset.asBool)
     misc.module.debug_module_io.clock := io.clock
     misc.module.debug_module_io.reset := misc.module.reset
 
@@ -201,9 +201,9 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
       x.version     := io.systemjtag.version
     }
 
-    val mbistBroadCastToTile = if(core_with_l2.head.moduleInstance.dft.isDefined) {
+    val mbistBroadCastToTile = if(core_with_l2.head.module.dft.isDefined) {
       val res = Some(Wire(new BroadCastBundle))
-      core_with_l2.foreach(_.moduleInstance.dft.get := res.get)
+      core_with_l2.foreach(_.module.dft.get := res.get)
       res
     } else {
       None
@@ -237,7 +237,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     withClockAndReset(io.clock.asClock, reset_sync) {
       // Modules are reset one by one
       // reset ----> SYNC --> {SoCMisc, L3 Cache, Cores}
-      val coreResetChain:Seq[Reset] = core_with_l2.map(_.moduleInstance.ireset)
+      val coreResetChain:Seq[Reset] = core_with_l2.map(_.module.ireset)
       val resetChain = Seq(misc.module.reset) ++ l3cacheOpt.map(_.module.reset) ++ coreResetChain
       val resetDftSigs = ResetGen.applyOneLevel(resetChain, reset_sync, !debugOpts.FPGAPlatform)
       resetDftSigs:= dfx_reset

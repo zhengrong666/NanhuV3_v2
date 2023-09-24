@@ -78,7 +78,7 @@ class XSTileMiscImp(outer:XSTileMisc)(implicit p: Parameters) extends LazyModule
   outer.beu.module.io.errors <> beu_errors
 }
 
-class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyHardenModule[XSTileImp]
+class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyModule
 //class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyModule
   with HasXSParameter
   with HasSoCParameter {
@@ -158,7 +158,7 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
 }
 
 @instantiable
-class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyHardenModuleImp(outer)
+class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasXSParameter
   with HasSoCParameter {
   @public val io = IO(new Bundle {

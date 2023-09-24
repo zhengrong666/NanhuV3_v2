@@ -228,7 +228,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
       pipelineNum = 1
     )))
     intf.get.toPipeline.head <> mbistPipeline.get.mbist
-    mbistPipeline.get.genCSV(intf.get.info, "MBIST_Core")
+    if(coreParams.HartId == 0) mbistPipeline.get.genCSV(intf.get.info, "MBIST_Core")
     intf.get.mbist := DontCare
     dontTouch(intf.get.mbist)
     //TODO: add mbist controller connections here
