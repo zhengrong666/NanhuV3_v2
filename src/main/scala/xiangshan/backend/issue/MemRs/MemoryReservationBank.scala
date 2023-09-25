@@ -115,10 +115,10 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
       enqEntry.psrc(2) := in.psrc(2)
       enqEntry.vm := in.vm
       enqEntry.srcType(1) := in.ctrl.srcType(1)
-      enqEntry.srcType(2) := Mux(agnostic, SrcType.default, SrcType.vec)
-      enqEntry.srcState(1) := Mux(SrcType.needWakeup(in.ctrl.srcType(1)), in.srcState(1), SrcState.rdy)
-      enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.srcState(2))
-      enqEntry.vmState := Mux(in.ctrl.vm, in.vmState, SrcState.rdy)
+      enqEntry.srcType(2) := Mux(agnostic, SrcType.vec, SrcType.default)
+      enqEntry.srcState(1) := Mux(SrcType.needWakeup(in.ctrl.srcType(1)), SrcState.rdy, in.srcState(1))
+      enqEntry.srcState(2) := Mux(!agnostic, SrcState.rdy, in.srcState(2))
+      enqEntry.vmState := Mux(in.ctrl.vm && in.vCsrInfo.vma(0), in.vmState, SrcState.rdy)
       enqEntry.staLoadState := s_ready
       enqEntry.stdState := Mux(FuType.isStore(in.ctrl.fuType), s_ready, s_issued)
     }
