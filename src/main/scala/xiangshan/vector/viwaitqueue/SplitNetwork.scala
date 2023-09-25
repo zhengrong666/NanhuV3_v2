@@ -39,14 +39,15 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
       val currentnum = in.bits.uopNum - remain + idx.U
       o.valid := io.in.valid && (idx.U < remain)
       o.bits := in.bits
-      o.bits.uopNum := in.bits.uopNum
+      o.bits.uopNum := in.bits.uopNum - 1.U
       o.bits.uopIdx := currentnum
       o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
       o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
       o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf, false.B, true.B),
         Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
+      val vlsNum = currentnum >> (4.U - sew)
       val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf,
-        Mux(in.bits.ctrl.isVLS, currentnum % elementInReg, currentnum))
+        Mux(in.bits.ctrl.isVLS, vlsNum, currentnum))
       o.bits.ctrl.lsrc(0) := in.bits.ctrl.lsrc(0) + tempnum
       o.bits.ctrl.lsrc(1) := in.bits.ctrl.lsrc(1) + tempnum
       o.bits.ctrl.lsrc(2) := in.bits.ctrl.lsrc(2) + tempnum
@@ -73,28 +74,36 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     uopnum
   }
 
-  private val remain = RegInit(0.U(log2Up(VLEN + 1).W))
+  private val remain = RegInit(0.U(log2Ceil(VLEN + 1).W))
   private val remainWire = WireInit(remain)
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
   private val uopNum = GetUopNum(io.in.bits)
 
+  // when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
+  //   remain := 0.U
+  // }.elsewhen(remain === 0.U && io.in.valid && !remainUpdate) {
+  //   remain := uopNum
+  // }.elsewhen(remain === 0.U && io.in.valid && remainUpdate) {
+  //   remain := uopNum - leaving
+  // }.elsewhen(remainUpdate) {
+  //   remain := remain - leaving
+  // }
+
   when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
     remain := 0.U
-  }.elsewhen(remain === 0.U && io.in.valid && !remainUpdate) {
-    remain := uopNum
-  }.elsewhen(remain === 0.U && io.in.valid && remainUpdate) {
+  }.elsewhen(remain === 0.U && io.in.valid) {
     remain := uopNum - leaving
   }.elsewhen(remainUpdate) {
     remain := remain - leaving
   }
 
-  // when(remain === 0.U && io.in.valid){
-  //   remainWire := uopNum
-  // }
-  remainWire := Mux(remain === 0.U && io.in.valid, uopNum, remain)
+  when(remain === 0.U && io.in.valid){
+    remainWire := uopNum
+  }
+  // remainWire := Mux(remain === 0.U && io.in.valid, uopNum, remain)
 
-  io.in.ready := (remain === 0.U) && !io.redirect.valid
+  io.in.ready := (remainWire - leaving === 0.U) && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid
