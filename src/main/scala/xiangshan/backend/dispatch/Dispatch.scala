@@ -25,7 +25,6 @@ import xiangshan.ExceptionNO._
 import xiangshan._
 import xiangshan.backend.rob.RobEnqIO
 import xiangshan.mem.mdp._
-import chisel3.ExcitingUtils
 
 // read rob and enqueue
 class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
@@ -251,12 +250,6 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
   XSPerfAccumulate("stall_cycle_int_dq", hasValidInstr && io.enqRob.canAccept && !io.toIntDq.canAccept(0) && io.toFpDq.canAccept(0) && io.toLsDq.canAccept(0))
   XSPerfAccumulate("stall_cycle_fp_dq", hasValidInstr && io.enqRob.canAccept && io.toIntDq.canAccept(0) && !io.toFpDq.canAccept(0) && io.toLsDq.canAccept(0))
   XSPerfAccumulate("stall_cycle_ls_dq", hasValidInstr && io.enqRob.canAccept && io.toIntDq.canAccept(0) && io.toFpDq.canAccept(0) && !io.toLsDq.canAccept(0))
-
-  if (env.EnableTopDown) {
-    val stall_ls_dq = hasValidInstr && io.enqRob.canAccept(0) && io.toIntDq.canAccept(0) && io.toFpDq.canAccept(0) && !io.toLsDq.canAccept(0)
-    ExcitingUtils.addSource(stall_ls_dq, "stall_ls_dq", ExcitingUtils.Perf)
-    // TODO: we may need finer counters to count responding slots more precisely, i.e. per-slot granularity.
-  }
 
   val perfEvents = Seq(
     ("dispatch_in",                 PopCount(io.fromRename(0).map(_.valid & io.fromRename(0)(0).ready))                                              ),
