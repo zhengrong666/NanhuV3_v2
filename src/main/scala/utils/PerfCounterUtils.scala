@@ -21,17 +21,16 @@ import chisel3._
 import chisel3.util._
 import xiangshan.DebugOptionsKey
 import xiangshan._
+import xs.utils.BroadCastingUtils
 
 object XSPerfAccumulate {
   def apply(perfName: String, perfCnt: UInt)(implicit p: Parameters) = {
     val env = p(DebugOptionsKey)
     if (env.EnablePerfDebug && !env.FPGAPlatform) {
-      val logTimestamp = WireInit(0.U(64.W))
       val perfClean = WireInit(false.B)
       val perfDump = WireInit(false.B)
-      ExcitingUtils.addSink(logTimestamp, "logTimestamp")
-      ExcitingUtils.addSink(perfClean, "XSPERF_CLEAN")
-      ExcitingUtils.addSink(perfDump, "XSPERF_DUMP")
+      BroadCastingUtils.AddBroadCastSink("XSPERF_CLEAN", perfClean)
+      BroadCastingUtils.AddBroadCastSink("XSPERF_DUMP", perfDump)
 
       val counter = RegInit(0.U(64.W))
       val next_counter = counter + perfCnt
@@ -61,12 +60,10 @@ object XSPerfHistogram {
   (implicit p: Parameters) = {
     val env = p(DebugOptionsKey)
     if (env.EnablePerfDebug && !env.FPGAPlatform) {
-      val logTimestamp = WireInit(0.U(64.W))
-      val perfClean = WireInit(false.B)
-      val perfDump = WireInit(false.B)
-      ExcitingUtils.addSink(logTimestamp, "logTimestamp")
-      ExcitingUtils.addSink(perfClean, "XSPERF_CLEAN")
-      ExcitingUtils.addSink(perfDump, "XSPERF_DUMP")
+      val perfClean = Wire(Bool())
+      val perfDump = Wire(Bool())
+      BroadCastingUtils.AddBroadCastSink("XSPERF_CLEAN", perfClean)
+      BroadCastingUtils.AddBroadCastSink("XSPERF_DUMP", perfDump)
 
       // drop each perfCnt value into a bin
       val nBins = (stop - start) / step
@@ -109,12 +106,10 @@ object XSPerfMax {
   def apply(perfName: String, perfCnt: UInt, enable: Bool)(implicit p: Parameters) = {
     val env = p(DebugOptionsKey)
     if (env.EnablePerfDebug && !env.FPGAPlatform) {
-      val logTimestamp = WireInit(0.U(64.W))
-      val perfClean = WireInit(false.B)
-      val perfDump = WireInit(false.B)
-      ExcitingUtils.addSink(logTimestamp, "logTimestamp")
-      ExcitingUtils.addSink(perfClean, "XSPERF_CLEAN")
-      ExcitingUtils.addSink(perfDump, "XSPERF_DUMP")
+      val perfClean = Wire(Bool())
+      val perfDump = Wire(Bool())
+      BroadCastingUtils.AddBroadCastSink("XSPERF_CLEAN", perfClean)
+      BroadCastingUtils.AddBroadCastSink("XSPERF_DUMP", perfDump)
 
       val max = RegInit(0.U(64.W))
       val next_max = Mux(enable && (perfCnt > max), perfCnt, max)

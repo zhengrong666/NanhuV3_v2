@@ -18,9 +18,10 @@ package utils
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
+import chisel3.util.experimental.BoringUtils
 import xiangshan.DebugOptionsKey
 import utils.XSLogLevel.XSLogLevel
-import xs.utils.GTimer
+import xs.utils.{BroadCastingUtils, GTimer}
 
 object XSLogLevel extends Enumeration {
   type XSLogLevel = Value
@@ -40,13 +41,14 @@ object XSLog {
            (prefix: Boolean, cond: Bool, pable: Printable)(implicit p: Parameters): Any =
   {
     val debugOpts = p(DebugOptionsKey)
-    val logEnable = WireInit(false.B)
-    val logTimestamp = WireInit(0.U(64.W))
+
     val enableDebug = debugOpts.EnableDebug && debugLevel != XSLogLevel.PERF
     val enablePerf = debugOpts.EnablePerfDebug && debugLevel == XSLogLevel.PERF
     if (!debugOpts.FPGAPlatform && (enableDebug || enablePerf || debugLevel == XSLogLevel.ERROR)) {
-      ExcitingUtils.addSink(logEnable, "DISPLAY_LOG_ENABLE")
-      ExcitingUtils.addSink(logTimestamp, "logTimestamp")
+      val logEnable = WireInit(false.B)
+      val logTimestamp = WireInit(0.U(64.W))
+      BroadCastingUtils.AddBroadCastSink("DISPLAY_LOG_ENABLE", logEnable)
+      BroadCastingUtils.AddBroadCastSink("logTimestamp", logTimestamp)
       val check_cond = (if (debugLevel == XSLogLevel.ERROR) true.B else logEnable) && cond
       when (check_cond) {
         val commonInfo = p"[$debugLevel][time=$logTimestamp] $MagicStr: "
@@ -63,7 +65,7 @@ object XSLog {
     val ret = WireInit(false.B)
     if (!debugOpts.FPGAPlatform && debugOpts.EnableDebug) {
       val logEnable = WireInit(false.B)
-      ExcitingUtils.addSink(logEnable, "DISPLAY_LOG_ENABLE")
+      BroadCastingUtils.AddBroadCastSink("DISPLAY_LOG_ENABLE", logEnable)
       ret := logEnable
     }
     ret
