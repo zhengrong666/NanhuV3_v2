@@ -56,10 +56,8 @@ case class DCacheParameters
   // we need to avoid this by recoding additional bits in L2 cache
   val setBytes = nSets * blockBytes
   val aliasBitsOpt = if(setBytes > pageSize) Some(log2Ceil(setBytes / pageSize)) else None
-  val reqFields: Seq[BundleFieldBase] = Seq(
-    PrefetchField()
-  ) ++ aliasBitsOpt.map(AliasField)
-  val echoFields: Seq[BundleFieldBase] = Nil // Seq(DirtyField())
+  val reqFields: Seq[BundleFieldBase] = Nil
+  val echoFields: Seq[BundleFieldBase] = Nil
 
   def tagCode: Code = Code.fromString(tagECC)
 

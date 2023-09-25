@@ -420,10 +420,8 @@ class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule {
     growPermissions = grow_param
   )._2
   io.mem_acquire.bits := Mux(full_overwrite, acquirePerm, acquireBlock)
-  // resolve cache alias by L2
-  io.mem_acquire.bits.user.lift(AliasKey).foreach( _ := req.vaddr(13, 12))
-  // trigger prefetch
-  io.mem_acquire.bits.user.lift(PrefetchKey).foreach(_ := Mux(io.l2_pf_store_only, req.isStore, true.B))
+  private val prefecthBit = Mux(io.l2_pf_store_only, req.isStore, true.B)
+  io.mem_acquire.bits.data := Cat(req.vaddr(13, 12), prefecthBit)
   require(nSets <= 256)
 
   io.mem_grant.ready := !w_grantlast && s_acquire
