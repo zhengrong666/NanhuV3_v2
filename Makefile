@@ -69,7 +69,7 @@ endif
 
 # emu for the release version
 RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
-DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
+DEBUG_ARGS   = --fpga-platform --enable-difftest $(ARG_PREFIX)
 
 ifeq ($(RELEASE),1)
 override SIM_ARGS += $(RELEASE_ARGS)
