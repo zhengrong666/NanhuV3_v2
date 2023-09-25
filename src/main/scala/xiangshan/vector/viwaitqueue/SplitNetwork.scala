@@ -73,29 +73,33 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     uopnum
   }
 
-  private val remain = RegInit(0.U(log2Ceil(VLEN + 1).W))
+  private val remain = RegInit(0.U(log2Up(VLEN + 1).W))
   private val remainWire = WireInit(remain)
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
   private val uopNum = GetUopNum(io.in.bits)
-  when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid){
+
+  when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
     remain := 0.U
-  }.elsewhen(remain === 0.U && io.in.valid){
+  }.elsewhen(remain === 0.U && io.in.valid && !remainUpdate) {
+    remain := uopNum
+  }.elsewhen(remain === 0.U && io.in.valid && remainUpdate) {
     remain := uopNum - leaving
   }.elsewhen(remainUpdate) {
     remain := remain - leaving
   }
 
-  when(remain === 0.U && io.in.valid){
-    remainWire := uopNum
-  }
+  // when(remain === 0.U && io.in.valid){
+  //   remainWire := uopNum
+  // }
+  remainWire := Mux(remain === 0.U && io.in.valid, uopNum, remain)
 
-  io.in.ready := ((remain - leaving) === 0.U) && !io.redirect.valid
+  io.in.ready := (remain === 0.U) && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid
   in_v.bits := io.in.bits
-  in_v.bits.uopNum := uopNum - 1.U
+  in_v.bits.uopNum := uopNum
 
   private val out_v = SplitUop(in_v, remainWire, io.vstart)
 

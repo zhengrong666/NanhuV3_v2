@@ -251,7 +251,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     io.toVCtl(i).robIdx := DontCare
     io.toVCtl(i).vcsrInfo := vtypeEnqSeq(i).info
     io.toVCtl(i).vtypeRdy := vtypeEnqSeq(i).writebacked
-    io.toVCtl(i).vtypeIdx := enqAddrEnqSeq(i).value
+    io.toVCtl(i).vtypeIdx := (enqAddrEnqSeq(i) - 1.U).value
 
     io.out(i) := uop(i)
     io.out(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value
