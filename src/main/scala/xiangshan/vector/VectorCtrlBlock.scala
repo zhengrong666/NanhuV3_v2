@@ -41,6 +41,7 @@ import xiangshan.vector.viwaitqueue._
 import xiangshan.vector.virename._
 import xiangshan.vector.dispatch._
 import xiangshan.vector.writeback._
+import xiangshan.backend.execute.fu.csr.vcsr._
 
 class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle {
   val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
@@ -58,7 +59,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val fromVtpRn = Input(Vec(RenameWidth, new VtpToVCtl))
     //from ctrl rob
     val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
-    val vtypewriteback = Flipped(ValidIO(new ExuOutput)) //to wait queue
+    val vtypewriteback = Flipped(ValidIO(new VtypeWbIO)) //to wait queue
     val mergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))) //to wait queue
     val commit = Flipped(new RobCommitIO) // to rename
     val redirect = Flipped(ValidIO(new Redirect))

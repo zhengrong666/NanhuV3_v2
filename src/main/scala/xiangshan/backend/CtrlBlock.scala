@@ -40,8 +40,7 @@ import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.execute.fu.FuOutput
-import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
-import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithRobIO
+import xiangshan.backend.execute.fu.csr.vcsr._
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -312,10 +311,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   require(RenameWidth == VIDecodeWidth)
   vCtrlBlock.io.fromVtpRn := rename.io.toVCtl
   //TODO: vtype writeback here.
-  vCtrlBlock.io.vtypewriteback.valid := io.vcsrToRename.vtypeWbToRename.valid
-  vCtrlBlock.io.vtypewriteback.bits := DontCare
-  vCtrlBlock.io.vtypewriteback.bits.uop := io.vcsrToRename.vtypeWbToRename.bits.uop
-  vCtrlBlock.io.vtypewriteback.bits.data := io.vcsrToRename.vtypeWbToRename.bits.data
+  vCtrlBlock.io.vtypewriteback := io.vcsrToRename.vtypeWbToRename
 
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
   for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {
