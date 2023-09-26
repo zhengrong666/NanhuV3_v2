@@ -27,6 +27,7 @@ import xiangshan.backend.rob.RobLsqIO
 import xiangshan.cache._
 import xiangshan.frontend.FtqPtr
 import xiangshan.ExceptionNO._
+import xs.utils.perf.HasPerfLogging
 
 class LqPtr(implicit p: Parameters) extends CircularQueuePtr[LqPtr](
   p => p(XSCoreParamsKey).LoadQueueSize
@@ -87,6 +88,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   with HasCircularQueuePtrHelper
   with HasLoadHelper
   with HasPerfEvents
+  with HasPerfLogging
 {
   val io = IO(new Bundle() {
     val enq = new LqEnqIO

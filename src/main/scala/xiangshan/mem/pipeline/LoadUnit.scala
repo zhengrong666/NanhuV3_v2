@@ -29,6 +29,7 @@ import xiangshan.backend.execute.fu.csr.SdtrigExt
 import xiangshan.backend.issue.{RSFeedback, RSFeedbackType, RsIdx}
 import xiangshan.cache._
 import xiangshan.cache.mmu.{TlbCmd, TlbReq, TlbRequestIO, TlbResp}
+import xs.utils.perf.HasPerfLogging
 
 class LoadToLsqIO(implicit p: Parameters) extends XSBundle {
   val loadIn = ValidIO(new LqWriteBundle)
@@ -60,7 +61,7 @@ class LoadUnitTriggerIO(implicit p: Parameters) extends XSBundle {
 
 // Load Pipeline Stage 0
 // Generate addr, use addr to query DCache and DTLB
-class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParameters{
+class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParameters  with HasPerfLogging{
   val io = IO(new Bundle() {
     val in = Flipped(Decoupled(new ExuInput))
     val auxValid = Input(Bool())
@@ -168,7 +169,7 @@ class LoadUnit_S0(implicit p: Parameters) extends XSModule with HasDCacheParamet
 
 // Load Pipeline Stage 1
 // TLB resp (send paddr to dcache)
-class LoadUnit_S1(implicit p: Parameters) extends XSModule {
+class LoadUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging{
   val io = IO(new Bundle() {
     val in = Flipped(Decoupled(new LsPipelineBundle))
     val s1_kill = Input(Bool())
@@ -274,7 +275,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule {
 
 // Load Pipeline Stage 2
 // DCache resp
-class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
+class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper with HasPerfLogging {
   val io = IO(new Bundle() {
     val in = Flipped(Decoupled(new LsPipelineBundle))
     val out = Decoupled(new LsPipelineBundle)
@@ -503,7 +504,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper {
   XSPerfAccumulate("replay_from_fetch_load_vio", io.out.valid && debug_ldldVioReplay)
 }
 
-class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with HasPerfEvents with SdtrigExt {
+class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with HasPerfEvents with SdtrigExt with HasPerfLogging {
   val io = IO(new Bundle() {
     val ldin = Flipped(Decoupled(new ExuInput))
     val auxValid = Input(Bool())

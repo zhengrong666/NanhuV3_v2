@@ -42,6 +42,7 @@ import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.execute.fu.FuOutput
 import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithVtypeRenameIO
 import xiangshan.backend.execute.fu.csr.vcsr.VCSRWithRobIO
+import xs.utils.perf.HasPerfLogging
 
 class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
   val rob_commits = Vec(CommitWidth, Valid(new RobCommitInfo))
@@ -60,6 +61,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   with HasVectorParameters
   with HasCircularQueuePtrHelper
   with HasPerfEvents
+  with HasPerfLogging
 {
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))

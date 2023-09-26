@@ -33,8 +33,9 @@ import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.mdp._
 import xiangshan.vector.SIRenameInfo
 import xiangshan.vector.vtyperename.{VtpToVCtl, VtypeRename}
+import xs.utils.perf.HasPerfLogging
 
-class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents {
+class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with HasPerfLogging{
   val io = IO(new Bundle() {
     val redirect = Flipped(ValidIO(new Redirect))
     val robCommits = Flipped(new RobCommitIO)

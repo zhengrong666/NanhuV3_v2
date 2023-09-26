@@ -21,10 +21,10 @@ import chisel3.stage.ChiselGeneratorAnnotation
 import chisel3._
 import device.{AXI4RAMWrapper, SimJTAG}
 import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule}
-import xs.utils.{BroadCastingUtils, FileRegisters, GTimer}
-import xiangshan.DebugOptionsKey
+import xs.utils.{FileRegisters, GTimer}
 import difftest._
 import circt.stage.FirtoolOption
+import xs.utils.perf.DebugOptionsKey
 
 class SimTop(implicit p: Parameters) extends Module {
   val debugOpts = p(DebugOptionsKey)
@@ -85,16 +85,18 @@ class SimTop(implicit p: Parameters) extends Module {
   }
 
   if (!debugOpts.FPGAPlatform && debugOpts.EnablePerfDebug) {
-    val broadCastBd = BroadCastingUtils.GenBroadCastSource()
-    broadCastBd("XSPERF_CLEAN").foreach(_ := io.perfInfo.clean)
-    broadCastBd("XSPERF_DUMP").foreach(_ := io.perfInfo.dump)
-    if(debugOpts.EnableDebug){
-      val timer = GTimer()
-      val logEnable = Wire(Bool())
-      logEnable := (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
-      broadCastBd("DISPLAY_LOG_ENABLE").foreach(_ := logEnable)
-      broadCastBd("logTimestamp").foreach(_ := timer)
-    }
+    val timer = Wire(UInt(64.W))
+    val logEnable = Wire(Bool())
+    val clean = Wire(Bool())
+    val dump = Wire(Bool())
+    timer := GTimer()
+    logEnable := (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
+    clean := io.perfInfo.clean
+    dump := io.perfInfo.dump
+    dontTouch(timer)
+    dontTouch(logEnable)
+    dontTouch(clean)
+    dontTouch(dump)
   }
 }
 

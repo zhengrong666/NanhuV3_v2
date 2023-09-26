@@ -29,6 +29,7 @@ import freechips.rocketchip.jtag.JTAGIO
 import xs.utils.{DFTResetSignals, FileRegisters, ResetGen}
 import xs.utils.sram.BroadCastBundle
 import huancun.{HCCacheParamsKey, HuanCun}
+import xs.utils.perf.DebugOptionsKey
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
   with BindingScope
@@ -69,6 +70,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
    val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
      LazyModule(new HuanCun("XSTop_L3_")(new Config((_, _, _) => {
        case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
+       case DebugOptionsKey => p(DebugOptionsKey)
      })))
    )
 

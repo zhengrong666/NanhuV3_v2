@@ -19,7 +19,6 @@ import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-
 import difftest._
 import utils._
 import xs.utils._
@@ -28,6 +27,7 @@ import xiangshan.frontend.FtqPtr
 import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
+import xs.utils.perf.HasPerfLogging
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
@@ -39,7 +39,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasXSParameter
   with HasVectorParameters
   with HasCircularQueuePtrHelper
-  with HasPerfEvents {
+  with HasPerfEvents
+  with HasPerfLogging
+  {
 
   class CSRDataEntry(implicit p: Parameters) extends Bundle {
     val fflags = UInt(5.W)

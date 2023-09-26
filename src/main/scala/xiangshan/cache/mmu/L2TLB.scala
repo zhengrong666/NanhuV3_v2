@@ -20,7 +20,6 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.experimental.ExtModule
 import chisel3.util._
-
 import xiangshan._
 import xiangshan.cache.{HasDCacheParameters, MemoryOpConstants}
 import utils._
@@ -32,6 +31,7 @@ import xiangshan.backend.execute.fu.{PMP, PMPChecker, PMPReqBundle, PMPRespBundl
 import xiangshan.backend.execute.fu.csr.HasCSRConst
 import xs.utils.{DataHoldBypass, DelayN, TimeOutAssert}
 import difftest._
+import xs.utils.perf.HasPerfLogging
 
 class PTW(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyModule with HasPtwConst {
 
@@ -46,7 +46,7 @@ class PTW(val parentName:String = "Unknown")(implicit p: Parameters) extends Laz
 }
 
 
-class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with HasCSRConst with HasPerfEvents {
+class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with HasCSRConst with HasPerfEvents with HasPerfLogging {
 
   val (mem, edge) = outer.node.out.head
 

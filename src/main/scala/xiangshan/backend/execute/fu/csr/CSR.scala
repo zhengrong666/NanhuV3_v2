@@ -18,22 +18,19 @@ package xiangshan.backend.execute.fu.csr
 
 import chisel3._
 import chisel3.util._
-
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.util._
-
 import difftest._
 import utils._
 import xs.utils.MaskedRegMap.WritableMask
 import xs.utils._
-
 import xiangshan._
 import xiangshan.ExceptionNO._
-
 import xiangshan.backend.execute.fu.{FUWithRedirect, FunctionUnit, PMAMethod, PMPEntry, PMPMethod}
 import xiangshan.backend.execute.fu.csr.vcsr._
 import xiangshan.backend.execute.fu.FuOutput
 import xiangshan.cache._
+import xs.utils.perf.HasPerfLogging
 
 // Trigger Tdata1 bundles
 trait HasTriggerConst {
@@ -119,7 +116,7 @@ class CSRFileIO(implicit p: Parameters) extends XSBundle {
 
 class CSR(implicit p: Parameters) extends FUWithRedirect
   with HasCSRConst with PMPMethod with PMAMethod
-  with HasTriggerConst  with SdtrigExt with DebugCSR {
+  with HasTriggerConst  with SdtrigExt with DebugCSR with HasPerfLogging {
 
   val csrio = IO(new CSRFileIO)
 

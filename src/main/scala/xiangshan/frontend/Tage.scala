@@ -29,6 +29,7 @@ import scala.math.min
 import scala.util.matching.Regex
 import scala.{Tuple2 => &}
 import os.followLink
+import xs.utils.perf.HasPerfLogging
 
 trait TageParams extends HasBPUConst with HasXSParameter {
   // println(BankTageTableInfos)
@@ -242,7 +243,7 @@ class TageTable
 (
   val nRows: Int, val histLen: Int, val tagLen: Int, val tableIdx: Int, parentName:String = "Unknown"
 )(implicit p: Parameters)
-  extends TageModule with HasFoldedHistory {
+  extends TageModule with HasFoldedHistory with HasPerfLogging {
   val io = IO(new Bundle() {
     val req = Flipped(DecoupledIO(new TageReq))
     val resps = Output(Vec(numBr, Valid(new TageResp)))

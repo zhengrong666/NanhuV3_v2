@@ -25,9 +25,10 @@ import xiangshan.ExceptionNO._
 import xiangshan._
 import xiangshan.backend.rob.RobEnqIO
 import xiangshan.mem.mdp._
+import xs.utils.perf.HasPerfLogging
 
 // read rob and enqueue
-class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents {
+class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with HasPerfLogging{
   val io = IO(new Bundle() {
     val hartId = Input(UInt(8.W))
     // from rename

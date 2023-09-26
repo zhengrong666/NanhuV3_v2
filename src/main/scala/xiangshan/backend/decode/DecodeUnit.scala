@@ -20,6 +20,7 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xs.utils.{LookupTree, SignExt, ZeroExt}
+import xs.utils.perf.HasPerfLogging
 import freechips.rocketchip.util.uintToBitPat
 import utils._
 import xiangshan.ExceptionNO.illegalInstr
@@ -1047,7 +1048,7 @@ class DecodeUnitIO(implicit p: Parameters) extends XSBundle {
 /**
  * Decode unit that takes in a single CtrlFlow and generates a CfCtrl.
  */
-class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstants {
+class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstants with HasPerfLogging{
   val io = IO(new DecodeUnitIO)
 
   val ctrl_flow = Wire(new CtrlFlow) // input with RVC Expanded

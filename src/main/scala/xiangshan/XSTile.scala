@@ -2,7 +2,7 @@ package xiangshan
 
 import chisel3._
 import org.chipsalliance.cde.config.{Config, Parameters}
-import chisel3.experimental.hierarchy.{Definition, instantiable, public, Instance}
+import chisel3.experimental.hierarchy.{Definition, Instance, instantiable, public}
 import chisel3.util.{Valid, ValidIO}
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.interrupts._
@@ -11,11 +11,12 @@ import freechips.rocketchip.tilelink._
 import xs.utils.tl.TLLogger
 import xs.utils.mbist.MBISTInterface
 import huancun.{HCCacheParamsKey, HuanCun}
-import coupledL2.{L2ParamKey, CoupledL2}
-import xs.utils.{ResetGen, DFTResetSignals}
+import coupledL2.{CoupledL2, L2ParamKey}
+import xs.utils.{DFTResetSignals, ResetGen}
 import system.HasSoCParameter
 import top.BusPerfMonitor
 import utils.{IntBuffer, TLClientsMerger, TLEdgeBuffer}
+import xs.utils.perf.DebugOptionsKey
 import xs.utils.sram.BroadCastBundle
 
 class L1BusErrorUnitInfo(implicit val p: Parameters) extends Bundle with HasSoCParameter {
@@ -87,6 +88,7 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
   val l2cache = coreParams.L2CacheParamsOpt.map(l2param =>
     LazyModule(new CoupledL2()(new Config((_, _, _) => {
       case L2ParamKey => l2param.copy(hartIds = Seq(p(XSCoreParamsKey).HartId))
+      case DebugOptionsKey => p(DebugOptionsKey)
     })))
   )
 

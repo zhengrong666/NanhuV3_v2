@@ -26,6 +26,7 @@ import xiangshan._
 import xiangshan.frontend.icache._
 import xiangshan.backend.CtrlToFtqIO
 import xiangshan.backend.decode.ImmUnion
+import xs.utils.perf.HasPerfLogging
 import xs.utils.sram.SRAMTemplate
 
 class FtqPtr(implicit p: Parameters) extends CircularQueuePtr[FtqPtr](
@@ -437,7 +438,7 @@ class FtqPcMemWrapper(numOtherReads: Int)(implicit p: Parameters) extends XSModu
 }
 
 class Ftq(parentName:String = "Unknown")(implicit p: Parameters) extends XSModule with HasCircularQueuePtrHelper
-  with BPUUtils with HasBPUConst with HasPerfEvents
+  with BPUUtils with HasBPUConst with HasPerfEvents with HasPerfLogging
   with HasICacheParameters{
   val io = IO(new Bundle {
     val fromBpu = Flipped(new BpuToFtqIO)

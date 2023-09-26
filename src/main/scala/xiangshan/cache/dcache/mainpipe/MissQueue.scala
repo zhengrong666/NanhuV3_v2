@@ -29,7 +29,8 @@ import freechips.rocketchip.tilelink.TLPermissions._
 import difftest._
 import coupledL2.{AliasKey, DirtyKey, PrefetchKey}
 import xs.utils.FastArbiter
-import mem.{AddPipelineReg}
+import mem.AddPipelineReg
+import xs.utils.perf.HasPerfLogging
 
 class MissReqWoStoreData(implicit p: Parameters) extends DCacheBundle {
   val source = UInt(sourceTypeWidth.W)
@@ -107,7 +108,7 @@ class MissReq(implicit p: Parameters) extends MissReqWoStoreData {
   }
 }
 
-class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule {
+class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule with HasPerfLogging {
   val io = IO(new Bundle() {
     // MSHR ID
     val id = Input(UInt(log2Up(cfg.nMissEntries).W))
@@ -532,7 +533,7 @@ class MissEntry(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule {
   XSPerfHistogram("a_to_d_penalty", a_to_d_penalty, a_to_d_penalty_sample, 20, 100, 10, true, false)
 }
 
-class MissQueue(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule with HasPerfEvents {
+class MissQueue(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule with HasPerfEvents with HasPerfLogging {
   val io = IO(new Bundle {
     val hartId = Input(UInt(8.W))
     val req = Flipped(DecoupledIO(new MissReq))
