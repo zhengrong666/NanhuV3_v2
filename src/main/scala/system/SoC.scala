@@ -112,16 +112,9 @@ trait HaveSlaveAXI4Port {
   private val error_xbar = TLXbar()
 
   l3_xbar :=
-    TLFIFOFixer() :=
-    TLWidthWidget(32) :=
     TLBuffer() :=
-    AXI4ToTL() :=
+    AXI2TL(16,16) :=
     AXI4Buffer() :=
-    AXI4UserYanker(Some(16)) :=
-    AXI4Fragmenter() :=
-    AXI4Buffer() :=
-    AXI4Buffer() :=
-    AXI4IdIndexer(4) :=
     l3FrontendAXI4Node
   errorDevice.node := l3_xbar
 
