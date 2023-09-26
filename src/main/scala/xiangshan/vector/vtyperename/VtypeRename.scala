@@ -126,17 +126,17 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   table.io.w.last.en := io.vcsr.vtypeWbToRename.valid
   table.io.w.last.data.info := DontCare
-  table.io.w.last.data.info.vma := io.vcsr.vtypeWbToRename.bits.data(7)
-  table.io.w.last.data.info.vta := io.vcsr.vtypeWbToRename.bits.data(6)
-  table.io.w.last.data.info.vsew := io.vcsr.vtypeWbToRename.bits.data(5, 3)
-  table.io.w.last.data.info.vlmul := io.vcsr.vtypeWbToRename.bits.data(2, 0)
-  table.io.w.last.data.info.vl := io.vcsr.vtypeWbToRename.bits.data(15, 8)
-  table.io.w.last.data.vill := io.vcsr.vtypeWbToRename.bits.data(XLEN - 1)
+  table.io.w.last.data.info.vma := io.vcsr.vtypeWbToRename.bits.vtype(7)
+  table.io.w.last.data.info.vta := io.vcsr.vtypeWbToRename.bits.vtype(6)
+  table.io.w.last.data.info.vsew := io.vcsr.vtypeWbToRename.bits.vtype(5, 3)
+  table.io.w.last.data.info.vlmul := io.vcsr.vtypeWbToRename.bits.vtype(2, 0)
+  table.io.w.last.data.info.vl := io.vcsr.vtypeWbToRename.bits.vl
+  table.io.w.last.data.vill := io.vcsr.vtypeWbToRename.bits.vtype(8)
   table.io.w.last.data.info.vlmax := table.io.w.last.data.info.VLMAXGen()
   table.io.w.last.data.writebacked := true.B
-  table.io.w.last.data.robIdx := io.vcsr.vtypeWbToRename.bits.uop.robIdx
-  table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.uop.vtypeRegIdx
-  table.io.w.last.data.pdest := io.vcsr.vtypeWbToRename.bits.uop.pdest
+  table.io.w.last.data.robIdx := io.vcsr.vtypeWbToRename.bits.robIdx
+  table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.vtypeRegIdx
+  table.io.w.last.data.pdest := io.vcsr.vtypeWbToRename.bits.pdest
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))
@@ -251,7 +251,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     io.toVCtl(i).robIdx := DontCare
     io.toVCtl(i).vcsrInfo := vtypeEnqSeq(i).info
     io.toVCtl(i).vtypeRdy := vtypeEnqSeq(i).writebacked
-    io.toVCtl(i).vtypeIdx := enqAddrEnqSeq(i).value
+    io.toVCtl(i).vtypeIdx := (enqAddrEnqSeq(i) - 1.U).value
 
     io.out(i) := uop(i)
     io.out(i).bits.vtypeRegIdx := enqAddrEnqSeq(i).value

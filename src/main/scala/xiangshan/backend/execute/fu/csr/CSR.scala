@@ -563,8 +563,12 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
                             io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli,
                             io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvl
                           )
-  csrio.vcsr.vtype.vtypeWbToRename.bits.data := vsetFu.io.vtypeNew
-  csrio.vcsr.vtype.vtypeWbToRename.bits.uop := io.in.bits.uop
+  csrio.vcsr.vtype.vtypeWbToRename.bits.vtype := vsetFu.io.vtypeNew
+  csrio.vcsr.vtype.vtypeWbToRename.bits.vl := vsetFu.io.vlNew
+  csrio.vcsr.vtype.vtypeWbToRename.bits.robIdx := io.in.bits.uop.robIdx
+  csrio.vcsr.vtype.vtypeWbToRename.bits.vtypeRegIdx := io.in.bits.uop.vtypeRegIdx
+  csrio.vcsr.vtype.vtypeWbToRename.bits.pdest := io.in.bits.uop.pdest
+  
   csrio.vcsr.vtype.vtypeWbToRename.valid := io.in.valid && io.in.bits.uop.ctrl.isVtype
 
   csrio.vcsr.vcsr := vcsr(2, 0)
