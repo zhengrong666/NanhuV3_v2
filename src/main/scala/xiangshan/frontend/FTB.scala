@@ -272,7 +272,7 @@ class FTB(parentName:String = "Unknown")(implicit p: Parameters) extends BasePre
 
   val ftbAddr = new TableAddr(log2Up(numSets), 1)
 
-  class FTBBank(val numSets: Int, val nWays: Int) extends XSModule with BPUUtils {
+  class FTBBank(val numSets: Int, val nWays: Int) extends XSModule with BPUUtils with HasPerfLogging {
     val io = IO(new Bundle {
       val s1_fire = Input(Bool())
 
