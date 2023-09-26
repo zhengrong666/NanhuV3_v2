@@ -44,8 +44,8 @@ endif
 ifeq ($(CONSIDER_FSDB),1)
 	RUN_OPTS += +dump-wave=fsdb
 endif
-# RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
-RUN_OPTS += +no-diff
+RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
+#RUN_OPTS += +no-diff
 RUN_OPTS += -fgp=num_threads:4,num_fsdb_threads:4
 RUN_OPTS += -assert finish_maxfail=30 -assert global_finish_maxfail=10000
 # co-simulation with DRAMsim3
