@@ -87,7 +87,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   // }
 
   for(((pi, po), bypassNum) <- io.rename.map(_.in).zip(io.rename.map(_.out)).zipWithIndex) {
-    po.pvd := sRAT(pi.bits.lvd)
+    po.pvd := pi.bits.allocIdx
     po.pvs1 := sRAT(pi.bits.lvs1)
     po.pvs2 := sRAT(pi.bits.lvs2)
     po.pmask := sRAT(0)

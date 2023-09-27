@@ -18,21 +18,25 @@
  * Date: 2023-06-19
  ****************************************************************************************/
 package xiangshan.backend.issue.MemRs
-import org.chipsalliance.cde.config.Parameters
+
 import chisel3._
-import chisel3.experimental.prefix
 import chisel3.util._
+import chisel3.experimental.prefix
+
+import org.chipsalliance.cde.config.Parameters
+import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
+
+import utils.XSPerfHistogram
+import xs.utils.LogicShiftRight
+
 import xiangshan.{ExuOutput, FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, XSCoreParamsKey}
+import xiangshan.backend.rename.BusyTable
+import xiangshan.backend.issue._
 import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.execute.fu.FuConfigs
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
-import utils.XSPerfHistogram
-import xiangshan.backend.issue._
-import xiangshan.backend.rename.BusyTable
-import xiangshan.backend.rob.RobPtr
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
+import xiangshan.backend.rob.RobPtr
 import xiangshan.mem.SqPtr
-import xs.utils.LogicShiftRight
 
 object MemRsHelper {
   def WbToWkp(in:Valid[ExuOutput], p:Parameters):Valid[WakeUpInfo] = {
