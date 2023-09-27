@@ -210,7 +210,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       difftestArchVec.clock := clock
       difftestArchVec.coreid := io.hartId
 
-      vrf.io.debug.zipWithIndex.foreach {
+      vrf.io.debug.get.zipWithIndex.foreach {
         case (rp, i) => {
           rp.addr := io.debug_vec_rat(i)
           difftestArchVec.value(i*2) := rp.data(VLEN/2-1, 0)

@@ -34,10 +34,12 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
     val readPorts = Vec(readPortNum, new VrfReadPort)
 
-    val debug = Vec(32, new Bundle {
+    val debug = if(env.EnableDifftest || env.AlwaysBasicDiff) {Some(Vec(32, new Bundle {
       val addr = Input(UInt(PhyRegIdxWidth.W))
       val data = Output(UInt(VLEN.W))
-    })
+    }))} else {
+      None
+    }
   })
 
   private val mrf = Mem(size, Vec(maskWidth, Bool()))
@@ -50,8 +52,10 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   }
 
   //difftest read
-  for(r <- io.debug) {
-    r.data := vrf(r.addr).asUInt
+  if(io.debug.isDefined){
+    io.debug.get.foreach(r => {
+      r.data := vrf(r.addr).asUInt
+    })
   }
 
   // write vector register file
