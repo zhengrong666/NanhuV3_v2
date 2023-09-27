@@ -521,7 +521,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.csr.fflags   := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
   io.csr.vxsat    := Pipe(vxsat)
-  io.csr.vstart.valid := exceptionGen.io.out.valid
+  io.csr.vstart.valid := exceptionGen.io.out.valid && entryDataRead.head.isVector
   io.csr.vstart.bits  := csrDataRead(0).vstart
 
   //************************MemBlock************************
