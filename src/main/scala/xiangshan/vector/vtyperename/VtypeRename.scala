@@ -169,6 +169,10 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   io.vcsr.vlRead.data.bits := actualVl
   io.vcsr.vtypeRead.data.valid := io.vcsr.vtypeRead.readEn
   io.vcsr.vtypeRead.data.bits := actualVtype
+  io.vcsr.vtypeRead.data.valid := io.vcsr.vtypeRead.readEn
+
+  io.vcsr.debug_vl := actualVl
+  io.vcsr.debug_vtype := actualVtype
 
   private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
     val res = Wire(new VTypeEntry())

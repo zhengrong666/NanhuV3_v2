@@ -26,6 +26,8 @@ class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val readEn = Output(Bool())
     val data = Flipped(ValidIO(UInt(XLEN.W)))
   }
+  val debug_vtype = Input(UInt(XLEN.W))
+  val debug_vl = Input(UInt(XLEN.W))
 }
 
 class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {

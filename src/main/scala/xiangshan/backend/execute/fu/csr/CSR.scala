@@ -1304,8 +1304,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     difftest.vxsat := vxsat
     difftest.vxrm := vxrm
     difftest.vcsr := vcsr
-    difftest.vtype := csrio.vcsr.vtype.vtypeRead.data.bits
-    difftest.vl := csrio.vcsr.vtype.vtypeRead.data.bits
+    difftest.vtype := csrio.vcsr.vtype.debug_vtype
+    difftest.vl := csrio.vcsr.vtype.debug_vl
     difftest.vstart := vstart
   }
 }
