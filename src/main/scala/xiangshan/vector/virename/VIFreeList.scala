@@ -55,7 +55,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   }
 
   //free list
-  val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum)(i => i.U(VIPhyRegIdxWidth.W)))
+  val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum - 32)(i => (i + 32).U(PhyRegIdxWidth.W)) ++ (Seq.tabulate(32)(i => (i).U(PhyRegIdxWidth.W))))
   val freeList = RegInit(freeList_ds)
 
   //head and tail pointer

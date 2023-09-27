@@ -126,7 +126,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   }
 
   for((rp, i) <- virename.io.rename.map(_.out).zipWithIndex) {
-    io.vAllocPregs(i).valid := rp.valid && rp.bits.ctrl.vdWen
+    io.vAllocPregs(i).valid := rp.valid && rp.bits.ctrl.vdWen && rp.bits.canRename
     io.vAllocPregs(i).bits := rp.bits.pdest
   }
 
