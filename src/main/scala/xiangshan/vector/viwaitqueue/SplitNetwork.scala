@@ -39,7 +39,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
       val currentnum = in.bits.uopNum - remain + idx.U
       o.valid := io.in.valid && (idx.U < remain)
       o.bits := in.bits
-      o.bits.uopNum := in.bits.uopNum - 1.U
+      o.bits.uopNum := in.bits.uopNum
       o.bits.uopIdx := currentnum
       o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
       o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
