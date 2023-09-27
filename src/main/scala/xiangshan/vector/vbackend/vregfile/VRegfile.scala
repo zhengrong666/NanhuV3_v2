@@ -33,9 +33,13 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val wakeups = Output(Vec(wbWkpNum, Valid(new ExuOutput)))
     val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
     val readPorts = Vec(readPortNum, new VrfReadPort)
+
+    val debug = Vec(32, new Bundle {
+      val addr = Input(UInt(PhyRegIdxWidth.W))
+      val data = Output(UInt(VLEN.W))
+    })
   })
-  
-  
+
   private val mrf = Mem(size, Vec(maskWidth, Bool()))
   private val vrf = Mem(size, Vec(maskWidth, UInt(8.W)))
   private val fullMaskVec = VecInit(Seq.fill(maskWidth)(true.B))
@@ -44,6 +48,12 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   for (r <- io.readPorts) {
     r.data := vrf(r.addr).asUInt
   }
+
+  //difftest read
+  for(r <- io.debug) {
+    r.data := vrf(r.addr).asUInt
+  }
+
   // write vector register file
   for (i <- 0 until wbWkpNum) {
     val addr = io.wbWakeup(i).bits.uop.pdest(addrBits - 1 ,0)

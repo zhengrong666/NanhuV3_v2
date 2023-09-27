@@ -535,13 +535,13 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val fakeVl = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
 
   val vcsrMapping = Map(
-    MaskedRegMap(Vlenb,   vlenb),
+    MaskedRegMap(Vlenb,   vlenb, 0.U(XLEN.W), MaskedRegMap.Unwritable),
     MaskedRegMap(Vstart,  vstart),
-    MaskedRegMap(Vxrm,    vxrm),
-    MaskedRegMap(Vxsat,   vxsat),
-    MaskedRegMap(Vcsr,    vcsr),
-    MaskedRegMap(Vtype,   fakeVtype),
-    MaskedRegMap(Vl,      fakeVl)
+    MaskedRegMap(Vxrm,    vxrm, "b11".asUInt(XLEN.W), MaskedRegMap.NoSideEffect, "b11".asUInt(XLEN.W)),
+    MaskedRegMap(Vxsat,   vxsat, 1.U(XLEN.W), MaskedRegMap.NoSideEffect, 1.U(XLEN.W)),
+    MaskedRegMap(Vcsr,    vcsr, "b111".asUInt(XLEN.W), MaskedRegMap.NoSideEffect, "b111".asUInt(XLEN.W)),
+    MaskedRegMap(Vtype,   fakeVtype, MaskedRegMap.WritableMask, MaskedRegMap.Unwritable),
+    MaskedRegMap(Vl,      fakeVl, MaskedRegMap.WritableMask, MaskedRegMap.Unwritable)
   )
 
   csrio.vcsr.vcsr := vcsr(2, 0)
@@ -1294,6 +1294,19 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     difftest.dpc := dpc
     difftest.dscratch0 := dscratch0
     difftest.dscratch1 := dscratch1
+  }
+
+  if(env.AlwaysBasicDiff || env.EnableDifftest) {
+    val difftest = DifftestModule(new DiffVecCSRState)
+    difftest.clock := clock
+    difftest.coreid := csrio.hartId
+    difftest.vlenb := vlenb
+    difftest.vxsat := vxsat
+    difftest.vxrm := vxrm
+    difftest.vcsr := vcsr
+    difftest.vtype := csrio.vcsr.vtype.vtypeRead.data.bits
+    difftest.vl := csrio.vcsr.vtype.vtypeRead.data.bits
+    difftest.vstart := vstart
   }
 }
 
