@@ -52,7 +52,6 @@ class ExceptionGen(wbNum:Int)(implicit p: Parameters) extends XSModule with HasC
     val wb = Vec(wbNum, Flipped(ValidIO(new RobExceptionInfo)))
     val out = ValidIO(new RobExceptionInfo)
     val state = ValidIO(new RobExceptionInfo)
-    val vstart = ValidIO(UInt(7.W))
   })
 
   private val currentValid = RegInit(false.B)
