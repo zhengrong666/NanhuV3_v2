@@ -33,6 +33,7 @@ class RobExceptionInfo(implicit p: Parameters) extends XSBundle {
   val singleStep = Bool() // TODO add frontend hit beneath
   val crossPageIPFFix = Bool()
   val trigger = new TriggerCf
+  val vstart = UInt(7.W)
 
   //  def trigger_before = !trigger.getTimingBackend && trigger.getHitBackend
   //  def trigger_after = trigger.getTimingBackend && trigger.getHitBackend
@@ -51,6 +52,7 @@ class ExceptionGen(wbNum:Int)(implicit p: Parameters) extends XSModule with HasC
     val wb = Vec(wbNum, Flipped(ValidIO(new RobExceptionInfo)))
     val out = ValidIO(new RobExceptionInfo)
     val state = ValidIO(new RobExceptionInfo)
+    val vstart = ValidIO(UInt(7.W))
   })
 
   private val currentValid = RegInit(false.B)
@@ -109,5 +111,4 @@ class ExceptionGen(wbNum:Int)(implicit p: Parameters) extends XSModule with HasC
   io.out.bits    := Mux(s1_out_valid, s1_out_bits, enq_bits)
   io.state.valid := currentValid
   io.state.bits  := current
-
 }

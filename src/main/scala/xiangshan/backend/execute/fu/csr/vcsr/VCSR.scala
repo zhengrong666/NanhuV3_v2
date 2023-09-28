@@ -31,32 +31,16 @@ class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
 }
 
 class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {
-  val vstartW = Flipped(ValidIO(UInt(XLEN.W)))
-  val vxsatW  = Flipped(ValidIO(UInt(XLEN.W)))
+  val vstart = Flipped(ValidIO(UInt(XLEN.W)))
+  val vxsat  = Flipped(ValidIO(UInt(XLEN.W)))
 }
 
 class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {
   val vtype = new VCSRWithVtypeRenameIO
   val robWb = new VCSRWithRobIO
   val vstart = Output(UInt(7.W))
-  
-  //val vlenb   = Output(UInt(XLEN.W)) //is read-only
-  //val vstart  = Output(UInt(XLEN.W))
-  //val vxrm    = Output(UInt(XLEN.W))
-  //val vxsat   = Output(UInt(XLEN.W))
   val vcsr    = Output(UInt(3.W))
 }
-
-/*
-  * vtype and vl stored in vtypeRenameModule, VCSR need read(CSRR) and write(vset wb) it
-  * vstart and vxsat, may writeback from ROB or CSRRW
-  * vlenb
-  * vxrm
-  * vcsr
-*/
-
-// for vsetvli, cf.imm = instr(30, 20)
-// for vsetivli, cf.imm = instr(29, 15)
 
 class VtypeStruct(implicit p: Parameters) extends XSBundle {
   val vill      = UInt(1.W)

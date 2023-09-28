@@ -45,7 +45,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   class CSRDataEntry(implicit p: Parameters) extends Bundle {
     val fflags = UInt(5.W)
-    val vstart = UInt(7.W)
     val vxsat = Bool()
   }
 
@@ -95,7 +94,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       flagBkup,
       interrupt_safe,
       entryData,
-      csrData = {fflags, vstart, vxsat}
+      csrData = {fflags, vxsat}
       -------for debug-------
       debug_microOp
       debug_exuData
@@ -464,8 +463,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   deqPtrGenModule.io.deq_isVec := commits_vec
   deqPtrVec := deqPtrGenModule.io.deqPtrVec
 
-
-
   for (i <- 0 until CommitWidth) {
     // when intrBitSetReg, allow only one instruction to commit at each clock cycle
     val isBlocked = if (i != 0) {
@@ -521,8 +518,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.csr.fflags   := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
   io.csr.vxsat    := Pipe(vxsat)
-  io.csr.vstart.valid := exceptionGen.io.out.valid && entryDataRead.head.isVector
-  io.csr.vstart.bits  := csrDataRead(0).vstart
+  io.csr.vstart.valid := io.exception.valid && io.exception.bits.uop.ctrl.isVector
+  io.csr.vstart.bits  := exceptionGen.io.state.bits.vstart
 
   //************************MemBlock************************
   // commit load/store to lsq
@@ -748,14 +745,12 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     csrDataModule.io.wen(i)           := fflags_wb(i).valid
     csrDataModule.io.waddr(i)         := fflags_wb(i).bits.uop.robIdx.value
     csrDataModule.io.wdata(i).fflags  := fflags_wb(i).bits.fflags
-    csrDataModule.io.wdata(i).vstart  := 0.U
     csrDataModule.io.wdata(i).vxsat   := 0.U
   }
   for(i <- 0 until VectorMergeWbWidth) {
     csrDataModule.io.wen(fflagsWbNums + i)           := io.wbFromMergeBuffer(i).valid
     csrDataModule.io.waddr(fflagsWbNums + i)         := io.wbFromMergeBuffer(i).bits.uop.robIdx.value
     csrDataModule.io.wdata(fflagsWbNums + i).fflags  := 0.U
-    csrDataModule.io.wdata(fflagsWbNums + i).vstart  := io.wbFromMergeBuffer(i).bits.uop.uopIdx
     csrDataModule.io.wdata(fflagsWbNums + i).vxsat   := io.wbFromMergeBuffer(i).bits.vxsat
   }
   csrDataModule.io.raddr := VecInit(deqPtrVec_next.map(_.value))
@@ -781,6 +776,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     exceptionGen.io.enq(i).bits.trigger.clear() // Don't care frontend timing and chain, backend hit and canFire
     exceptionGen.io.enq(i).bits.trigger.frontendHit := io.enq.req(i).bits.cf.trigger.frontendHit
     exceptionGen.io.enq(i).bits.trigger.frontendCanFire := io.enq.req(i).bits.cf.trigger.frontendCanFire
+    exceptionGen.io.enq(i).bits.vstart := io.enq.req(i).bits.uopIdx
   }
 
   println(s"ExceptionGen:")
@@ -796,6 +792,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendHit)))
     exc_wb.bits.trigger.backendCanFire := Mux(config.trigger.B, wb.bits.uop.cf.trigger.backendCanFire,
       0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendCanFire)))
+    exc_wb.bits.vstart := wb.bits.uop.uopIdx
     println(s"  [$i] ${config.name}: exception ${config.exceptionOut}")
   }
 
