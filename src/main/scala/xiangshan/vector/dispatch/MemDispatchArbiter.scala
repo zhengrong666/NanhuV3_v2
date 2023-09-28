@@ -85,7 +85,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
 
   io.vmemIn.zip(io.toMem2RS).zipWithIndex.foreach {
     case ((in, out), i) => {
-      in.ready := (arbState===s_vmem) && out.ready && in.valid
+      in.ready := (arbState===s_vmem) && out.ready && in.valid && (in.bits.robIdx === vRobIdx)
     }
   }
 

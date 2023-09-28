@@ -195,7 +195,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging{
   val s1_paddr_dup_dcache = io.dtlbResp.bits.paddr(1)
   val EnableMem = io.in.bits.uop.loadStoreEnable
   // af & pf exception were modified below.
-  val s1_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, lduCfg).asUInt.orR, false.B)
+  val s1_exception = Mux(EnableMem && io.in.valid, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, lduCfg).asUInt.orR, false.B)
   val s1_tlb_miss = io.dtlbResp.bits.miss
   val s1_mask = io.in.bits.mask
   val s1_bank_conflict = io.dcacheBankConflict
@@ -306,7 +306,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
     pmp.mmio := io.static_pm.bits
   }
 
-  val EnableMem = io.in.bits.uop.loadStoreEnable
+  val EnableMem = io.in.bits.uop.loadStoreEnable && io.in.valid
   val s2_is_prefetch = io.in.bits.isSoftPrefetch
 
   // exception that may cause load addr to be invalid / illegal
