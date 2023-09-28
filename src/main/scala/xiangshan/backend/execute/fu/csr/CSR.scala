@@ -1334,7 +1334,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   }
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
-    val difftest = DifftestModule(new DiffVecCSRState)
+    val difftest = DifftestModule(new DiffVecCSRState, delay = 1)
     difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.vlenb := vlenb
