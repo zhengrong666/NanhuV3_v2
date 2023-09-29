@@ -69,7 +69,6 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     entryNext.uop.vCsrInfo := io.enq.bits.uop.vCsrInfo
   }.elsewhen(vtypeWbHit) {
     entryNext.vtypeRdy := true.B
-    //TODO: fill this
     entryNext.uop.vCsrInfo := DontCare
     entryNext.uop.vCsrInfo.vma := io.vtypeWb.bits.vtype(7)
     entryNext.uop.vCsrInfo.vta := io.vtypeWb.bits.vtype(6)

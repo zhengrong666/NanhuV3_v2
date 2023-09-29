@@ -733,7 +733,7 @@ object VectorStoreDecode extends VIDecodeConstants {
 
 object VectorConfDecode extends DecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
-    VSETIVLI ->List(SrcType.DC,  SrcType.imm, SrcType.DC, FuType.csr, CSROpType.vsetivli, Y, N, N, N, N, N, SelImm.IMM_CI),
+    VSETIVLI ->List(SrcType.imm,  SrcType.imm, SrcType.DC, FuType.csr, CSROpType.vsetivli, Y, N, N, N, N, N, SelImm.IMM_CI),
     VSETVL ->List(SrcType.reg,  SrcType.reg, SrcType.DC, FuType.csr, CSROpType.vsetvl, Y, N, N, N, N, N, SelImm.X),
     VSETVLI ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.csr, CSROpType.vsetvli, Y, N, N, N, N, N, SelImm.IMM_C),
   )
@@ -982,13 +982,13 @@ case class Imm_VS() extends Imm(5) {
 }
 
 case class Imm_C() extends Imm(11) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
+  override def do_toImm32(minBits: UInt): UInt = ZeroExt(Cat(minBits, 0.U(1.W)), 32)
 
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(30, 20))
 }
 
 case class Imm_CI() extends Imm(15) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
+  override def do_toImm32(minBits: UInt): UInt = ZeroExt(Cat(minBits, 0.U(1.W)), 32)
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(29, 20), instr(19,15))
 }
 

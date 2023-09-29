@@ -458,7 +458,6 @@ class VICsrInfo(implicit p: Parameters) extends XSBundle {
   val vta = UInt(1.W)
   val vsew = UInt(3.W)
   val vlmul = UInt(3.W)
-  val oldvl = UInt(8.W)
   val vl = UInt(8.W)
   val vstart = UInt(7.W)
   val vxrm = UInt(2.W)

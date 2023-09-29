@@ -18,16 +18,13 @@ package xiangshan.backend.execute.fu.csr
 
 import chisel3._
 import chisel3.util._
-
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.util._
-
 import difftest._
 import utils._
 import xs.utils._
 import xs.utils.MaskedRegMap._
 import xs.utils.perf.HasPerfLogging
-
 import xiangshan._
 import xiangshan.ExceptionNO._
 import xiangshan.backend.execute.fu.{FUWithRedirect, FunctionUnit, PMAMethod, PMPEntry, PMPMethod}
@@ -585,20 +582,17 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
     // vcsr
   val vsetFu = Module(new VSetFu)
+  private val isSetvlWithImm = io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli |
+    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli
   vsetFu.io.src(0) := io.in.bits.src(0)
-  vsetFu.io.src(1) := io.in.bits.uop.ctrl.imm
-  vsetFu.io.rs1IsX0 := io.in.bits.uop.ctrl.lsrc(0) === 0.U
-  vsetFu.io.rdIsX0 := io.in.bits.uop.ctrl.ldest === 0.U
-  vsetFu.io.vlOld := io.in.bits.uop.vCsrInfo.oldvl
-  vsetFu.io.vsetType := Cat(io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli,
-                            io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli,
-                            io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvl
-                          )
+  vsetFu.io.src(1) := Mux(isSetvlWithImm, ZeroExt(io.in.bits.uop.ctrl.imm(15, 0), XLEN), io.in.bits.src(1))
+  vsetFu.io.vsetType := Cat(io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvl,
+    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli,
+    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli
+  )
   csrio.vcsr.vtype.vtypeWbToRename.bits.vtype := vsetFu.io.vtypeNew
   csrio.vcsr.vtype.vtypeWbToRename.bits.vl := vsetFu.io.vlNew
-  csrio.vcsr.vtype.vtypeWbToRename.bits.robIdx := io.in.bits.uop.robIdx
   csrio.vcsr.vtype.vtypeWbToRename.bits.vtypeRegIdx := io.in.bits.uop.vtypeRegIdx
-  csrio.vcsr.vtype.vtypeWbToRename.bits.pdest := io.in.bits.uop.pdest
   csrio.vcsr.vtype.vtypeWbToRename.valid := io.in.valid && io.in.bits.uop.ctrl.isVtype
   csrio.vcsr.vcsr := vcsr(2, 0)
 

@@ -66,7 +66,11 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
 
   for((entry, idx) <- table.zipWithIndex){
     val hitSeq = io.w.map(w => w.en && w.addr === idx.U)
-    val dataSeq = io.w.map(_.data)
+    val updateData = WireInit(entry)
+    updateData.info := io.w.last.data.info
+    updateData.vill := io.w.last.data.vill
+    updateData.writebacked := io.w.last.data.writebacked
+    val dataSeq = io.w.init.map(_.data) :+ updateData
     val data = Mux1H(hitSeq, dataSeq)
     val en = hitSeq.reduce(_|_)
     when(en) {
@@ -134,9 +138,9 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   table.io.w.last.data.vill := io.vcsr.vtypeWbToRename.bits.vtype(8)
   table.io.w.last.data.info.vlmax := table.io.w.last.data.info.VLMAXGen()
   table.io.w.last.data.writebacked := true.B
-  table.io.w.last.data.robIdx := io.vcsr.vtypeWbToRename.bits.robIdx
+  table.io.w.last.data.robIdx := DontCare
   table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.vtypeRegIdx
-  table.io.w.last.data.pdest := io.vcsr.vtypeWbToRename.bits.pdest
+  table.io.w.last.data.pdest := DontCare
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))
@@ -174,20 +178,15 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   io.vcsr.debug_vl := actualVl
   io.vcsr.debug_vtype := actualVtype
 
-  private def GenVType(in:MicroOp, oldvtype:VICsrInfo):VTypeEntry = {
+  private def GenVType(in:MicroOp):VTypeEntry = {
     val res = Wire(new VTypeEntry())
     res := DontCare
-    val oldvlmax = oldvtype.VLMAXGen()
-    val oldvl = oldvtype.vl
-    res.info.oldvl := oldvl
     res.info.vma := in.ctrl.imm(7)
     res.info.vta := in.ctrl.imm(6)
     res.info.vsew := in.ctrl.imm(5, 3)
     res.info.vlmul := in.ctrl.imm(2, 0)
     res.info.vlmax := res.info.VLMAXGen()
-    //TODO:---
-    //      println(s"vtype index:$i")
-    res.info.vl := in.ctrl.imm(4, 0)
+    res.info.vl := Mux(in.ctrl.imm(4, 0) < res.info.vlmax, in.ctrl.imm(4, 0), res.info.vlmax)
     res.writebacked := in.ctrl.fuOpType === CSROpType.vsetivli
     res.robIdx := in.robIdx
     res.pdest := in.pdest
@@ -195,7 +194,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   }
 
   setVlSeq.zipWithIndex.foreach({case(s, idx) =>
-    val newVType = GenVType(io.in(idx).bits, oldVType.info)
+    val newVType = GenVType(io.in(idx).bits)
     enqAddrEnqSeq(idx) := enqPtr + enqAddrDeltas(idx)
     if(idx == 0){
       vtypeEnqSeq(idx) := Mux(s, newVType, oldVType)
@@ -206,7 +205,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
 
   private val uop = WireInit(io.in)
-  private val pdestSeq = Wire(Vec(RenameWidth,UInt(5.W)))
+  private val pdestSeq = Wire(Vec(RenameWidth,UInt(PhyRegIdxWidth.W)))
   for (i <- 0 until RenameWidth) {
     if(i == 0){
       pdestSeq(i) := oldVType.pdest
