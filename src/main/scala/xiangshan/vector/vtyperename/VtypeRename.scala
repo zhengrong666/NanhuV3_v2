@@ -239,13 +239,11 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val setVlCommSeq = io.robCommits.commitValid.zip(io.robCommits.info).map({case(a, b) => a && b.vtypeWb})
   private val setVlCommitted = io.robCommits.isCommit && setVlCommSeq.reduce(_|_)
   private val commmitNum = PopCount(setVlCommSeq)
-  private val comValidRegDelay1 = RegNext(setVlCommitted, false.B)
-  private val comNumRegDelay1 = RegEnable(commmitNum, setVlCommitted)
-  private val comValidRegDelay2 = RegNext(comValidRegDelay1, false.B)
-  private val comNumRegDelay2 = RegEnable(comNumRegDelay1, comValidRegDelay1)
-  when(comValidRegDelay2){
-    deqPtr := deqPtr + comNumRegDelay2
-    flushHeadPtr := flushHeadPtr + comNumRegDelay2
+  private val comValidReg = RegNext(setVlCommitted, false.B)
+  private val comNumReg = RegEnable(commmitNum, setVlCommitted)
+  when(comValidReg){
+    deqPtr := deqPtr + comNumReg
+    flushHeadPtr := flushHeadPtr + comNumReg
   }
 
 
