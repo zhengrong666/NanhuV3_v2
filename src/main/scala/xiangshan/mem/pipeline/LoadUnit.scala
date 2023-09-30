@@ -355,7 +355,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
   io.dcache_kill := pmp.ld || pmp.mmio // move pmp resp kill to outside
   io.dcacheResp.ready := true.B
   val dcacheShouldResp = !(s2_tlb_miss || s2_exception || s2_mmio || s2_is_prefetch)
-  assert(!(io.in.valid && (dcacheShouldResp && !io.dcacheResp.valid)), "DCache response got lost")
+  assert(!(EnableMem && (dcacheShouldResp && !io.dcacheResp.valid)), "DCache response got lost")
 
   // merge forward result
   // lsq has higher priority than sbuffer
