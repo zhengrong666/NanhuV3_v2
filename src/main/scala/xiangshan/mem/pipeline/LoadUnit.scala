@@ -395,8 +395,12 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
   //   "b111".U -> rdata(63, 56)
   // ))
   // val rdataPartialLoad = rdataHelper(s2_uop, rdataSel) // s2_rdataPartialLoad is not used
+  when(EnableMem){
+    io.out.valid := io.in.valid && !s2_tlb_miss && !s2_data_invalid
+  }.otherwise {
+    io.out.valid := io.in.valid
+  }
 
-  io.out.valid := io.in.valid && !s2_tlb_miss && !s2_data_invalid
   // Inst will be canceled in store queue / lsq,
   // so we do not need to care about flush in load / store unit's out.valid
   io.out.bits := io.in.bits
