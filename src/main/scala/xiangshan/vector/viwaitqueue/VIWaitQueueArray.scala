@@ -3,7 +3,7 @@ package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
-import xiangshan.backend.execute.fu.FuOutput
+import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.backend.rob.RobPtr
 import xiangshan.{MicroOp, Redirect, XSBundle, XSModule}
 import xiangshan.vector.HasVectorParameters
@@ -76,6 +76,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     entryNext.uop.vCsrInfo.vlmul := io.vtypeWb.bits.vtype(2, 0)
     entryNext.uop.vCsrInfo.vl := io.vtypeWb.bits.vl
     entryNext.uop.vCsrInfo.vlmax := entryNext.uop.vCsrInfo.VLMAXGen()
+    entryNext.uop.cf.exceptionVec(illegalInstr) := io.vtypeWb.bits.vtype(8)
   }
 
   io.entryNext := entryNext
@@ -103,6 +104,11 @@ class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorPa
     val enqSel = io.enq.map(e => e.wen && idx.U === e.addr)
     un.io.enq.valid := enqSel.reduce(_|_)
     un.io.enq.bits := Mux1H(enqSel, io.enq.map(_.data))
+    un.io.enq.bits.uop.ctrl.fpu := DontCare
+    un.io.enq.bits.uop.cf.waitForRobIdx := DontCare
+    un.io.enq.bits.uop.cf.trigger := DontCare
+    un.io.enq.bits.uop.cf.exceptionVec.foreach(_ := DontCare)
+    un.io.enq.bits.uop.cf.exceptionVec(illegalInstr) := Mux(un.io.enq.bits.vtypeRdy, un.io.enq.bits.uop.vCsrInfo.vill, false.B)
     un.io.entry := a
     un.io.robEnq := io.robEnq
     val vmsSel = io.vmsIdAllocte.map(e => e.en && idx.U === e.addr)

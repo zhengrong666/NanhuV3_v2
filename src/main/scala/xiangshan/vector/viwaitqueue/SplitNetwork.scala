@@ -2,10 +2,7 @@ package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
-import xiangshan.backend.rob.RobPtr
-import xiangshan.{MicroOp, Redirect, Widen, XSModule}
-import xiangshan.vector.HasVectorParameters
-import xs.utils.ParallelPriorityMux
+import xiangshan.{MicroOp, Narrow, Redirect, Widen, XSModule}
 
 class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   val io = IO(new Bundle{
@@ -16,35 +13,47 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   })
   private def SplitUop(in:Valid[MicroOp], remain:UInt, vstart:UInt): Vec[Valid[MicroOp]] = {
     val res = Wire(Vec(splitNum, Valid(new MicroOp)))
-    //TODO: Fill split logics here
     val vl = in.bits.vCsrInfo.vl
     val sew = in.bits.vCsrInfo.vsew
+    val narrow = io.in.bits.ctrl.narrow === Narrow.Narrow
+    val narrowToMask = io.in.bits.ctrl.narrow === Narrow.Narrow2
     val nf = MuxCase(0.U, Seq(
-      (in.bits.ctrl.NFiled === 0.U) -> 1.U,
-      (in.bits.ctrl.NFiled === 1.U) -> 2.U,
-      (in.bits.ctrl.NFiled === 2.U) -> 3.U,
-      (in.bits.ctrl.NFiled === 3.U) -> 4.U,
-      (in.bits.ctrl.NFiled === 4.U) -> 5.U,
-      (in.bits.ctrl.NFiled === 5.U) -> 6.U,
-      (in.bits.ctrl.NFiled === 6.U) -> 7.U,
-      (in.bits.ctrl.NFiled === 7.U) -> 8.U,
+      (in.bits.ctrl.NField === 0.U) -> 1.U,
+      (in.bits.ctrl.NField === 1.U) -> 2.U,
+      (in.bits.ctrl.NField === 2.U) -> 3.U,
+      (in.bits.ctrl.NField === 3.U) -> 4.U,
+      (in.bits.ctrl.NField === 4.U) -> 5.U,
+      (in.bits.ctrl.NField === 5.U) -> 6.U,
+      (in.bits.ctrl.NField === 6.U) -> 7.U,
+      (in.bits.ctrl.NField === 7.U) -> 8.U,
     ))
-    val elementInReg = Wire(UInt(8.W))
-    val tailReg = Wire(UInt(4.W))
-    val prestartReg = Wire(UInt(4.W))
-    elementInReg := (VLEN >> 3).U >> sew
-    tailReg := vl >> (4.U - sew)
-    prestartReg := vstart >> (4.U - sew)
+    def LsShouldRename(idx:UInt):Bool = {
+      MuxCase(false.B, Seq(
+        (sew === 0.U) -> (idx(3, 0) === 0.U),
+        (sew === 1.U) -> (idx(2, 0) === 0.U),
+        (sew === 2.U) -> (idx(1, 0) === 0.U),
+        (sew === 3.U) -> idx(0).asBool,
+      ))
+    }
+
     res.zipWithIndex.foreach({case(o , idx) =>
       val currentnum = in.bits.uopNum - remain + idx.U
       o.valid := io.in.valid && (idx.U < remain)
       o.bits := in.bits
       o.bits.uopNum := in.bits.uopNum
       o.bits.uopIdx := currentnum
-      o.bits.isTail := Mux(currentnum === tailReg, true.B, false.B)
-      o.bits.isPrestart := Mux(currentnum === prestartReg && vstart =/= 0.U, true.B, false.B)
-      o.bits.canRename := Mux(o.bits.ctrl.isSeg, Mux(currentnum > nf, false.B, true.B),
-        Mux(in.bits.ctrl.isVLS, Mux(currentnum % elementInReg === 0.U, true.B, false.B), true.B))
+      o.bits.isTail := currentnum >= vl //Only VLS need this
+      o.bits.isPrestart := currentnum < vstart //Only VLS need this
+      o.bits.canRename := true.B
+      when(o.bits.ctrl.isSeg){
+        o.bits.canRename := currentnum <= in.bits.ctrl.NField
+      }.elsewhen(in.bits.ctrl.isVLS){
+        o.bits.canRename := LsShouldRename(currentnum)
+      }.elsewhen(narrow){
+        o.bits.canRename := currentnum(0).asBool
+      }.elsewhen(narrowToMask){
+        o.bits.canRename := currentnum === 0.U
+      }
       val vlsNum = currentnum >> (4.U - sew)
       val tempnum = Mux(in.bits.ctrl.isSeg, currentnum % nf,
         Mux(in.bits.ctrl.isVLS, vlsNum, currentnum))
@@ -55,7 +64,6 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     res
   }
   private def GetUopNum(in:MicroOp):UInt = {
-    //TODO: Fill uopNum gen logics here
     val uopnum = Wire(UInt(8.W))
     val sew = in.vCsrInfo.vsew
     val lmul = MuxCase(0.U, Seq(
@@ -80,16 +88,6 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
   private val uopNum = GetUopNum(io.in.bits)
 
-  // when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
-  //   remain := 0.U
-  // }.elsewhen(remain === 0.U && io.in.valid && !remainUpdate) {
-  //   remain := uopNum
-  // }.elsewhen(remain === 0.U && io.in.valid && remainUpdate) {
-  //   remain := uopNum - leaving
-  // }.elsewhen(remainUpdate) {
-  //   remain := remain - leaving
-  // }
-
   when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
     remain := 0.U
   }.elsewhen(remain === 0.U && io.in.valid) {
@@ -101,9 +99,8 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   when(remain === 0.U && io.in.valid){
     remainWire := uopNum
   }
-  // remainWire := Mux(remain === 0.U && io.in.valid, uopNum, remain)
 
-  io.in.ready := (remainWire - leaving === 0.U) && !io.redirect.valid
+  io.in.ready := (remainWire === leaving) && !io.redirect.valid
 
   private val in_v = Wire(Valid(new MicroOp))
   in_v.valid := io.in.valid

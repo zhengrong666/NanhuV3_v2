@@ -260,9 +260,9 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
       val bypassHit = bypassSel.reduce(_|_)
       when(needOldVl){
         when(bypassHit){
-          u.bits.psrc := pdest
+          u.bits.psrc(0) := pdest
         }.elsewhen(!oldVType.writebacked){
-          u.bits.psrc := oldVType.pdest
+          u.bits.psrc(0) := oldVType.pdest
         }.otherwise{
           u.bits.ctrl.imm := Cat(1.U(1.W), oldVType.info.vl, io.in(i).bits.ctrl.imm(10, 0))
         }

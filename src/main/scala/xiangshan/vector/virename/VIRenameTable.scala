@@ -37,6 +37,7 @@ class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val lvd = UInt(5.W)
     val lvs1 = UInt(5.W)
     val lvs2 = UInt(5.W)
+    val doRename = Bool()
     val allocIdx = UInt(VIPhyRegIdxWidth.W)
   }))
   val out = Output(new Bundle {
@@ -102,7 +103,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
       ).foreach {
         case(lr, pr) => {
           for(i <- 0 until bypassNum) {
-            val hit = wmasks(i) && (wlrs(i) === lr)
+            val hit = wmasks(i) && (wlrs(i) === lr && renamePorts(i).in.bits.doRename)
             when(hit) {
               pr := wprs(i)
             }

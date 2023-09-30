@@ -85,11 +85,12 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
       renameTable.io.rename(i).in.bits.lvs1 := req.bits.ctrl.lsrc(0)
       renameTable.io.rename(i).in.bits.lvs2 := req.bits.ctrl.lsrc(0)
       renameTable.io.rename(i).in.bits.allocIdx := allocPhyIdx
+      renameTable.io.rename(i).in.bits.doRename := req.bits.canRename
 
       resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvd, req.bits.pdest))
       resp.bits.psrc(0) := Mux(req.bits.ctrl.srcType(0) === SrcType.vec, renameTable.io.rename(i).out.pvs1, req.bits.psrc(0))
-      resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).out.pvs2, req.bits.psrc(1));
-      resp.bits.old_pdest := Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvd, req.bits.old_pdest);
+      resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).out.pvs2, req.bits.psrc(1))
+      resp.bits.old_pdest := Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvd, req.bits.old_pdest)
       resp.bits.vm := renameTable.io.rename(i).out.pmask
     }
   }

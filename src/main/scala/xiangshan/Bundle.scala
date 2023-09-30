@@ -155,7 +155,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val isVLS = Bool()
   val funct6 = UInt(6.W)
   val funct3 = UInt(3.W)
-  val NFiled = UInt(3.W)
+  val NField = UInt(3.W)
   val vm = Bool()
   val isSeg = Bool()
 
@@ -454,6 +454,7 @@ class MemPredUpdateReq(implicit p: Parameters) extends XSBundle  {
 
 //vector vtype
 class VICsrInfo(implicit p: Parameters) extends XSBundle {
+  val vill = Bool()
   val vma = UInt(1.W)
   val vta = UInt(1.W)
   val vsew = UInt(3.W)
