@@ -217,9 +217,9 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
           val vmVal = io.vectorReads(vecReadPortIdx + 1).data
-          val isMaskDisabled = !(bi.issue.bits.uop.ctrl.vm === 0.U && vmVal(uopIdx) =/= 0.U)
-          val isTailDisabled = bi.issue.bits.uop.isTail
-          val isPrestartDisabled = bi.issue.bits.uop.isPrestart
+          val isMaskDisabled = WireInit(!(bi.issue.bits.uop.ctrl.vm === 0.U && vmVal(uopIdx) =/= 0.U))
+          val isTailDisabled = WireInit(bi.issue.bits.uop.isTail)
+          val isPrestartDisabled = WireInit(bi.issue.bits.uop.isPrestart)
 
           //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
@@ -251,11 +251,12 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isStd){
               io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
-              exuInBundle.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx + 1).data, sew, uopIdx, VLEN, XLEN)
+              exuInBundle.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, VLEN, XLEN)
             }.elsewhen(isUnitStride){
               exuInBundle.src(0) := intRf.io.read(intRfReadIdx).data
               exuInBundle.uop.ctrl.imm := (ZeroExt(uopIdx,12) << sew)(11, 0)
             }.otherwise{
+              io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(1)
               val baseAddrReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.valid && bi.hold)
               val strideReg = RegEnable(intRf.io.read(intRfReadIdx + 1).data, bi.issue.valid && bi.hold)
               val offsetReg = RegEnable(io.vectorReads(vecReadPortIdx).data, bi.issue.valid && bi.hold)
