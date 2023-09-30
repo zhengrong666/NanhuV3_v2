@@ -134,7 +134,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   table.io.w.last.data.info.vta := io.vcsr.vtypeWbToRename.bits.vtype(6)
   table.io.w.last.data.info.vsew := io.vcsr.vtypeWbToRename.bits.vtype(5, 3)
   table.io.w.last.data.info.vlmul := io.vcsr.vtypeWbToRename.bits.vtype(2, 0)
-  table.io.w.last.data.info.vl := io.vcsr.vtypeWbToRename.bits.vl
+  table.io.w.last.data.info.vl := io.vcsr.vtypeWbToRename.bits.vl(7, 0)
   table.io.w.last.data.vill := io.vcsr.vtypeWbToRename.bits.vtype(8)
   table.io.w.last.data.info.vlmax := table.io.w.last.data.info.VLMAXGen()
   table.io.w.last.data.writebacked := true.B
@@ -178,18 +178,46 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   io.vcsr.debug_vl := actualVl
   io.vcsr.debug_vtype := actualVtype
 
+
+  /** ********************************************************************************************
+   * 1.vsetivli
+   * 2.vsetvli with src0 === x0 and dest =/= x0
+   * 3.vsetvl with src0 === x0 and dest =/= x0
+   * 4.vsetvli and vsetvl, with src0 === x0 and dest === x0, oldVl has been writebacked
+   * 5.vsetvli and vsetvl, with src0 === x0 and dest === x0, oldVl has not been writebacked
+   * 6.other vsetvl and vsetvli
+   *
+   * 1: fuOpType === vsetivli
+   * 2 and 3: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19, 11).andR
+   * 4: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19) && !(imm(18, 11).andR), avl is in imm(18, 11)
+   * 5 and 6: (fuOpType === vsetvli || fuOpType === vsetvl) && !imm(19), avl is in src0
+   *
+   * 1, 2 should bypass to waitqueue; 3, 4, 5, 6 should wait for writeback from csr.
+   * ******************************************************************************************* */
+
   private def GenVType(in:MicroOp):VTypeEntry = {
     val res = Wire(new VTypeEntry())
     res := DontCare
-    res.info.vma := in.ctrl.imm(7)
-    res.info.vta := in.ctrl.imm(6)
-    res.info.vsew := in.ctrl.imm(5, 3)
-    res.info.vlmul := in.ctrl.imm(2, 0)
-    res.info.vlmax := res.info.VLMAXGen()
-    res.info.vl := Mux(in.ctrl.imm(4, 0) < res.info.vlmax, in.ctrl.imm(4, 0), res.info.vlmax)
-    res.writebacked := in.ctrl.fuOpType === CSROpType.vsetivli
+    res.writebacked := false.B
     res.robIdx := in.robIdx
     res.pdest := in.pdest
+    when(in.ctrl.fuOpType === CSROpType.vsetivli) {
+      res.info.vma := in.ctrl.imm(12)
+      res.info.vta := in.ctrl.imm(11)
+      res.info.vsew := in.ctrl.imm(10, 8)
+      res.info.vlmul := in.ctrl.imm(7, 5)
+      res.info.vlmax := res.info.VLMAXGen()
+      res.info.vl := Mux(in.ctrl.imm(4, 0) < res.info.vlmax, in.ctrl.imm(4, 0), res.info.vlmax)
+      res.writebacked := true.B
+    }.elsewhen(in.ctrl.fuOpType === CSROpType.vsetvli && in.ctrl.lsrc(0) === 0.U && in.ctrl.ldest =/= 0.U){
+      res.info.vma := in.ctrl.imm(7)
+      res.info.vta := in.ctrl.imm(6)
+      res.info.vsew := in.ctrl.imm(5, 3)
+      res.info.vlmul := in.ctrl.imm(2, 0)
+      res.info.vlmax := res.info.VLMAXGen()
+      res.info.vl := res.info.vlmax
+      res.writebacked := true.B
+    }
     res
   }
 
@@ -205,23 +233,44 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
 
   private val uop = WireInit(io.in)
-  private val pdestSeq = Wire(Vec(RenameWidth,UInt(PhyRegIdxWidth.W)))
-  for (i <- 0 until RenameWidth) {
+  private def NeedOldVl(in:MicroOp):Bool = {
+    in.ctrl.lsrc(0) === 0.U && in.ctrl.ldest === 0.U && in.ctrl.fuOpType =/= CSROpType.vsetivli
+  }
+  private def SetToMax(in:MicroOp):Bool = {
+    in.ctrl.lsrc(0) === 0.U && in.ctrl.ldest =/= 0.U && in.ctrl.fuOpType =/= CSROpType.vsetivli
+  }
+
+  for((u, i) <- uop.zipWithIndex) {
+    val setToMax = SetToMax(u.bits)
+    val needOldVl = NeedOldVl(u.bits)
     if(i == 0){
-      pdestSeq(i) := oldVType.pdest
+      when(needOldVl){
+        when(!oldVType.writebacked){
+          u.bits.psrc(0) := oldVType.pdest
+        }.otherwise{
+          u.bits.ctrl.imm := Cat(1.U(1.W), oldVType.info.vl, io.in(i).bits.ctrl.imm(10, 0))
+        }
+      }.elsewhen(setToMax){
+        u.bits.ctrl.imm := Cat(~(0.U(9.W)), io.in(i).bits.ctrl.imm(10, 0))
+      }
     } else {
-      pdestSeq(i) := vtypeEnqSeq(i - 1).pdest
+      val bypassSel = io.needAlloc.take(i).reverse
+      val bypassPdest = io.in.take(i).map(_.bits.pdest).reverse
+      val pdest = PriorityMux(bypassSel, bypassPdest)
+      val bypassHit = bypassSel.reduce(_|_)
+      when(needOldVl){
+        when(bypassHit){
+          u.bits.psrc := pdest
+        }.elsewhen(!oldVType.writebacked){
+          u.bits.psrc := oldVType.pdest
+        }.otherwise{
+          u.bits.ctrl.imm := Cat(1.U(1.W), oldVType.info.vl, io.in(i).bits.ctrl.imm(10, 0))
+        }
+      }.elsewhen(setToMax) {
+        u.bits.ctrl.imm := Cat(~(0.U(9.W)), io.in(i).bits.ctrl.imm(10, 0))
+      }
     }
   }
-  private val setVlNeedRenameSeq = io.in.zip(realValids).map({case (i, v) =>
-    i.bits.ctrl.lsrc(0) === 0.U && i.bits.ctrl.ldest === 0.U && i.bits.ctrl.fuOpType =/= CSROpType.vsetivli && v
-  })
-  private val needRenameValids = setVlNeedRenameSeq.map(_ && io.canAccept)
-  needRenameValids.zipWithIndex.foreach({case(n, idx) =>
-    when(n) {
-      uop(idx).bits.psrc(0) := pdestSeq(idx)
-    }
-  })
 
   for((((w, addr), data), en) <- table.io.w.init.zip(enqAddrEnqSeq).zip(vtypeEnqSeq).zip(realValids)){
     w.en := en

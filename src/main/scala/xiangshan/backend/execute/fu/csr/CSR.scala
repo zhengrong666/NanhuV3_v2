@@ -582,18 +582,12 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
     // vcsr
   val vsetFu = Module(new VSetFu)
-  private val isSetvlWithImm = io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli |
-    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli
-  vsetFu.io.src(0) := io.in.bits.src(0)
-  vsetFu.io.src(1) := Mux(isSetvlWithImm, ZeroExt(io.in.bits.uop.ctrl.imm(15, 0), XLEN), io.in.bits.src(1))
-  vsetFu.io.vsetType := Cat(io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvl,
-    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetvli,
-    io.in.bits.uop.ctrl.fuOpType === CSROpType.vsetivli
-  )
+  vsetFu.io.in.valid := io.in.valid
+  vsetFu.io.in.bits := io.in.bits
   csrio.vcsr.vtype.vtypeWbToRename.bits.vtype := vsetFu.io.vtypeNew
   csrio.vcsr.vtype.vtypeWbToRename.bits.vl := vsetFu.io.vlNew
   csrio.vcsr.vtype.vtypeWbToRename.bits.vtypeRegIdx := io.in.bits.uop.vtypeRegIdx
-  csrio.vcsr.vtype.vtypeWbToRename.valid := io.in.valid && io.in.bits.uop.ctrl.isVtype
+  csrio.vcsr.vtype.vtypeWbToRename.valid := vsetFu.io.wbToCtrlValid
   csrio.vcsr.vcsr := vcsr(2, 0)
 
   when(csrio.vcsr.robWb.vstart.valid) {

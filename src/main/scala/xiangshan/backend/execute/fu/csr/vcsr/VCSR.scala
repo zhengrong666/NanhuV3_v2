@@ -5,8 +5,8 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan._
 import xiangshan.vector._
-import xiangshan.backend.execute.fu.FuOutput
-import xiangshan.backend.rob.RobPtr
+import xiangshan.backend.execute.fu.FuInput
+import xiangshan.backend.execute.fu.csr.CSROpType
 import xs.utils.ZeroExt
 
 class VtypeWbIO(implicit p: Parameters) extends VectorBaseBundle {
@@ -52,19 +52,49 @@ class VtypeStruct(implicit p: Parameters) extends XSBundle {
 
 class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   val io = IO(new Bundle {
-    val src         = Vec(2, Input(UInt(XLEN.W)))
-    val vsetType    = Input(UInt(3.W)) //one-hot, 001,010,100->vsetivli, vsetvli, vsetvl
-    val vtypeNew    = Output(UInt(XLEN.W))
-    val vlNew       = Output(UInt(XLEN.W))
+    val in            = Input(Valid(new FuInput(XLEN)))
+    val vtypeNew      = Output(UInt(XLEN.W))
+    val vlNew         = Output(UInt(XLEN.W))
+    val wbToCtrlValid = Output(Bool())
   })
+  /** ********************************************************************************************
+   * 1.vsetivli
+   * 2.vsetvli with src0 === x0 and dest =/= x0
+   * 3.vsetvl with src0 === x0 and dest =/= x0
+   * 4.vsetvli and vsetvl, with src0 === x0 and dest === x0, oldVl has been writebacked
+   * 5.vsetvli and vsetvl, with src0 === x0 and dest === x0, oldVl has not been writebacked
+   * 6.other vsetvl and vsetvli
+   *
+   * 1: fuOpType === vsetivli
+   * 2 and 3: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19, 11).andR
+   * 4: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19) && !(imm(18, 11).andR), avl is in imm(18, 11)
+   * 5 and 6: (fuOpType === vsetvli || fuOpType === vsetvl) && !imm(19), avl is in src0
+   *
+   * 1, 2 should bypass to waitqueue; 3, 4, 5, 6 should wait for writeback from csr.
+   * ******************************************************************************************* */
+  private val imm     = io.in.bits.uop.ctrl.imm
+  private val uimm    = imm(4, 0)
+  private val zimm_ii = imm(14, 5)
+  private val zimm_i  = imm(10, 0)
 
-  val (src1, src2) = (io.src(0), io.src(1))
-  val uimm    = src2(4, 0)
-  val zimm_ii = src2(14, 5)
-  val zimm_i  = src2(10, 0)
+  private val opType = io.in.bits.uop.ctrl.fuOpType
+  private val vlBits = log2Up(VLEN) + 1
 
-  val avl   = Wire(UInt((log2Up(VLEN) + 1).W))
-  avl := Mux(io.vsetType === "b001".asUInt, ZeroExt(uimm, 9), src1(8, 0))
+  private val type1 = opType === CSROpType.vsetivli
+  private val type2 = opType === CSROpType.vsetvli && io.in.bits.uop.ctrl.imm(19, 11).andR
+  private val type3 = opType === CSROpType.vsetvl && io.in.bits.uop.ctrl.imm(19, 11).andR
+  private val type4 = (opType === CSROpType.vsetvl || opType === CSROpType.vsetvli) && imm(19).asBool && !(imm(18, 11).andR)
+  private val type56 = (opType === CSROpType.vsetvl || opType === CSROpType.vsetvli) && !imm(19).asBool
+
+  private val avl = Wire(UInt(XLEN.W))
+
+  when(type1){
+    avl := ZeroExt(uimm, XLEN)
+  }.elsewhen(type4){
+    avl := ZeroExt(io.in.bits.uop.ctrl.imm(vlBits + 10, 11), XLEN)
+  }.otherwise{
+    avl := io.in.bits.src(0)
+  }
 
   private def GenVtype(in:UInt):VtypeStruct = {
     val res = Wire(new VtypeStruct)
@@ -78,9 +108,12 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   }
   private val iiVtype = GenVtype(zimm_ii)
   private val riVtype = GenVtype(zimm_i)
-  private val rrVtype = GenVtype(src2)
-
-  private val vtype = Mux1H(io.vsetType, Seq(iiVtype, riVtype, rrVtype))
+  private val rrVtype = GenVtype(io.in.bits.src(1))
+  private val vtype = MuxCase(0.U.asTypeOf(new VtypeStruct), Seq(
+    (opType === CSROpType.vsetivli) -> iiVtype,
+    (opType === CSROpType.vsetvli) -> riVtype,
+    (opType === CSROpType.vsetvl) -> rrVtype
+  ))
 
   private val vlmul = vtype.vlmul
   private val vsew  = vtype.vsew
@@ -96,15 +129,16 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
     (vlmul === 6.U) -> ((vlenBytes / 4).U >> vsew),
     (vlmul === 7.U) -> ((vlenBytes / 2).U >> vsew)
   ))
-  private val vl = Wire(UInt(log2Ceil(vlenBytes * 8 + 1).W))
+  private val vl = Wire(UInt(log2Ceil(VLEN + 1).W))
   when(vtype.vill){
     vl := 0.U
-  }.elsewhen(avl < vlmax){
-    vl := avl
-  }.otherwise{
+  }.elsewhen(type2 || type3 || avl > vlmax){
     vl := vlmax
+  }.otherwise{
+    vl := avl
   }
-
+  private val wbToCtrlCond = type3 || type4 || type56
+  io.wbToCtrlValid := io.in.valid && wbToCtrlCond
   io.vtypeNew := Cat(vtype.vill, vtype.vma, vtype.vta, vtype.vsew, vtype.vlmul)
   io.vlNew := vl
 }
