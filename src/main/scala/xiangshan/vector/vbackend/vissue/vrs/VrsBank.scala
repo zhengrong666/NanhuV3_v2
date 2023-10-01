@@ -28,17 +28,24 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
   private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, issueWidth, "VrsPayloadArray"))
 
   private def EnqToEntry(in: MicroOp): VrsStatusArrayEntry = {
-    val agnostic = (in.vCsrInfo.vta(0) && in.isTail.orR) || (in.vCsrInfo.vma(0) && in.ctrl.vm)
+    val dontCareDest = in.vCsrInfo.vta(0) && ((in.vCsrInfo.vma(0) && in.ctrl.vm) || !in.ctrl.vm)
     val enqEntry = Wire(new VrsStatusArrayEntry)
     enqEntry.psrc.take(2).zip(in.psrc.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcType.take(2).zip(in.ctrl.srcType.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcState.take(2).zip(in.srcState.take(2)).zip(in.ctrl.srcType.take(2)).foreach(elm =>
       elm._1._1 := Mux(SrcType.needWakeup(elm._2), elm._1._2, SrcState.rdy)
     )
-
     enqEntry.psrc(2) := in.psrc(2)
-    enqEntry.srcType(2) := in.ctrl.srcType(2)
-    enqEntry.srcState(2) := Mux(agnostic, SrcState.rdy, in.ctrl.srcType(2))
+    when(SrcType.needWakeup(in.ctrl.srcType(2))){
+      enqEntry.srcType(2) := in.ctrl.srcType(2)
+      enqEntry.srcState(2) := in.srcState(2)
+    }.elsewhen(in.ctrl.vdWen){
+      enqEntry.srcType(2) := SrcType.vec
+      enqEntry.srcState(2) := Mux(dontCareDest, SrcState.rdy, in.srcState(2))
+    }.otherwise{
+      enqEntry.srcType(2) := SrcType.DC
+      enqEntry.srcState(2) := SrcState.rdy
+    }
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec
