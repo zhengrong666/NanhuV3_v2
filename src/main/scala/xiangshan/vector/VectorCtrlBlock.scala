@@ -98,9 +98,9 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
     waitqueue.io.enq.req(i).bits.uop.old_pdest := io.fromVtpRn(i).old_pdest
-    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := io.fromVtpRn(i).vcsrInfo
+    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := Mux(videcode.io.out(i).bits.ctrl.isVmvnr, videcode.io.out(i).bits.vCsrInfo, io.fromVtpRn(i).vcsrInfo)
     waitqueue.io.enq.req(i).bits.uop.robIdx := io.fromVtpRn(i).robIdx
-    waitqueue.io.enq.req(i).bits.vtypeRdy := io.fromVtpRn(i).vtypeRdy
+    waitqueue.io.enq.req(i).bits.vtypeRdy := io.fromVtpRn(i).vtypeRdy || videcode.io.out(i).bits.ctrl.isVmvnr
     waitqueue.io.enq.req(i).bits.uop.vtypeRegIdx := io.fromVtpRn(i).vtypeIdx
   }
 
