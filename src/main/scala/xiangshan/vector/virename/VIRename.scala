@@ -100,12 +100,8 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   }
   private def getPvm(robIdx:RobPtr, uopIdx:UInt, fromRat:UInt):UInt = {
     val pvm = Wire(UInt(PhyRegIdxWidth.W))
-    when(uopIdx === 0.U){
-      pvm := fromRat
-    }.otherwise{
-      val sel = (vmMemValidsNext ++ vmMemValids).zip(vmMemNext ++ vmMem).map(e => e._1 && e._2.robIdx === robIdx)
-      pvm := Mux1H(sel, (vmMemNext ++ vmMem).map(_.pvm))
-    }
+    val sel = (vmMemValidsNext ++ vmMemValids).zip(vmMemNext ++ vmMem).map(e => e._1 && e._2.robIdx === robIdx)
+    pvm := Mux1H(sel, (vmMemNext ++ vmMem).map(_.pvm))
     pvm
   }
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
