@@ -721,7 +721,7 @@ class VIDecodeUnit(implicit p: Parameters) extends VectorBaseModule with DecodeU
     cs.funct6 := io.in(i).bits.cf.instr(F6_MSB, F6_LSB)
     cs.funct3 := io.in(i).bits.cf.instr(F3_MSB, F3_LSB)
     cs.NField := io.in(i).bits.cf.instr(NF_MSB, NF_LSB)
-    cs.vm := io.in(i).bits.cf.instr(VM_LSB)
+    cs.vm := !io.in(i).bits.cf.instr(VM_LSB)
 
     when(cs.selImm =/= SelImm.X){
       cs.imm := io.in(i).bits.cf.instr(VS1_MSB, VS1_LSB)
