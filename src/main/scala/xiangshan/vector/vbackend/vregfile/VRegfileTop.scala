@@ -24,7 +24,7 @@ object VRegfileTopUtil{
   def GenWbMask(in:MicroOp, width:Int, elementWise:Boolean, VLEN:Int): UInt = {
     val res = VecInit(Seq.fill(width)(false.B))
     val sew = in.vCsrInfo.vsew
-    val w = width - 1
+    val w = in.uopIdx.getWidth - 1
     val ui = if(elementWise) {
       MuxCase(0.U(3.W), Seq(
         (sew === 0.U) -> ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 8)), 3),
