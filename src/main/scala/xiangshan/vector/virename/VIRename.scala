@@ -25,11 +25,15 @@ package xiangshan.vector.virename
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
-
 import xiangshan._
 import utils._
-
+import xiangshan.backend.rob.RobPtr
 import xiangshan.vector._
+
+class VmMemoryEntry(implicit p: Parameters) extends XSBundle {
+  val robIdx = new RobPtr
+  val pvm = UInt(PhyRegIdxWidth.W)
+}
 
 class VIRename(implicit p: Parameters) extends VectorBaseModule {
   val io = IO(new Bundle{
@@ -72,8 +76,38 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   * FreeList: allocate Pdest
   * RAT: write sRAT, and read old pdest
   * RollBackList: write
+  * Pvm should be the same when robIdx is the same.
   *------------------------------------------------
   */
+  private val vmMem = Reg(Vec(VIRenameWidth, new VmMemoryEntry))
+  private val vmMemValids = Reg(VecInit(Seq.fill(VIRenameWidth)(false.B)))
+  private val vmMemNext = WireInit(vmMem)
+  private val vmMemValidsNext = WireInit(vmMemValids)
+  vmMemValids := vmMemValidsNext
+  vmMemValids.zip(vmMem).foreach({case(v ,e) =>
+    when(e.robIdx.needFlush(io.redirect)){
+      v := false.B
+    }
+  })
+  vmMemValidsNext.zip(vmMemNext).zip(vmMem).foreach({case((v, n), r) =>
+    when(v){r := n}
+  })
+
+  io.rename.map(_.out).zip(vmMemValidsNext).zip(vmMemNext).foreach {case((o, v), e) =>
+    v := o.fire && o.bits.uopIdx === 0.U
+    e.robIdx := o.bits.robIdx
+    e.pvm := o.bits.vm
+  }
+  private def getPvm(robIdx:RobPtr, uopIdx:UInt, fromRat:UInt):UInt = {
+    val pvm = Wire(UInt(PhyRegIdxWidth.W))
+    when(uopIdx === 0.U){
+      pvm := fromRat
+    }.otherwise{
+      val sel = (vmMemValidsNext ++ vmMemValids).zip(vmMemNext ++ vmMem).map(e => e._1 && e._2.robIdx === robIdx)
+      pvm := Mux1H(sel, (vmMemNext ++ vmMem).map(_.pvm))
+    }
+    pvm
+  }
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
     case ((resp, req), i) => {
       val renameEn = req.fire && req.bits.canRename && req.bits.ctrl.vdWen
@@ -93,7 +127,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
       resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).out.pvs2, req.bits.psrc(1))
       resp.bits.psrc(2) := renameTable.io.rename(i).out.pvs3
       resp.bits.old_pdest := DontCare
-      resp.bits.vm := renameTable.io.rename(i).out.pmask
+      resp.bits.vm := getPvm(req.bits.robIdx, req.bits.uopIdx, renameTable.io.rename(i).out.pmask)
     }
   }
 
