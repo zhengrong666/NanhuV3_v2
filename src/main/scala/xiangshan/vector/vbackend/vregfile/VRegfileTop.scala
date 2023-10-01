@@ -7,12 +7,11 @@ import chisel3.util._
 import difftest._
 import freechips.rocketchip.diplomacy.{AdapterNode, LazyModule, LazyModuleImp, ValName}
 import xiangshan.backend.execute.exu.{ExuConfig, ExuOutputNode, ExuOutwardImpl, ExuType}
-import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.{ExuInput, ExuOutput, FuType, HasXSParameter, MicroOp, Redirect, SrcType, XSBundle}
 import xiangshan.backend.regfile.{RegFileNode, ScalarRfReadPort}
-import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan.vector.HasVectorParameters
 import xs.utils.{SignExt, ZeroExt}
+import VRegfileTopUtil._
 
 class VectorWritebackMergeNode(implicit valName: ValName) extends AdapterNode(ExuOutwardImpl)({p => p.copy(throughVectorRf = true)}, {p => p})
 
@@ -48,11 +47,25 @@ object VRegfileTopUtil{
     }
 
     for ((r, i) <- res.zipWithIndex){
-      when((un === ui && ui > i.U) || ui === i.U){
+      when((un === ui && un < i.U) || ui === i.U){
         r := true.B
       }
     }
     res.asUInt
+  }
+
+  def GenLoadVrfMask(in:MicroOp, VLEN:Int):UInt = {
+    val width = VLEN / 8
+    val vlenShiftBits = log2Ceil(VLEN / 8)
+    val sew = in.vCsrInfo.vsew
+    val uopIdx = in.uopIdx
+    val mask = MuxCase(0.U, Seq(
+      (sew === 0.U) -> ("h01".U << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
+      (sew === 1.U) -> ("h03".U << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
+      (sew === 2.U) -> ("h0f".U << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
+      (sew === 3.U) -> ("hff".U << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
+    ))
+    mask(width - 1, 0).asUInt
   }
 }
 
@@ -103,19 +116,21 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         val sew = wbin.bits.uop.vCsrInfo.vsew
         val bitsWire = WireInit(wbin.bits)
         bitsWire.data := MuxCase(0.U, Seq(
-          (sew === 0.U) -> (wbin.bits.data << (wbin.bits.uop.uopIdx(3, 0) + 3.U))(VLEN - 1, 0),
-          (sew === 1.U) -> (wbin.bits.data << (wbin.bits.uop.uopIdx(2, 0) + 4.U))(VLEN - 1, 0),
-          (sew === 2.U) -> (wbin.bits.data << (wbin.bits.uop.uopIdx(1, 0) + 5.U))(VLEN - 1, 0),
-          (sew === 3.U) -> (wbin.bits.data << (wbin.bits.uop.uopIdx(0) + 6.U))(VLEN - 1, 0)
+          (sew === 0.U) -> Cat(Seq.fill(VLEN / 8)(wbin.bits.data(7, 0))),
+          (sew === 1.U) -> Cat(Seq.fill(VLEN / 16)(wbin.bits.data(15, 0))),
+          (sew === 2.U) -> Cat(Seq.fill(VLEN / 32)(wbin.bits.data(31, 0))),
+          (sew === 3.U) -> Cat(Seq.fill(VLEN / 64)(wbin.bits.data(63, 0)))
         ))
         val validCond = wbin.valid && wbin.bits.uop.ctrl.vdWen
-        val validReg = RegNext(validCond && !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
-        val bitsReg = RegEnable(wbin.bits, validCond)
+        val validReg = RegNext(validCond, false.B)
+        val bitsReg = RegEnable(bitsWire, validCond)
         val redirectValidReg = RegNext(wbin.bits.redirectValid && !wbin.bits.redirect.robIdx.needFlush(io.redirect), false.B)
         val redirectBitsReg = RegEnable(wbin.bits.redirect, wbin.bits.redirectValid)
 
         rfwb.valid := validReg
         rfwb.bits := bitsReg
+        rfwb.bits.wakeupMask := GenLoadVrfMask(bitsReg.uop, VLEN)
+        rfwb.bits.writeDataMask := Mux(bitsReg.uop.loadStoreEnable, GenLoadVrfMask(bitsReg.uop, VLEN), 0.U)
         rfwb.bits.redirectValid := redirectValidReg
         rfwb.bits.redirect := redirectBitsReg
       } else {
@@ -126,7 +141,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := rfwkp.bits
       wbout.bits.redirectValid := rfwkp.bits.redirectValid
       wbout.bits.redirect := rfwkp.bits.redirect
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(rfwkp.bits.uop, 7, cfg.exuType == ExuType.ldu, VLEN)
+      wbout.bits.wbmask := GenWbMask(rfwkp.bits.uop, 8, cfg.exuType == ExuType.ldu, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
@@ -140,7 +155,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := bitsReg
       wbout.bits.redirectValid := redirectValidReg
       wbout.bits.redirect := redirectBitsReg
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, false, VLEN)
+      wbout.bits.wbmask := GenWbMask(bitsReg.uop, 8, false, VLEN)
     })
     wbPairStu.foreach({case(wbin, wbout, _) =>
       val validCond = wbin.valid
@@ -152,7 +167,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := bitsReg
       wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := redirectBitsReg
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 7, true, VLEN)
+      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 8, true, VLEN)
     })
     vrf.io.moveOldValReqs := io.moveOldValReqs
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>
