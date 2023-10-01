@@ -723,10 +723,10 @@ object VectorStoreDecode extends VIDecodeConstants {
     VSUXEI32_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
     VSUXEI64_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
     VSUXEI8_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.X),
-    VS1R_V -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
-    VS2R_V -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
-    VS4R_V -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
-    VS8R_V -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
+    VS1R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
+    VS2R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
+    VS4R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
+    VS8R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, Y, N, Widen.NotWiden, Narrow.NotNarrow, SelImm.IMM_VS),
 
   )
 }
