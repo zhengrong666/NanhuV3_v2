@@ -217,10 +217,9 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
           val vmVal = io.vectorReads(vecReadPortIdx + 1).data
-          val isMaskDisabled = WireInit(!(bi.issue.bits.uop.ctrl.vm === 0.U && vmVal(uopIdx) =/= 0.U))
-          val isTailDisabled = WireInit(bi.issue.bits.uop.isTail)
-          val isPrestartDisabled = WireInit(bi.issue.bits.uop.isPrestart)
-
+          val isMaskDisabled = bi.issue.bits.uop.ctrl.vm && !(vmVal(uopIdx).asBool)
+          val isTailDisabled = bi.issue.bits.uop.isTail
+          val isPrestartDisabled = bi.issue.bits.uop.isPrestart
           //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
           //Stride read
