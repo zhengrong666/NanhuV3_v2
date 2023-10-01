@@ -37,6 +37,7 @@ class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val lvd = UInt(5.W)
     val lvs1 = UInt(5.W)
     val lvs2 = UInt(5.W)
+    val lvs3 = UInt(5.W)
     val doRename = Bool()
     val allocIdx = UInt(VIPhyRegIdxWidth.W)
   }))
@@ -44,7 +45,7 @@ class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val pvd = UInt(VIPhyRegIdxWidth.W)
     val pvs1 = UInt(VIPhyRegIdxWidth.W)
     val pvs2 = UInt(VIPhyRegIdxWidth.W)
-    val oldPvd = UInt(VIPhyRegIdxWidth.W)
+    val pvs3 = UInt(VIPhyRegIdxWidth.W)
     val pmask = UInt(VIPhyRegIdxWidth.W)
   })
 }
@@ -71,35 +72,19 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
 
   io.debug := aRAT
 
-  //read
-  // for((port, i) <- io.renameReadPorts.zipWithIndex) {
-  //   port.vs1.prIdx := (0 until i).foldLeft(sRAT(port.vs1.lrIdx))((p, k) => 
-  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs1.lrIdx && io.renameWritePort.doRename === true.B), 
-  //       io.renameWritePort.prIdx(k), p))
-  //   port.vs2.prIdx := (0 until i).foldLeft(sRAT(port.vs2.lrIdx))((p, k) => 
-  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vs2.lrIdx && io.renameWritePort.doRename === true.B), 
-  //       io.renameWritePort.prIdx(k), p))
-  //   port.vd.prIdx := (0 until i).foldLeft(sRAT(port.vd.lrIdx))((p, k) => 
-  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === io.renameReadPorts(i).vd.lrIdx && io.renameWritePort.doRename === true.B), 
-  //       io.renameWritePort.prIdx(k), p))
-  //   port.vmask := (0 until i).foldLeft(sRAT(0.U))((p, k) => 
-  //     Mux((io.renameWritePort.mask(k) === true.B && io.renameWritePort.lrIdx(k) === 0.U && io.renameWritePort.doRename === true.B), 
-  //       io.renameWritePort.prIdx(k), p))
-  // }
-
   for(((pi, po), bypassNum) <- io.rename.map(_.in).zip(io.rename.map(_.out)).zipWithIndex) {
     po.pvd := pi.bits.allocIdx
     po.pvs1 := sRAT(pi.bits.lvs1)
     po.pvs2 := sRAT(pi.bits.lvs2)
+    po.pvs3 := sRAT(pi.bits.lvs3)
     po.pmask := sRAT(0)
-    po.oldPvd := sRAT(pi.bits.lvd)
     if(bypassNum != 0) {
       val renamePorts = io.rename.take(bypassNum)
       val wmasks = renamePorts.map(_.in.valid)
       val wlrs = renamePorts.map(_.in.bits.lvd)
       val wprs = renamePorts.map(_.in.bits.allocIdx)
-      Seq(pi.bits.lvs1, pi.bits.lvs2, 0.U, pi.bits.lvd).zip(
-        Seq(po.pvs1, po.pvs2, po.pmask, po.oldPvd)
+      Seq(pi.bits.lvs1, pi.bits.lvs2, pi.bits.lvs3, 0.U).zip(
+        Seq(po.pvs1, po.pvs2, po.pvs3, po.pmask)
       ).foreach {
         case(lr, pr) => {
           for(i <- 0 until bypassNum) {

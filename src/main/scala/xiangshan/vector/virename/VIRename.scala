@@ -76,21 +76,23 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   */
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
     case ((resp, req), i) => {
-      val renameEn = req.fire && req.bits.canRename
+      val renameEn = req.fire && req.bits.canRename && req.bits.ctrl.vdWen
       val allocPhyIdx = freeList.io.allocatePhyReg(i).bits
       freeList.io.allocatePhyReg(i).ready := renameEn
       // reanme write rat
       renameTable.io.rename(i).in.valid := renameEn
       renameTable.io.rename(i).in.bits.lvd := req.bits.ctrl.ldest
       renameTable.io.rename(i).in.bits.lvs1 := req.bits.ctrl.lsrc(0)
-      renameTable.io.rename(i).in.bits.lvs2 := req.bits.ctrl.lsrc(0)
+      renameTable.io.rename(i).in.bits.lvs2 := req.bits.ctrl.lsrc(1)
+      renameTable.io.rename(i).in.bits.lvs3 := req.bits.ctrl.ldest
       renameTable.io.rename(i).in.bits.allocIdx := allocPhyIdx
-      renameTable.io.rename(i).in.bits.doRename := req.bits.canRename
+      renameTable.io.rename(i).in.bits.doRename := req.bits.canRename && req.bits.ctrl.vdWen
 
-      resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvd, req.bits.pdest))
+      resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvs3, req.bits.pdest))
       resp.bits.psrc(0) := Mux(req.bits.ctrl.srcType(0) === SrcType.vec, renameTable.io.rename(i).out.pvs1, req.bits.psrc(0))
       resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).out.pvs2, req.bits.psrc(1))
-      resp.bits.old_pdest := Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvd, req.bits.old_pdest)
+      resp.bits.psrc(2) := renameTable.io.rename(i).out.pvs3
+      resp.bits.old_pdest := DontCare
       resp.bits.vm := renameTable.io.rename(i).out.pmask
     }
   }
