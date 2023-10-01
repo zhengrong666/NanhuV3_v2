@@ -93,10 +93,10 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     when(v){r := n}
   })
 
-  io.rename.map(_.out).zip(vmMemValidsNext).zip(vmMemNext).foreach {case((o, v), e) =>
+  io.rename.map(_.out).zip(vmMemValidsNext).zip(vmMemNext).zipWithIndex.foreach {case(((o, v), e), i) =>
     v := o.fire && o.bits.uopIdx === 0.U
     e.robIdx := o.bits.robIdx
-    e.pvm := o.bits.vm
+    e.pvm := renameTable.io.rename(i).out.pmask
   }
   private def getPvm(robIdx:RobPtr, uopIdx:UInt, fromRat:UInt):UInt = {
     val pvm = Wire(UInt(PhyRegIdxWidth.W))
