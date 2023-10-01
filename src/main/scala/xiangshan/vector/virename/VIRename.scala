@@ -80,7 +80,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   *------------------------------------------------
   */
   private val vmMem = Reg(Vec(VIRenameWidth, new VmMemoryEntry))
-  private val vmMemValids = Reg(VecInit(Seq.fill(VIRenameWidth)(false.B)))
+  private val vmMemValids = RegInit(VecInit(Seq.fill(VIRenameWidth)(false.B)))
   private val vmMemNext = WireInit(vmMem)
   private val vmMemValidsNext = WireInit(vmMemValids)
   vmMemValids := vmMemValidsNext

@@ -7,7 +7,7 @@ import xiangshan.{MicroOp, Narrow, Redirect, SrcType, Widen, XSModule}
 class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
     val in = Input(Valid(new MicroOp))
-    val remain = Input(UInt(log2Ceil(VLEN).W))
+    val current = Input(Vec(splitNum, UInt(log2Ceil(VLEN).W)))
     val vstart = Input(UInt(log2Ceil(VLEN).W))
     val out = Output(Vec(splitNum, Valid(new MicroOp)))
   })
@@ -43,9 +43,8 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   }
 
   io.out.zipWithIndex.foreach({ case (o, idx) =>
-    val currentnum = Wire(UInt(7.W))
-    currentnum := io.in.bits.uopNum - io.remain + idx.U
-    o.valid := io.in.valid && (idx.U < io.remain)
+    val currentnum = io.current(idx)
+    o.valid := io.in.valid && (currentnum < io.in.bits.uopNum)
     o.bits := io.in.bits
     o.bits.uopNum := io.in.bits.uopNum
     o.bits.uopIdx := currentnum
@@ -81,10 +80,10 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
 }
 
 object SplitUop {
-  def apply(in:Valid[MicroOp], remain:UInt, vstart:UInt, splitNum:Int)(implicit p: Parameters): Vec[Valid[MicroOp]] = {
+  def apply(in:Valid[MicroOp], currentNum:Vec[UInt], vstart:UInt, splitNum:Int)(implicit p: Parameters): Vec[Valid[MicroOp]] = {
     val uopSplitter = Module(new SplitUop(splitNum))
     uopSplitter.io.in := in
-    uopSplitter.io.remain := remain
+    uopSplitter.io.current := currentNum
     uopSplitter.io.vstart := vstart
     uopSplitter.io.out
   }
@@ -121,17 +120,24 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
   private val uopNum = GetUopNum(io.in.bits)
+  private val currentIndices = RegInit(VecInit(Seq.tabulate(splitNum)(_.U(log2Ceil(VLEN).W))))
+  private val currentDefaultVal = VecInit(Seq.tabulate(splitNum)(_.U))
+  private val currentWires = WireInit(currentIndices)
 
   when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
     remain := 0.U
+    currentIndices := currentDefaultVal
   }.elsewhen(remain === 0.U && io.in.valid) {
     remain := uopNum - leaving
+    currentIndices.zip(currentDefaultVal).foreach({case(c, rv) => c := rv + leaving})
   }.elsewhen(remainUpdate) {
     remain := remain - leaving
+    currentIndices.foreach(c => c := c + leaving)
   }
 
   when(remain === 0.U && io.in.valid){
     remainWire := uopNum
+    currentWires := currentDefaultVal
   }
 
   io.in.ready := (remainWire === leaving) && !io.redirect.valid
@@ -141,7 +147,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   in_v.bits := io.in.bits
   in_v.bits.uopNum := uopNum
 
-  private val out_v = SplitUop(in_v, remainWire, io.vstart, splitNum)
+  private val out_v = SplitUop(in_v, currentWires, io.vstart, splitNum)
 
   io.out.zipWithIndex.foreach({ case (o, i) =>
     o.valid := out_v(i).valid
