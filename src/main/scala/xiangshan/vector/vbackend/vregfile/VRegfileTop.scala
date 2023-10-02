@@ -136,7 +136,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
         rfwb.bits := wbin.bits
       }
-      val wbBitsReg = RegEnable(rfwkp.bits, rfwkp.valid)
+      val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
       wbout.valid := rfwkp.valid
       wbout.bits := wbBitsReg
       wbout.bits.wbmask := GenWbMask(wbBitsReg.uop, 8, cfg.exuType == ExuType.ldu, VLEN)
