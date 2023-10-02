@@ -27,24 +27,24 @@ object VRegfileTopUtil{
     val w = in.uopIdx.getWidth - 1
     val ui = if(elementWise) {
       MuxCase(0.U(3.W), Seq(
-        (sew === 0.U) -> ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 8)), 3),
-        (sew === 1.U) -> ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 16)), 3),
-        (sew === 2.U) -> ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 32)), 3),
-        (sew === 3.U) -> ZeroExt(in.uopIdx(w, log2Ceil(VLEN / 64)), 3)
+        (sew === 0.U) -> in.uopIdx(w, log2Ceil(VLEN / 8))(2, 0),
+        (sew === 1.U) -> in.uopIdx(w, log2Ceil(VLEN / 16))(2, 0),
+        (sew === 2.U) -> in.uopIdx(w, log2Ceil(VLEN / 32))(2, 0),
+        (sew === 3.U) -> in.uopIdx(w, log2Ceil(VLEN / 64))(2, 0),
       ))
     } else {
-      in.uopIdx
+      in.uopIdx(2, 0)
     }
     val maxUopIdx = (in.uopNum - 1.U)(w, 0)
     val un = if (elementWise) {
       MuxCase(0.U(3.W), Seq(
-        (sew === 0.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 8)), 3),
-        (sew === 1.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 16)), 3),
-        (sew === 2.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 32)), 3),
-        (sew === 3.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 64)), 3)
+        (sew === 0.U) -> maxUopIdx(w, log2Ceil(VLEN / 8))(2, 0),
+        (sew === 1.U) -> maxUopIdx(w, log2Ceil(VLEN / 16))(2, 0),
+        (sew === 2.U) -> maxUopIdx(w, log2Ceil(VLEN / 32))(2, 0),
+        (sew === 3.U) -> maxUopIdx(w, log2Ceil(VLEN / 64))(2, 0)
       ))
     } else {
-      maxUopIdx
+      maxUopIdx(2, 0)
     }
 
     for ((r, i) <- res.zipWithIndex){
@@ -135,7 +135,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         rfwb.bits.redirectValid := redirectValidReg
         rfwb.bits.redirect := redirectBitsReg
       } else {
-        rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen && !wbin.bits.uop.robIdx.needFlush(io.redirect)
+        rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
         rfwb.bits := wbin.bits
       }
       wbout.valid := rfwkp.valid
