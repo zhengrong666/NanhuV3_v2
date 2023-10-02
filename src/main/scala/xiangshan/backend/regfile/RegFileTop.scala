@@ -45,9 +45,9 @@ object RegFileTop{
     require(vsrc.getWidth == VLEN)
     val res = WireInit(0.U(XLEN.W))
     val vsrcSplit8  = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7,  idx * 8)))
-    val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 7,  idx * 16)))
-    val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 7,  idx * 32)))
-    val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 7,  idx * 64)))
+    val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15,  idx * 16)))
+    val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 31,  idx * 32)))
+    val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 63,  idx * 64)))
     res := MuxCase(0.U, Seq(
       (sew === 0.U) -> ZeroExt(vsrcSplit8(uopIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
       (sew === 1.U) -> ZeroExt(vsrcSplit16(uopIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
