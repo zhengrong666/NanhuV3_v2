@@ -131,7 +131,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   io.rename.map(_.in).zip(rollBackList.io.rename).zipWithIndex.foreach {
     case ((req, rlb), i) => {
       rlb.valid := req.fire && req.bits.canRename
-      rlb.bits.robIdx := req.bits.robIdx.value
+      rlb.bits.robIdx := req.bits.robIdx
       rlb.bits.lrIdx := req.bits.ctrl.ldest
       rlb.bits.oldPrIdx := renameTable.io.rename(i).out.pvs3
       rlb.bits.newPrIdx := freeList.io.allocatePhyReg(i).bits

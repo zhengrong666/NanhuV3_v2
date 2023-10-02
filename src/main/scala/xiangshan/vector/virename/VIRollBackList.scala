@@ -30,6 +30,13 @@ import xiangshan.backend.rob.RobPtr
 import xs.utils._
 import xiangshan.vector._
 
+class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
+  val robIdx = new RobPtr
+  val logicRegIdx = UInt(5.W)
+  val oldPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+  val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+}
+
 class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
   private val enqNum = VIRenameWidth
   private val size = VIPhyRegsNum
@@ -74,13 +81,6 @@ class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
   val newPrIdx = UInt(VIPhyRegIdxWidth.W)
 }
 
-class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
-  val robIdx = UInt(log2Up(RobSize).W)
-  val logicRegIdx = UInt(5.W)
-  val oldPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
-  val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
-}
-
 class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
     val rename = Vec(VIRenameWidth, Flipped(ValidIO(new RollBackListRenamePort)))
@@ -112,6 +112,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
     e.valid := io.rename(i).valid
     e.bits.addr := (headPtr + allocateDeltas(i)).value
     e.bits.data.robIdx := io.rename(i).bits.robIdx
+    e.bits.data.logicRegIdx := io.rename(i).bits.lrIdx
     e.bits.data.oldPhyRegIdx := io.rename(i).bits.oldPrIdx
     e.bits.data.newPhyRegIdx := io.rename(i).bits.newPrIdx
   }
@@ -121,6 +122,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
   payload.io.read.robPtr := rollingRobIdx
   payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, headPtr.value)
+  payload.io.read.commit := io.commit.rob.isCommit
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
   io.commit.rat.doWalk := io.commit.rob.isWalk

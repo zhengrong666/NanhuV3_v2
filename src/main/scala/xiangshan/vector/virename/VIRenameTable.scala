@@ -121,7 +121,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
 
   for (i <- 0 until 8) {
     when(io.commit.doWalk && io.commit.mask(i)) {
-      sRatWalkNext(io.commit.lrIdx(i)) := io.commit.prIdxOld
+      sRatWalkNext(io.commit.lrIdx(i)) := io.commit.prIdxOld(i)
     }
   }
   private val doRename = io.rename.map(_.in.valid).reduce(_|_)
@@ -134,7 +134,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
 
   for(i <- 0 until 8){
     when(io.commit.doCommit && io.commit.mask(i)){
-      aRAT(io.commit.lrIdx(i)) := io.commit.prIdxNew
+      aRAT(io.commit.lrIdx(i)) := io.commit.prIdxNew(i)
     }
   }
 }
