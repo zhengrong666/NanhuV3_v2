@@ -253,8 +253,8 @@ case class XSCoreParameters
     vDecodeWidth       = 4,
     vRenameWidth       = 4,
     vCommitWidth       = 4,
-    vPhyRegsNum        = 64,
-    viWalkRobIdxQueueWidth = 64
+    vPhyRegsNum        = 48,
+    viWalkRobIdxQueueWidth = 32
   )
 ){
   val allHistLens: Seq[Int] = SCHistLens ++ ITTageTableInfos.map(_._2) ++ TageTableInfos.map(_._2) :+ UbtbGHRLength

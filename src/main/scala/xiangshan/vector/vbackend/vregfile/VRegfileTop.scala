@@ -125,37 +125,32 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         val validCond = wbin.valid && wbin.bits.uop.ctrl.vdWen
         val validReg = RegNext(validCond, false.B)
         val bitsReg = RegEnable(bitsWire, validCond)
-        val redirectValidReg = RegNext(wbin.bits.redirectValid && !wbin.bits.redirect.robIdx.needFlush(io.redirect), false.B)
-        val redirectBitsReg = RegEnable(wbin.bits.redirect, wbin.bits.redirectValid)
 
         rfwb.valid := validReg
         rfwb.bits := bitsReg
         rfwb.bits.wakeupMask := GenLoadVrfMask(bitsReg.uop, VLEN)
         rfwb.bits.writeDataMask := Mux(bitsReg.uop.loadStoreEnable, GenLoadVrfMask(bitsReg.uop, VLEN), 0.U)
-        rfwb.bits.redirectValid := redirectValidReg
-        rfwb.bits.redirect := redirectBitsReg
+        rfwb.bits.redirectValid := false.B
+        rfwb.bits.redirect := DontCare
       } else {
         rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
         rfwb.bits := wbin.bits
       }
+      val wbBitsReg = RegEnable(rfwkp.bits, rfwkp.valid)
       wbout.valid := rfwkp.valid
-      wbout.bits := rfwkp.bits
-      wbout.bits.redirectValid := rfwkp.bits.redirectValid
-      wbout.bits.redirect := rfwkp.bits.redirect
-      wbout.bits.wbmask := GenWbMask(rfwkp.bits.uop, 8, cfg.exuType == ExuType.ldu, VLEN)
+      wbout.bits := wbBitsReg
+      wbout.bits.wbmask := GenWbMask(wbBitsReg.uop, 8, cfg.exuType == ExuType.ldu, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
       rfwb.bits := wbin.bits
       val validCond = wbin.valid
-      val validReg = RegNext(validCond && !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
+      val validReg = RegNext(validCond, false.B)
       val bitsReg = RegEnable(wbin.bits, wbin.valid && validCond)
-      val redirectValidReg = RegNext(wbin.bits.redirectValid && !wbin.bits.redirect.robIdx.needFlush(io.redirect), false.B)
-      val redirectBitsReg = RegEnable(wbin.bits.redirect, wbin.bits.redirectValid)
       wbout.valid := validReg
       wbout.bits := bitsReg
-      wbout.bits.redirectValid := redirectValidReg
-      wbout.bits.redirect := redirectBitsReg
+      wbout.bits.redirectValid := false.B
+      wbout.bits.redirect := DontCare
       wbout.bits.wbmask := GenWbMask(bitsReg.uop, 8, false, VLEN)
     })
     wbPairStu.foreach({case(wbin, wbout, _) =>

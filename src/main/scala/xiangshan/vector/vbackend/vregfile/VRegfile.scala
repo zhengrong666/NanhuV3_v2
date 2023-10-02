@@ -70,14 +70,10 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     }
     // wakeup
     val wbValidReg = RegNext(io.wbWakeup(i).valid, false.B)
-    val wbBitsReg = RegEnable(io.wakeups(i).bits, io.wbWakeup(i).valid)
-    val wbRedirectValidReg = RegNext(io.wakeups(i).bits.redirectValid, false.B)
-    val wbRedirectBitsReg = RegEnable(io.wakeups(i).bits.redirect, false.B)
-    val maskRead = mrf.read(wbBitsReg.uop.pdest)
+    val wbAddrReg = RegEnable(addr, io.wbWakeup(i).valid)
+    val maskRead = mrf(wbAddrReg)
     io.wakeups(i).valid := wbValidReg && maskRead.reduce(_&_)
-    io.wakeups(i).bits := wbBitsReg
-    io.wakeups(i).bits.redirectValid := wbRedirectValidReg
-    io.wakeups(i).bits.redirect := wbRedirectBitsReg
+    io.wakeups(i).bits := DontCare
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {
