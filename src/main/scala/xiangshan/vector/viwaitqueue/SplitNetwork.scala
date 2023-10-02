@@ -2,7 +2,7 @@ package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
-import xiangshan.{MicroOp, Narrow, Redirect, SrcType, Widen, XSModule}
+import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Narrow, Redirect, SrcType, Widen, XSModule}
 
 class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
@@ -17,7 +17,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   private val narrowToMask = io.in.bits.ctrl.narrow === Narrow.Narrow2
   private val ctrl = io.in.bits.ctrl
   private val nf = io.in.bits.ctrl.NField +& 1.U
-  private def LsRenameInfo(idx: UInt): (Bool, UInt) = {
+  private def LsRenameInfo(idx: UInt, store:Bool): (Bool, UInt, UInt) = {
     val vlenBytes = VLEN / 8
     val vlenShiftBits = log2Ceil(vlenBytes)
     val idxBits = idx.getWidth
@@ -25,6 +25,8 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     val idxModNf = WireInit(idx)
     val vecIdxAddend = WireInit(idx)
     val shouldRename = Wire(Bool())
+    val lFuOpType = Wire(FuOpType())
+    val sFuOpType = Wire(FuOpType())
     idxDivNf := idx / nf
     idxModNf := idx % nf
     shouldRename := MuxCase(false.B, Seq(
@@ -39,7 +41,20 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       (sew === 2.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 2) / nf * nf),
       (sew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
     ))
-    (shouldRename, vecIdxAddend)
+    lFuOpType := MuxCase(LSUOpType.ld, Seq(
+      (sew === 0.U) -> LSUOpType.lbu,
+      (sew === 1.U) -> LSUOpType.lhu,
+      (sew === 2.U) -> LSUOpType.lwu,
+      (sew === 3.U) -> LSUOpType.ld,
+    ))
+    sFuOpType := MuxCase(LSUOpType.sd, Seq(
+      (sew === 0.U) -> LSUOpType.sb,
+      (sew === 1.U) -> LSUOpType.sh,
+      (sew === 2.U) -> LSUOpType.sw,
+      (sew === 3.U) -> LSUOpType.sd,
+    ))
+    val fuOpType = Mux(store, sFuOpType, lFuOpType)
+    (shouldRename, vecIdxAddend, fuOpType)
   }
 
   io.out.zipWithIndex.foreach({ case (o, idx) =>
@@ -52,11 +67,12 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits.isPrestart := currentnum < io.vstart //Only VLS need this
 
     when(io.in.bits.ctrl.isVLS) {
-      val (doRn, addend) = LsRenameInfo(currentnum)
+      val (doRn, addend, ft) = LsRenameInfo(currentnum, o.bits.ctrl.fuType === FuType.stu)
       o.bits.canRename := doRn
       o.bits.ctrl.ldest := ctrl.ldest + addend
       o.bits.ctrl.lsrc(0) := ctrl.lsrc(0)
       o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + addend, ctrl.lsrc(1))
+      o.bits.ctrl.fuOpType := ft
     }.elsewhen(narrow) {
       val addend = currentnum(6, 1)
       o.bits.canRename := !currentnum(0).asBool
