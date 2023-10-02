@@ -8,8 +8,8 @@ import xs.utils.ZeroExt
 class MoveReq(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
   private val addrBits = coreParams.vectorParameters.vPhyRegIdxWidth
-  val srcAddr = UInt(log2Up(addrBits).W)
-  val dstAddr = UInt(log2Up(addrBits).W)
+  val srcAddr = UInt(addrBits.W)
+  val dstAddr = UInt(addrBits.W)
   val agnostic = Bool()
   val enable = Bool()
   val sew = UInt(2.W)
