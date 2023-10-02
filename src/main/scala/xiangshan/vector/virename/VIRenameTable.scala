@@ -42,7 +42,6 @@ class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
     val allocIdx = UInt(VIPhyRegIdxWidth.W)
   }))
   val out = Output(new Bundle {
-    val pvd = UInt(VIPhyRegIdxWidth.W)
     val pvs1 = UInt(VIPhyRegIdxWidth.W)
     val pvs2 = UInt(VIPhyRegIdxWidth.W)
     val pvs3 = UInt(VIPhyRegIdxWidth.W)
@@ -53,10 +52,23 @@ class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
 class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
   val doCommit    = Bool()
   val doWalk      = Bool()
-  val mask        = UInt(8.W)
+  val mask        = Vec(8, Bool())
   val lrIdx       = Vec(8, UInt(5.W))
   val prIdxOld    = Vec(8, UInt(VIPhyRegIdxWidth.W))
   val prIdxNew    = Vec(8, UInt(VIPhyRegIdxWidth.W))
+
+  def Pipe:VIRatCommitPort = {
+    val pipe = Wire(new VIRatCommitPort)
+    pipe.doCommit := RegNext(this.doCommit, false.B)
+    pipe.doWalk := RegNext(this.doCommit, false.B)
+    for(i <- 0 until 8){
+      pipe.mask(i) := RegNext(this.mask(i), false.B)
+      pipe.lrIdx(i) := RegEnable(this.lrIdx(i), this.mask(i))
+      pipe.prIdxOld(i) := RegEnable(this.prIdxOld(i), this.mask(i))
+      pipe.prIdxNew(i) := RegEnable(this.prIdxNew(i), this.mask(i))
+    }
+    pipe
+  }
 }
 
 class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
@@ -73,7 +85,6 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   io.debug := aRAT
 
   for(((pi, po), bypassNum) <- io.rename.map(_.in).zip(io.rename.map(_.out)).zipWithIndex) {
-    po.pvd := pi.bits.allocIdx
     po.pvs1 := sRAT(pi.bits.lvs1)
     po.pvs2 := sRAT(pi.bits.lvs2)
     po.pvs3 := sRAT(pi.bits.lvs3)
@@ -99,64 +110,31 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   }
 
   //old regId read, for rollBackList storage
+  private val sRatRenameNext = WireInit(sRAT)
+  private val sRatWalkNext = WireInit(sRAT)
 
-  val renameVec = Wire(Vec(32, Bool()))
-  val renamePr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
-  renameVec.zip(renamePr).zipWithIndex.foreach {
-    case ((wen, pr), i) => {
-      val hitVec = VecInit(io.rename.map(req => req.in.valid && req.in.bits.lvd===i.U))
-      wen := hitVec.asUInt.orR
-      pr := Mux1H(hitVec, io.rename.map(_.in.bits.allocIdx))
+  io.rename.foreach(r => {
+    when(r.in.valid){
+      sRatRenameNext(r.in.bits.lvd) := r.in.bits.allocIdx
+    }
+  })
+
+  for (i <- 0 until 8) {
+    when(io.commit.doWalk && io.commit.mask(i)) {
+      sRatWalkNext(io.commit.lrIdx(i)) := io.commit.prIdxOld
     }
   }
-
-  val walkVec = Wire(Vec(32, Bool()))
-  val walkPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
-  walkVec.zip(walkPr).zipWithIndex.foreach {
-    case ((wen, pr), i) => {
-      val hitVec = Wire(Vec(8, Bool()))
-      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
-        case ((lr, hit), j) => {
-          hit := lr === i.U && io.commit.doWalk && io.commit.mask(j)
-        }
-      }
-      wen := hitVec.asUInt.orR
-      pr := Mux1H(hitVec, io.commit.prIdxOld)
-    }
+  private val doRename = io.rename.map(_.in.valid).reduce(_|_)
+  private val doWalk = io.commit.doWalk && io.commit.mask.reduce(_|_)
+  when(doRename){
+    sRAT := sRatRenameNext
+  }.elsewhen(doWalk){
+    sRAT := sRatWalkNext
   }
 
-  val sratWen = Mux(io.commit.doWalk, walkVec, renameVec)
-  val sratWdata = Mux(io.commit.doCommit, walkPr, renamePr)
-
-  sratWen.zip(sratWdata).zip(sRAT).foreach {
-    case ((wen, data), e) => {
-      when(wen) {
-        e := data
-      }
+  for(i <- 0 until 8){
+    when(io.commit.doCommit && io.commit.mask(i)){
+      aRAT(io.commit.lrIdx(i)) := io.commit.prIdxNew
     }
   }
-
-  val commitVec = Wire(Vec(32, Bool()))
-  val commitPr = Wire(Vec(32, UInt(VIPhyRegIdxWidth.W)))
-  commitVec.zip(commitPr).zipWithIndex.foreach {
-    case ((wen, pr), i) => {
-      val hitVec = Wire(Vec(8, Bool()))
-      io.commit.lrIdx.zip(hitVec).zipWithIndex.foreach {
-        case ((lr, hit), j) => {
-          hit := lr === i.U && io.commit.doCommit && io.commit.mask(j)
-        }
-      }
-      wen := hitVec.asUInt.orR
-      pr := Mux1H(hitVec, io.commit.prIdxOld)
-    }
-  }
-
-  commitVec.zip(commitPr).zip(aRAT).foreach {
-    case ((wen, data), e) => {
-      when(wen) {
-        e := data
-      }
-    }
-  }
-
 }

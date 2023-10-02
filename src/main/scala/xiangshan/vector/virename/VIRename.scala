@@ -133,18 +133,18 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
       rlb.valid := req.fire && req.bits.canRename
       rlb.bits.robIdx := req.bits.robIdx.value
       rlb.bits.lrIdx := req.bits.ctrl.ldest
-      rlb.bits.oldPrIdx := renameTable.io.rename(i).out.pvd
+      rlb.bits.oldPrIdx := renameTable.io.rename(i).out.pvs3
       rlb.bits.newPrIdx := freeList.io.allocatePhyReg(i).bits
     }
   }
 
   //-------------------------------------------- TODO: commit & walk --------------------------------------------
-
+  private val rollbackDelay = rollBackList.io.commit.rat.Pipe
   rollBackList.io.commit.rob <> io.commit
-  renameTable.io.commit := rollBackList.io.commit.rat
+  renameTable.io.commit := rollbackDelay
 
   for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
-    rls.valid := rollBackList.io.commit.rat.mask(i)
-    rls.bits := Mux(rollBackList.io.commit.rat.doCommit, rollBackList.io.commit.rat.prIdxOld(i), rollBackList.io.commit.rat.prIdxNew(i))
+    rls.valid := rollbackDelay.mask(i)
+    rls.bits := Mux(rollbackDelay.doCommit, rollbackDelay.prIdxOld(i), rollbackDelay.prIdxNew(i))
   }
 }

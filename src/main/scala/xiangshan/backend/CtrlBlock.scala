@@ -337,7 +337,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   // vCtrlBlock.io.commit.bits.doCommit := rob.io.commits.isCommit
   // vCtrlBlock.io.commit.bits.doWalk := rob.io.commits.isWalk
   // vCtrlBlock.io.commit.valid := rob.io.commits.commitValid.asUInt.orR
-  vCtrlBlock.io.commit := RegNext(commitVector)
+  vCtrlBlock.io.commit := commitVector.Pipe
   vCtrlBlock.io.redirect := Pipe(io.redirectIn)
   vCtrlBlock.io.vstart := io.vstart
 

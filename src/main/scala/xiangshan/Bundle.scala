@@ -391,10 +391,21 @@ class RobCommitIO(implicit p: Parameters) extends XSBundle {
   val isWalk = Output(Bool())
   val walkValid = Vec(CommitWidth, Output(Bool()))
   val info = Vec(CommitWidth, Output(new RobCommitInfo))
-  val robIdx = Vec(CommitWidth, Output(UInt(log2Up(RobSize).W)))
+  val robIdx = Vec(CommitWidth, new RobPtr)
 
   def hasWalkInstr: Bool = isWalk && walkValid.asUInt.orR
   def hasCommitInstr: Bool = isCommit && commitValid.asUInt.orR
+
+  def Pipe:RobCommitIO = {
+    val robCmtPipe = Wire(new RobCommitIO)
+    robCmtPipe.isCommit := RegNext(this.isCommit, false.B)
+    robCmtPipe.isWalk := RegNext(this.isWalk, false.B)
+    robCmtPipe.commitValid := RegNext(this.commitValid)
+    robCmtPipe.walkValid := RegNext(this.walkValid)
+    robCmtPipe.robIdx := RegEnable(this.robIdx, this.isCommit | this.isWalk)
+    robCmtPipe.info := RegEnable(this.info, this.isCommit | this.isWalk)
+    robCmtPipe
+  }
 }
 
 class FrontendToCtrlIO(implicit p: Parameters) extends XSBundle {

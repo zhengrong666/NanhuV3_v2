@@ -25,16 +25,50 @@ package xiangshan.vector.virename
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-
 import xiangshan._
-import utils._
+import xiangshan.backend.rob.RobPtr
 import xs.utils._
-
 import xiangshan.vector._
-import xiangshan.backend.execute.exu.ExuType
+
+class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
+  private val enqNum = VIRenameWidth
+  private val size = VIPhyRegsNum
+  val io = IO(new Bundle{
+    val enq = Input(Vec(enqNum, Valid(new Bundle{
+      val addr = UInt(log2Ceil(size).W)
+      val data = new RollBackListEntry
+    })))
+    val read = new Bundle {
+      val addr = Input(UInt(log2Ceil(size).W))
+      val robPtr = Input(new RobPtr)
+      val commit = Input(Bool())
+      val data = Output(Vec(8, new Bundle{
+        val hit = Bool()
+        val logicRegIdx = UInt(5.W)
+        val oldPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+        val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+      }))
+    }
+  })
+  private val array = Reg(Vec(size, new RollBackListEntry))
+  for((entry, idx) <- array.zipWithIndex){
+    val wens = io.enq.map(e => e.valid && e.bits.addr === idx.U)
+    val data = Mux1H(wens, io.enq.map(_.bits.data))
+    when(Cat(wens).orR){
+      entry := data
+    }
+  }
+  io.read.data.zipWithIndex.foreach({case(d,i) =>
+    val entry = Mux(io.read.commit, array(io.read.addr + i.U), array(io.read.addr - i.U))
+    d.hit := entry.robIdx === io.read.robPtr
+    d.logicRegIdx := entry.logicRegIdx
+    d.oldPhyRegIdx := entry.oldPhyRegIdx
+    d.newPhyRegIdx := entry.newPhyRegIdx
+  })
+}
 
 class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
-  val robIdx = UInt(log2Up(RobSize).W)
+  val robIdx = new RobPtr
   val lrIdx = UInt(5.W)
   val oldPrIdx = UInt(VIPhyRegIdxWidth.W)
   val newPrIdx = UInt(VIPhyRegIdxWidth.W)
@@ -47,7 +81,7 @@ class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
   val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
 }
 
-class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasCircularQueuePtrHelper {
+class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
     val rename = Vec(VIRenameWidth, Flipped(ValidIO(new RollBackListRenamePort)))
     val commit = new Bundle {
@@ -56,87 +90,57 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule  with HasC
     }
   })
 
-  class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)
-  object RollBackListPtr {
-    def apply(f: Boolean, v: Int): RollBackListPtr = {
-      val ptr = Wire(new RollBackListPtr)
-      ptr.flag    := f.B
-      ptr.value   := v.U
-      ptr
-    }
-  }
+  private class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)
 
-  val rollBackList_ds = Vec(VIPhyRegsNum, new RollBackListEntry)
-  val rollBackList = Reg(rollBackList_ds)
+  private val headPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
+  private val tailPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
 
-  val headPtr = RegInit(RollBackListPtr(false, 0))
-  val tailPtr = RegInit(RollBackListPtr(false, 0))
-
-  val entryNum = distanceBetween(headPtr, tailPtr)
+  private val entryNum = distanceBetween(headPtr, tailPtr)
+  private val payload = Module(new RollbackListPayload)
 
   //rename write robIdx、sRAT_old(from sRAT)、sRAT_new(from freeList)
-  for((w, i) <- io.rename.zipWithIndex) { 
-    when(w.valid) {
-      val writePtr = (headPtr + i.U).value
-      rollBackList(writePtr).robIdx := w.bits.robIdx
-      rollBackList(writePtr).oldPhyRegIdx := w.bits.oldPrIdx
-      rollBackList(writePtr).newPhyRegIdx := w.bits.newPrIdx
+  private val allocateDeltas = Wire(Vec(VIRenameWidth, UInt(log2Ceil(VIRenameWidth).W)))
+  allocateDeltas.zipWithIndex.foreach({case(d, i) =>
+    if(i == 0){
+      d := 0.U
+    } else {
+      d := PopCount(io.rename.take(i).map(_.valid))
     }
+  })
+
+  for((e, i) <- payload.io.enq.zipWithIndex){
+    e.valid := io.rename(i).valid
+    e.bits.addr := (headPtr + allocateDeltas(i)).value
+    e.bits.data.robIdx := io.rename(i).bits.robIdx
+    e.bits.data.oldPhyRegIdx := io.rename(i).bits.oldPrIdx
+    e.bits.data.newPhyRegIdx := io.rename(i).bits.newPrIdx
   }
 
   //commit
-  val commitRobSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
-  val commitRobIdx = Mux1H(commitRobSel, io.commit.rob.robIdx)
-
-  val needCommit = commitRobSel.asUInt.orR
-
-  val commitCandidates = Wire(Vec(8, new RollBackListEntry))
-  val commitValid = Wire(Vec(8, Bool()))
-  val walkCandidates = Wire(Vec(8, new RollBackListEntry))
-  val walkValid = Wire(Vec(8, Bool()))
-
-  val commitSelVec = Wire(Vec(8, UInt(VIPhyRegIdxWidth.W)))
-  val walkSelVec = Wire(Vec(8, UInt(VIPhyRegIdxWidth.W)))
-  for(((c, w), i) <- commitSelVec.zip(walkSelVec).zipWithIndex) {
-    c := (tailPtr + i.U).value
-    w := (headPtr - i.U).value
-  }
-
-  commitCandidates.zip(commitSelVec).zip(commitValid).zipWithIndex.foreach {
-    case (((e, id), v), i) => {
-      val selVec = Wire(Vec(VIPhyRegsNum, Bool()))
-      rollBackList.zip(selVec).foreach {
-        case (re, sel) => {
-          sel := (re.robIdx === commitRobIdx) && (entryNum > i.U)
-        }
-      }
-      e := Mux1H(selVec, rollBackList)
-      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
-    }
-  }
-
-  walkCandidates.zip(walkSelVec).zip(walkValid).zipWithIndex.foreach {
-    case (((e, id), v), i) => {
-      val selVec = Wire(Vec(VIPhyRegsNum, Bool()))
-      rollBackList.zip(selVec).foreach {
-        case (re, sel) => {
-          sel := (re.robIdx === commitRobIdx) && (entryNum > i.U)
-        }
-      }
-      e := Mux1H(selVec, rollBackList)
-      v := (selVec.asUInt =/= 0.U) && (entryNum > i.U) && needCommit
-    }
-  }
-
-  val realCommit = io.commit.rob.isCommit 
-
-  headPtr := Mux(io.commit.rob.isWalk, headPtr - PopCount(walkValid), headPtr + PopCount(io.rename.map(_.valid)))
-  tailPtr := Mux(io.commit.rob.isCommit, tailPtr + PopCount(commitValid), tailPtr)
+  private val robIdxSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
+  private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
+  payload.io.read.robPtr := rollingRobIdx
+  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, headPtr.value)
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
   io.commit.rat.doWalk := io.commit.rob.isWalk
-  io.commit.rat.lrIdx := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.logicRegIdx)), VecInit(walkCandidates.map(_.logicRegIdx)))
-  io.commit.rat.prIdxNew := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.newPhyRegIdx)), VecInit(walkCandidates.map(_.newPhyRegIdx)))
-  io.commit.rat.prIdxOld := Mux(io.commit.rob.isCommit, VecInit(commitCandidates.map(_.oldPhyRegIdx)), VecInit(walkCandidates.map(_.oldPhyRegIdx)))
-  io.commit.rat.mask := Mux(io.commit.rob.isCommit, commitValid.asUInt, walkValid.asUInt)
+  assert(PopCount(Seq(io.commit.rat.doCommit, io.commit.rat.doWalk)) <= 1.U, "Walk and commit at the same time!")
+  for(i <- 0 until 8){
+    io.commit.rat.mask(i) := payload.io.read.data(i).hit && i.U <= entryNum
+    io.commit.rat.lrIdx(i) := payload.io.read.data(i).logicRegIdx
+    io.commit.rat.prIdxOld(i) := payload.io.read.data(i).oldPhyRegIdx
+    io.commit.rat.prIdxNew(i) := payload.io.read.data(i).newPhyRegIdx
+  }
+  private val rollLeaving = PopCount(io.commit.rat.mask)
+
+  private val commitLeaving = Mux(io.commit.rat.doCommit, rollLeaving, 0.U)
+  private val walkLeaving = Mux(io.commit.rat.doWalk, rollLeaving, 0.U)
+  private val doEnq = io.rename.map(_.valid).reduce(_||_)
+  private val enqNum = PopCount(io.rename.map(_.valid))
+  when(io.commit.rob.isCommit){
+    tailPtr := tailPtr + commitLeaving
+  }
+  when(io.commit.rob.isWalk || doEnq){
+    headPtr := headPtr + enqNum - walkLeaving
+  }
 }
