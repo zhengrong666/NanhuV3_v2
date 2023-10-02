@@ -396,7 +396,7 @@ object FuConfigs{
     latency = Int.MaxValue,
     trigger = false,
     hasRedirect = false,
-    triggerVrfWakeup = false
+    triggerVrfWakeup = true
   )
 
   val vpermCfg = FuConfig(

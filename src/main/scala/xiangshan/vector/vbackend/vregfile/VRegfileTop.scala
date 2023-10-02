@@ -35,15 +35,16 @@ object VRegfileTopUtil{
     } else {
       in.uopIdx
     }
+    val maxUopIdx = (in.uopNum - 1.U)(w, 0)
     val un = if (elementWise) {
       MuxCase(0.U(3.W), Seq(
-        (sew === 0.U) -> ZeroExt(in.uopNum(w, log2Ceil(VLEN / 8)), 3),
-        (sew === 1.U) -> ZeroExt(in.uopNum(w, log2Ceil(VLEN / 16)), 3),
-        (sew === 2.U) -> ZeroExt(in.uopNum(w, log2Ceil(VLEN / 32)), 3),
-        (sew === 3.U) -> ZeroExt(in.uopNum(w, log2Ceil(VLEN / 64)), 3)
+        (sew === 0.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 8)), 3),
+        (sew === 1.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 16)), 3),
+        (sew === 2.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 32)), 3),
+        (sew === 3.U) -> ZeroExt(maxUopIdx(w, log2Ceil(VLEN / 64)), 3)
       ))
     } else {
-      in.uopNum
+      maxUopIdx
     }
 
     for ((r, i) <- res.zipWithIndex){

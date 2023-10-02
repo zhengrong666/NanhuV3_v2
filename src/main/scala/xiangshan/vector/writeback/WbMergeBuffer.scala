@@ -46,7 +46,7 @@ object WbMergeBufferPtr {
   }
 }
 
-class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters) 
+class WbMergeBufferPtrHelper(size: Int, allocateWidth: Int, releaseWidth: Int)(implicit p: Parameters)
   extends XSModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
     val allocate        = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))

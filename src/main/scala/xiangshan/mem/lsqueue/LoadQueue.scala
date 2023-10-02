@@ -375,6 +375,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     }
     when(io.loadIn(i).bits.lq_data_wen_dup(4)){
       uop(loadWbIndex).debugInfo := io.loadIn(i).bits.uop.debugInfo
+      uop(loadWbIndex).vCsrInfo := io.loadIn(i).bits.uop.vCsrInfo
     }
     when(io.loadIn(i).bits.lq_data_wen_dup(5)){
       vaddrTriggerResultModule.io.waddr(i) := loadWbIndex
