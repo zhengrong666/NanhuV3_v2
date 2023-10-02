@@ -369,6 +369,12 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     when(io.loadIn(i).bits.lq_data_wen_dup(3)){
       uop(loadWbIndex).ctrl := io.loadIn(i).bits.uop.ctrl
     }
+    when(io.loadIn(i).bits.lq_data_wen_dup(3)) {
+      uop(loadWbIndex).loadStoreEnable := io.loadIn(i).bits.uop.loadStoreEnable
+      uop(loadWbIndex).uopIdx := io.loadIn(i).bits.uop.uopIdx
+      uop(loadWbIndex).uopNum := io.loadIn(i).bits.uop.uopNum
+      uop(loadWbIndex).mergeIdx := io.loadIn(i).bits.uop.mergeIdx
+    }
     when(io.loadIn(i).bits.lq_data_wen_dup(4)){
       uop(loadWbIndex).debugInfo := io.loadIn(i).bits.uop.debugInfo
     }
