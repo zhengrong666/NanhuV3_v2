@@ -135,25 +135,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     vstartHold := false.B
   }
 
-//  splitNetwork.io.out.foreach(_.ready := io.canRename)
-//  io.out.zip(splitNetwork.io.out).foreach({case(a, b) =>
-//    a.valid := b.valid
-//    a.bits := b.bits
-//  })
-
-  private val splitQueue = Module(new DispatchQueue(VIRenameWidth * 2, VIRenameWidth, VIRenameWidth))
-  splitQueue.io.redirect := io.redirect
-  for (i <- 0 until VIRenameWidth) {
-    splitNetwork.io.out(i).ready := splitQueue.io.enq.canAccept
-    splitQueue.io.enq.req(i).bits := splitNetwork.io.out(i).bits
-    splitQueue.io.enq.req(i).valid := splitNetwork.io.out(i).valid
-    splitQueue.io.enq.needAlloc(i) := splitNetwork.io.out(i).valid
-  }
-
-  io.out.zip(splitQueue.io.deq).foreach({ case (a, b) =>
-    a.valid := b.valid && !io.redirect.valid
-    a.bits := b.bits
-    b.ready := a.ready
-  })
-
+  private val splitPipe = Module(new DequeuePipeline)
+  splitPipe.io.redirect := io.redirect
+  splitPipe.io.in <> splitNetwork.io.out
+  io.out <> splitPipe.io.out
 }

@@ -32,21 +32,15 @@ import xs.utils.CircularShift
 
 import xiangshan.vector._
 
+class RatUpdateEntry(implicit p: Parameters) extends VectorBaseBundle{
+  val lvd = UInt(5.W)
+  val pvd = UInt(VIPhyRegIdxWidth.W)
+}
 class VIRatRenameIO(implicit p: Parameters) extends VectorBaseBundle {
-  val in = Flipped(ValidIO(new Bundle {
-    val lvd = UInt(5.W)
-    val lvs1 = UInt(5.W)
-    val lvs2 = UInt(5.W)
-    val lvs3 = UInt(5.W)
-    val doRename = Bool()
-    val allocIdx = UInt(VIPhyRegIdxWidth.W)
-  }))
-  val out = Output(new Bundle {
-    val pvs1 = UInt(VIPhyRegIdxWidth.W)
-    val pvs2 = UInt(VIPhyRegIdxWidth.W)
-    val pvs3 = UInt(VIPhyRegIdxWidth.W)
-    val pmask = UInt(VIPhyRegIdxWidth.W)
-  })
+  val lvd = Input(UInt(5.W))
+  val lvs = Input(Vec(4, UInt(5.W)))
+  val pvd = Output(UInt(VIPhyRegIdxWidth.W))
+  val pvs = Output(Vec(4, UInt(VIPhyRegIdxWidth.W)))
 }
 
 class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
@@ -74,64 +68,76 @@ class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
 class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   val io = IO(new Bundle{
     val rename = Vec(VIRenameWidth, new VIRatRenameIO)
+    val update = Input(Vec(VIRenameWidth, Valid(new Bundle {
+      val addr = UInt(3.W)
+      val data = new RatUpdateEntry
+    })))
+    val doUpdate = Input(Bool())
     val commit      = Input(new VIRatCommitPort)
     val debug  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
   })
   //RAT
-  val rat_ds = VecInit.tabulate(32)(i => i.U(VIPhyRegIdxWidth.W))
-  val sRAT = RegInit(rat_ds)
-  val aRAT = RegInit(rat_ds)
+  private val rat_ds = VecInit.tabulate(32)(i => i.U(VIPhyRegIdxWidth.W))
+  private val sRAT = RegInit(rat_ds)
+  private val aRAT = RegInit(rat_ds)
+  private val updateEntryValid = RegInit(VecInit(Seq.fill(8)(false.B)))
+  private val updateEntryBits = Reg(Vec(8, new RatUpdateEntry))
+  private val updateEntryValidNext = WireInit(updateEntryValid)
+  private val updateEntryBitsNext = WireInit(updateEntryBits)
 
   io.debug := aRAT
 
-  for(((pi, po), bypassNum) <- io.rename.map(_.in).zip(io.rename.map(_.out)).zipWithIndex) {
-    po.pvs1 := sRAT(pi.bits.lvs1)
-    po.pvs2 := sRAT(pi.bits.lvs2)
-    po.pvs3 := sRAT(pi.bits.lvs3)
-    po.pmask := sRAT(0)
-    if(bypassNum != 0) {
-      val renamePorts = io.rename.take(bypassNum)
-      val wmasks = renamePorts.map(_.in.valid)
-      val wlrs = renamePorts.map(_.in.bits.lvd)
-      val wprs = renamePorts.map(_.in.bits.allocIdx)
-      Seq(pi.bits.lvs1, pi.bits.lvs2, pi.bits.lvs3, 0.U).zip(
-        Seq(po.pvs1, po.pvs2, po.pvs3, po.pmask)
-      ).foreach {
-        case(lr, pr) => {
-          for(i <- 0 until bypassNum) {
-            val hit = wmasks(i) && (wlrs(i) === lr && renamePorts(i).in.bits.doRename)
-            when(hit) {
-              pr := wprs(i)
-            }
-          }
-        }
+  /***********************************************************************************
+   * Vector Rename take uops belong to the same instruction at the same cycle.
+   * Every vector uop in the same instruction sees a same RAT, no need to bypass.
+   * For uops that do not allocate new reg, used the same pdest of matching ldest in the update regs.
+   * All RAT updates within one vector instruction will store in update regs.
+   * Updates will be postponed until when all uops of one instruction have been renamed.
+   ************************************************************************************/
+
+  for(r <- io.rename){
+    val pvdSelFromUpdate = updateEntryValidNext.zip(updateEntryBitsNext).map(e => {e._1 && e._2.lvd === r.lvd})
+    val pvdFromUpdate = Mux1H(pvdSelFromUpdate, updateEntryBitsNext.map(_.pvd))
+    val pvdFromUpdateHit = pvdSelFromUpdate.reduce(_|_)
+    r.pvd := Mux(pvdFromUpdateHit, pvdFromUpdate, sRAT(r.lvd))
+    for((p, l) <- r.pvs.zip(r.lvs)){
+      p := sRAT(l)
+    }
+  }
+  private def UpdateWrite(validVec:Vec[Bool], bitsVec:Vec[RatUpdateEntry]):Unit = {
+    for (((vn, bn), idx) <- validVec.zip(bitsVec).zipWithIndex) {
+      val wSel = io.update.map(u => u.valid && u.bits.addr === idx.U)
+      val wData = Mux1H(wSel, io.update.map(_.bits.data))
+      val wHit = wSel.reduce(_ | _)
+      when(wHit){
+        vn := true.B
+        bn := wData
       }
     }
   }
+  UpdateWrite(updateEntryValid, updateEntryBits)
+  UpdateWrite(updateEntryValidNext, updateEntryBitsNext)
 
-  //old regId read, for rollBackList storage
-  private val sRatRenameNext = WireInit(sRAT)
-  private val sRatWalkNext = WireInit(sRAT)
+  when(io.doUpdate){
+    updateEntryValid.foreach(_ := false.B)
+  }
 
-  io.rename.foreach(r => {
-    when(r.in.valid){
-      sRatRenameNext(r.in.bits.lvd) := r.in.bits.allocIdx
+  //Update and walk
+  for((e, idx) <- sRAT.zipWithIndex){
+    val uSel = updateEntryValidNext.zip(updateEntryBitsNext).map(e => e._1 && e._2.lvd === idx.U)
+    val uData = Mux1H(uSel, updateEntryBitsNext.map(_.pvd))
+    val uHit = uSel.reduce(_ | _)
+    when(uHit && io.doUpdate){
+      e := uData
     }
-  })
-
+  }
+  //Walk write has priority: write with bigger idx will overwrite ones with smaller.
   for (i <- 0 until 8) {
     when(io.commit.doWalk && io.commit.mask(i)) {
-      sRatWalkNext(io.commit.lrIdx(i)) := io.commit.prIdxOld(i)
+      sRAT(io.commit.lrIdx(i)) := io.commit.prIdxOld(i)
     }
   }
-  private val doRename = io.rename.map(_.in.valid).reduce(_|_)
-  private val doWalk = io.commit.doWalk && io.commit.mask.reduce(_|_)
-  when(doRename){
-    sRAT := sRatRenameNext
-  }.elsewhen(doWalk){
-    sRAT := sRatWalkNext
-  }
-
+  //Commit write has priority: write with bigger idx will overwrite ones with smaller.
   for(i <- 0 until 8){
     when(io.commit.doCommit && io.commit.mask(i)){
       aRAT(io.commit.lrIdx(i)) := io.commit.prIdxNew(i)

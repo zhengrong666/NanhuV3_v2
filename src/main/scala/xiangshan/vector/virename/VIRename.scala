@@ -55,20 +55,11 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   io.debug := renameTable.io.debug
 
   //-------------------------------------------- Rename --------------------------------------------
-  //TODO: !redirect && !walk
-  val renameNum = PopCount(io.rename.map(req => req.in.valid && req.in.bits.canRename))
-  val canRenameNum = PopCount(freeList.io.allocatePhyReg.map(_.valid))
-  val doRename = (canRenameNum >= renameNum) && (!io.redirect.valid) && (!io.commit.isWalk)
-
-  io.rename.map(_.in).zip(freeList.io.allocatePhyReg).zip(io.rename.map(_.out)).foreach {
-    case ((rin, alloc), ro) =>
-      rin.ready := alloc.valid && ro.ready && doRename
+  private val stopRename = io.redirect.valid || io.commit.isWalk || RegNext(io.commit.isWalk, false.B)
+  io.rename.map(_.in).zip(io.rename.map(_.out)).foreach {
+    case (rin, ro) =>
+      rin.ready := ro.ready && freeList.io.canAccept && !stopRename
       ro.valid := rin.fire
-  }
-
-  //allocate FreeList Ptr, write rat and rollbackList
-  for(port <- io.rename) {
-    port.out.bits := port.in.bits
   }
 
   /*  Rename
@@ -79,62 +70,58 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   * Pvm should be the same when robIdx is the same.
   *------------------------------------------------
   */
-  private val vmMem = Reg(Vec(VIRenameWidth, new VmMemoryEntry))
-  private val vmMemValids = RegInit(VecInit(Seq.fill(VIRenameWidth)(false.B)))
-  private val vmMemNext = WireInit(vmMem)
-  private val vmMemValidsNext = WireInit(vmMemValids)
-  vmMemValids := vmMemValidsNext
-  vmMemValids.zip(vmMem).foreach({case(v ,e) =>
-    when(e.robIdx.needFlush(io.redirect)){
-      v := false.B
+  private val updateEntryAllocator = RegInit(0.U(3.W))
+  private val updateAddrs = Wire(Vec(VIRenameWidth, UInt(3.W)))
+  for((a, i) <- updateAddrs.zipWithIndex){
+    if(i == 0){
+      a := updateEntryAllocator
+    } else {
+      a := updateEntryAllocator + PopCount(io.rename.take(i).map(r => r.in.valid && r.in.bits.canRename))
     }
-  })
-  vmMemValidsNext.zip(vmMemNext).zip(vmMem).foreach({case((v, n), r) =>
-    when(v){r := n}
-  })
-
-  io.rename.map(_.out).zip(vmMemValidsNext).zip(vmMemNext).zipWithIndex.foreach {case(((o, v), e), i) =>
-    v := o.fire && o.bits.uopIdx === 0.U
-    e.robIdx := o.bits.robIdx
-    e.pvm := renameTable.io.rename(i).out.pmask
   }
-  private def getPvm(robIdx:RobPtr, uopIdx:UInt, fromRat:UInt):UInt = {
-    val pvm = Wire(UInt(PhyRegIdxWidth.W))
-    val sel = (vmMemValidsNext ++ vmMemValids).zip(vmMemNext ++ vmMem).map(e => e._1 && e._2.robIdx === robIdx)
-    pvm := Mux1H(sel, (vmMemNext ++ vmMem).map(_.pvm))
-    pvm
+  private val allocateNew = io.rename.map(r => r.in.valid && r.in.bits.canRename)
+  private val last = io.rename.map(r => r.in.valid && r.in.bits.uopIdx === (r.in.bits.uopNum - 1.U)).reduce(_|_)
+  when(last){
+    updateEntryAllocator := 0.U
+  }.elsewhen(allocateNew.reduce(_|_)){
+    updateEntryAllocator := updateEntryAllocator + PopCount(allocateNew)
   }
+  renameTable.io.doUpdate := last
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
     case ((resp, req), i) => {
       val renameEn = req.fire && req.bits.canRename && req.bits.ctrl.vdWen
-      val allocPhyIdx = freeList.io.allocatePhyReg(i).bits
-      freeList.io.allocatePhyReg(i).ready := renameEn
+      val allocPhyIdx = freeList.io.allocatePhyReg(i)
+      freeList.io.needAlloc(i) := req.valid && req.bits.canRename && req.bits.ctrl.vdWen && resp.ready && !stopRename
       // reanme write rat
-      renameTable.io.rename(i).in.valid := renameEn
-      renameTable.io.rename(i).in.bits.lvd := req.bits.ctrl.ldest
-      renameTable.io.rename(i).in.bits.lvs1 := req.bits.ctrl.lsrc(0)
-      renameTable.io.rename(i).in.bits.lvs2 := req.bits.ctrl.lsrc(1)
-      renameTable.io.rename(i).in.bits.lvs3 := req.bits.ctrl.ldest
-      renameTable.io.rename(i).in.bits.allocIdx := allocPhyIdx
-      renameTable.io.rename(i).in.bits.doRename := req.bits.canRename && req.bits.ctrl.vdWen
+      renameTable.io.rename(i).lvd := req.bits.ctrl.ldest
+      renameTable.io.rename(i).lvs(0) := req.bits.ctrl.lsrc(0)
+      renameTable.io.rename(i).lvs(1) := req.bits.ctrl.lsrc(1)
+      renameTable.io.rename(i).lvs(2) := req.bits.ctrl.ldest
+      renameTable.io.rename(i).lvs(3) := 0.U
 
-      resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).out.pvs3, req.bits.pdest))
-      resp.bits.psrc(0) := Mux(req.bits.ctrl.srcType(0) === SrcType.vec, renameTable.io.rename(i).out.pvs1, req.bits.psrc(0))
-      resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).out.pvs2, req.bits.psrc(1))
-      resp.bits.psrc(2) := renameTable.io.rename(i).out.pvs3
+      renameTable.io.update(i).valid := renameEn
+      renameTable.io.update(i).bits.addr := updateAddrs(i)
+      renameTable.io.update(i).bits.data.lvd := req.bits.ctrl.ldest
+      renameTable.io.update(i).bits.data.pvd := allocPhyIdx
+
+      resp.bits := req.bits
+      resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).pvd, req.bits.pdest))
+      resp.bits.psrc(0) := Mux(req.bits.ctrl.srcType(0) === SrcType.vec, renameTable.io.rename(i).pvs(0), req.bits.psrc(0))
+      resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).pvs(1), req.bits.psrc(1))
+      resp.bits.psrc(2) := renameTable.io.rename(i).pvs(2)
+      resp.bits.vm := renameTable.io.rename(i).pvs(3)
       resp.bits.old_pdest := DontCare
-      resp.bits.vm := getPvm(req.bits.robIdx, req.bits.uopIdx, renameTable.io.rename(i).out.pmask)
     }
   }
 
   // write rollbacklist
   io.rename.map(_.in).zip(rollBackList.io.rename).zipWithIndex.foreach {
     case ((req, rlb), i) => {
-      rlb.valid := req.fire && req.bits.canRename
+      rlb.valid := req.fire && req.bits.canRename && req.bits.ctrl.vdWen
       rlb.bits.robIdx := req.bits.robIdx
       rlb.bits.lrIdx := req.bits.ctrl.ldest
-      rlb.bits.oldPrIdx := renameTable.io.rename(i).out.pvs3
-      rlb.bits.newPrIdx := freeList.io.allocatePhyReg(i).bits
+      rlb.bits.oldPrIdx := renameTable.io.rename(i).pvs(2)
+      rlb.bits.newPrIdx := freeList.io.allocatePhyReg(i)
     }
   }
 

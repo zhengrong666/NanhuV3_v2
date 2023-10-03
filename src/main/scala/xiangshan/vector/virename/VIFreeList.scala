@@ -39,7 +39,9 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
     //be different from int and float rename module
     //freeEntry num, determines whether the requests can enter RenameModule
     //connects with RAT, offer PhyRegIndex
-    val allocatePhyReg = Vec(VIRenameWidth, DecoupledIO(UInt(VIPhyRegIdxWidth.W)))
+    val needAlloc = Input(Vec(VIRenameWidth, Bool()))
+    val canAccept = Output(Bool())
+    val allocatePhyReg = Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W))
     //connects with RollBackList
     val releasePhyReg = Vec(8, Flipped(ValidIO(UInt(VIPhyRegIdxWidth.W))))
   })
@@ -60,10 +62,13 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
 
   //head and tail pointer
   val allocatePtr = RegInit(VIFreeListPtr(false, 0))
-  val releasePtr = RegInit(VIFreeListPtr(true, 0))
+  val releasePtr = RegInit(VIFreeListPtr(false, VIPhyRegsNum - 32))
 
   //Allocate
-  // val freeEntryNum = distanceBetween(tailPtr, headPtr)
+  private val allocateNum = PopCount(io.needAlloc)
+  private val freeEntryNum = distanceBetween(releasePtr, allocatePtr)
+  io.canAccept := allocateNum <= freeEntryNum
+
   val allocPtrOHVec = Wire(Vec(VIRenameWidth, UInt(VIPhyRegsNum.W)))
   for(i <- 0 until VIRenameWidth) {
     allocPtrOHVec(i) := (allocatePtr + i.U).toOH
@@ -73,13 +78,9 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   phyRegCandidates := allocPtrOHVec.map(sel => Mux1H(sel, freeList))
 
   // io.canAllocateNum := Mux(freeEntryNum >= VIRenameWidth.U, VIRenameWidth.U, freeEntryNum)
-  for((alloc, i) <- io.allocatePhyReg.zipWithIndex) {
-    val canAlloc = (allocatePtr + i.U) < releasePtr
-    alloc.valid := canAlloc
-    alloc.bits := phyRegCandidates(i)
-  }
+   io.allocatePhyReg := phyRegCandidates
 
-  val allocNum = PopCount(io.allocatePhyReg.map(_.fire))
+  val allocNum = PopCount(io.needAlloc.map(_ && io.canAccept))
   val allocPtrNext = allocatePtr + allocNum
   allocatePtr := allocPtrNext
 
