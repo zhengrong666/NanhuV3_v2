@@ -162,6 +162,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
     elem._1 := Pipe(elem._2, 2)
   }
   vrf.io.redirect := Pipe(localRedirect)
+  vrf.io.vecAllocPregs := io.vectorAllocPregs
 
   outer.exuBlocks.foreach(_.module.redirectIn := Pipe(localRedirect))
 

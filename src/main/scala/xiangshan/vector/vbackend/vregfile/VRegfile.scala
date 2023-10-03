@@ -33,6 +33,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val wakeups = Output(Vec(wbWkpNum, Valid(new ExuOutput)))
     val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
     val readPorts = Vec(readPortNum, new VrfReadPort)
+    val vecAllocPregs = Vec(vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
 
     val debug = if(env.EnableDifftest || env.AlwaysBasicDiff) {Some(Vec(32, new Bundle {
       val addr = Input(UInt(PhyRegIdxWidth.W))
@@ -45,6 +46,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   private val mrf = Mem(size, Vec(maskWidth, Bool()))
   private val vrf = Mem(size, Vec(maskWidth, UInt(8.W)))
   private val fullMaskVec = VecInit(Seq.fill(maskWidth)(true.B))
+  private val emptyMaskVec = VecInit(Seq.fill(maskWidth)(false.B))
 
   // read vector register file
   for (r <- io.readPorts) {
@@ -106,6 +108,13 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
         srcData.foreach(_ := 0xffff.U)
       }
       vrf.write(dst, srcData, wm.asBools)
+      val mask = Mux(io.moveOldValReqs(i).bits.enable, emptyMaskVec, fullMaskVec)
+      mrf.write(dst, mask, wm.asBools)
     }
   }
+  io.vecAllocPregs.foreach(va => {
+    when(va.valid){
+      mrf.write(va.bits, emptyMaskVec, fullMaskVec)
+    }
+  })
 }

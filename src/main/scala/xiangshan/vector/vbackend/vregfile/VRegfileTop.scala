@@ -82,6 +82,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val vectorReads = Vec(extraVectorRfReadPort, new VectorRfReadPort)
       val scalarReads = Vec(rfReadNum, Flipped(new ScalarRfReadPort))
       val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
+      val vecAllocPregs = Vec(vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
       val debug_vec_rat = Input(Vec(32, UInt(PhyRegIdxWidth.W)))
       val redirect = Input(Valid(new Redirect))
     })
@@ -107,6 +108,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     private val readPortsNum = fromRs.length * 4 + extraVectorRfReadPort
 
     private val vrf = Module(new VRegfile(wbPairNeedMerge.length, wbPairDontNeedMerge.length, readPortsNum))
+    vrf.io.vecAllocPregs.zip(io.vecAllocPregs).foreach({case(a, b) => a := Pipe(b)})
 
     println("VRF writeback port need merged:")
     wbPairNeedMerge.foreach(e => print(e._3))
