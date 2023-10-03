@@ -219,7 +219,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     }
 
     if (env.EnableDifftest || env.AlwaysBasicDiff) {
-      val difftestArchVec = DifftestModule(new DiffArchVecRegState, delay = 2)
+      val difftestArchVec = DifftestModule(new DiffArchVecRegState)
       difftestArchVec.clock := clock
       difftestArchVec.coreid := io.hartId
 
