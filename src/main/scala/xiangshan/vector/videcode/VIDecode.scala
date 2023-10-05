@@ -46,23 +46,7 @@ abstract trait DecodeConstants {
   val table: Array[(BitPat, List[BitPat])]
 }
 
-trait VDecodeUnitConstants
-{
-  // abstract out instruction decode magic numbers
-  val VD_MSB = 11
-  val VD_LSB = 7
-  val VS1_MSB = 19
-  val VS1_LSB = 15
-  val VS2_MSB = 24
-  val VS2_LSB = 20
-  val F6_MSB = 31
-  val F6_LSB = 26
-  val F3_MSB = 14
-  val F3_LSB = 12
-  val VM_LSB = 25
-  val NF_MSB = 31
-  val NF_LSB = 29
-}
+
 abstract class Imm(val len: Int) extends Bundle {
   def toImm32(minBits: UInt): UInt = do_toImm32(minBits(len - 1, 0))
   def do_toImm32(minBits: UInt): UInt

@@ -203,6 +203,7 @@ class CfCtrl(implicit p: Parameters) extends XSBundle {
   val cf = new CtrlFlow
   val ctrl = new CtrlSignals
   val vCsrInfo = new VICsrInfo
+  val vctrl = new VCtrlSignals
 }
 
 class PerfDebugInfo(implicit p: Parameters) extends XSBundle {
