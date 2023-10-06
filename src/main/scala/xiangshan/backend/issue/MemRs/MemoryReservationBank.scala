@@ -111,7 +111,7 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
       enqEntry.stdState := Mux(in.ctrl.fuType === FuType.stu && !isCbo, s_ready, s_issued)
     }.otherwise{
       val tailAgnostic = in.vCsrInfo.vta(0) && in.isTail || !in.isTail
-      val maskAgnostic = in.vCsrInfo.vma(0) && in.ctrl.vm || !in.ctrl.vm
+      val maskAgnostic = in.vCsrInfo.vma(0) && in.vctrl.vm || !in.vctrl.vm
       val dontCareDest = tailAgnostic && maskAgnostic && !in.isPrestart
       enqEntry.psrc(1) := in.psrc(1)
       enqEntry.psrc(2) := in.psrc(2)

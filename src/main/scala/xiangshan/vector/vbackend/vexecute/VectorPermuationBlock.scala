@@ -74,7 +74,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     private val rfRespValid = RegNext(rfReqValid, false.B)
     private val rfRespData = RegEnable(io.rfReadPort.vrf.data, rfReqValid)
 
-    permutation.io.in.uop := uopToVuop(issueDataReg.uop, issueValidReg, p)
+    permutation.io.in.uop := uopToVuop(issueDataReg.uop, issueValidReg, io.vstart, io.vcsr(2,1), io.frm, p)
     permutation.io.in.uop.info.vstart := io.vstart
     permutation.io.in.uop.info.vxrm := io.vcsr(2,1)
     permutation.io.in.uop.info.frm := io.frm

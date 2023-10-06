@@ -39,7 +39,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
 
   private val enqEntryNext = WireInit(io.entry)
   when(io.enq.valid){
-    val agnostic = (io.enq.bits.vCsrInfo.vta(0) && io.enq.bits.isTail) || (io.enq.bits.vCsrInfo.vma(0) && io.enq.bits.ctrl.vm)
+    val agnostic = (io.enq.bits.vCsrInfo.vta(0) && io.enq.bits.isTail) || (io.enq.bits.vCsrInfo.vma(0) && io.enq.bits.vctrl.vm)
     when(io.enqIsMerge){
       assert(io.entry.valid)
       enqEntryNext.bits.pvs1(io.enq.bits.uopIdx) := io.enq.bits.psrc(0)
@@ -63,7 +63,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pov(0) := io.enq.bits.psrc(2)
       enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
       enqEntryNext.bits.pvm := io.enq.bits.vm
-      enqEntryNext.bits.pvmState := Mux(io.enq.bits.ctrl.vm, io.enq.bits.vmState, SrcState.rdy)
+      enqEntryNext.bits.pvmState := Mux(io.enq.bits.vctrl.vm, io.enq.bits.vmState, SrcState.rdy)
       enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 0.U
       enqEntryNext.valid := true.B
 

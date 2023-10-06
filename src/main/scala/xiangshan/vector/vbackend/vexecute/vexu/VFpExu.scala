@@ -21,16 +21,22 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
   val issueNode = new ExuInputNode(cfg)
   val writebackNode = new ExuOutputNode(cfg)
 
-  lazy val module = new BasicExuImpl(this) with HasXSParameter with HasVectorParameters {
+  lazy val module = new Impl
+  class Impl extends BasicExuImpl(this) with HasXSParameter with HasVectorParameters {
     require(issueNode.in.length == 1)
     require(writebackNode.out.length == 1)
+    val io = IO(new Bundle {
+      val vstart = Input(UInt(log2Up(VLEN).W))
+      val vcsr = Input(UInt(3.W))
+      val frm = Input(UInt(3.W))
+    })
 
     private val iss = issueNode.in.head._1.issue
     private val wb = writebackNode.out.head._1
 
     private val vfp = Module(new VFPUWrapper)
 
-    private val vuop = uopToVuop(iss.bits.uop, iss.valid, p)
+    private val vuop = uopToVuop(iss.bits.uop, iss.valid, io.vstart, io.vcsr(2,1), io.frm, p)
     private val src0 = iss.bits.src(0)
     private val src1 = iss.bits.src(1)
     private val src2 = iss.bits.src(2)

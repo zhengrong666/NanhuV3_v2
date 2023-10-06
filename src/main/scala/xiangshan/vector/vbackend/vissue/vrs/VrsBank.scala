@@ -28,7 +28,7 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
   private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, issueWidth, "VrsPayloadArray"))
 
   private def EnqToEntry(in: MicroOp): VrsStatusArrayEntry = {
-    val dontCareDest = in.vCsrInfo.vta(0) && ((in.vCsrInfo.vma(0) && in.ctrl.vm) || !in.ctrl.vm)
+    val dontCareDest = in.vCsrInfo.vta(0) && ((in.vCsrInfo.vma(0) && in.vctrl.vm) || !in.vctrl.vm)
     val enqEntry = Wire(new VrsStatusArrayEntry)
     enqEntry.psrc.take(2).zip(in.psrc.take(2)).foreach(elm => elm._1 := elm._2)
     enqEntry.srcType.take(2).zip(in.ctrl.srcType.take(2)).foreach(elm => elm._1 := elm._2)
@@ -49,11 +49,11 @@ class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(im
 
     enqEntry.psrc(3) := in.vm
     enqEntry.srcType(3) := SrcType.vec
-    enqEntry.srcState(3) := Mux(in.ctrl.vm, in.vmState, SrcState.rdy)
+    enqEntry.srcState(3) := Mux(in.vctrl.vm, in.vmState, SrcState.rdy)
 
     enqEntry.fuType := in.ctrl.fuType
     enqEntry.robIdx := in.robIdx
-    enqEntry.isOrdered := in.ctrl.isOrder
+    enqEntry.isOrdered := in.vctrl.ordered
     enqEntry.uopIdx := in.uopIdx(2, 0)
     enqEntry
   }

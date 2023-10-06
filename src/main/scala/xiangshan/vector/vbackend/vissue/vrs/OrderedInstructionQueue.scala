@@ -159,7 +159,7 @@ class OIQEnqBuffer(enqNum:Int)(implicit p: Parameters) extends Module with HasCi
 
   private val squeezedEnqs = OIQ.SqueezeEnqueue(io.enq.map(e => {
     val res = Wire(Valid(new OIQEntry))
-    res.valid := e.valid && e.bits.ctrl.isOrder && io.enqCanAccept
+    res.valid := e.valid && e.bits.vctrl.ordered && io.enqCanAccept
     res.bits.robIdx := e.bits.robIdx
     res.bits.uopIdx := e.bits.uopIdx
     res.bits.uopMax := e.bits.uopNum
