@@ -2,7 +2,9 @@ package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
+import xiangshan.vector.EewType
 import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Narrow, Redirect, SrcType, Widen, XSModule}
+import xs.utils.LogicShiftRight
 
 class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
@@ -12,49 +14,68 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     val out = Output(Vec(splitNum, Valid(new MicroOp)))
   })
   private val vl = io.in.bits.vCsrInfo.vl
-  private val sew = io.in.bits.vCsrInfo.vsew
-  private val narrow = io.in.bits.ctrl.narrow === Narrow.Narrow
-  private val narrowToMask = io.in.bits.ctrl.narrow === Narrow.Narrow2
   private val ctrl = io.in.bits.ctrl
-  private val nf = io.in.bits.ctrl.NField +& 1.U
-  private def LsRenameInfo(idx: UInt, store:Bool): (Bool, UInt, UInt) = {
+  private val vctrl = io.in.bits.vctrl
+  private val dstSew = vctrl.eew(2)
+  private val idxSew = vctrl.eew(1)
+  private val memSew = vctrl.eew(0)
+  private val nf = io.in.bits.vctrl.nf
+  private def LsRenameInfo(idx: UInt, store:Bool): (Bool, UInt, UInt, UInt) = {
     val vlenBytes = VLEN / 8
     val vlenShiftBits = log2Ceil(vlenBytes)
     val idxBits = idx.getWidth
     val idxDivNf = WireInit(idx)
     val idxModNf = WireInit(idx)
-    val vecIdxAddend = WireInit(idx)
+    val vdAddend = Wire(UInt(8.W))
+    val vs2Addend = Wire(UInt(8.W))
     val shouldRename = Wire(Bool())
     val lFuOpType = Wire(FuOpType())
     val sFuOpType = Wire(FuOpType())
     idxDivNf := idx / nf
     idxModNf := idx % nf
     shouldRename := MuxCase(false.B, Seq(
-      (sew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
-      (sew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
-      (sew === 2.U) -> (idxDivNf(vlenShiftBits - 3, 0) === 0.U),
-      (sew === 3.U) -> (idxDivNf(vlenShiftBits - 4, 0) === 0.U)
+      (dstSew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
+      (dstSew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
+      (dstSew === 2.U) -> (idxDivNf(vlenShiftBits - 3, 0) === 0.U),
+      (dstSew === 3.U) -> (idxDivNf(vlenShiftBits - 4, 0) === 0.U)
     ))
-    vecIdxAddend := MuxCase(0.U, Seq(
-      (sew === 0.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits) / nf * nf),
-      (sew === 1.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 1) / nf * nf),
-      (sew === 2.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 2) / nf * nf),
-      (sew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
+    vdAddend := MuxCase(0.U, Seq(
+      (dstSew === 0.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits) / nf * nf),
+      (dstSew === 1.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 1) / nf * nf),
+      (dstSew === 2.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 2) / nf * nf),
+      (dstSew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
+    ))
+    vs2Addend := MuxCase(0.U, Seq(
+      (idxSew === 0.U) -> idx(vlenShiftBits - 1, 4),
+      (idxSew === 1.U) -> idx(vlenShiftBits - 1, 3),
+      (idxSew === 2.U) -> idx(vlenShiftBits - 1, 2),
+      (idxSew === 3.U) -> idx(vlenShiftBits - 1, 1),
     ))
     lFuOpType := MuxCase(LSUOpType.ld, Seq(
-      (sew === 0.U) -> LSUOpType.lbu,
-      (sew === 1.U) -> LSUOpType.lhu,
-      (sew === 2.U) -> LSUOpType.lwu,
-      (sew === 3.U) -> LSUOpType.ld,
+      (dstSew === 0.U) -> LSUOpType.lbu,
+      (dstSew === 1.U) -> LSUOpType.lhu,
+      (dstSew === 2.U) -> LSUOpType.lwu,
+      (dstSew === 3.U) -> LSUOpType.ld,
     ))
     sFuOpType := MuxCase(LSUOpType.sd, Seq(
-      (sew === 0.U) -> LSUOpType.sb,
-      (sew === 1.U) -> LSUOpType.sh,
-      (sew === 2.U) -> LSUOpType.sw,
-      (sew === 3.U) -> LSUOpType.sd,
+      (dstSew === 0.U) -> LSUOpType.sb,
+      (dstSew === 1.U) -> LSUOpType.sh,
+      (dstSew === 2.U) -> LSUOpType.sw,
+      (dstSew === 3.U) -> LSUOpType.sd,
     ))
     val fuOpType = Mux(store, sFuOpType, lFuOpType)
-    (shouldRename, vecIdxAddend, fuOpType)
+    (shouldRename, vdAddend, vs2Addend, fuOpType)
+  }
+  private def GenAddend(et:UInt, widenOrNarrow:Bool, idx:UInt):UInt = {
+    val res = Wire(UInt(3.W))
+    res := MuxCase(0.U, Seq(
+      (et === EewType.sew)   -> Mux(widenOrNarrow, LogicShiftRight(idx, 1), idx),
+      (et === EewType.sewm2) -> idx, //Only appear in narrow or widen instructions
+      (et === EewType.sewd2) -> LogicShiftRight(idx, 1),
+      (et === EewType.sewd4) -> LogicShiftRight(idx, 2),
+      (et === EewType.sewd8) -> LogicShiftRight(idx, 3),
+    ))
+    res
   }
 
   io.out.zipWithIndex.foreach({ case (o, idx) =>
@@ -66,31 +87,22 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits.isTail := currentnum >= vl //Only VLS need this
     o.bits.isPrestart := currentnum < io.vstart //Only VLS need this
 
-    when(io.in.bits.ctrl.isVLS) {
-      val (doRn, addend, ft) = LsRenameInfo(currentnum, o.bits.ctrl.fuType === FuType.stu)
+    when(io.in.bits.vctrl.isLs) {
+      val (doRn, vda, vs2a, ft) = LsRenameInfo(currentnum, o.bits.ctrl.fuType === FuType.stu)
       o.bits.canRename := doRn
-      o.bits.ctrl.ldest := ctrl.ldest + addend
+      o.bits.ctrl.ldest := ctrl.ldest + vda
       o.bits.ctrl.lsrc(0) := ctrl.lsrc(0)
-      o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + addend, ctrl.lsrc(1))
+      o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + vs2a, ctrl.lsrc(1))
       o.bits.ctrl.fuOpType := ft
-    }.elsewhen(narrow) {
-      val addend = currentnum(6, 1)
-      o.bits.canRename := !currentnum(0).asBool
-      o.bits.ctrl.ldest := ctrl.ldest + addend
-      o.bits.ctrl.lsrc(0) := Mux(ctrl.srcType(0) === SrcType.vec, ctrl.lsrc(0) + addend, ctrl.lsrc(1))
-      o.bits.ctrl.lsrc(1) := ctrl.lsrc(1) + addend
-    }.elsewhen(narrowToMask) {
-      val addend = currentnum
-      o.bits.canRename := currentnum === 0.U
-      o.bits.ctrl.ldest := ctrl.ldest
-      o.bits.ctrl.lsrc(0) := Mux(ctrl.srcType(0) === SrcType.vec, ctrl.lsrc(0) + addend, ctrl.lsrc(0))
-      o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + addend, ctrl.lsrc(1))
     }.otherwise {
-      val addend = currentnum
+      val narrowOrWiden = vctrl.isNarrow | vctrl.isNarrow
+      val vs1Addend = GenAddend(vctrl.eewType(0), narrowOrWiden, currentnum)
+      val vs2Addend = GenAddend(vctrl.eewType(1), narrowOrWiden, currentnum)
+      val vdAddend  = GenAddend(vctrl.eewType(2), narrowOrWiden, currentnum)
       o.bits.canRename := true.B
-      o.bits.ctrl.ldest := Mux(ctrl.vdWen, ctrl.ldest + addend, ctrl.ldest)
-      o.bits.ctrl.lsrc(0) := Mux(ctrl.srcType(0) === SrcType.vec, ctrl.lsrc(0) + addend, ctrl.lsrc(0))
-      o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + addend, ctrl.lsrc(1))
+      o.bits.ctrl.ldest := ctrl.ldest + vdAddend
+      o.bits.ctrl.lsrc(0) := ctrl.lsrc(0) + vs1Addend
+      o.bits.ctrl.lsrc(1) := ctrl.lsrc(1) + vs2Addend
     }
   })
 }
@@ -112,30 +124,12 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     val vstart = Input(UInt(7.W))
     val redirect = Input(Valid(new Redirect))
   })
-  private def GetUopNum(in:MicroOp):UInt = {
-    val uopnum = Wire(UInt(8.W))
-    val sew = in.vCsrInfo.vsew
-    val lmul = MuxCase(0.U, Seq(
-      (in.vCsrInfo.vlmul === 0.U) -> 1.U,
-      (in.vCsrInfo.vlmul === 1.U) -> 2.U,
-      (in.vCsrInfo.vlmul === 2.U) -> 4.U,
-      (in.vCsrInfo.vlmul === 3.U) -> 8.U,
-    ))
-    val lmulWiden = MuxCase(8.U, Seq(
-      (in.vCsrInfo.vlmul === 0.U) -> 2.U,
-      (in.vCsrInfo.vlmul === 1.U) -> 4.U,
-      (in.vCsrInfo.vlmul === 2.U) -> 8.U,
-    ))
-    val elementInRegGroup = Cat(lmul, 0.U(4.W)) >> sew
-    uopnum := Mux(in.ctrl.isVLS, elementInRegGroup, Mux(in.ctrl.widen === Widen.NotWiden, lmul, lmulWiden))
-    uopnum
-  }
 
   private val remain = RegInit(0.U(log2Ceil(VLEN + 1).W))
   private val remainWire = WireInit(remain)
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
-  private val uopNum = GetUopNum(io.in.bits)
+  private val uopNum = io.in.bits.uopNum
   private val currentIndices = RegInit(VecInit(Seq.tabulate(splitNum)(_.U(log2Ceil(VLEN).W))))
   private val currentDefaultVal = VecInit(Seq.tabulate(splitNum)(_.U))
   private val currentWires = WireInit(currentIndices)
@@ -170,7 +164,5 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
     o.bits := out_v(i).bits
   })
 
-  // private val assertValid = RegInit(false.B)
-  // assertValid := io.in.valid
   when(io.in.valid){assert(leaving <= remainWire)}
 }

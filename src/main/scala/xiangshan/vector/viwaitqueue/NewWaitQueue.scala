@@ -71,6 +71,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     t.data.robEnqueued := false.B
     t.data.mergeIdAlloc := false.B
     t.data.vtypeRdy := e.bits.vtypeRdy
+    t.data.state := Mux(e.bits.vtypeRdy, WqState.s_updating, WqState.s_waiting)
   })
 
   private val enqValids = io.enq.req.map(_.valid && io.enq.canAccept)

@@ -24,17 +24,9 @@ package xiangshan.vector
 
 import chisel3._
 import chisel3.util._
-
 import org.chipsalliance.cde.config.Parameters
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-
-import utils._
-import xs.utils._
-
 import xiangshan._
-import xiangshan.backend.issue.DqDispatchNode
 import xiangshan.backend.rob._
-import xiangshan.vector._
 import xiangshan.vector.videcode._
 import xiangshan.vector.vtyperename._
 import xiangshan.vector.viwaitqueue._
@@ -75,7 +67,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val debug = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   })
 
-  val videcode    = Module(new VIDecodeUnit)
+  val vdecode    = Module(new VDecode)
   val waitqueue   = Module(new NewWaitQueue)
   val virename    = Module(new VIRename)
   val dispatch    = Module(new VectorDispatchWrapper(vecDpWidth, vpDpWidth, memDpWidth))
@@ -86,21 +78,21 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   io.debug := virename.io.debug
 
-  videcode.io.in <> io.in
+  vdecode.io.in <> io.in
 
   waitqueue.io.enq := DontCare
 
-  videcode.io.canOut := waitqueue.io.enq.canAccept
+  vdecode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.needAlloc(i) := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && !redirectDelay_dup_0.valid
-    waitqueue.io.enq.req(i).valid := videcode.io.out(i).valid && videcode.io.out(i).bits.ctrl.isVector && io.allowIn && !redirectDelay_dup_0.valid
-    waitqueue.io.enq.req(i).bits.uop := videcode.io.out(i).bits
+    waitqueue.io.enq.needAlloc(i) := vdecode.io.out(i).valid && vdecode.io.out(i).bits.ctrl.isVector && !redirectDelay_dup_0.valid
+    waitqueue.io.enq.req(i).valid := vdecode.io.out(i).valid && vdecode.io.out(i).bits.ctrl.isVector && io.allowIn && !redirectDelay_dup_0.valid
+    waitqueue.io.enq.req(i).bits.uop := vdecode.io.out(i).bits
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
     waitqueue.io.enq.req(i).bits.uop.old_pdest := io.fromVtpRn(i).old_pdest
-    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := Mux(videcode.io.out(i).bits.ctrl.isVmvnr, videcode.io.out(i).bits.vCsrInfo, io.fromVtpRn(i).vcsrInfo)
+    waitqueue.io.enq.req(i).bits.uop.vCsrInfo := io.fromVtpRn(i).vcsrInfo
     waitqueue.io.enq.req(i).bits.uop.robIdx := io.fromVtpRn(i).robIdx
-    waitqueue.io.enq.req(i).bits.vtypeRdy := io.fromVtpRn(i).vtypeRdy || videcode.io.out(i).bits.ctrl.isVmvnr
+    waitqueue.io.enq.req(i).bits.vtypeRdy := io.fromVtpRn(i).vtypeRdy
     waitqueue.io.enq.req(i).bits.uop.vtypeRegIdx := io.fromVtpRn(i).vtypeIdx
   }
 

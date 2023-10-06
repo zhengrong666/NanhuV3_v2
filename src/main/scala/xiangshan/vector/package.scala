@@ -46,9 +46,9 @@ package object vector {
   }
 
   class VCtrlSignals(implicit p: Parameters) extends XSBundle {
-    val eew = Vec(3, EewVal())
+    val eew = Vec(3, EewVal()) //VS1, VS2, VS3/VD EEW
     val eewType = Vec(3, EewType())
-    val emul = EmulVal()
+    val emul = EmulVal() //Destination EMUL
     val emulType = EmulType()
     val ordered = Bool()
     val isLs = Bool()

@@ -5,16 +5,22 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.backend.rob.RobPtr
-import xiangshan.{MicroOp, Redirect, XSBundle, XSModule}
-import xiangshan.vector.HasVectorParameters
+import xiangshan.{MicroOp, Redirect, VICsrInfo, XSBundle, XSModule}
+import xiangshan.vector._
 import xiangshan.vector.writeback.WbMergeBufferPtr
 import xiangshan.backend.execute.fu.csr.vcsr._
-
+import xs.utils.{LogicShiftLeft, LogicShiftRight}
+object WqState {
+  def s_updating:UInt = "b0".U
+  def s_waiting:UInt = "b1.U".U
+  def apply() = UInt(1.W)
+}
 class VIWakeQueueEntry(implicit p: Parameters) extends XSBundle{
   val uop = new MicroOp
   val vtypeRdy = Bool()
   val robEnqueued = Bool()
   val mergeIdAlloc = Bool()
+  val state = WqState()
 }
 class ViwqWritePort(implicit p: Parameters) extends XSBundle{
   val wen = Input(Bool())
@@ -69,6 +75,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     entryNext.uop.vCsrInfo := io.enq.bits.uop.vCsrInfo
   }.elsewhen(vtypeWbHit) {
     entryNext.vtypeRdy := true.B
+    entryNext.state := WqState.s_updating
     entryNext.uop.vCsrInfo := DontCare
     entryNext.uop.vCsrInfo.vma := io.vtypeWb.bits.vtype(7)
     entryNext.uop.vCsrInfo.vta := io.vtypeWb.bits.vtype(6)
@@ -78,9 +85,52 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     entryNext.uop.vCsrInfo.vlmax := entryNext.uop.vCsrInfo.VLMAXGen()
     entryNext.uop.cf.exceptionVec(illegalInstr) := io.vtypeWb.bits.vtype(8)
   }
+  private val vctrlNext = entryNext.uop.vctrl
+  private val vctrl = io.entry.uop.vctrl
+  private val vcsr = io.entry.uop.vCsrInfo
+  private val vlenBytes  = VLEN / 8
+  when(io.entry.state === WqState.s_updating){
+    for(((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)){
+      vn := MuxCase(v, Seq(
+        (et === EewType.sew) -> vcsr.vsew,
+        (et === EewType.sewm2) -> LogicShiftLeft(vcsr.vsew, 1),
+        (et === EewType.sewd2) -> LogicShiftRight(vcsr.vsew, 1),
+        (et === EewType.sewd4) -> LogicShiftRight(vcsr.vsew, 2),
+        (et === EewType.sewd8) -> LogicShiftRight(vcsr.vsew, 3),
+      ))
+    }
+    val newEmul = Mux(vctrl.isWidden, vcsr.vlmul + 1.U, vcsr.vlmul)
+    vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, newEmul, vctrl.emul)
+    when(vctrl.isLs){
+      entryNext.uop.uopNum := MuxCase(0.U, Seq(
+        (vctrlNext.emul ===  0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(2)),
+      ))
+    }.otherwise{
+      val emul = Mux(vctrl.isWidden || vctrl.isNarrow, vcsr.vlmul + 1.U, vcsr.vlmul)
+      entryNext.uop.uopNum := MuxCase(0.U, Seq(
+        (emul === 0.U(3.W)) -> 1.U,
+        (emul === 1.U(3.W)) -> 2.U,
+        (emul === 2.U(3.W)) -> 4.U,
+        (emul === 3.U(3.W)) -> 8.U,
+        (emul === 5.U(3.W)) -> 1.U,
+        (emul === 6.U(3.W)) -> 1.U,
+        (emul === 7.U(3.W)) -> 1.U,
+      ))
+    }
+    when(vctrl.isLs && vctrl.maskOp){
+      entryNext.uop.vCsrInfo.vta := 1.U
+    }
+    entryNext.state := WqState.s_waiting
+  }
 
   io.entryNext := entryNext
-  io.updateEnable := io.enq.valid || vtypeWbHit || robEnqHit || io.vmsResp.valid
+  io.updateEnable := io.enq.valid || vtypeWbHit || robEnqHit || io.vmsResp.valid || io.entry.state === WqState.s_updating
 }
 
 class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorParameters{

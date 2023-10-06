@@ -22,25 +22,28 @@ trait VDecodeUnitConstants
 }
 class VDecodeUnit(implicit p: Parameters) extends XSModule with VDecodeUnitConstants {
   val io = IO(new Bundle{
-    val uopIn = Input(new MicroOp)
-    val uopOut = Output(new MicroOp)
+    val in = Input(new CfCtrl)
+    val out = Output(new MicroOp)
   })
 
   private val decodeTable = VLDecode.table ++ VSDecode.table ++ VADecode.table ++
     VWDecode.table ++ VNDecode
 
-  private val uop = WireInit(io.uopIn)
-  uop.vctrl := Wire(new CtrlSignals()).decodev(io.uopIn.cf.instr, decodeTable)
-  uop.ctrl.lsrc(2) := io.uopIn.cf.instr(VD_MSB, VD_LSB)
-  uop.ctrl.ldest := io.uopIn.cf.instr(VD_MSB, VD_LSB)
-  uop.ctrl.srcType(2) := Mux(io.uopIn.ctrl.vdWen, SrcType.vec, SrcType.DC)
-  uop.vctrl.funct6 := io.uopIn.cf.instr(F6_MSB, F6_LSB)
-  uop.vctrl.funct3 := io.uopIn.cf.instr(F3_MSB, F3_LSB)
-  uop.vctrl.nf := io.uopIn.cf.instr(NF_MSB, NF_LSB)
-  uop.vctrl.vm := !io.uopIn.cf.instr(VM_LSB)
+  private val uop = Wire(new MicroOp)
+  uop := DontCare
+  uop.cf := io.in.cf
+  uop.ctrl := io.in.ctrl
+  uop.vctrl := Wire(new VCtrlSignals()).decode(io.in.cf.instr, decodeTable)
+  uop.ctrl.lsrc(2) := io.in.cf.instr(VD_MSB, VD_LSB)
+  uop.ctrl.ldest := io.in.cf.instr(VD_MSB, VD_LSB)
+  uop.ctrl.srcType(2) := Mux(io.in.ctrl.vdWen, SrcType.vec, SrcType.DC)
+  uop.vctrl.funct6 := io.in.cf.instr(F6_MSB, F6_LSB)
+  uop.vctrl.funct3 := io.in.cf.instr(F3_MSB, F3_LSB)
+  uop.vctrl.nf := io.in.cf.instr(NF_MSB, NF_LSB)
+  uop.vctrl.vm := !io.in.cf.instr(VM_LSB)
 
-  when(io.uopIn.ctrl.selImm =/= SelImm.X) {
-    uop.ctrl.imm := io.uopIn.cf.instr(VS1_MSB, VS1_LSB)
+  when(io.in.ctrl.selImm =/= SelImm.X) {
+    uop.ctrl.imm := io.in.cf.instr(VS1_MSB, VS1_LSB)
   }
-  io.uopOut := uop
+  io.out := uop
 }
