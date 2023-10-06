@@ -56,7 +56,7 @@ package object vector {
     val maskOp = Bool()
     val isWidden = Bool()
     val isNarrow = Bool()
-    val nf = UInt(3.W)
+    val nf = UInt(4.W)
     val vm = Bool()
     val funct6 = UInt(6.W)
     val funct3 = UInt(3.W)
