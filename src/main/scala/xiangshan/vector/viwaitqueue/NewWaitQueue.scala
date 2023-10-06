@@ -120,7 +120,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr
-  private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc
+  private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
   splitNetwork.io.redirect := io.redirect
   splitNetwork.io.in.valid := hasValid && !vstartHold && uopRdy
   splitNetwork.io.in.bits := deqUop.uop
