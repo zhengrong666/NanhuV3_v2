@@ -50,30 +50,21 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val updateEnable = Output(Bool())
   })
   private val entryNext = WireInit(io.entry)
-  when(io.enq.valid){
-    entryNext := io.enq.bits
-  }
+  private val entryEnqNext = io.enq.bits
+  entryEnqNext.uop.mergeIdx := DontCare
 
   private val robEnqHit = io.robEnq.map(r => r.valid && r.bits === io.entry.uop.robIdx).reduce(_|_)
-  when(io.enq.valid){
-    entryNext.robEnqueued := io.enq.bits.robEnqueued
-  }.elsewhen(robEnqHit){
+  when(robEnqHit){
     entryNext.robEnqueued := true.B
   }
 
-  when(io.enq.valid){
-    entryNext.mergeIdAlloc := io.enq.bits.mergeIdAlloc
-    entryNext.uop.mergeIdx := DontCare
-  }.elsewhen(io.vmsResp.valid){
+  when(io.vmsResp.valid){
     entryNext.mergeIdAlloc := true.B
     entryNext.uop.mergeIdx := io.vmsResp.bits
   }
 
   private val vtypeWbHit = io.vtypeWb.valid && io.vtypeWb.bits.vtypeRegIdx === io.entry.uop.vtypeRegIdx
-  when(io.enq.valid) {
-    entryNext.vtypeRdy := io.enq.bits.vtypeRdy
-    entryNext.uop.vCsrInfo := io.enq.bits.uop.vCsrInfo
-  }.elsewhen(vtypeWbHit) {
+  when(vtypeWbHit) {
     entryNext.vtypeRdy := true.B
     entryNext.state := WqState.s_updating
     entryNext.uop.vCsrInfo := DontCare
@@ -128,13 +119,13 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
     when(vctrl.isLs){
       vctrlNext.evl := (vcsr.vl << vcsr.vsew) >> vctrl.eew(0)
-    }otherwise{
+    }.otherwise{
       vctrlNext.evl := vcsr.vl
     }
     entryNext.state := WqState.s_waiting
   }
 
-  io.entryNext := entryNext
+  io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
   io.updateEnable := io.enq.valid || vtypeWbHit || robEnqHit || io.vmsResp.valid || io.entry.state === WqState.s_updating
 }
 
