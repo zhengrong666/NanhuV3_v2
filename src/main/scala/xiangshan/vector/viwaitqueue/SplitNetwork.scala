@@ -44,10 +44,10 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       (memSew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
     ))
     vs2Addend := MuxCase(0.U, Seq(
-      (idxSew === 0.U) -> idx(vlenShiftBits - 1, 4),
-      (idxSew === 1.U) -> idx(vlenShiftBits - 1, 3),
-      (idxSew === 2.U) -> idx(vlenShiftBits - 1, 2),
-      (idxSew === 3.U) -> idx(vlenShiftBits - 1, 1),
+      (idxSew === 0.U) -> idx(idxBits - 1, 4),
+      (idxSew === 1.U) -> idx(idxBits - 1, 3),
+      (idxSew === 2.U) -> idx(idxBits - 1, 2),
+      (idxSew === 3.U) -> idx(idxBits - 1, 1),
     ))
     lFuOpType := MuxCase(LSUOpType.ld, Seq(
       (memSew === 0.U) -> LSUOpType.lbu,

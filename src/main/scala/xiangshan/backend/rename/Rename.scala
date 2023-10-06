@@ -121,6 +121,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     uop.sqIdx := DontCare
     uop.lpv := DontCare
     uop.vCsrInfo := DontCare
+    uop.vctrl := DontCare
     uop.uopIdx := DontCare
     uop.vmState := DontCare
     uop.isTail := DontCare

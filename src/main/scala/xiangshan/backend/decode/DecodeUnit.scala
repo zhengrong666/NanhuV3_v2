@@ -1054,6 +1054,7 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   val ctrl_flow = Wire(new CtrlFlow) // input with RVC Expanded
   val cf_ctrl = Wire(new CfCtrl)
   cf_ctrl.vCsrInfo := DontCare
+  cf_ctrl.vctrl := DontCare
   ctrl_flow := io.enq.ctrl_flow
 
   val decode_table = XDecode.table ++

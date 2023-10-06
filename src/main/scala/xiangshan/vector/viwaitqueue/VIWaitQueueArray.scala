@@ -12,7 +12,7 @@ import xiangshan.backend.execute.fu.csr.vcsr._
 import xs.utils.{LogicShiftLeft, LogicShiftRight}
 object WqState {
   def s_updating:UInt = "b0".U
-  def s_waiting:UInt = "b1.U".U
+  def s_waiting:UInt = "b1".U
   def apply() = UInt(1.W)
 }
 class VIWakeQueueEntry(implicit p: Parameters) extends XSBundle{
@@ -93,10 +93,10 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     for(((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)){
       vn := MuxCase(v, Seq(
         (et === EewType.sew) -> vcsr.vsew,
-        (et === EewType.sewm2) -> LogicShiftLeft(vcsr.vsew, 1),
-        (et === EewType.sewd2) -> LogicShiftRight(vcsr.vsew, 1),
-        (et === EewType.sewd4) -> LogicShiftRight(vcsr.vsew, 2),
-        (et === EewType.sewd8) -> LogicShiftRight(vcsr.vsew, 3),
+        (et === EewType.sewm2) -> (vcsr.vsew + 1.U),
+        (et === EewType.sewd2) -> (vcsr.vsew - 1.U),
+        (et === EewType.sewd4) -> (vcsr.vsew - 2.U),
+        (et === EewType.sewd8) -> (vcsr.vsew - 3.U),
       ))
     }
     val newEmul = Mux(vctrl.isWidden, vcsr.vlmul + 1.U, vcsr.vlmul)

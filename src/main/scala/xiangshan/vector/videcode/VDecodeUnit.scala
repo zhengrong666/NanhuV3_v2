@@ -1,6 +1,7 @@
 package xiangshan.vector.videcode
 import chisel3._
 import org.chipsalliance.cde.config.Parameters
+import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.vector._
 import xiangshan._
 trait VDecodeUnitConstants
@@ -27,7 +28,7 @@ class VDecodeUnit(implicit p: Parameters) extends XSModule with VDecodeUnitConst
   })
 
   private val decodeTable = VLDecode.table ++ VSDecode.table ++ VADecode.table ++
-    VWDecode.table ++ VNDecode
+    VWDecode.table ++ VNDecode.table
 
   private val uop = Wire(new MicroOp)
   uop := DontCare
@@ -41,6 +42,7 @@ class VDecodeUnit(implicit p: Parameters) extends XSModule with VDecodeUnitConst
   uop.vctrl.funct3 := io.in.cf.instr(F3_MSB, F3_LSB)
   uop.vctrl.nf := io.in.cf.instr(NF_MSB, NF_LSB)
   uop.vctrl.vm := !io.in.cf.instr(VM_LSB)
+  uop.cf.exceptionVec(illegalInstr) := uop.vctrl.eewType(2) === EewType.dc
 
   when(io.in.ctrl.selImm =/= SelImm.X) {
     uop.ctrl.imm := io.in.cf.instr(VS1_MSB, VS1_LSB)

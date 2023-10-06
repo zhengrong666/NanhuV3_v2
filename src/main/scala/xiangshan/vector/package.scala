@@ -66,7 +66,7 @@ package object vector {
       ff, maskOp, isWidden, isNarrow)
     def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): VCtrlSignals = {
       this := DontCare
-      val decoder = xiangshan.backend.decode.DecodeLogic(inst, VLDecode.decodeDefault, table)
+      val decoder = xiangshan.backend.decode.DecodeLogic(inst, VLDecode.decodeDefault, table, QMC = false)
       allSignals zip decoder foreach { case (s, d) => s := d }
       this
     }
