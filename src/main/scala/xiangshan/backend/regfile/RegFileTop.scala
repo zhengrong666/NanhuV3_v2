@@ -211,7 +211,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val isUnitStride = (bi.issue.bits.uop.ctrl.fuType === FuType.ldu || bi.issue.bits.uop.ctrl.fuType === FuType.stu) && !is2Stage
           val isStd = bi.issue.bits.uop.ctrl.fuType === FuType.std
           val uopIdx = bi.issue.bits.uop.uopIdx
-          val sew = bi.issue.bits.uop.vCsrInfo.vsew
+          val sew = bi.issue.bits.uop.vctrl.eew(0)
 
           io.vectorReads(vecReadPortIdx).addr := DontCare
           //Mask read

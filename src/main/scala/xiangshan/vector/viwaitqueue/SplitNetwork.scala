@@ -13,10 +13,8 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     val vstart = Input(UInt(log2Ceil(VLEN).W))
     val out = Output(Vec(splitNum, Valid(new MicroOp)))
   })
-  private val vl = io.in.bits.vCsrInfo.vl
   private val ctrl = io.in.bits.ctrl
   private val vctrl = io.in.bits.vctrl
-  private val dstSew = vctrl.eew(2)
   private val idxSew = vctrl.eew(1)
   private val memSew = vctrl.eew(0)
   private val nf = io.in.bits.vctrl.nf
@@ -34,16 +32,16 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     idxDivNf := idx / nf
     idxModNf := idx % nf
     shouldRename := MuxCase(false.B, Seq(
-      (dstSew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
-      (dstSew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
-      (dstSew === 2.U) -> (idxDivNf(vlenShiftBits - 3, 0) === 0.U),
-      (dstSew === 3.U) -> (idxDivNf(vlenShiftBits - 4, 0) === 0.U)
+      (memSew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
+      (memSew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
+      (memSew === 2.U) -> (idxDivNf(vlenShiftBits - 3, 0) === 0.U),
+      (memSew === 3.U) -> (idxDivNf(vlenShiftBits - 4, 0) === 0.U)
     ))
     vdAddend := MuxCase(0.U, Seq(
-      (dstSew === 0.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits) / nf * nf),
-      (dstSew === 1.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 1) / nf * nf),
-      (dstSew === 2.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 2) / nf * nf),
-      (dstSew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
+      (memSew === 0.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits) / nf * nf),
+      (memSew === 1.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 1) / nf * nf),
+      (memSew === 2.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 2) / nf * nf),
+      (memSew === 3.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 3) / nf * nf),
     ))
     vs2Addend := MuxCase(0.U, Seq(
       (idxSew === 0.U) -> idx(vlenShiftBits - 1, 4),
@@ -52,16 +50,16 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       (idxSew === 3.U) -> idx(vlenShiftBits - 1, 1),
     ))
     lFuOpType := MuxCase(LSUOpType.ld, Seq(
-      (dstSew === 0.U) -> LSUOpType.lbu,
-      (dstSew === 1.U) -> LSUOpType.lhu,
-      (dstSew === 2.U) -> LSUOpType.lwu,
-      (dstSew === 3.U) -> LSUOpType.ld,
+      (memSew === 0.U) -> LSUOpType.lbu,
+      (memSew === 1.U) -> LSUOpType.lhu,
+      (memSew === 2.U) -> LSUOpType.lwu,
+      (memSew === 3.U) -> LSUOpType.ld,
     ))
     sFuOpType := MuxCase(LSUOpType.sd, Seq(
-      (dstSew === 0.U) -> LSUOpType.sb,
-      (dstSew === 1.U) -> LSUOpType.sh,
-      (dstSew === 2.U) -> LSUOpType.sw,
-      (dstSew === 3.U) -> LSUOpType.sd,
+      (memSew === 0.U) -> LSUOpType.sb,
+      (memSew === 1.U) -> LSUOpType.sh,
+      (memSew === 2.U) -> LSUOpType.sw,
+      (memSew === 3.U) -> LSUOpType.sd,
     ))
     val fuOpType = Mux(store, sFuOpType, lFuOpType)
     (shouldRename, vdAddend, vs2Addend, fuOpType)
@@ -84,7 +82,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits := io.in.bits
     o.bits.uopNum := io.in.bits.uopNum
     o.bits.uopIdx := currentnum
-    o.bits.isTail := currentnum >= vl //Only VLS need this
+    o.bits.isTail := currentnum >= vctrl.evl //Only VLS need this
     o.bits.isPrestart := currentnum < io.vstart //Only VLS need this
 
     when(io.in.bits.vctrl.isLs) {

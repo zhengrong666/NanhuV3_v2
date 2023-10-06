@@ -60,6 +60,7 @@ package object vector {
     val vm = Bool()
     val funct6 = UInt(6.W)
     val funct3 = UInt(3.W)
+    val evl = UInt(8.W)
 
     private def allSignals: IndexedSeq[UInt] = eew ++ eewType ++ Seq(emul, emulType, ordered, isLs,
       ff, maskOp, isWidden, isNarrow)

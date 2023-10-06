@@ -103,13 +103,13 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, newEmul, vctrl.emul)
     when(vctrl.isLs){
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (vctrlNext.emul ===  0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(2)),
-        (vctrlNext.emul ===  7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(2)),
+        (vctrlNext.emul ===  0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul ===  7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
       ))
     }.otherwise{
       val emul = Mux(vctrl.isWidden || vctrl.isNarrow, vcsr.vlmul + 1.U, vcsr.vlmul)
@@ -125,6 +125,11 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
     when(vctrl.isLs && vctrl.maskOp){
       entryNext.uop.vCsrInfo.vta := 1.U
+    }
+    when(vctrl.isLs){
+      vctrlNext.evl := (vcsr.vl << vcsr.vsew) >> vctrl.eew(0)
+    }otherwise{
+      vctrlNext.evl := vcsr.vl
     }
     entryNext.state := WqState.s_waiting
   }
