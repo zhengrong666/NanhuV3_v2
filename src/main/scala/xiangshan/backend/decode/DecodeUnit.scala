@@ -43,38 +43,19 @@ abstract trait DecodeConstants {
   def Y = BitPat("b1")
 
   def decodeDefault: List[BitPat] = // illegal instruction
-    //   srcType(0) srcType(1) srcType(2) fuType    fuOpType    rfWen
-    //   |          |          |          |         |           |  fpWen
-    //   |          |          |          |         |           |  |  isXSTrap
-    //   |          |          |          |         |           |  |  |  noSpecExec
-    //   |          |          |          |         |           |  |  |  |  blockBackward
-    //   |          |          |          |         |           |  |  |  |  |  flushPipe
-    //   |          |          |          |         |           |  |  |  |  |  |  selImm
-    //   |          |          |          |         |           |  |  |  |  |  |  |
-    List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
+    //   srcType(0)  srcType(1)  srcType(2)  fuType    fuOpType    rfWen
+    //   |           |           |           |         |           |  fpWen
+    //   |           |           |           |         |           |  |  vdWen
+    //   |           |           |           |         |           |  |  |  isXSTrap
+    //   |           |           |           |         |           |  |  |  |  noSpecExec
+    //   |           |           |           |         |           |  |  |  |  |  blockBackward
+    //   |           |           |           |         |           |  |  |  |  |  |  flushPipe
+    //   |           |           |           |         |           |  |  |  |  |  |  |  selImm
+    //   |           |           |           |         |           |  |  |  |  |  |  |  |
+    List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
 
   val table: Array[(BitPat, List[BitPat])]
 }
-
-// abstract trait VIDecodeConstants {
-//   // This X should be used only in 1-bit signal. Otherwise, use->List(SrcType.fp,  SrcType.imm, SrcType.vec, FuType.fmisc, FuOpType.X, N, Y, N, N, N, N, SelImm.X),
-//   def X = BitPat("b?")
-//   def N = BitPat("b0")
-//   def Y = BitPat("b1")
-
-//   def decodeDefault: List[BitPat] = // illegal instruction
-//   //   srcType(0) srcType(1) srcType(2) fuType    fuOpType    rfWen
-//   //   |          |          |          |         |           |  fpWen
-//   //   |          |          |          |         |           |  |  vdWen
-//   //   |          |          |          |         |           |  |  |  isorder
-//   //   |          |          |          |         |           |  |  |  |  Widen
-//   //   |          |          |          |         |           |  |  |  |  |  Narrow
-//   //   |          |          |          |         |           |  |  |  |  |  |  selImm
-//   //   |          |          |          |         |           |  |  |  |  |  |  |
-//     List(SrcType.vec, SrcType.vec, SrcType.vec, FuType.X, FuOpType.X, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
-
-//   val table: Array[(BitPat, List[BitPat])]
-// }
 
 trait DecodeUnitConstants
 {
