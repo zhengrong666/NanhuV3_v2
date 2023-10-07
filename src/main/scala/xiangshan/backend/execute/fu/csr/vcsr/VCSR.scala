@@ -7,7 +7,7 @@ import xiangshan._
 import xiangshan.vector._
 import xiangshan.backend.execute.fu.FuInput
 import xiangshan.backend.execute.fu.csr.CSROpType
-import xs.utils.ZeroExt
+import xs.utils.{LogicShiftRight, ZeroExt}
 
 class VtypeWbIO(implicit p: Parameters) extends VectorBaseBundle {
     val vtype = UInt(9.W)
@@ -132,8 +132,10 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   private val vl = Wire(UInt(log2Ceil(VLEN + 1).W))
   when(vtype.vill){
     vl := 0.U
-  }.elsewhen(type2 || type3 || avl > vlmax){
+  }.elsewhen(type2 || type3 || avl > Cat(vlmax, 0.U(1.W))){
     vl := vlmax
+  }.elsewhen(avl > vlmax) {
+    vl := LogicShiftRight(vlmax, 1) + 1.U
   }.otherwise{
     vl := avl
   }
