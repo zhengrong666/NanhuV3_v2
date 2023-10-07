@@ -1125,19 +1125,28 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     hasStoreAddrMisalign
   )).asUInt.orR
   when (RegNext(RegNext(updateTval))) {
-      val tval = Mux(
+      val mtval = Mux(
         RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
         RegNext(RegNext(Mux(
           csrio.exception.bits.uop.cf.crossPageIPFFix,
-          SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
+          ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
           iexceptionPC
         ))),
-        memExceptionAddr
+        ZeroExt(csrio.memExceptionVAddr, XLEN)
+    )
+    val stval = Mux(
+      RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
+      RegNext(RegNext(Mux(
+        csrio.exception.bits.uop.cf.crossPageIPFFix,
+        SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
+        iexceptionPC
+      ))),
+      memExceptionAddr
     )
     when (RegNext(priviledgeMode === ModeM)) {
-      mtval := tval
+      mtval := mtval
     }.otherwise {
-      stval := tval
+      stval := stval
     }
   }
 
