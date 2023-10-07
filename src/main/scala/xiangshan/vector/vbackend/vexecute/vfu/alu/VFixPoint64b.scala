@@ -5,11 +5,11 @@
   *     12.4  vssrl, ...
   *     12.5  vnclip, ...
   */
-package darecreek.exu.fu2.alu
+package darecreek.exu.vfu.alu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
+import darecreek.exu.vfu._
 
 class AdderToFixP extends Bundle {
   val cout = Vec(8, Bool())

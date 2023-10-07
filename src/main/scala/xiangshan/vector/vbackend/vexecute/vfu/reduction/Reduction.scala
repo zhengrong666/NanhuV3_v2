@@ -1,10 +1,10 @@
-package darecreek.exu.fu2.reduction
+package darecreek.exu.vfu.reduction
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config._
 
 class Reduction(implicit p: Parameters) extends VFuModule {

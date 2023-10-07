@@ -7,11 +7,10 @@ import chisel3.util._
 import xiangshan.{FuType, HasXSParameter, MicroOp, Redirect, SrcState, SrcType, XSCoreParamsKey}
 import xiangshan.backend.execute.exu.ExuType
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
-import xiangshan.FuType.{valu, vdiv, vectorTypes, vfp, vmac, vmask, vpermu, vreduc}
+import xiangshan.FuType.vdiv
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
-import darecreek.exu.fu2.BitsExtend
 
 class VectorReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
   private val entryNum = vectorParameters.vRsDepth

@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
@@ -90,7 +90,8 @@ class VFMiscDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val uop = uopVec(1)
   val fpCtrl = uop.vfpCtrl
   val typeTagIn = uop.typeTag
-  val eleActives = S1Reg(VecInit(Seq(0,1).map(isActive)))
+  val eleActives = S1Reg(VecInit(Seq(0,4).map(isActive)))
+  val narrow_eleActives = S1Reg(VecInit(Seq(0,1).map(isActive)))
 
   // sign injection & min/max (f2f)
   val signs = Seq(63,31).map( i => Mux(fpCtrl.miscSubCmd(1), vs1(i) ^ vs2(i), Mux(fpCtrl.miscSubCmd(0), ~vs1(i), vs1(i))))
@@ -114,7 +115,7 @@ class VFMiscDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val minmaxResult = WireInit(dcmp.io.minmaxResult)
   val cmpResult = WireInit(Cat(~0.U(63.W), dcmp.io.cmpResult)) //  extend to 64 bit
   val minmaxFlags = WireInit(Cat(dcmp.io.minmaxInvalid & eleActives(0), 0.U(4.W)))
-  val cmpFlags = WireInit(Cat(dcmp.io.cmpInvalid & eleActives(0), 0.U(4.W)))
+  val cmpFlags = WireInit(Cat(dcmp.io.cmpInvalid & narrow_eleActives(0), 0.U(4.W)))
   // override when fp32
   when(typeTagIn === VFPU.S) {
     minmaxResult := Cat(scmp1.io.minmaxResult, scmp2.io.minmaxResult)
@@ -122,7 +123,7 @@ class VFMiscDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
     minmaxFlags := Cat(Seq(scmp1, scmp2).zip(Seq(1,0)).
       map(x => x._1.io.minmaxInvalid & eleActives(x._2)).reduce(_|_), 0.U(4.W))
     cmpFlags := Cat(Seq(scmp1, scmp2).zip(Seq(1,0)).
-      map(x => x._1.io.cmpInvalid & eleActives(x._2)).reduce(_|_), 0.U(4.W))
+      map(x => x._1.io.cmpInvalid & narrow_eleActives(x._2)).reduce(_|_), 0.U(4.W))
   }
 
 
@@ -162,7 +163,7 @@ class VFMiscDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val mergeResult = Seq.fill(2)(Wire(UInt(32.W)))  // default vfmv.v.f
   mergeResult(1) := Mux(!uop.ctrl.vm && !mask(0), vs2.tail(32), vs1.tail(32))  // tail32b
   mergeResult(0) := Mux(
-    !uop.ctrl.vm && ((typeTagIn === VFPU.D && !mask(0)) || (typeTagIn === VFPU.S && !mask(1))),
+    !uop.ctrl.vm && ((typeTagIn === VFPU.D && !mask(0)) || (typeTagIn === VFPU.S && !mask(4))),
     vs2.head(32),
     vs1.head(32)
   )
@@ -186,18 +187,18 @@ class VFMisc (implicit val p: Parameters) extends VFPUSubModule {
   module.io.in.valid := io.in.valid && io.in.bits.uop.vfpCtrl.isMisc  // idle when inst is not misc
 
   io.out <> module.io.out
-  // IMPORTANT: compose results of compare uop when LMUL > 1. This is required from VPU Control/Issue design
-  val outUop = module.io.out.bits.uop
-  val compareReg = RegInit("hffffffffffffffff".U(64.W))  // init all 1
-  val compareResult = Wire(UInt(64.W))
-  compareResult := (compareReg << 8)(63,0) | Cat(0.U(56.W), module.io.out.bits.vd(7,0))
-  when(outUop.vfpCtrl.miscCmd(3) & module.io.out.valid) {
-    when(!outUop.expdEnd) {
-      io.out.valid := false.B
-    }
-    compareReg := compareResult
-    io.out.bits.vd := compareResult
-  }
+//  // IMPORTANT: compose results of compare uop when LMUL > 1. This is required from VPU Control/Issue design
+//  val outUop = module.io.out.bits.uop
+//  val compareReg = RegInit(~0.U(64.W))  // init all 1
+//  val compareResult = Wire(UInt(64.W))
+//  compareResult := (compareReg << 8)(63,0) | Cat(0.U(56.W), module.io.out.bits.vd(7,0))
+//  when(outUop.vfpCtrl.miscCmd(3) & module.io.out.valid) {
+//    when(!outUop.expdEnd) {
+//      io.out.valid := false.B
+//    }
+//    compareReg := compareResult
+//    io.out.bits.vd := compareResult
+//  }
 
 }
 

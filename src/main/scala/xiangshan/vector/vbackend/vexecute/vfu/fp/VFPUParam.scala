@@ -1,9 +1,9 @@
-// package darecreek.exu.fu2.fp
+// package darecreek.exu.vfu.fp
 
 // import org.chipsalliance.cde.config._
 // // import darecreek.{DarecreekParameters, LaneWidth, xLen}
-// import darecreek.exu.fu2._
-// // import darecreek.exu.fu2.DarecreekParamVFU._
+// import darecreek.exu.vfu._
+// // import darecreek.exu.vfu.DarecreekParamVFU._
 
 // // case object NAME extends Field[String]
 // // case object LANE_WIDTH extends Field[Int]

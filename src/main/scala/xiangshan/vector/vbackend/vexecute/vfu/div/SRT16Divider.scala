@@ -18,14 +18,14 @@
 // https://github.com/OpenXiangShan/XS-Verilog-Library/tree/main/int_div_radix_4_v1
 // Email of original author: hyf_sysu@qq.com
 
-package darecreek.exu.fu2.div
+package darecreek.exu.vfu.div
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 // import darecreek.exu.LaneUnit
 
-class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module {
+class SRT16DividerDataModule(len: Int) extends Module {
   val io = IO(new Bundle() {
     val src = Vec(2, Input(UInt(len.W)))
     val valid, sign, kill_w, kill_r, isHi, isW = Input(Bool())
@@ -48,7 +48,7 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   val quot_neg_2 :: quot_neg_1 :: quot_0 :: quot_pos_1 :: quot_pos_2 :: Nil = Enum(5)
 
 
-  val state = RegInit(1.U(7.W))
+  val state = RegInit((1 << s_idle.litValue.toInt).U(7.W))
 
   // reused wires
   //  val aNormAbs = Wire(UInt((len + 1).W)) // Inputs of xNormAbs regs below
@@ -141,14 +141,15 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   // divisor is 1 or -1; dividend has less bits than divisor; divisor is zero
   // s_pre_0:
   val dIsOne = dLZC(lzc_width - 1, 0).andR
-  val dIsZero = (~dNormReg.orR).asBool
+  val dIsZero = ~dNormReg.orR
   val aIsZero = RegEnable(aLZC(lzc_width), state(s_pre_0))
   val aTooSmall = RegEnable(aLZC(lzc_width) | lzcWireDiff(lzc_width), state(s_pre_0))
   special := dIsOne | dIsZero | aTooSmall
+  val aRegNeg = RegEnable(-aReg, state(s_pre_0))
 
   val quotSpecial = Mux(dIsZero, VecInit(Seq.fill(len)(true.B)).asUInt,
     Mux(aTooSmall, 0.U,
-      Mux(dSignReg, -aReg, aReg) //  signed 2^(len-1)
+      Mux(dSignReg, aRegNeg, aReg) //  signed 2^(len-1)
     ))
   val remSpecial = Mux(dIsZero || aTooSmall, aReg, 0.U)
   val quotSpecialReg = RegEnable(quotSpecial, state(s_pre_1))
@@ -265,13 +266,13 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   val rudPmNegReg = RegEnable(rudPmNeg, state(s_pre_1))
   val r2udPmNegReg = RegEnable(r2udPmNeg, state(s_pre_1))
 
-  def DetectSign(signs: Vec[Bool], name: String): UInt = {
+  def DetectSign(signs: UInt, name: String): UInt = {
     val qVec = Wire(Vec(5, Bool())).suggestName(name)
     qVec(quot_neg_2) := signs(0) && signs(1) && signs(2)
-    qVec(quot_neg_1) := !signs(0) && signs(1) && signs(2)
-    qVec(quot_0) := signs(2) && !signs(1)
-    qVec(quot_pos_1) := signs(3) && !signs(2) && !signs(1)
-    qVec(quot_pos_2) := !signs(3) && !signs(2) && !signs(1)
+    qVec(quot_neg_1) := ~signs(0) && signs(1) && signs(2)
+    qVec(quot_0) := signs(2) && ~signs(1)
+    qVec(quot_pos_1) := signs(3) && ~signs(2) && ~signs(1)
+    qVec(quot_pos_2) := ~signs(3) && ~signs(2) && ~signs(1)
     qVec.asUInt
   }
   // Selection block
@@ -279,21 +280,21 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
     val csa = Module(new CSA3_2(10)).suggestName(s"csa_sel_${i}")
     csa.io.in(0) := r2ws
     csa.io.in(1) := r2wc
-    csa.io.in(2) := Mux1H(qPrevReg, rudPmNegReg)(i) // rudPmNeg(OHToUInt(qPrevReg))(i)
+    csa.io.in(2) := Mux1H(qPrevReg, rudPmNegReg.toSeq)(i) // rudPmNeg(OHToUInt(qPrevReg))(i)
 
-    (csa.io.out(0) + (csa.io.out(1)(8, 0) << 1).asUInt)(9)
+    (csa.io.out(0) + (csa.io.out(1)(8, 0) << 1))(9)
   }})
-  qNext := DetectSign(signs, s"sel_q")
+  qNext := DetectSign(signs.asUInt, s"sel_q")
   val csaWide1 = Module(new CSA3_2(itn_len)).suggestName("csa_sel_wide_1")
   val csaWide2 = Module(new CSA3_2(itn_len)).suggestName("csa_sel_wide_2")
   csaWide1.io.in(0) := rSumReg << 2
   csaWide1.io.in(1) := rCarryReg << 2
-  csaWide1.io.in(2) := Mux1H(qPrevReg, udNegReg) << 2//udNeg(OHToUInt(qPrevReg)) << 2
+  csaWide1.io.in(2) := Mux1H(qPrevReg, udNegReg.toSeq) << 2//udNeg(OHToUInt(qPrevReg)) << 2
   csaWide2.io.in(0) := csaWide1.io.out(0) << 2
   csaWide2.io.in(1) := (csaWide1.io.out(1) << 1)(itn_len-1, 0) << 2
-  csaWide2.io.in(2) := Mux1H(qNext, udNegReg) << 2 // udNeg(OHToUInt(qNext)) << 2
-  rSumIter := Mux(!oddIter & finalIter, csaWide1.io.out(0), csaWide2.io.out(0))
-  rCarryIter := Mux(!oddIter & finalIter, (csaWide1.io.out(1) << 1)(itn_len-1, 0), (csaWide2.io.out(1) << 1)(itn_len-1, 0))
+  csaWide2.io.in(2) := Mux1H(qNext, udNegReg.toSeq) << 2 // udNeg(OHToUInt(qNext)) << 2
+  rSumIter := Mux(~oddIter & finalIter, csaWide1.io.out(0), csaWide2.io.out(0))
+  rCarryIter := Mux(~oddIter & finalIter, (csaWide1.io.out(1) << 1)(itn_len-1, 0), (csaWide2.io.out(1) << 1)(itn_len-1, 0))
   // r3wsIter := r3udNeg(OHToUInt(qNext))
   // r3wcIter := (csaWide1.io.out(0)(itn_len-3, itn_len-16) + (csaWide1.io.out(1) << 1)(itn_len-3, itn_len-16))(13,1)
   // Speculative block
@@ -302,22 +303,19 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
     csa1.io.in(0) := r3ws
     csa1.io.in(1) := r3wc
     csa1.io.in(2) := SignExt(udNegReg(q_spec)(itn_len-2, itn_len-11), 13) // (4, 6) -> (7, 6)
-    val test = VecInit(Seq.tabulate(2){i => {
-      val aa = 1 + 2
-      i.U}})
     val signs2 = VecInit(Seq.tabulate(4){ i => {
       val csa2 = Module(new CSA3_2(13)).suggestName(s"csa_spec_${q_spec}_${i}")
       csa2.io.in(0) := csa1.io.out(0)
       csa2.io.in(1) := (csa1.io.out(1) << 1)(12, 0)
-      csa2.io.in(2) := Mux1H(qPrevReg, r2udPmNegReg)(i) // r2udPmNeg(OHToUInt(qPrevReg))(i)
-      (csa2.io.out(0) + (csa2.io.out(1)(11, 0) << 1).asUInt)(12)
+      csa2.io.in(2) := Mux1H(qPrevReg, r2udPmNegReg.toSeq)(i) // r2udPmNeg(OHToUInt(qPrevReg))(i)
+      (csa2.io.out(0) + (csa2.io.out(1)(11, 0) << 1))(12)
     }})
-    val qVec2 = DetectSign(signs2, s"spec_q_${q_spec}")
+    val qVec2 = DetectSign(signs2.asUInt, s"spec_q_${q_spec}")
     qVec2
   }})
   // qNext2 := qSpec(OHToUInt(qNext)) // TODO: Use Mux1H!!
 
-  qNext2 := Mux1H(qNext, qSpec)
+  qNext2 := Mux1H(qNext, qSpec.toSeq)
 
   // on the fly quotient conversion
   val quotHalfIter = Wire(UInt(64.W))
@@ -326,25 +324,25 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   val quotM1IterNext = Wire(UInt(64.W))
   def OTFC(q: UInt, quot: UInt, quotM1: UInt): (UInt, UInt) = {
     val quotNext = Mux1H(Seq(
-      q(quot_pos_2) -> ((quot << 2).asUInt | "b10".U),
-      q(quot_pos_1) -> ((quot << 2).asUInt | "b01".U),
-      q(quot_0)     -> ((quot << 2).asUInt | "b00".U),
-      q(quot_neg_1) -> ((quotM1 << 2).asUInt | "b11".U),
-      q(quot_neg_2) -> ((quotM1 << 2).asUInt | "b10".U)
+      q(quot_pos_2) -> (quot << 2 | "b10".U),
+      q(quot_pos_1) -> (quot << 2 | "b01".U),
+      q(quot_0)     -> (quot << 2 | "b00".U),
+      q(quot_neg_1) -> (quotM1 << 2 | "b11".U),
+      q(quot_neg_2) -> (quotM1 << 2 | "b10".U)
     ))
     val quotM1Next = Mux1H(Seq(
-      q(quot_pos_2) -> ((quot << 2).asUInt | "b01".U),
-      q(quot_pos_1) -> ((quot << 2).asUInt | "b00".U),
-      q(quot_0)     -> ((quotM1 << 2).asUInt | "b11".U),
-      q(quot_neg_1) -> ((quotM1 << 2).asUInt | "b10".U),
-      q(quot_neg_2) -> ((quotM1 << 2).asUInt | "b01".U)
+      q(quot_pos_2) -> (quot << 2 | "b01".U),
+      q(quot_pos_1) -> (quot << 2 | "b00".U),
+      q(quot_0)     -> (quotM1 << 2 | "b11".U),
+      q(quot_neg_1) -> (quotM1 << 2 | "b10".U),
+      q(quot_neg_2) -> (quotM1 << 2 | "b01".U)
     ))
     (quotNext(len-1, 0), quotM1Next(len-1, 0))
   }
   quotHalfIter := OTFC(qPrevReg, quotIterReg, quotM1IterReg)._1
   quotM1HalfIter := OTFC(qPrevReg, quotIterReg, quotM1IterReg)._2
-  quotIterNext := Mux(!oddIter && finalIter, quotHalfIter, OTFC(qNext, quotHalfIter, quotM1HalfIter)._1)
-  quotM1IterNext := Mux(!oddIter && finalIter, quotM1HalfIter, OTFC(qNext, quotHalfIter, quotM1HalfIter)._2)
+  quotIterNext := Mux(~oddIter && finalIter, quotHalfIter, OTFC(qNext, quotHalfIter, quotM1HalfIter)._1)
+  quotM1IterNext := Mux(~oddIter && finalIter, quotM1HalfIter, OTFC(qNext, quotHalfIter, quotM1HalfIter)._2)
   // quotIter := Mux(state(s_pre_1),  0.U(len.W),
   //                     Mux(state(s_iter), quotIterNext,
   //                       Mux(quotSignReg, aInverter, quotIterReg)))
@@ -361,8 +359,8 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   // finally, to the recovery stages!
 
   when(rSignReg) {
-    rNext := (~rSumReg).asUInt + (~rCarryReg).asUInt + 2.U
-    rNextPd := (~rSumReg).asUInt + (~rCarryReg).asUInt + (~Cat(0.U(1.W), dNormReg, 0.U(3.W))).asUInt + 3.U
+    rNext := ~rSumReg + ~rCarryReg + 2.U
+    rNextPd := ~rSumReg + ~rCarryReg + ~Cat(0.U(1.W), dNormReg, 0.U(3.W)) + 3.U
   } .otherwise {
     rNext := rSumReg + rCarryReg
     rNextPd := rSumReg + rCarryReg + Cat(0.U(1.W), dNormReg, 0.U(3.W))
@@ -373,13 +371,13 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   // post_1
   val r = rNextReg
   val rPd = rNextPdReg
-  val rIsZero = !r.orR
-  val needCorr = Mux(rSignReg, !r(len) & r.orR, r(len)) // when we get pos rem for a<0 or neg rem for a>0
+  val rIsZero = ~(r.orR)
+  val needCorr = Mux(rSignReg, ~r(len) & r.orR, r(len)) // when we get pos rem for a<0 or neg rem for a>0
   val rPreShifted = Mux(needCorr, rPd, r)
   val rightShifter = Module(new RightShifter(len, lzc_width))
   rightShifter.io.in := rPreShifted
   rightShifter.io.shiftNum := dLZCReg
-  rightShifter.io.msb := Mux(!rPreShifted.orR, 0.U, rSignReg)
+  rightShifter.io.msb := Mux(~(rPreShifted.orR), 0.U, rSignReg)
   val rShifted = rightShifter.io.out
   val rFinal = RegEnable(Mux(specialReg, remSpecialReg, rShifted), state(s_post_1))// right shifted remainder. shift by the number of bits divisor is shifted
   val qFinal = RegEnable(Mux(specialReg, quotSpecialReg, Mux(needCorr, quotM1IterReg, quotIterReg)), state(s_post_1))
@@ -392,6 +390,7 @@ class SRT16DividerDataModule(len: Int, VSupport: Boolean = false) extends Module
   io.out_valid := state(s_post_1)
 
 }
+
 
 object mLookUpTable2 {
   // Usage :

@@ -34,7 +34,7 @@ import huancun._
 import coupledL2._
 import xs.utils.perf.DebugOptions
 import xiangshan.mem.prefetch.SMSParams
-import darecreek.exu.fu2._
+import darecreek.exu.vfu._
 import xs.utils.perf.DebugOptionsKey
 case object PrefixKey extends Field[String]
 class BaseConfig(n: Int, mbist:Boolean = false) extends Config((site, here, up) => {

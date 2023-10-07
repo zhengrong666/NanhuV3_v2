@@ -12,12 +12,12 @@
   *     16.2
   *     16.6
   */
-package darecreek.exu.fu2.alu
+package darecreek.exu.vfu.alu
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
 
 class VIntMisc64b(implicit p: Parameters) extends VFuModule {

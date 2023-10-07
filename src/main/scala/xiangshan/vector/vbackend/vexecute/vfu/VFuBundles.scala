@@ -1,8 +1,8 @@
-package darecreek.exu.fu2
+package darecreek.exu.vfu
 
 import chisel3._
 import chisel3.util._
-// import darecreek.exu.fu2.VFUParam._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.{MicroOp, Redirect}
 

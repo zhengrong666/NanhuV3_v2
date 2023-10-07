@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3._
 import chisel3.util._
@@ -98,6 +98,7 @@ class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
     )
   }
 
+  val eleActives = VecInit(Seq(0,4).map(isActive))
   // vfrsqrt7
   // reuse Lookup table
   val rsqrtSigLookup0 = RsqrtLookup(
@@ -114,11 +115,11 @@ class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val rsqrtExpOutFP64 = normExpInFP64.map(x => (rsqrtSConstFP64 - x).asUInt(VFPU.f64.expWidth,1))  // >> 1
   require(rsqrtExpOutFP64(0).getWidth == VFPU.f64.expWidth)
   val (rsqrtResultFP32Seq, rsqrtFlagsFP32Seq) = Seq.range(0, elmtsFP32.length).map( i =>
-    rsqrtOutGen(elmtsFP32(i), isActive(i), rsqrtExpOutFP32(i), rsqrtSigOutFP32(i), TypesFP32(i).rsqrtType)
+    rsqrtOutGen(elmtsFP32(i), eleActives(i), rsqrtExpOutFP32(i), rsqrtSigOutFP32(i), TypesFP32(i).rsqrtType)
   ).unzip
   val (rsqrtResultFP32, rsqrtFlagsFP32) = outCompose(rsqrtResultFP32Seq, rsqrtFlagsFP32Seq)
   val (rsqrtResultFP64Seq, rsqrtFlagsFP64Seq) = Seq.range(0, elmtsFP64.length).map( i =>
-    rsqrtOutGen(elmtsFP64(i), isActive(i), rsqrtExpOutFP64(i), rsqrtSigOutFP64(i), TypesFP64(i).rsqrtType)
+    rsqrtOutGen(elmtsFP64(i), eleActives(i), rsqrtExpOutFP64(i), rsqrtSigOutFP64(i), TypesFP64(i).rsqrtType)
   ).unzip
   val (rsqrtResultFP64, rsqrtFlagsFP64) = outCompose(rsqrtResultFP64Seq, rsqrtFlagsFP64Seq)
   val rsqrtResult = Mux1H(typeSel, Seq(rsqrtResultFP32, rsqrtResultFP64))
@@ -137,11 +138,11 @@ class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val recExpOutFP64 = normExpInFP64.map(x => (recSConstFP64 - x).tail(1))
   require(recExpOutFP64(0).getWidth == VFPU.f64.expWidth)
   val (recResultFP32Seq, recFlagsFP32Seq) = Seq.range(0, elmtsFP32.length).map( i =>
-    recOutGen(elmtsFP32(i), isActive(i), recExpOutFP32(i), recSigOutFP32(i), TypesFP32(i).recType)
+    recOutGen(elmtsFP32(i), eleActives(i), recExpOutFP32(i), recSigOutFP32(i), TypesFP32(i).recType)
   ).unzip
   val (recResultFP32, recFlagsFP32) = outCompose(recResultFP32Seq, recFlagsFP32Seq)
   val (recResultFP64Seq, recFlagsFP64Seq) = Seq.range(0, elmtsFP64.length).map( i =>
-    recOutGen(elmtsFP64(i), isActive(i), recExpOutFP64(i), recSigOutFP64(i), TypesFP64(i).recType)
+    recOutGen(elmtsFP64(i), eleActives(i), recExpOutFP64(i), recSigOutFP64(i), TypesFP64(i).recType)
   ).unzip
   val (recResultFP64, recFlagsFP64) = outCompose(recResultFP64Seq, recFlagsFP64Seq)
   val recResult = Mux1H(typeSel, Seq(recResultFP32, recResultFP64))
@@ -164,10 +165,10 @@ class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
     require(expOut.getWidth == f.expWidth && sigOut.getWidth == 7)
     val result = Mux1H(outType, Seq(
       FloatPoint.defaultNaNUInt(f.expWidth, f.precision),
- //     FloatPoint.infUInt(f.expWidth, f.precision, isNeg = true.B),
-  //    FloatPoint.infUInt(f.expWidth, f.precision, isNeg = false.B),
+      FloatPoint.infUInt(f.expWidth, f.precision, isNeg = true.B),
+      FloatPoint.infUInt(f.expWidth, f.precision, isNeg = false.B),
       Cat(f.sign, expOut, sigOut, 0.U((f.sigWidth - 7).W)),
-   //   FloatPoint.zeroUInt(f.expWidth, f.precision, isNeg = false.B),
+      FloatPoint.zeroUInt(f.expWidth, f.precision, isNeg = false.B),
       FloatPoint.defaultNaNUInt(f.expWidth, f.precision),
       FloatPoint.defaultNaNUInt(f.expWidth, f.precision))
     )
@@ -186,14 +187,14 @@ class VFRecDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   def recOutGen(f: FloatPoint, isActive: Bool, expOut: UInt, sigOut: UInt, outType: Seq[Bool]) = {
     val result = Mux1H(outType, Seq(
       Cat(f.sign, expOut, sigOut, 0.U((f.sigWidth - 7).W)),// rec7 output normal
-//      FloatPoint.zeroUInt(f.expWidth, f.precision, isNeg = f.sign), // +-0
+      FloatPoint.zeroUInt(f.expWidth, f.precision, isNeg = f.sign), // +-0
       Cat(f.sign, 0.U(f.expWidth.W), 1.U(2.W), sigOut, 0.U((f.sigWidth - 9).W)),// subnormal, sig shift 2
       Cat(f.sign, 0.U(f.expWidth.W), 1.U(1.W), sigOut, 0.U((f.sigWidth - 8).W)),// subnormal, sig shift 1
-    //  FloatPoint.greatestFinite(f.expWidth, f.precision, isNeg = true.B),// -greatest mag, NX, OF
-    //  FloatPoint.infUInt(f.expWidth, f.precision, isNeg = true.B),// -Inf,
-    //  FloatPoint.greatestFinite(f.expWidth, f.precision, isNeg = false.B),// +greatest mag, NX, OF
-    //  FloatPoint.infUInt(f.expWidth, f.precision, isNeg = false.B),// +inf, NX, OF
-    //  FloatPoint.infUInt(f.expWidth, f.precision, isNeg = f.sign), // +-Inf, DZ
+      FloatPoint.greatestFinite(f.expWidth, f.precision, isNeg = true.B),// -greatest mag, NX, OF
+      FloatPoint.infUInt(f.expWidth, f.precision, isNeg = true.B),// -Inf,
+      FloatPoint.greatestFinite(f.expWidth, f.precision, isNeg = false.B),// +greatest mag, NX, OF
+      FloatPoint.infUInt(f.expWidth, f.precision, isNeg = false.B),// +inf, NX, OF
+      FloatPoint.infUInt(f.expWidth, f.precision, isNeg = f.sign), // +-Inf, DZ
       FloatPoint.defaultNaNUInt(f.expWidth, f.precision),// NAN,
       FloatPoint.defaultNaNUInt(f.expWidth, f.precision))// NAN, NV (sNAN)
     )

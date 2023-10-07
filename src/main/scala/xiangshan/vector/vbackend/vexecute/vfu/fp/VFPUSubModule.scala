@@ -1,11 +1,11 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.{LaneFUInput, LaneFUOutput}
-import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
+import darecreek.exu.vfu.{LaneFUInput, LaneFUOutput}
 import org.chipsalliance.cde.config.Parameters
-import darecreek.exu.fu2._
+import darecreek.exu.vfu._
 
 abstract class VFPUBaseModule(implicit p: Parameters) extends Module with HasVFuParameters
 

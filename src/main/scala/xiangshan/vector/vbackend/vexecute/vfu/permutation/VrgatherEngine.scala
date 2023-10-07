@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.perm
+package darecreek.exu.vfu.perm
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
 
 class VrgatherEngine(implicit p: Parameters) extends VFuModule {
@@ -63,7 +63,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
   val vd_mask = (~0.U(VLEN.W))
   val vd_mask_vl = Wire(UInt(VLEN.W))
   val vmask_vl = Wire(UInt(VLEN.W))
-  val vmask_uop = MaskExtract(vmask_vl, Mux(vrgather16_sew8, vd_idx(2,1), vd_idx), eew)
+  val vmask_uop = MaskExtract(vmask_vl, Mux(vrgather16_sew8, vd_idx(2, 1), vd_idx), eew)
   val vmask_16b = MaskReorg.splash(vmask_uop, eew)
   vd_mask_vl := vd_mask >> (VLEN.U - vl)
   vmask_vl := vmask & vd_mask_vl
@@ -101,7 +101,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
 
   for (i <- 0 until VLENB / 2) {
     vrgather_byte_sel(i) := 0.U
-    when(vrgather_vx) {
+    when(vrgather_vxi) {
       vrgather_byte_sel(i) := rs1
       when(vsew === 1.U) {
         vrgather_byte_sel(i) := Cat(rs1, 0.U(1.W)) + i.U % 2.U
@@ -145,7 +145,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
 
   for (i <- (VLENB / 2) until VLENB) {
     vrgather_byte_sel(i) := 0.U
-    when(vrgather_vx) {
+    when(vrgather_vxi) {
       vrgather_byte_sel(i) := rs1
       when(vsew === 1.U) {
         vrgather_byte_sel(i) := Cat(rs1, 0.U(1.W)) + i.U % 2.U
@@ -190,7 +190,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
   when(vrgather && !vrgather16_sew8 && update_vs2) {
     for (i <- 0 until VLENB) {
       vrgather_vd(i) := Mux(first, old_vd_bytes(i), vd_reg_bytes(i))
-      when(vmask_16b(i).asBool) {
+      when(vmask_16b(i).asBool | vm) {
         when((vrgather_byte_sel(i) >= vs2_min) && (vrgather_byte_sel(i) < vs2_max)) {
           vrgather_vd(i) := vs2_bytes(vrgather_byte_sel(i) - vs2_min)
         }.elsewhen(first) {
@@ -206,7 +206,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
     }
 
     for (i <- 0 until VLENB / 2) {
-      when(vmask_16b(i).asBool) {
+      when(vmask_16b(i).asBool | vm) {
         when((vrgather_byte_sel(i) >= vs2_min) && (vrgather_byte_sel(i) < vs2_max)) {
           vrgather_vd(i) := vs2_bytes(vrgather_byte_sel(i) - vs2_min)
         }.elsewhen(first) {
@@ -222,7 +222,7 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
     }
 
     for (i <- VLENB / 2 until VLENB) {
-      when(vmask_16b(i).asBool) {
+      when(vmask_16b(i).asBool | vm) {
         when((vrgather_byte_sel(i) >= vs2_min) && (vrgather_byte_sel(i) < vs2_max)) {
           vrgather_vd(i) := vs2_bytes(vrgather_byte_sel(i) - vs2_min)
         }.elsewhen(first) {

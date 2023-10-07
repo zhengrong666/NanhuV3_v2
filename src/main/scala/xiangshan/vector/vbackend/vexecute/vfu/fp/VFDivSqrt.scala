@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
@@ -31,7 +31,11 @@ class VFDivSqrtDataModule(implicit val p: Parameters) extends VFPUDivSubModule {
   val result64 = divSqrt64(0).io.result
   io.out.bits.vd := Mux1H(outSel, Seq(result32, result64))
   // active signal should be buffered, since it takes multiple cycles to generate output.
-  val activeBuf = RegEnable(VecInit(Seq(0,1).map(isActive)), in_fire)
+  // val activeBuf = RegEnable(VecInit(Seq(0,1).map(isActive)), in_fire)
+  // Why (0, 4)?  Floating-point only has sew = 32 and 64. For 64, only need bit-0. For 32, the bit-0 and bit-4 are used.
+  val activeBuf32 = RegEnable(VecInit(Seq(0,4).map(isActive)), in_fire)
+  val activeBuf = activeBuf32
+
   val fflags64 = Mux(activeBuf(0), divSqrt64(0).io.fflags, 0.U(5.W))
   // note: mind the index
   val fflags32 = Mux(activeBuf(0), divSqrt32(1).io.fflags, 0.U(5.W)) |

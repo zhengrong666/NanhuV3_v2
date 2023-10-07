@@ -364,29 +364,4 @@ package object xiangshan {
     def selectByExu(vec:Vec[Bool], exuConfigs: Seq[ExuConfig]): Vec[Bool] =
       partialSelect(vec, exuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted)
   }
-
-  //vector
-  object Widen {
-    def Widen = "b00".U
-
-    def Widen2 = "b01".U
-
-    def NotWiden = "b10".U
-
-    def X = BitPat("b??")
-
-    def apply() = UInt(2.W)
-  }
-
-  object Narrow {
-    def Narrow = "b00".U
-
-    def Narrow2 = "b01".U
-
-    def NotNarrow = "b10".U
-
-    def X = BitPat("b??")
-
-    def apply() = UInt(2.W)
-  }
 }

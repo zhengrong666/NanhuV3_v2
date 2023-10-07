@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.div
+package darecreek.exu.vfu.div
 
 import org.chipsalliance.cde.config.{Config, Field, Parameters}
 import chisel3._
@@ -7,10 +7,10 @@ import chisel3.util._
 // import darecreek.exu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
 // import darecreek.exu.fu.alu.MaskTailData
 // import darecreek.exu.fp._
-// import darecreek.exu.fu2.DarecreekParamVFU._
-// import darecreek.exu.fu2.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
-import darecreek.exu.fu2.fp._
-import darecreek.exu.fu2._
+// import darecreek.exu.vfu.DarecreekParamVFU._
+// import darecreek.exu.vfu.fp.{LANE_WIDTH, NAME, VFDivSqrt, VFInputGen, VFPUBaseModule, XLEN}
+import darecreek.exu.vfu.fp._
+import darecreek.exu.vfu._
 
 //case object NAME extends Field[String]
 //case object LANE_WIDTH extends Field[Int]

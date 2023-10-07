@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.LaneFUInput
-import darecreek.exu.fu2.LaneFUInput
+import darecreek.exu.vfu.LaneFUInput
 import VFInsts._
 import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.rocket.DecodeLogic
@@ -63,14 +63,14 @@ class VFMADecode extends VFPDecodeConstants {
     VFNMSAC_VV -> List(BitPat("b11"),Y,N,N,N),
     VFNMSUB_VF -> List(BitPat("b11"),Y,N,N,Y),
     VFNMSUB_VV -> List(BitPat("b11"),Y,N,N,Y),
-    VFWMACC_VF -> List(BitPat("b11"),N,N,Y,N),
-    VFWMACC_VV -> List(BitPat("b11"),N,N,Y,N),
-    VFWMSAC_VF -> List(BitPat("b11"),N,N,N,N),
-    VFWMSAC_VV -> List(BitPat("b11"),N,N,N,N),
-    VFWNMACC_VF -> List(BitPat("b11"),Y,N,N,N),
-    VFWNMACC_VV -> List(BitPat("b11"),Y,N,N,N),
-    VFWNMSAC_VF -> List(BitPat("b11"),Y,N,Y,N),
-    VFWNMSAC_VV -> List(BitPat("b11"),Y,N,Y,N),
+    VFWMACC_VF -> List(BitPat("b11"),N,N,N,N),
+    VFWMACC_VV -> List(BitPat("b11"),N,N,N,N),
+    VFWMSAC_VF -> List(BitPat("b11"),N,N,Y,N),
+    VFWMSAC_VV -> List(BitPat("b11"),N,N,Y,N),
+    VFWNMACC_VF -> List(BitPat("b11"),Y,N,Y,N),
+    VFWNMACC_VV -> List(BitPat("b11"),Y,N,Y,N),
+    VFWNMSAC_VF -> List(BitPat("b11"),Y,N,N,N),
+    VFWNMSAC_VV -> List(BitPat("b11"),Y,N,N,N),
   )
 }
 

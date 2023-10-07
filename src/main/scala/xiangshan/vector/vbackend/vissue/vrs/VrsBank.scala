@@ -4,7 +4,6 @@ import org.chipsalliance.cde.config.Parameters
 import xiangshan.backend.issue._
 import chisel3._
 import chisel3.util._
-import xiangshan.vector.vbackend.vissue.Vrs.{VrsStatusArray, VrsStatusArrayEntry}
 import xiangshan.{MicroOp, Redirect, SrcState, SrcType}
 
 class VrsBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends Module{

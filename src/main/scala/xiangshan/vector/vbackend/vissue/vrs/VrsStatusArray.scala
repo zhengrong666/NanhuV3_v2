@@ -1,4 +1,4 @@
-package xiangshan.vector.vbackend.vissue.Vrs
+package xiangshan.vector.vbackend.vissue.vrs
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._

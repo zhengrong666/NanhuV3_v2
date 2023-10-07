@@ -3,7 +3,7 @@ import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.vector.EewType
-import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Narrow, Redirect, SrcType, Widen, XSModule}
+import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Redirect, SrcType, XSModule}
 import xs.utils.LogicShiftRight
 
 class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {

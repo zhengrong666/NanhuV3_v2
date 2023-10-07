@@ -1,7 +1,7 @@
 // See LICENSE.SiFive for license details.
 // See LICENSE.Berkeley for license details.
 
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3.util._
 

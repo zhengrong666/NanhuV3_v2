@@ -1,10 +1,10 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
-import darecreek.exu.fu2.MaskTailData
+import darecreek.exu.vfu.{LaneFUInput, LaneFUOutput}
+import darecreek.exu.vfu.MaskTailData
 import xiangshan.Redirect
 
 class VFPUTop(implicit val p: Parameters)
@@ -13,6 +13,8 @@ class VFPUTop(implicit val p: Parameters)
     val in = Flipped(DecoupledIO(new LaneFUInput))
     val redirect = Input(ValidIO(new Redirect))
     val out = DecoupledIO(new LaneFUOutput)
+    val maskKeep = Output(UInt(64.W))
+    val maskOff = Output(UInt(64.W))
   })
   val inputGen = Module(new VFInputGen)
   inputGen.io.in := io.in.bits
@@ -35,10 +37,14 @@ class VFPUTop(implicit val p: Parameters)
   }
   outArbiter.io.out.bits.outputToLaneFU(io.out.bits)
   // mask result, override
-  io.out.bits.vd := outArbiter.io.out.bits.vd &
-    outArbiter.io.out.bits.uop.maskKeep |
-    outArbiter.io.out.bits.uop.maskOff
+ // io.out.bits.vd := outArbiter.io.out.bits.vd &
+ //   outArbiter.io.out.bits.uop.maskKeep |
+ //   outArbiter.io.out.bits.uop.maskOff
+  io.out.bits.vd := outArbiter.io.out.bits.vd
+
   io.out.valid := outArbiter.io.out.valid
+  io.maskKeep := outArbiter.io.out.bits.uop.maskKeep
+  io.maskOff := outArbiter.io.out.bits.uop.maskOff
   outArbiter.io.out.ready := io.out.ready
 
   // // IMPORTANT: TEMPORARY SOLUTION FOR NARROWING ERROR IN ISSUE LOGIC
@@ -54,15 +60,15 @@ class VFPUTop(implicit val p: Parameters)
   val sel_rec = inputGen.io.out.uop.vfpCtrl.isRec7 || inputGen.io.out.uop.vfpCtrl.isRecSqrt7
 
   io.in.ready := fma.io.in.ready
-  when (sel_cvt) {
+  when(sel_cvt) {
     io.in.ready := cvt.io.in.ready
-  } .elsewhen(sel_misc) {
+  }.elsewhen(sel_misc) {
     io.in.ready := misc.io.in.ready
-  }.elsewhen(sel_rec){
+  }.elsewhen(sel_rec) {
     io.in.ready := rec.io.in.ready
   }
 
- // io.in.ready := subModules.map(_.io.in.ready).reduce(_ && _) // must all ready
+  // io.in.ready := subModules.map(_.io.in.ready).reduce(_ && _) // must all ready
 }
 
 // comb logic
@@ -80,7 +86,9 @@ class VFInputGen(implicit val p: Parameters) extends VFPUBaseModule {
   val rs1Expd = Mux(
     ctrl.vx && typeTag === VFPU.S,
     Cat(Seq.fill(2)(io.in.rs1.tail(VFPU.f32.len))),
-    io.in.vs1
+    Mux(ctrl.vx && typeTag === VFPU.D,
+      io.in.rs1,
+      io.in.vs1)
   )
 
   //---- vstart >= vl ----
@@ -99,13 +107,13 @@ class VFInputGen(implicit val p: Parameters) extends VFPUBaseModule {
   io.out.connectFromLaneFUInput(io.in)
   io.out.uop.typeTag := typeTag
   io.out.uop.vfpCtrl := vfpCtrl
-  io.out.uop.fWidenEnd := false.B  // default false
+  io.out.uop.fWidenEnd := false.B // default false
   io.out.vs1 := rs1Expd
   io.out.uop.maskKeep := Mux(isCmp, maskGen.io.maskKeep_cmp, maskGen.io.maskKeep)
   io.out.uop.maskOff := Mux(isCmp, maskGen.io.maskOff_cmp, maskGen.io.maskOff)
 
   def isCmp: Bool = {
-    io.in.uop.ctrl.funct6(5,3) === "b011".U
+    io.in.uop.ctrl.funct6(5, 3) === "b011".U
   }
 }
 

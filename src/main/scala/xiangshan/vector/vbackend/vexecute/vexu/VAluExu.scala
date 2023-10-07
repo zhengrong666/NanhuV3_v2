@@ -2,11 +2,10 @@ package xiangshan.vector.vbackend.vexecute.vexu
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.alu.VAlu
-import darecreek.exu.fu2.reduction.Reduction
-import darecreek.exu.fu2.vmask.VMask
-import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
-import xiangshan.{HasXSParameter, Narrow}
+import darecreek.exu.vfu.alu.VAlu
+import darecreek.exu.vfu.reduction.Reduction
+import darecreek.exu.vfu.vmask.VMask
+import xiangshan.HasXSParameter
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.{EewType, HasVectorParameters}

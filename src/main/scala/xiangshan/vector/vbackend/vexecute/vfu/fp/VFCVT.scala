@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
@@ -35,18 +35,21 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
 
   override def latency = 2 //  2 stage register
 
-  def zeroExt(in: UInt, len: Int):UInt = {
+  def zeroExt(in: UInt, len: Int): UInt = {
     val inLen = in.getWidth
-    if(inLen > len) {
-      in(len-1,0)
+    if (inLen > len) {
+      in(len - 1, 0)
     } else {
-      Cat(0.U((len-inLen).W), in)
+      Cat(0.U((len - inLen).W), in)
     }
   }
 
   def isf2f(cmd: UInt) = cmd(0)
+
   def isf2i(cmd: UInt) = cmd(1)
+
   def isi2f(cmd: UInt) = cmd(2)
+
   // buffer input to reduce fan-out
   val src = S1Reg(io.in.bits.vs2)
   val uop = uopVec(1)
@@ -55,22 +58,25 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val isTypeSingle = uop.typeTag === VFPU.S
   val isRod = ctrl.cvtRm(0)
   val isRtz = ctrl.cvtRm(1)
-  val eleActives = S1Reg(VecInit(Seq(0,1).map(isActive)))
+  val eleActives = S1Reg(VecInit(Seq(0, 4).map(isActive)))
 
   object State extends ChiselEnum {
     val sEmpty, sWiden, sNarrow = Value
   }
+
   val state = RegInit(State.sEmpty)
   // widen/narrow fsm
   when(regEnable(2)) {
-    when(state === State.sEmpty) {
+    when(uop.expdEnd) {
+      state := State.sEmpty
+    }.elsewhen(state === State.sEmpty) {
       when(uop.ctrl.widen) {
         state := State.sWiden
-      } .elsewhen(uop.ctrl.narrow) {
+      }.elsewhen(uop.ctrl.narrow) {
         state := State.sNarrow
       }
-    } .otherwise{
-        state := State.sEmpty
+    }.otherwise {
+      state := State.sEmpty
     }
   }
 
@@ -94,7 +100,7 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   // mandatory rod rounding
   d2s.io.rm := Mux(isRod, "b101".asUInt, rm1) // rounding towards odd
   val d2sNarrow32b = d2s.io.result // 32b
-  val d2sNarrowFlag = Mux(eleActives(0), d2s.io.fflags, empty_fflags)
+  val d2sNarrowFlag = Mux(Mux(state === State.sNarrow, eleActives(1), eleActives(0)), d2s.io.fflags, empty_fflags)
 
   // FP2Int
   // s2i deals with fp32->int32, fp32->int64(widen)
@@ -105,8 +111,8 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   s2iX1.io.a := src.tail(32)
   s2iX2.io.a := src.head(32)
   d2i.io.a := src
-  for(f2i <- Seq(s2iX1, s2iX2)) {
-    f2i.io.rm := Mux(isRtz, "b001".asUInt,  rm1)
+  for (f2i <- Seq(s2iX1, s2iX2)) {
+    f2i.io.rm := Mux(isRtz, "b001".asUInt, rm1)
     f2i.io.op := Cat(
       uop.ctrl.widen,
       ctrl.cvtSigned,
@@ -125,14 +131,14 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val f2iOut = Mux(isTypeSingle, s2iResult, d2i.io.result)
   val d2iNarrow32b = d2i.io.result.tail(32)
   val s2ifflags = Seq(s2iX1, s2iX2).zipWithIndex.map(x => x._1.io.fflags & Fill(5, eleActives(x._2)))
-  val d2ifflags = d2i.io.fflags & Fill(5, eleActives(0))
+  val d2ifflags = d2i.io.fflags & Mux(state === State.sNarrow, Fill(5, eleActives(1)), Fill(5, eleActives(0)))
   val s2iFlagResult = Mux(
     uop.ctrl.widen,
     Mux(state === State.sEmpty, s2ifflags(0), s2ifflags(1)),
-    s2ifflags.reduce(_|_)
+    s2ifflags.reduce(_ | _)
   )
   val f2iFlagOut = Mux(isTypeSingle, s2iFlagResult, d2ifflags)
-  val d2iNarrowFlag = d2ifflags  // narrowing: d2i flag not or-ed, but outputted directly
+  val d2iNarrowFlag = d2ifflags // narrowing: d2i flag not or-ed, but outputted directly
 
   // Int2FP
   // i2s deals with int32->fp32 and int64->fp32(narrow)(i2sX1)
@@ -140,17 +146,18 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val i2sX2 = Module(new fudian.IntToFP(VFPU.f32.expWidth, VFPU.f32.precision)) // !!! output is 32b, input64b
   // i2d deals with int64->fp64 and int32->fp64(widen), int32 input is sign-extended
   val i2d = Module(new fudian.IntToFP(VFPU.f64.expWidth, VFPU.f64.precision)) // !!! output is 64b
-  i2sX1.io.int := src // narrowing included, since IntToFP module extract tail32 in that case
+  i2sX1.io.int := Mux(uop.ctrl.narrow, src, src.tail(32)) // narrowing included, since IntToFP module extract tail32 in that case
   i2sX2.io.int := zeroExt(src.head(32), 64)
-  for(i2f <- Seq(i2sX1, i2sX2)) {
+  for (i2f <- Seq(i2sX1, i2sX2)) {
     i2f.io.sign := ctrl.cvtSigned
-    i2f.io.long := uop.ctrl.narrow  // input is int64
+    i2f.io.long := uop.ctrl.narrow // input is int64
     i2f.io.rm := rm1
   }
   i2d.io.int := Mux(
-    uop.ctrl.widen && state === State.sWiden,   // widening cycle1 included
+    uop.ctrl.widen && state === State.sWiden, // widening cycle1 included
     zeroExt(src.head(32), 64),
-    src
+    Mux(uop.ctrl.widen && state === State.sEmpty, zeroExt(src.tail(32), 64),
+      src)
   )
   i2d.io.sign := ctrl.cvtSigned
   i2d.io.rm := rm1
@@ -158,10 +165,10 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   val i2sResult = Cat(i2sX2.io.result, i2sX1.io.result)
   val i2sNarrow32b = i2sX1.io.result
   val i2fOut = Mux(isTypeSingle && !uop.ctrl.widen, i2sResult, i2d.io.result)
-  val i2sfflags = Seq(i2sX1,i2sX2).zipWithIndex.map(x => x._1.io.fflags & Fill(5, eleActives(x._2))) // X1tail, X2head
-  val i2dfflags = i2d.io.fflags & Fill(5, eleActives(0))
-  val i2sNarrowFlag = i2sfflags(0)
-  val i2fFlagOut = Mux(isTypeSingle && !uop.ctrl.widen, i2sfflags.reduce(_|_), i2dfflags)
+  val i2sfflags = Seq(i2sX1, i2sX2).zipWithIndex.map(x => x._1.io.fflags & Fill(5, eleActives(x._2))) // X1tail, X2head
+  val i2dfflags = i2d.io.fflags & Mux(state === State.sWiden, Fill(5, eleActives(1)), Fill(5, eleActives(0)))
+  val i2sNarrowFlag = i2sX1.io.fflags & Mux(state === State.sNarrow, Fill(5, eleActives(1)), Fill(5, eleActives(0)))
+  val i2fFlagOut = Mux(isTypeSingle && !uop.ctrl.widen, i2sfflags.reduce(_ | _), i2dfflags)
 
   // narrowing output handling
   val narrowBuf = Reg(Vec(2, UInt(32.W)))
@@ -174,10 +181,10 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
   when(isf2f(ctrl.cvtCmd)) {
     narrow32b := d2sNarrow32b
     narrowFlag := d2sNarrowFlag
-  } .elsewhen(isf2i(ctrl.cvtCmd)) {
+  }.elsewhen(isf2i(ctrl.cvtCmd)) {
     narrow32b := d2iNarrow32b
     narrowFlag := d2iNarrowFlag
-  } .elsewhen(isi2f(ctrl.cvtCmd)) {
+  }.elsewhen(isi2f(ctrl.cvtCmd)) {
     narrow32b := i2sNarrow32b
     narrowFlag := i2sNarrowFlag
   }
@@ -185,7 +192,7 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
     when(state === State.sEmpty) {
       narrowBuf(0) := narrow32b
       narrowFlagBuf := narrowFlag
-    } .elsewhen(state === State.sNarrow) {
+    }.elsewhen(state === State.sNarrow) {
       narrowBuf(1) := narrow32b
       narrowFlagBuf := narrowFlagBuf | narrowFlag
     }

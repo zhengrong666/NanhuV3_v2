@@ -14,13 +14,13 @@
   * See the Mulan PSL v2 for more details.
   ***************************************************************************************/
 
-package darecreek.exu.fu2.div
+package darecreek.exu.vfu.div
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 // import darecreek.exu.LaneUnit
-import darecreek.exu.fu2.LaneUnit
+import darecreek.exu.vfu.LaneUnit
 
 import scala.math.min
 

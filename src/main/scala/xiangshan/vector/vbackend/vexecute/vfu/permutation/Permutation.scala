@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.perm
+package darecreek.exu.vfu.perm
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config._
 import xiangshan.Redirect
 
@@ -14,9 +14,11 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     val out = Output(new VPermOutput)
   })
 
+  val ctrl = io.in.uop.ctrl
   val funct6 = io.in.uop.ctrl.funct6
   val funct3 = io.in.uop.ctrl.funct3
   val vm = io.in.uop.ctrl.vm
+  val vs1_imm = io.in.uop.ctrl.vs1_imm
   val vsew = io.in.uop.info.vsew
   val rs1 = io.in.rs1
   val vs1_preg_idx = io.in.vs1_preg_idx
@@ -31,6 +33,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   val uop_valid = io.in.uop_valid
   val rdata = io.in.rdata
   val rvalid = io.in.rvalid
+  val rs1_imm = Mux(ctrl.vi, Cat(0.U(59.W), vs1_imm), rs1)
 
   val vslideup_vx = (funct6 === "b001110".U) && (funct3 === "b100".U)
   val vslideup_vi = (funct6 === "b001110".U) && (funct3 === "b011".U)
@@ -200,7 +203,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     funct6_reg := funct6
     funct3_reg := funct3
     vsew_reg := vsew
-    rs1_reg := rs1
+    rs1_reg := rs1_imm
     vs1_preg_idx_reg := vs1_preg_idx
     vs2_preg_idx_reg := vs2_preg_idx
     old_vd_preg_idx_reg := old_vd_preg_idx
@@ -605,7 +608,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   when(flush) {
     vlRemain := 0.U
   }.elsewhen(uop_valid) {
-    vlRemain := Mux(vslideup && (rs1 > vl), Mux(rs1 > VLEN.U, VLEN.U, rs1), vl)
+    vlRemain := Mux(vslideup && (rs1_imm > vl), Mux(rs1_imm > VLEN.U, VLEN.U, rs1_imm), vl)
   }.elsewhen(reg_vcompress && rdata_update_vs_idx) {
     vlRemain := Mux(vlRemain >= (1.U << vsew_shift), vlRemain - (1.U << vsew_shift), 0.U)
   }.elsewhen(!reg_vrgather16_sew8 && !reg_vcompress && rdata_wb_vld) {
@@ -643,7 +646,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   when(flush) {
     vstartRemain := 0.U
   }.elsewhen(uop_valid) {
-    vstartRemain := Mux(vslideup && (rs1 > vstart), Mux(rs1 > VLEN.U, VLEN.U, rs1), vstart)
+    vstartRemain := Mux(vslideup && (rs1_imm > vstart), Mux(rs1_imm > VLEN.U, VLEN.U, rs1_imm), vstart)
   }.elsewhen(reg_vcompress && rdata_update_vs_idx) {
     vstartRemain := Mux(vstartRemain >= (1.U << vsew_shift), vstartRemain - (1.U << vsew_shift), 0.U)
   }.elsewhen(!reg_vcompress && update_vd_idx) {
@@ -687,6 +690,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
 }
 
 import xiangshan._
+
 object Main extends App {
   println("Generating hardware")
   val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })

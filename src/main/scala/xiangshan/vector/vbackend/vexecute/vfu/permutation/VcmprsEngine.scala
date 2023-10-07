@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.perm
+package darecreek.exu.vfu.perm
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
 
 class VcmprsEngine(implicit p: Parameters) extends VFuModule {

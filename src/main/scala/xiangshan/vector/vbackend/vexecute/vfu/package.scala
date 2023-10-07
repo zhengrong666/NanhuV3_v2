@@ -2,15 +2,15 @@ package xiangshan.vector.vbackend.vexecute
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.VUop
+import darecreek.exu.vfu.VUop
 import xiangshan.vector.{EewType, EewVal}
-import xiangshan.{MicroOp, Narrow, Widen}
+import xiangshan.MicroOp
 package object vfu {
   def uopToVuop(src:MicroOp, valid:Bool, vstart:UInt, vxrm:UInt, frm:UInt, p:Parameters):VUop = {
     val res = Wire(new VUop()(p))
     res.ctrl.funct6 := src.vctrl.funct6
     res.ctrl.funct3 := src.vctrl.funct3
-    res.ctrl.vm := src.vctrl.vm
+    res.ctrl.vm := !src.vctrl.vm
     res.ctrl.vs1_imm := src.ctrl.imm(4, 0)
     res.ctrl.widen := src.vctrl.isWidden && src.vctrl.eewType(1) === EewType.sew
     res.ctrl.widen2 := src.vctrl.isWidden && src.vctrl.eewType(1) === EewType.sewm2

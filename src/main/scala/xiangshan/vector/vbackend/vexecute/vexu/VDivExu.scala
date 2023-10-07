@@ -2,7 +2,7 @@ package xiangshan.vector.vbackend.vexecute.vexu
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.div.VDiv
+import darecreek.exu.vfu.div.VDiv
 import xiangshan.HasXSParameter
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs

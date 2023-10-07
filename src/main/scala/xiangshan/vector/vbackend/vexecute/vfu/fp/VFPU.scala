@@ -1,4 +1,4 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3.util.{Cat, Fill, log2Ceil}
 import chisel3._

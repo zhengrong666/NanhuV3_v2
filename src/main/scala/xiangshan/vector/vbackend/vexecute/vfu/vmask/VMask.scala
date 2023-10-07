@@ -1,10 +1,10 @@
-package darecreek.exu.fu2.vmask
+package darecreek.exu.vfu.vmask
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config._
 
 class VMask(implicit p: Parameters) extends VFuModule {

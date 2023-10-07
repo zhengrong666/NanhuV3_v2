@@ -2,8 +2,8 @@ package xiangshan.vector.vbackend.vexecute.vexu
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.fp.VFPUWrapper
-import xiangshan.{HasXSParameter, Narrow}
+import darecreek.exu.vfu.fp.VFPUWrapper
+import xiangshan.HasXSParameter
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.{EewType, HasVectorParameters}

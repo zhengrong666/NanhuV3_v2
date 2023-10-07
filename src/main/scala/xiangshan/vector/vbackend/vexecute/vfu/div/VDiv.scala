@@ -1,13 +1,13 @@
-package darecreek.exu.fu2.div
+package darecreek.exu.vfu.div
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config._
 import xiangshan.Redirect
 
-class VDiv(implicit p: Parameters) extends VFuModule {
+class VDiv(implicit p: Parameters) extends VFuModule { //with RequireAsyncReset {
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new VFuInput))
     val redirect = Input(ValidIO(new Redirect))
@@ -26,9 +26,9 @@ class VDiv(implicit p: Parameters) extends VFuModule {
   //---- Mask gen ----
   val mask16b = MaskExtract(io.in.bits.mask, uopIdx, eewVd)
 
-  val tailReorg = MaskReorg(tail, eewVd)
-  val prestartReorg = MaskReorg(prestart, eewVd)
-  val mask16bReorg = MaskReorg(mask16b, eewVd)
+  val tailReorg = MaskReorg.splash(tail, eewVd)
+  val prestartReorg = MaskReorg.splash(prestart, eewVd)
+  val mask16bReorg = MaskReorg.splash(mask16b, eewVd)
 
   /** VFuInput -> LaneFuInput */
   for (i <- 0 until 2) {

@@ -21,13 +21,13 @@
   *     16.2
   *     16.6
   */
-package darecreek.exu.fu2.alu
+package darecreek.exu.vfu.alu
 
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.decode._
-import darecreek.exu.fu2._
-// import darecreek.exu.fu2.VFUParam._
+import darecreek.exu.vfu._
+// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config._
 
 class VIntFixpDecode extends Bundle {
@@ -86,8 +86,8 @@ class VIntFixpAlu64b(implicit p: Parameters) extends VFuModule {
   vIntAdder64b.io.narrow_to_1 := io.narrow_to_1
 
   val vIntMisc64b = Module(new VIntMisc64b)
-  vIntMisc64b.io.funct6 := io.funct6 
-  vIntMisc64b.io.funct3 := io.funct3 
+  vIntMisc64b.io.funct6 := io.funct6
+  vIntMisc64b.io.funct3 := io.funct3
   vIntMisc64b.io.vi := io.vi
   vIntMisc64b.io.vm := io.vm
   vIntMisc64b.io.vs1_imm := io.vs1_imm
@@ -217,9 +217,9 @@ class VAlu(implicit p: Parameters) extends VFuModule {
   val mask16b = MaskExtract(io.in.bits.mask, maskIdx, eewVm)
   for (i <- 0 until 2) {
     vIntFixpAlu64bs(i).io.vmask := 
-      mask16_to_2x8(mask16b, eewVm)(i)
+      MaskExtract.mask16_to_2x8(mask16b, eewVm)(i)
     vIntFixpAlu64bs(i).io.oldVd := // only for compare instrution
-      mask16_to_2x8(MaskExtract(oldVd, uopIdx, sew), sew)(i)
+      MaskExtract.mask16_to_2x8(MaskExtract(oldVd, uopIdx, sew), sew)(i)
   }
 
   /**
@@ -346,19 +346,6 @@ class VAlu(implicit p: Parameters) extends VFuModule {
                      Mux(uopIdxS1(0), Cat(updateType.drop(VLENB/2).map(_(1) === false.B).reverse),
                                       Cat(updateType.take(VLENB/2).map(_(1) === false.B).reverse))
                      ).orR
-  }
-
-
-  //---- Some methods ----
-  def mask16_to_2x8(maskIn: UInt, sew: SewOH): Seq[UInt] = {
-    require(maskIn.getWidth == 16)
-    val result16 = Mux1H(Seq(
-      sew.is8  -> maskIn,
-      sew.is16 -> Cat(0.U(4.W), maskIn(7, 4), 0.U(4.W), maskIn(3, 0)),
-      sew.is32 -> Cat(0.U(6.W), maskIn(3, 2), 0.U(6.W), maskIn(1, 0)),
-      sew.is64 -> Cat(0.U(7.W), maskIn(1), 0.U(7.W), maskIn(0)),
-    ))
-    Seq(result16(7, 0), result16(15, 8))
   }
 }
 

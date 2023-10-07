@@ -1,12 +1,12 @@
-package darecreek.exu.fu2.div
+package darecreek.exu.vfu.div
 
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 // import darecreek.{LaneFUInput, LaneFUOutput}
 // import darecreek.exu.fp.{LaneFUWithMaskIn, LaneFUWithMaskOut}
-import darecreek.exu.fu2.{LaneFUInput, LaneFUOutput}
-import darecreek.exu.fu2.fp.{LaneFUWithMaskIn, LaneFUWithMaskOut}
+import darecreek.exu.vfu.{LaneFUInput, LaneFUOutput}
+import darecreek.exu.vfu.fp.{LaneFUWithMaskIn, LaneFUWithMaskOut}
 
 // time multiplex vector divider
 // vs2 / vs1

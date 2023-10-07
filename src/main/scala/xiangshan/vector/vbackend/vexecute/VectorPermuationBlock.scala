@@ -2,7 +2,7 @@ package xiangshan.vector.vbackend.vexecute
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import darecreek.exu.fu2.perm.Permutation
+import darecreek.exu.vfu.perm.Permutation
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, LazyModuleImpLike}
 import xiangshan.{HasXSParameter, Redirect, SrcType, XSBundle, XSModule}
 import xiangshan.backend.execute.exu.{ExuConfig, ExuOutputNode, ExuType}

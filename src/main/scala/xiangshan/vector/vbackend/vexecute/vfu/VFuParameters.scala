@@ -1,4 +1,4 @@
-package darecreek.exu.fu2
+package darecreek.exu.vfu
 
 import chisel3._
 import chisel3.util._

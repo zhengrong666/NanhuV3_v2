@@ -1,9 +1,9 @@
-package darecreek.exu.fu2.fp
+package darecreek.exu.vfu.fp
 
 import chisel3._
 import chisel3.util._
 // import darecreek.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
-import darecreek.exu.fu2.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
+import darecreek.exu.vfu.{BundleHelper, LaneFUInput, LaneFUOutput, VExpdUOp}
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.Redirect
 
