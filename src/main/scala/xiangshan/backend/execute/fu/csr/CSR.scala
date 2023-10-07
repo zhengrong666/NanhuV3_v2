@@ -315,6 +315,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     GenMask(31, 23)       | // WPRI
     GenMask(16, 15)       | // XS is read-only
     GenMask(6)            | // WPRI
+    GenMask(4)            | // WPRI
     GenMask(2)            | // WPRI
     GenMask(0)              // WPRI
   ), 64)).asUInt
@@ -322,6 +323,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     GenMask(XLEN - 2, 36) | // WPRI
     GenMask(31, 23)       | // WPRI
     GenMask(6)            | // WPRI
+    GenMask(4)            | // WPRI
     GenMask(2)            | // WPRI
     GenMask(0)              // WPRI
   ), 64)).asUInt
