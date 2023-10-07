@@ -54,7 +54,7 @@ class VIRatCommitPort(implicit p: Parameters) extends VectorBaseBundle {
   def Pipe:VIRatCommitPort = {
     val pipe = Wire(new VIRatCommitPort)
     pipe.doCommit := RegNext(this.doCommit, false.B)
-    pipe.doWalk := RegNext(this.doCommit, false.B)
+    pipe.doWalk := RegNext(this.doWalk, false.B)
     for(i <- 0 until 8){
       pipe.mask(i) := RegNext(this.mask(i), false.B)
       pipe.lrIdx(i) := RegEnable(this.lrIdx(i), this.mask(i))
