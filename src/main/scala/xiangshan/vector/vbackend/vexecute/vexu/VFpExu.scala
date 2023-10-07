@@ -6,7 +6,7 @@ import darecreek.exu.fu2.fp.VFPUWrapper
 import xiangshan.{HasXSParameter, Narrow}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
-import xiangshan.vector.HasVectorParameters
+import xiangshan.vector.{EewType, HasVectorParameters}
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicExu{
   private val cfg = ExuConfig(
@@ -62,7 +62,7 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     wb.bits.fflags := vfp.io.out.bits.fflags
 
     private val uopOut = vfp.io.out.bits.uop.sysUop
-    private val isNarrow = uopOut.ctrl.narrow === Narrow.Narrow
+    private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
     private val lowHalf = !uopOut.uopIdx(0)
     private val highHalf = uopOut.uopIdx(0)
     private val maskLen = VLEN / 8

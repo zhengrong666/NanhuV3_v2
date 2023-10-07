@@ -9,7 +9,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import xiangshan.{HasXSParameter, Narrow}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
-import xiangshan.vector.HasVectorParameters
+import xiangshan.vector.{EewType, HasVectorParameters}
 import xiangshan.vector.vbackend.vexecute.vfu.s2v.Scalar2Vector
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
 class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicExu{
@@ -101,7 +101,8 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     wb.bits.data := wbData.vd
     wb.bits.vxsat := wbData.vxsat
 
-    private val isNarrow = uopShiftQueue.io.out.bits.ctrl.narrow === Narrow.Narrow
+    private val uopOut = uopShiftQueue.io.out.bits
+    private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
     private val lowHalf = !uopShiftQueue.io.out.bits.uopIdx(0)
     private val highHalf = uopShiftQueue.io.out.bits.uopIdx(0)
     private val maskLen = VLEN / 8
