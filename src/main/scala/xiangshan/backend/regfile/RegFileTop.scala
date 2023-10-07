@@ -239,7 +239,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := bi.issue.bits.uop.vCsrInfo.vma(0)
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
           }.otherwise{
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := false.B
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := bi.issue.bits.uop.vCsrInfo.vta(0)
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := true.B
           }
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := bi.issue.bits.uop.psrc(2)

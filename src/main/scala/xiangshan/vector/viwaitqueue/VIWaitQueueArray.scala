@@ -118,9 +118,16 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       entryNext.uop.vCsrInfo.vta := 1.U
     }
     when(vctrl.isLs){
-      vctrlNext.evl := (vcsr.vl << vcsr.vsew) >> vctrl.eew(0)
+      vctrlNext.evl := 1.U + ((vcsr.vl << vcsr.vsew) >> vctrl.eew(0))
+      val tailOff = MuxCase(0.U, Seq(
+        (vctrl.eew(0) - vcsr.vsew === 1.U) -> vcsr.vl(0),
+        (vctrl.eew(0) - vcsr.vsew === 2.U) -> vcsr.vl(1, 0),
+        (vctrl.eew(0) - vcsr.vsew === 3.U) -> vcsr.vl(2, 0),
+      ))
+      vctrlNext.tailOffset := Mux(vctrl.eew(0) > vcsr.vsew, tailOff, 0.U)
     }.otherwise{
       vctrlNext.evl := vcsr.vl
+      vctrlNext.tailOffset := 0.U
     }
     entryNext.state := WqState.s_waiting
   }
