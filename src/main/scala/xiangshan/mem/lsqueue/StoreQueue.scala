@@ -362,6 +362,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       // mmio(stWbIndex) := io.storeIn(i).bits.mmio
 
       uop(stWbIndex).ctrl := io.storeIn(i).bits.uop.ctrl
+      uop(stWbIndex).mergeIdx := io.storeIn(i).bits.uop.mergeIdx
       uop(stWbIndex).uopIdx := io.storeIn(i).bits.uop.uopIdx
       uop(stWbIndex).uopNum := io.storeIn(i).bits.uop.uopNum
       uop(stWbIndex).vctrl := io.storeIn(i).bits.uop.vctrl
