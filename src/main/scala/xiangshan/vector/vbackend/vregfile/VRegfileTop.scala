@@ -60,12 +60,12 @@ object VRegfileTopUtil{
     val vlenShiftBits = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
     val uopIdx = in.uopIdx
-    val partialMask = Mux(in.partialTail, UIntToMask(in.vctrl.tailOffset, 8), 0.U)
+    val partialMask = Mux(in.partialTail, UIntToMask(in.vctrl.tailOffset, 8), ~(0.U(8.W)))
     val mask = MuxCase(0.U, Seq(
-      (sew === 0.U) -> (("h01".U & partialMask) << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
-      (sew === 1.U) -> (("h03".U & partialMask) << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
-      (sew === 2.U) -> (("h0f".U & partialMask) << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
-      (sew === 3.U) -> (("hff".U & partialMask) << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
+      (sew === 0.U) -> (("h01".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
+      (sew === 1.U) -> (("h03".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
+      (sew === 2.U) -> (("h0f".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
+      (sew === 3.U) -> (("hff".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
     ))
     mask(width - 1, 0).asUInt
   }
