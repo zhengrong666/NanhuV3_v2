@@ -636,7 +636,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
       cancelPointerChasing && !isCancelled && !notFastMatch && !fuOpTypeIsNotLd && !addressNotAligned && addressMisMatch)
   }
 
-  val load_s1_isOrder = load_s1.io.out.bits.uop.ctrl.isOrder
+  val load_s1_isOrder = load_s1.io.out.bits.uop.vctrl.ordered
   PipelineConnect(load_s1.io.out, load_s2.io.in, true.B,
     load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect) || cancelPointerChasing || load_s1_isOrder)
 
@@ -731,7 +731,7 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
     (!load_s2.io.out.bits.miss &&
       !load_s2.io.out.bits.mmio &&
       !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect) &&
-      !load_s2.io.out.bits.uop.ctrl.isOrder ||
+      !load_s2.io.out.bits.uop.vctrl.ordered ||
       !load_s2.io.out.bits.uop.loadStoreEnable)
 
   // Int load, if hit, will be writebacked at s2

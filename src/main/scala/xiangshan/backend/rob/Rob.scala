@@ -738,7 +738,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.wvcsr       := false.B
       wdata.vtypeWb     := req.ctrl.isVtype
       wdata.isVector    := req.ctrl.isVector && !req.ctrl.isVtype
-      wdata.isOrder := req.ctrl.isOrder
+      wdata.isOrder := req.vctrl.ordered
   }
 
   for(i <- 0 until fflagsWbNums) {

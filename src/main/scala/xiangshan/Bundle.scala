@@ -147,39 +147,39 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
 
   //Vector
   val vdWen = Bool()
-  val isOrder = Bool()
-  val widen = Widen()
-  val narrow = Narrow()
+  // val isOrder = Bool()
+  // val widen = Widen()
+  // val narrow = Narrow()
   val isVector = Bool()
   val isVtype = Bool()
-  val isVLS = Bool()
+  // val isVLS = Bool()
   val isVmvnr = Bool()
-  val funct6 = UInt(6.W)
-  val funct3 = UInt(3.W)
-  val NField = UInt(3.W)
-  val vm = Bool()
+  // val funct6 = UInt(6.W)
+  // val funct3 = UInt(3.W)
+  // val NField = UInt(3.W)
+  // val vm = Bool()
 
-  private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isOrder, widen, narrow, selImm)
+  // private def VallSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
+  //   vdWen, isOrder, widen, narrow, selImm)
 
-  def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
-    this := DontCare
-    this.isXSTrap := false.B
-    this.noSpecExec := false.B
-    this.blockBackward := false.B
-    this.flushPipe := false.B
-    val decoder = xiangshan.backend.decode.DecodeLogic(inst, VectorArithDecode.decodeDefault, table, QMC = false)
-    VallSignals zip decoder foreach { case (s, d) => s := d }
-    commitType := DontCare
-    this
-  }
+  // def decodev(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
+  //   this := DontCare
+  //   this.isXSTrap := false.B
+  //   this.noSpecExec := false.B
+  //   this.blockBackward := false.B
+  //   this.flushPipe := false.B
+  //   val decoder = xiangshan.backend.decode.DecodeLogic(inst, VectorArithDecode.decodeDefault, table, QMC = false)
+  //   VallSignals zip decoder foreach { case (s, d) => s := d }
+  //   commitType := DontCare
+  //   this
+  // }
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
+    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     this := DontCare
-    val decoder = xiangshan.backend.decode.DecodeLogic(inst, XDecode.decodeDefault, table)
+    val decoder = xiangshan.backend.decode.DecodeLogic(inst, XDecode.decodeDefault, table , QMC = false)
     allSignals zip decoder foreach { case (s, d) => s := d }
     commitType := DontCare
     this

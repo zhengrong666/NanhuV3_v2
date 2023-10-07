@@ -528,14 +528,14 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     */
   //(2) when they reach ROB's head, they can be sent to uncache channel
   val SbufferCleaned = RegInit(false.B)
-  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).ctrl.isOrder && (uop(deqPtr).uopIdx === 0.U) && (!mmio(deqPtr)) && (!SbufferCleaned)
+  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).vctrl.ordered && (uop(deqPtr).uopIdx === 0.U) && (!mmio(deqPtr)) && (!SbufferCleaned)
 
   io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
 
   when(needFlushSbuffer && io.vectorOrderedFlushSBuffer.empty){
     SbufferCleaned := true.B
   }
-  when((!uop(deqPtr).ctrl.isOrder) && allocated(deqPtr)){
+  when((!uop(deqPtr).vctrl.ordered) && allocated(deqPtr)){
     SbufferCleaned := false.B
   }
 
@@ -569,7 +569,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       }
     }
   }
-  io.uncache.req.valid := (mmio_order_state === s_req_mmio) && (!uop(deqPtr).ctrl.isOrder)
+  io.uncache.req.valid := (mmio_order_state === s_req_mmio) && (!uop(deqPtr).vctrl.ordered)
   io.uncache.req.bits.robIdx := DontCare
   io.uncache.req.bits.cmd  := MemoryOpConstants.M_XWR
 //  io.uncache.req.bits.addr := paddrModule.io.rdata(0) // data(deqPtr) -> rdata(0)
@@ -577,7 +577,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   io.uncache.req.bits.data := dataModule.io.rdata(0).data
   io.uncache.req.bits.mask := dataModule.io.rdata(0).mask
 
-  val dcacheReq_valid = mmio_order_state === s_req_mmio && uop(deqPtr).ctrl.isOrder
+  val dcacheReq_valid = mmio_order_state === s_req_mmio && uop(deqPtr).vctrl.ordered
   io.dcacheReqResp.req.valid := RegNext(dcacheReq_valid)
   io.dcacheReqResp.req.bits := DontCare
   io.dcacheReqResp.req.bits.cmd  := RegEnable(MemoryOpConstants.M_XWR,dcacheReq_valid)
@@ -621,7 +621,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   val wbmask_bit = (uop(orderStoreWbIdx).uopIdx / (uop(orderStoreWbIdx).uopNum >> 3).asUInt) + 1.U
   val wb_bit_rem = (uop(orderStoreWbIdx).uopIdx + 1.U) % (uop(orderStoreWbIdx).uopNum >> 3).asUInt
   val order_wbmask = Mux(wb_bit_rem === 0.U, UIntToMask(wbmask_bit, 8), 0.U)
-  val wbIsOrder = uop(orderStoreWbIdx).ctrl.isOrder
+  val wbIsOrder = uop(orderStoreWbIdx).vctrl.ordered
 
   io.mmioStout := DontCare
   // (4) writeback to ROB (and other units): mark as writebacked

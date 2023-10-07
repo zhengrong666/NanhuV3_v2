@@ -167,7 +167,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val commitCount = RegNext(io.rob.lcommit)
   val orderedAutoDeq = RegInit(false.B)
   val pendingOrder = io.rob.pendingOrdered
-  val deqIsOrder = uop(deqPtr).ctrl.isOrder
+  val deqIsOrder = uop(deqPtr).vctrl.ordered
   orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), true.B, false.B)
 
   when(orderedAutoDeq){
@@ -195,7 +195,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   when(needFlushSbuffer && io.vectorOrderedFlushSBuffer.empty) {
     SbufferCleaned := true.B
   }
-  when((!uop(deqPtr).ctrl.isOrder) && allocated(deqPtr)) {
+  when((!uop(deqPtr).vctrl.ordered) && allocated(deqPtr)) {
     SbufferCleaned := false.B
   }
   /**
@@ -931,7 +931,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       }
     }
   }
-  io.uncache.req.valid := (uncache_Order_State === s_req) && (!uop(deqPtr).ctrl.isOrder)
+  io.uncache.req.valid := (uncache_Order_State === s_req) && (!uop(deqPtr).vctrl.ordered)
 
   dataModule.io.uncache.raddr := deqPtrExtNext.value  //todo
 
