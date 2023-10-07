@@ -44,7 +44,7 @@ class VMacExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val src2 = iss.bits.src(2)
     private val mask = iss.bits.vm
 
-    uopShiftQueue.io.in.valid := iss.valid
+    uopShiftQueue.io.in.valid := iss.valid && cfg.fuConfigs.map(_.fuType === iss.bits.uop.ctrl.fuType).reduce(_|_)
     uopShiftQueue.io.in.bits := iss.bits.uop
     uopShiftQueue.io.redirect := redirectIn
 
