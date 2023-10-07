@@ -128,7 +128,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   private val leaving = PopCount(io.out.map(_.fire))
   private val remainUpdate = io.out.map(_.fire).reduce(_|_)
   private val uopNum = io.in.bits.uopNum
-  private val currentIndices = RegInit(VecInit(Seq.tabulate(splitNum)(_.U(log2Ceil(VLEN).W))))
+  private val currentIndices = RegInit(VecInit(Seq.tabulate(splitNum)(_.U(log2Ceil(VLEN + 1).W))))
   private val currentDefaultVal = VecInit(Seq.tabulate(splitNum)(_.U))
   private val currentWires = WireInit(currentIndices)
 
