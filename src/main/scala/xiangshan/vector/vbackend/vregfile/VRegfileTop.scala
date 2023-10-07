@@ -96,7 +96,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       require(e._1._2.writeVecRf || e._1._2.exuType == ExuType.sta)
       (e._1._1, e._2._1, e._1._2)
     })
-    private val wb = fromVectorFu
     require(issueNode.in.length == 1)
 
     private val wbPairNeedMerge = wbVFUPair.filter(_._3.willTriggerVrfWkp)
@@ -172,6 +171,14 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>
       rr.addr := ir.addr
       ir.data := rr.data
+    })
+    private val lduWbs = toWritebackNetwork.filter(_._2.exuType == ExuType.ldu)
+    lduWbs.zipWithIndex.foreach({case(lwb, i) =>
+      val preLduWbs = lduWbs.take(i)
+      val kill = (preLduWbs.map(_._1).map(l => l.valid && l.bits.uop.pdest === lwb._1.bits.uop.pdest) :+ false.B).reduce(_||_)
+      when(kill){
+        lwb._1.valid := false.B
+      }
     })
 
     private var vecReadPortIdx = extraVectorRfReadPort
