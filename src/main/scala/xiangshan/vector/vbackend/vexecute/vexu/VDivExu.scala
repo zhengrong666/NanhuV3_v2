@@ -53,8 +53,6 @@ class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vdiv.io.out.ready := true.B
     vdiv.io.redirect := redirectIn
 
-    when(iss.valid){assert(vdiv.io.in.valid)}
-
     wb.valid := vdiv.io.out.valid
     wb.bits := DontCare
     wb.bits.uop := vdiv.io.out.bits.uop.sysUop

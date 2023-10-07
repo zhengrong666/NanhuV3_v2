@@ -53,8 +53,6 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     vfp.io.out.ready := true.B
     vfp.io.redirect := redirectIn
 
-    when(iss.valid){assert(vfp.io.in.valid)}
-
     wb.valid := vfp.io.out.valid
     wb.bits := DontCare
     wb.bits.uop := vfp.io.out.bits.uop.sysUop

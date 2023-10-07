@@ -72,7 +72,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vmask.io.in.bits.oldVd := src2
     vmask.io.in.bits.mask := mask
 
-    vred.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.valuCfg.fuType
+    vred.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vredCfg.fuType
     vred.io.in.bits.uop := vuop
     vred.io.in.bits.vs1 := src0
     vred.io.in.bits.vs2 := src1

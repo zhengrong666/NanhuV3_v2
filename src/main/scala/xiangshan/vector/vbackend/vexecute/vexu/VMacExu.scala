@@ -56,8 +56,6 @@ class VMacExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vmac.io.in.bits.oldVd := src2
     vmac.io.in.bits.mask := mask
 
-    when(iss.valid){assert(vmac.io.in.valid)}
-
     wb.valid := uopShiftQueue.io.out.valid
     wb.bits := DontCare
     wb.bits.uop := uopShiftQueue.io.out.bits
