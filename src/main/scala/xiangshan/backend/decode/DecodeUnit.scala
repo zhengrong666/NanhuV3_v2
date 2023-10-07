@@ -52,7 +52,7 @@ abstract trait DecodeConstants {
     //   |           |           |           |         |           |  |  |  |  |  |  flushPipe
     //   |           |           |           |         |           |  |  |  |  |  |  |  selImm
     //   |           |           |           |         |           |  |  |  |  |  |  |  |
-    List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
+    List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
 
   val table: Array[(BitPat, List[BitPat])]
 }
