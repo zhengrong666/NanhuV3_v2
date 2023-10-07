@@ -45,12 +45,13 @@ abstract trait DecodeConstants {
   def decodeDefault: List[BitPat] = // illegal instruction
     //   srcType(0) srcType(1) srcType(2) fuType    fuOpType    rfWen
     //   |          |          |          |         |           |  fpWen
-    //   |          |          |          |         |           |  |  isXSTrap
-    //   |          |          |          |         |           |  |  |  noSpecExec
-    //   |          |          |          |         |           |  |  |  |  blockBackward
-    //   |          |          |          |         |           |  |  |  |  |  flushPipe
-    //   |          |          |          |         |           |  |  |  |  |  |  selImm
-    //   |          |          |          |         |           |  |  |  |  |  |  |
+    //   |          |          |          |         |           |  |  vdWen  
+    //   |          |          |          |         |           |  |  |  isXSTrap  
+    //   |          |          |          |         |           |  |  |  |  noSpecExec  
+    //   |          |          |          |         |           |  |  |  |  |  blockBackward  
+    //   |          |          |          |         |           |  |  |  |  |  |  flushPipe  
+    //   |          |          |          |         |           |  |  |  |  |  |  |  selImm
+    //   |          |          |          |         |           |  |  |  |  |  |  |  |
     List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
 
   val table: Array[(BitPat, List[BitPat])]
@@ -576,10 +577,10 @@ object VectorArithDecode extends DecodeConstants {
     VFREC7_V ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
     //reduction-float
-    VFREDMAX_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFREDMIN_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFREDOSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFREDUSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VFREDMAX_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFREDMIN_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFREDOSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFREDUSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
     VFRSQRT7_V ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VFRSUB_VF ->List(SrcType.fp,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
@@ -617,41 +618,41 @@ object VectorArithDecode extends DecodeConstants {
     VMOR_MM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VMORN_MM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VFIRST_M -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, Y, N, N, N, N, N, N, SelImm.X),
-    VCPOP_M -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, Y, N, N, Y, N, N, N, SelImm.X),
+    VCPOP_M -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, Y, N, N, N, N, N, N, SelImm.X),
     VMSBF_M -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VMSIF_M -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VMSOF_M -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
-    VID_V -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VIOTA_M -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VID_V -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VIOTA_M -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
 
     //reduction
-    VREDAND_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDMAX_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDMAXU_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDMIN_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDMINU_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VREDXOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VRSUB_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.IMM_VA),
-    VRSUB_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VREDAND_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDMAX_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDMAXU_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDMIN_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDMINU_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VREDXOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VRSUB_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VA),
+    VRSUB_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
 
     //permutation instructions
-    VCOMPRESS_VM ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VSLIDE1DOWN_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VSLIDE1UP_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VSLIDEDOWN_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.IMM_VA),
-    VSLIDEDOWN_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VSLIDEUP_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.IMM_VA),
-    VSLIDEUP_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFSLIDE1DOWN_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFSLIDE1UP_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VRGATHER_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.IMM_VA),
-    VRGATHER_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VRGATHER_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VRGATHEREI16_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VCOMPRESS_VM ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VSLIDE1DOWN_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VSLIDE1UP_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VSLIDEDOWN_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VA),
+    VSLIDEDOWN_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VSLIDEUP_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VA),
+    VSLIDEUP_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFSLIDE1DOWN_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFSLIDE1UP_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VRGATHER_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VA),
+    VRGATHER_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VRGATHER_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VRGATHEREI16_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vpermu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
   )
 }
 
@@ -796,10 +797,10 @@ object VectorWidenDecode extends DecodeConstants {
     VFWCVT_X_F_V -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VFWCVT_XU_F_V -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
-    VWREDSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VWREDSUMU_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFWREDOSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VFWREDUSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VWREDSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VWREDSUMU_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFWREDOSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VFWREDUSUM_VS -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
   )
 }
@@ -829,47 +830,47 @@ object VectorNarrowDecode extends DecodeConstants {
     VFNCVT_X_F_W -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
     VFNCVT_XU_F_W -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
-    VMADC_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMADC_VIM -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMADC_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMADC_VVM -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMADC_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMADC_VXM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSBC_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSBC_VVM -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSBC_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSBC_VXM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
+    VMADC_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMADC_VIM -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMADC_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMADC_VVM -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMADC_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMADC_VXM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSBC_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSBC_VVM -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSBC_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSBC_VXM -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
 
-    VMSEQ_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSEQ_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSEQ_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSGT_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSGT_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSGTU_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSGTU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLE_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLE_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLEU_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLEU_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLEU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLT_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLT_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLTU_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSLTU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSNE_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSNE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMSNE_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFEQ_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFEQ_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFGE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFGT_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFLE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFLE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFLT_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFLT_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFNE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X),
-    VMFNE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vmac, FuOpType.X, N, N, Y, Y, N, N, N, SelImm.X)
+    VMSEQ_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSEQ_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSEQ_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSGT_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSGT_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSGTU_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSGTU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLE_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLE_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLEU_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLEU_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLEU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLT_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLT_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLTU_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSLTU_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSNE_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSNE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMSNE_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFEQ_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFEQ_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFGE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFGT_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFLE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFLE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFLT_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFLT_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFNE_VF -> List(SrcType.fp, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X),
+    VMFNE_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, SelImm.X)
   )
 }
 
