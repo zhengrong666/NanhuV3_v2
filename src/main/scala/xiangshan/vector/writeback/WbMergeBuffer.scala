@@ -35,6 +35,7 @@ import xiangshan._
 import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
+import os.stat
 
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
 object WbMergeBufferPtr {
@@ -112,25 +113,30 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)
     val cntNext = mergeCnt(i) + PopCount(needMerge)
     mergeCnt(i) := cntNext
-    when(cntNext === e.uop.uopNum && stateVec(i) === s_alloc) {
+    when(stateVec(i) === s_alloc && cntNext === e.uop.uopNum) {
       stateVec(i) := s_wb
     }
   }
 
   //select writeback, connect with ROB, and release mergeIdx to freeIdxQueue
-  val wbVec = Wire(Vec(wbWidth, Bool()))
-  val validNum = distanceBetween(allocatePtr, writebackPtr)
+  val wbPtrVec = Wire(Vec(wbWidth, new WbMergeBufferPtr(size)))
+  wbPtrVec.zipWithIndex.foreach {
+    case (wb, i) => {
+      wb := writebackPtr + i.U
+    }
+  }
 
-  wbVec.zip(stateVec).zipWithIndex.foreach {
-    case ((wb, s), i) => {
+  val wbVec = Wire(Vec(wbWidth, Bool()))
+
+  wbVec.zip(wbPtrVec).zipWithIndex.foreach {
+    case ((wb, ptr), i) => {
+      val ptrOH = ptr.toOH
+      val s = Mux1H(ptrOH, stateVec)
       if(i == 0) {
-        wb := (s === s_wb)
+        wb := (s === s_wb) || (exceptionHappen && exceptionPtr === ptr)
       } else {
         val frontWb = WireInit(VecInit(wbVec.take(i)))
         wb := (s === s_wb) && frontWb.asUInt.andR
-      }
-      when(wb) {
-        s := s_free
       }
     }
   }
@@ -139,6 +145,15 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val entry = mergeTable(writebackPtr.value + i.U)
     port.bits   := entry
     port.valid  := wbVec(i)
+  }
+
+  stateVec.zipWithIndex.foreach {
+    case (s, i) => {
+      val wbHit = WireInit(VecInit(io.rob.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)))
+      when(wbHit.asUInt.orR) {
+        s := s_free
+      }
+    }
   }
 
   writebackPtr := writebackPtr + PopCount(wbVec)
