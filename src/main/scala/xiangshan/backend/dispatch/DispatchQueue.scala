@@ -20,7 +20,10 @@
 package xiangshan.backend.dispatch
 
 import chisel3._
+import chisel3.experimental.ChiselAnnotation
 import chisel3.util._
+import firrtl.annotations.Annotation
+import firrtl.transforms.NoDedupAnnotation
 import org.chipsalliance.cde.config.Parameters
 import utils.HasPerfEvents
 import xiangshan._
@@ -239,5 +242,10 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     ("dispatchq_4_4_valid ", validEntriesNum >= (size * 3 / 4).U)
   )
   generatePerfEvent()
+
+  private val mySelf = this
+  chisel3.experimental.annotate(new ChiselAnnotation {
+    override def toFirrtl: Annotation = NoDedupAnnotation(mySelf.toTarget)
+  })
 
 }
