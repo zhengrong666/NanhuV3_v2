@@ -35,6 +35,7 @@ import xiangshan._
 import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
+import os.stat
 
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
 object WbMergeBufferPtr {
@@ -137,9 +138,6 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
         val frontWb = WireInit(VecInit(wbVec.take(i)))
         wb := (s === s_wb) && frontWb.asUInt.andR
       }
-      when(wb) {
-        s := s_free
-      }
     }
   }
 
@@ -147,6 +145,15 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val entry = mergeTable(writebackPtr.value + i.U)
     port.bits   := entry
     port.valid  := wbVec(i)
+  }
+
+  stateVec.zipWithIndex.foreach {
+    case (s, i) => {
+      val wbHit = WireInit(VecInit(io.rob.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)))
+      when(wbHit.asUInt.orR) {
+        s := s_free
+      }
+    }
   }
 
   writebackPtr := writebackPtr + PopCount(wbVec)
