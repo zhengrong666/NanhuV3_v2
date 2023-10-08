@@ -61,6 +61,14 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
     val id = wb._1.id
     println(s"wbMergeNodes: $name, id: $id")
   }
+
+  val wbHasException = vectorWbNodes.filter(wb => wb._1.hasException)
+  println("=================WbMergeBuffer Exception Gen Port=================")
+  for(wb <- wbHasException) {
+    val name: String = wb._1.name
+    val id = wb._1.id
+    println(s"wbMergeNodes: $name, id: $id")
+  }
   
   val io = IO(new Bundle {
     val allocate = Vec(VectorMergeAllocateWidth, DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
@@ -71,28 +79,51 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
 
   val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, vectorWbNodeNum, VectorMergeWbWidth))
 
-  val wbHasException = vectorWbNodes.filter(wb => wb._1.hasException)
-  println("=================WbMergeBuffer Exception Gen Port=================")
-  for(wb <- wbHasException) {
-    val name: String = wb._1.name
-    val id = wb._1.id
-    println(s"wbMergeNodes: $name, id: $id")
-  }
-
   val exceptionPortGroup = wbHasException.map(_._2)
   assert(exceptionPortGroup.length == 4)
 
   val s0_res = Wire(Vec(2, ValidIO(new ExuOutput)))
-  val s0_0_low = (exceptionPortGroup(0).bits.uop.robIdx < exceptionPortGroup(1).bits.uop.robIdx) ||
-    (exceptionPortGroup(0).bits.uop.robIdx === exceptionPortGroup(1).bits.uop.robIdx && exceptionPortGroup(0).bits.uop.uopIdx < exceptionPortGroup(1).bits.uop.uopIdx)
-  s0_res(0) := Mux(s0_0_low && exceptionPortGroup(0).valid, exceptionPortGroup(0), exceptionPortGroup(1))
-  val s0_1_low = (exceptionPortGroup(2).bits.uop.robIdx < exceptionPortGroup(3).bits.uop.robIdx) ||
-    (exceptionPortGroup(2).bits.uop.robIdx === exceptionPortGroup(3).bits.uop.robIdx && exceptionPortGroup(2).bits.uop.uopIdx < exceptionPortGroup(3).bits.uop.uopIdx)
-  s0_res(1) := Mux(s0_1_low && exceptionPortGroup(2).valid, exceptionPortGroup(2), exceptionPortGroup(3))
+  when(exceptionPortGroup(0).valid && exceptionPortGroup(1).valid) {
+    val en = (exceptionPortGroup(0).bits.uop.robIdx < exceptionPortGroup(1).bits.uop.robIdx) || (exceptionPortGroup(0).bits.uop.robIdx === exceptionPortGroup(1).bits.uop.robIdx && exceptionPortGroup(0).bits.uop.uopIdx < exceptionPortGroup(1).bits.uop.uopIdx)
+    when(en) {
+      s0_res(0) := exceptionPortGroup(0)
+    }.otherwise {
+      s0_res(0) := exceptionPortGroup(1)
+    }
+  }.elsewhen(exceptionPortGroup(0).valid) {
+    s0_res(0) := exceptionPortGroup(0)
+  }.otherwise {
+    s0_res(0) := exceptionPortGroup(1)
+  }
+
+  when(exceptionPortGroup(2).valid && exceptionPortGroup(3).valid) {
+    val en = (exceptionPortGroup(2).bits.uop.robIdx < exceptionPortGroup(3).bits.uop.robIdx) || (exceptionPortGroup(2).bits.uop.robIdx === exceptionPortGroup(3).bits.uop.robIdx && exceptionPortGroup(2).bits.uop.uopIdx < exceptionPortGroup(3).bits.uop.uopIdx)
+    when(en) {
+      s0_res(1) := exceptionPortGroup(2)
+    }.otherwise {
+      s0_res(1) := exceptionPortGroup(3)
+    }
+  }.elsewhen(exceptionPortGroup(2).valid) {
+    s0_res(1) := exceptionPortGroup(2)
+  }.otherwise {
+    s0_res(1) := exceptionPortGroup(3)
+  }
+
   val s1_req = RegNext(s0_res)
   val s1_res = Wire(ValidIO(new ExuOutput))
-  val s1_low = (s1_req(0).bits.uop.robIdx < s1_req(1).bits.uop.robIdx) || (s1_req(0).bits.uop.robIdx === s1_req(1).bits.uop.robIdx && s1_req(0).bits.uop.uopIdx < s1_req(1).bits.uop.uopIdx)
-  s1_res := Mux(s1_low && s1_req(0).valid, s1_req(0), s1_req(1))
+
+  when(s1_req(0).valid && s1_req(1).valid) {
+    val en = (s1_req(0).bits.uop.robIdx < s1_req(1).bits.uop.robIdx) || (s1_req(0).bits.uop.robIdx === s1_req(1).bits.uop.robIdx && s1_req(0).bits.uop.uopIdx < s1_req(1).bits.uop.uopIdx)
+    when(en) {
+      s1_res := s1_req(0)
+    }.otherwise {
+      s1_res := s1_req(1)
+    }
+  }.elsewhen(s1_req(0).valid) {
+    s1_res := s1_req(0)
+  }.otherwise {
+    s1_res := s1_req(1)
+  }
 
   bufferImp.io.wbExceptionGen := s1_res
 

@@ -103,8 +103,8 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     case (((e, cancel), s), i) => {
       val flushValid = (e.uop.robIdx < io.redirect.bits.robIdx) || (e.uop.robIdx === io.redirect.bits.robIdx && io.redirect.bits.flushItself)
       cancel := s =/= s_free && flushValid && io.redirect.valid
-      val wen = io.vmbInit.valid && (io.vmbInit.bits.mergeIdx.value === i.U)
-      when(wen) {
+      val initEn = io.vmbInit.valid && (io.vmbInit.bits.mergeIdx.value === i.U)
+      when(initEn) {
         e.uop := io.vmbInit.bits
         mergeCnt(i) := 0.U
         s := s_alloc
@@ -117,11 +117,18 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
   allocatePtr := Mux(io.redirect.valid, allocatePtr - cancelNum, allocatePtr + allocNum)
 
   for((e, i) <- mergeTable.zipWithIndex) {
-    val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid && (wb.bits.uop.cf.exceptionVec.asUInt =/= 0.U))
+    val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid && (wb.bits.uop.cf.exceptionVec.asUInt === 0.U))
     val cntNext = mergeCnt(i) + PopCount(needMerge)
     mergeCnt(i) := cntNext
     when(stateVec(i) === s_alloc && cntNext === e.uop.uopNum) {
       stateVec(i) := s_wb
+    }
+    val wenVec = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)
+    val wen = WireInit(VecInit(wenVec)).asUInt.orR
+    val wd = Mux1H(wenVec, io.exu)
+    when(wen) {
+      e.vxsat := wd.bits.vxsat | e.vxsat
+      e.uop := wd.bits.uop
     }
   }
 
