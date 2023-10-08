@@ -70,7 +70,7 @@ abstract class XSCoreBase(val parentName:String = "Unknown")(implicit p: config.
   ptw_to_l2_buffer.node := ptw.node
 }
 
-class XSCore(parentName:String = "Unknown")(implicit p: config.Parameters) extends XSCoreBase(parentName = parentName)
+class XSCore(parentName:String = "Core_")(implicit p: config.Parameters) extends XSCoreBase(parentName = parentName)
   with HasXSDts
 {
   lazy val module = new XSCoreImp(this)
