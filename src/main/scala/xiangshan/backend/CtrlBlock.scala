@@ -158,6 +158,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val memDqArb = Module(new MemDispatchArbiter(coreParams.rsBankNum))
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 
+  wbMergeBuffer.io.vmbInit := vCtrlBlock.io.vmbInit
+
   //Redirect
   for (i <- 0 until CommitWidth) {
     val is_commit = rob.io.commits.commitValid(i) && rob.io.commits.isCommit
