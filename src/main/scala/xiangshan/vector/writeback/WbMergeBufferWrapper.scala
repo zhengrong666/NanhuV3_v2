@@ -80,16 +80,21 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
   }
 
   val exceptionPortGroup = wbHasException.map(_._2)
-  val selector = Module(new SelectPolicy(wbHasException.length, true, false))
-  selector.io.in.zip(exceptionPortGroup).foreach({case(a, b) =>
-    a.valid := b.valid
-    a.bits := b.bits.uop.robIdx
-  })
-  val oldestSel = selector.io.out
-  val exceptionPortSel = Mux1H(oldestSel.bits, exceptionPortGroup.map(_.bits))
+  assert(exceptionPortGroup.length == 4)
 
-  bufferImp.io.wbExceptionGen.valid := oldestSel.valid
-  bufferImp.io.wbExceptionGen.bits := exceptionPortSel
+  val s0_res = Wire(Vec(2, ValidIO(new ExuOutput)))
+  val s0_0_low = (exceptionPortGroup(0).bits.uop.robIdx < exceptionPortGroup(1).bits.uop.robIdx) ||
+    (exceptionPortGroup(0).bits.uop.robIdx === exceptionPortGroup(1).bits.uop.robIdx && exceptionPortGroup(0).bits.uop.uopIdx < exceptionPortGroup(1).bits.uop.uopIdx)
+  s0_res(0) := Mux(s0_0_low && exceptionPortGroup(0).valid, exceptionPortGroup(0), exceptionPortGroup(1))
+  val s0_1_low = (exceptionPortGroup(2).bits.uop.robIdx < exceptionPortGroup(3).bits.uop.robIdx) ||
+    (exceptionPortGroup(2).bits.uop.robIdx === exceptionPortGroup(3).bits.uop.robIdx && exceptionPortGroup(2).bits.uop.uopIdx < exceptionPortGroup(3).bits.uop.uopIdx)
+  s0_res(1) := Mux(s0_1_low && exceptionPortGroup(2).valid, exceptionPortGroup(2), exceptionPortGroup(3))
+  val s1_req = RegNext(s0_res)
+  val s1_res = Wire(ValidIO(new ExuOutput))
+  val s1_low = (s1_req(0).bits.uop.robIdx < s1_req(1).bits.uop.robIdx) || (s1_req(0).bits.uop.robIdx === s1_req(1).bits.uop.robIdx && s1_req(0).bits.uop.uopIdx < s1_req(1).bits.uop.uopIdx)
+  s1_res := Mux(s1_low && s1_req(0).valid, s1_req(0), s1_req(1))
+
+  bufferImp.io.wbExceptionGen := s1_res
 
   //write back from VectorExu, use Diplomacy
   val vectorWriteBack = vectorWbNodes.map(_._2)

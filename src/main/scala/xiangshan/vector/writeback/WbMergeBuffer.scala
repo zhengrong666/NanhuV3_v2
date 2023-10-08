@@ -85,11 +85,18 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     }
   }
 
-  val exceptionHandle = (io.vmbInit.valid && io.vmbInit.bits.cf.exceptionVec.asUInt =/= 0.U) || io.wbExceptionGen.valid
+  val exceptionHandle = RegNext(RegNext((io.vmbInit.valid && io.vmbInit.bits.cf.exceptionVec.asUInt =/= 0.U))) || io.wbExceptionGen.valid
+  val vmException_s1 = RegNext(io.vmbInit)
+  val s1_low = vmException_s1.valid && (vmException_s1.bits.mergeIdx < exceptionPtr)
+  val exceptionHere = Wire(ValidIO(new MicroOp))
+  val exceptionRead = Mux1H(exceptionPtr.toOH, mergeTable)
+  exceptionHere.bits := exceptionRead.uop
+  exceptionHere.valid := exceptionHappen
+  val s1_res = RegNext(Mux(s1_low, vmException_s1, exceptionHere))
+
   when(exceptionHandle) {
     exceptionHappen := exceptionHappen || exceptionHandle
-    val exceptionInOld = Mux(io.vmbInit.bits.robIdx < io.wbExceptionGen.bits.uop.robIdx, io.vmbInit.bits.mergeIdx, io.wbExceptionGen.bits.uop.mergeIdx)
-    exceptionPtr := Mux(exceptionPtr < exceptionInOld, exceptionPtr, exceptionInOld)
+    exceptionPtr := Mux(io.wbExceptionGen.valid && io.wbExceptionGen.bits.uop.mergeIdx < s1_res.bits.mergeIdx, io.vmbInit.bits.mergeIdx, s1_res.bits.mergeIdx)
   }
 
   mergeTable.zip(cancelVec).zip(stateVec).zipWithIndex.foreach {
@@ -110,7 +117,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
   allocatePtr := Mux(io.redirect.valid, allocatePtr - cancelNum, allocatePtr + allocNum)
 
   for((e, i) <- mergeTable.zipWithIndex) {
-    val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)
+    val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid && (wb.bits.uop.cf.exceptionVec.asUInt =/= 0.U))
     val cntNext = mergeCnt(i) + PopCount(needMerge)
     mergeCnt(i) := cntNext
     when(stateVec(i) === s_alloc && cntNext === e.uop.uopNum) {
