@@ -83,7 +83,7 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
 //class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends LazyModule
   with HasXSParameter
   with HasSoCParameter {
-  val core = LazyModule(new XSCore(parentName + "core_"))
+  val core = LazyModule(new XSCore())
   val misc = LazyModule(new XSTileMisc())
   val l2cache = coreParams.L2CacheParamsOpt.map(l2param =>
     LazyModule(new CoupledL2()(new Config((_, _, _) => {
