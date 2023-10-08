@@ -38,6 +38,9 @@ import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
+import xiangshan.backend.issue.SelectPolicy
+import xs.utils.{HasCircularQueuePtrHelper, ParallelPriorityMux}
+
 import freechips.rocketchip.diplomacy._
 
 class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
@@ -52,6 +55,7 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
   val vectorWbNodeNum = vectorWbNodes.length
 
   println(s"wbMergePortsNum: $vectorWbNodeNum")
+  println("=================WbMergeBuffer Ports=================")
   for(wb <- vectorWbNodes) {
     val name: String = wb._1.name
     val id = wb._1.id
@@ -62,12 +66,30 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
     val allocate = Vec(VectorMergeAllocateWidth, DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
     val redirect = Flipped(Valid(new Redirect))
     val rob = Vec(VectorMergeWbWidth, ValidIO(new ExuOutput))
+    val vmbInit = Flipped(ValidIO(new MicroOp))
   })
 
-  //io.allocate <> outer.module.io.allocate
-
-
   val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, vectorWbNodeNum, VectorMergeWbWidth))
+
+  val wbHasException = vectorWbNodes.filter(wb => wb._1.hasException)
+  println("=================WbMergeBuffer Exception Gen Port=================")
+  for(wb <- wbHasException) {
+    val name: String = wb._1.name
+    val id = wb._1.id
+    println(s"wbMergeNodes: $name, id: $id")
+  }
+
+  val exceptionPortGroup = wbHasException.map(_._2)
+  val selector = Module(new SelectPolicy(wbHasException.length, true, false))
+  selector.io.in.zip(exceptionPortGroup).foreach({case(a, b) =>
+    a.valid := b.valid
+    a.bits := b.bits.uop.robIdx
+  })
+  val oldestSel = selector.io.out
+  val exceptionPortSel = Mux1H(oldestSel.bits, exceptionPortGroup.map(_.bits))
+
+  bufferImp.io.wbExceptionGen.valid := oldestSel.valid
+  bufferImp.io.wbExceptionGen.bits := exceptionPortSel
 
   //write back from VectorExu, use Diplomacy
   val vectorWriteBack = vectorWbNodes.map(_._2)
@@ -75,9 +97,8 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
     bufferImp.io.exu(i).valid := wb.valid
     bufferImp.io.exu(i).bits := wb.bits
   }
-
-  io.allocate <> bufferImp.io.waitqueue
-
+  io.allocate <> bufferImp.io.waitqueueAlloc
+  bufferImp.io.vmbInit := io.vmbInit
   bufferImp.io.redirect <> io.redirect
   io.rob <> bufferImp.io.rob
 }
