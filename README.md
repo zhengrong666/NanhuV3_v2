@@ -90,15 +90,15 @@ make idea
 ### Run with simulator
 
 * Install [Verilator](https://verilator.org/guide/latest/), the open-source Verilog simulator.
-* Run `make emu` to build the C++ simulator `./build/emu` with Verilator.
-* Refer to `./build/emu --help` for run-time arguments of the simulator.
+* Run `make emu_rtl` to build the C++ simulator `./sim/emu/comp/emu` with Verilator.
+* Refer to `./sim/emu/comp/emu --help` for run-time arguments of the simulator.
 * Refer to `Makefile` and `verilator.mk` for more information.
 
 Example:
 
 ```bash
-make emu CONFIG=MinimalConfig EMU_THREADS=2 -j10
-./build/emu -b 0 -e 0 -i ./ready-to-run/coremark-2-iteration.bin --diff ./ready-to-run/riscv64-nemu-interpreter-so
+make emu_rtl -j32
+make emu_rtl-run RUN_BIN=coremark-3-iteration.bin
 ```
 
 ## Troubleshooting Guide
@@ -107,12 +107,13 @@ make emu CONFIG=MinimalConfig EMU_THREADS=2 -j10
 
 ## Acknowledgement
 
-In the development of XiangShan, some sub-modules from the open-source community are employed. All relevant usage is listed below.
+In the development of XiangShan, some components from the open-source community are employed. All relevant usage is listed below.
 
-| Sub-module         | Source                                                       | Detail                                                       |
-| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| L2 Cache/LLC       | [Sifive block-inclusivecache](https://github.com/ucb-bar/block-inclusivecache-sifive) | Our new L2/L3 design are inspired by Sifive's `block-inclusivecache`. |
-| Diplomacy/TileLink | [Rocket-chip](https://github.com/chipsalliance/rocket-chip)  | We reused the Diplomacy framework and TileLink utility that exist in rocket-chip to negotiate bus. |
+| Sub-module           | Source                                                                                | Detail                                                                                            |
+|----------------------|---------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| L2 Cache/LLC         | [Sifive block-inclusivecache](https://github.com/ucb-bar/block-inclusivecache-sifive) | Our new L2/L3 design are inspired by Sifive's `block-inclusivecache`.                             |
+| Diplomacy/TileLink   | [Rocket-chip](https://github.com/chipsalliance/rocket-chip)                           | We reused the Diplomacy framework and TileLink utility that exist in rocket-chip to negotiate bus. |
+| Vector Function Unit | [riscv-vector](https://github.com/IntelLabs/riscv-vector)                          | We reused vector function units in Intel's VPU|
 
 We are grateful for the support of the open-source community and encourage other open-source projects to reuse our code within the scope of the [license](LICENSE).
 
