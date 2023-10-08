@@ -159,17 +159,16 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
   lazy val module = new XSTileImp(this)
 }
 
-@instantiable
 class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(outer)
   with HasXSParameter
   with HasSoCParameter {
-  @public val io = IO(new Bundle {
+  val io = IO(new Bundle {
     val hartId = Input(UInt(64.W))
     val reset_vector = Input(UInt(PAddrBits.W))
     val cpu_halt = Output(Bool())
     val dfx_reset = Input(new DFTResetSignals())
   })
-  @public val ireset = reset
+  val ireset = reset
   dontTouch(io.hartId)
 
   val core_soft_rst = outer.core_reset_sink.in.head._1
@@ -198,50 +197,26 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
   // }
   outer.misc.module.beu_errors.l2 <> 0.U.asTypeOf(outer.misc.module.beu_errors.l2)
 
-  // val l2MbistIntf = if(outer.l2cache.isDefined){
-  //   if(p(XSCoreParamsKey).L2CacheParamsOpt.get.hasMbist && p(XSCoreParamsKey).L2CacheParamsOpt.get.hasShareBus){
-  //     val params = outer.l2cache.get.module.l2TopPipeLine.get.bd.params
-  //     val node = outer.l2cache.get.module.l2TopPipeLine.get.node
-  //     val intf = Some(Module(new MBISTInterface(
-  //       params = Seq(params),
-  //       ids = Seq(node.children.flatMap(_.array_id)),
-  //       name = s"MBIST_intf_l2",
-  //       pipelineNum = 1
-  //     )))
-  //     intf.get.toPipeline.head <> outer.l2cache.get.module.l2pipePorts.get
-  //     outer.l2cache.get.module.l2TopPipeLine.get.genCSV(intf.get.info, "MBIST_L2")
-  //     intf.get.mbist := DontCare
-  //     dontTouch(intf.get.mbist)
-  //     //TODO: add mbist controller connections here
-  //     intf
-  //   } else {
-  //     None
-  //   }
-  // } else {
-  //   None
-  // }
-  val l2MbistIntf = None
 
-  val mbistBroadCastToCore = if(outer.coreParams.hasMbist) {
+  private val mbistBroadCastToCore = if(outer.coreParams.hasMbist) {
     val res = Some(Wire(new BroadCastBundle))
     outer.core.module.dft.get := res.get
     res
   } else {
     None
   }
-  val mbistBroadCastToL2 = if(outer.coreParams.L2CacheParamsOpt.isDefined) {
-    // if(outer.coreParams.L2CacheParamsOpt.get.hasMbist){
-    //   val res = Some(Wire(new BroadCastBundle))
-    //   outer.l2cache.get.module.dft.get := res.get
-    //   res
-    // } else {
-    //   None
-    // }
-    None
+  private val mbistBroadCastToL2 = if(outer.coreParams.L2CacheParamsOpt.isDefined) {
+    if(outer.coreParams.L2CacheParamsOpt.get.hasMbist){
+      val res = Some(Wire(new BroadCastBundle))
+      outer.l2cache.get.module.dft.get := res.get
+      res
+    } else {
+      None
+    }
   } else {
     None
   }
-  @public val dft = if(mbistBroadCastToCore.isDefined || mbistBroadCastToL2.isDefined){
+  val dft = if(mbistBroadCastToCore.isDefined || mbistBroadCastToL2.isDefined){
     Some(IO(new BroadCastBundle))
   } else {
     None
@@ -250,9 +225,8 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
     if(mbistBroadCastToCore.isDefined){
       mbistBroadCastToCore.get := dft.get
     }
-    if(mbistBroadCastToL2.isDefined){
-      // TODO: replace Coupled L2
-      // mbistBroadCastToL2.get := dft.get
+    if(mbistBroadCastToL2.isDefined) {
+       mbistBroadCastToL2.get := dft.get
     }
   }
   // Modules are reset one by one
