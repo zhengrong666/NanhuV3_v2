@@ -292,7 +292,6 @@ class ExuInput(implicit p: Parameters) extends XSBundle {
 class ExuOutput(implicit p: Parameters) extends XSBundle {
   val uop = new MicroOp
   val data = UInt(VLEN.W)
-  val wbmask = UInt(8.W)
   val writeDataMask = UInt((VLEN/8).W)
   val wakeupMask = UInt((VLEN / 8).W)
   val vxsat = Bool()

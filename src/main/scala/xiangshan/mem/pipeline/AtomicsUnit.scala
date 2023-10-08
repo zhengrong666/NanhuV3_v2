@@ -295,7 +295,6 @@ class AtomicsUnit(implicit p: Parameters) extends XSModule with MemoryOpConstant
   io.out.bits.redirectValid := false.B
   io.out.bits.debug.isMMIO := is_mmio
   io.out.bits.debug.paddr := paddr
-  io.out.bits.wbmask := "hff".U(8.W)
   when (io.out.fire) {
     XSDebug("atomics writeback: pc %x data %x\n", io.out.bits.uop.cf.pc, io.dcache.resp.bits.data)
     state := s_invalid

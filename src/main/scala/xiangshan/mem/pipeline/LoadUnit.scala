@@ -815,7 +815,6 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   io.ldout.valid := hitLoadOutValidReg || lsqOutputValidReg
 
   io.ldout.bits.uop.cf.exceptionVec(loadAccessFault) := s3_load_wb_meta_reg.uop.cf.exceptionVec(loadAccessFault) //||
-  io.ldout.bits.wbmask := DontCare
     //RegNext(hitLoadOut.valid) && load_s2.io.s3_delayed_load_error
 
   // fast load to load forward

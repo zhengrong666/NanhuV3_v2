@@ -141,7 +141,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
       wbout.valid := rfwkp.valid
       wbout.bits := wbBitsReg
-      wbout.bits.wbmask := GenWbMask(wbBitsReg.uop, 8, cfg.exuType == ExuType.ldu, VLEN)
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
@@ -153,7 +152,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := bitsReg
       wbout.bits.redirectValid := false.B
       wbout.bits.redirect := DontCare
-      wbout.bits.wbmask := GenWbMask(bitsReg.uop, 8, false, VLEN)
     })
     wbPairStu.foreach({case(wbin, wbout, _) =>
       val validCond = wbin.valid
@@ -165,7 +163,6 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := bitsReg
       wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := redirectBitsReg
-      wbout.bits.wbmask := VRegfileTopUtil.GenWbMask(bitsReg.uop, 8, true, VLEN)
     })
     vrf.io.moveOldValReqs := io.moveOldValReqs
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>

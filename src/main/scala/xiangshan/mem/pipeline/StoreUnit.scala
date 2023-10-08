@@ -202,8 +202,6 @@ class StoreUnit_S3(implicit p: Parameters) extends XSModule {
   io.stout.bits.debug.vaddr := io.in.bits.vaddr
   io.stout.bits.debug.isPerfCnt := false.B
   io.stout.bits.fflags := DontCare
-  io.stout.bits.wbmask :=  Mux(!wbIsEnable | wbIsOrder, 0.U, "hff".U)
-
 }
 
 class StoreUnit(implicit p: Parameters) extends XSModule with HasPerfLogging {

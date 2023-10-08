@@ -34,6 +34,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     val redirect = Input(Valid(new Redirect))
     val enq = new NewWqEnqIO
     val out = Vec(VIRenameWidth, DecoupledIO(new MicroOp))
+    val vmbInit = Output(Valid(new MicroOp))
   })
   private class WqPtr extends CircularQueuePtr[WqPtr](VIWaitQueueWidth)
   private val deqPtr = RegInit(0.U.asTypeOf(new WqPtr))
@@ -140,4 +141,21 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitPipe.io.redirect := io.redirect
   splitPipe.io.in <> splitNetwork.io.out
   io.out <> splitPipe.io.out
+
+  private val vmbInit = Wire(Valid(new MicroOp))
+  vmbInit.valid := deqValid
+  vmbInit.bits := deqUop.uop
+  private val isLoad = deqUop.uop.ctrl.fuType === FuType.ldu
+  private val isNarrowToMask = deqUop.uop.vctrl.isNarrow &&
+    deqUop.uop.vctrl.eewType(2) === EewType.const &&
+    deqUop.uop.vctrl.eew(2) === EewVal.mask
+  when(isLoad){
+    vmbInit.bits.uopNum := deqUop.uop.vctrl.emul
+  }.elsewhen(isNarrowToMask) {
+    vmbInit.bits.uopNum := 1.U
+  }.otherwise{
+    vmbInit.bits.uopNum := deqUop.uop.uopNum
+  }
+
+  io.vmbInit := Pipe(vmbInit)
 }
