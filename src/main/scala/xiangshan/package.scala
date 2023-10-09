@@ -302,8 +302,6 @@ package object xiangshan {
 
     //vector
     def IMM_VA = "b1001".U
-    def IMM_VL = "b1010".U
-    def IMM_VS = "b1011".U
     def IMM_C = "b1100".U
     def IMM_CI = "b1101".U
 

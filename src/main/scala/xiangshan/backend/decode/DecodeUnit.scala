@@ -640,31 +640,31 @@ object VectorArithDecode extends DecodeConstants {
 object VectorLoadDecode extends DecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
 
-    VL1RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL1RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL1RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL1RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL2RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL2RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL2RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL2RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL4RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL4RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL4RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL4RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL8RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL8RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL8RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VL8RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE16FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE32FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE64FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLE8FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
-    VLM_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_VL),
+    VL1RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL1RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL1RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL1RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL2RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL2RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL2RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL2RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL4RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL4RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL4RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL4RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL8RE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL8RE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL8RE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VL8RE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE16_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE16FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE32_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE32FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE64_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE64FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE8_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLE8FF_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
+    VLM_V ->List(SrcType.reg,  SrcType.imm, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
     VLOXEI16_V ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
     VLOXEI32_V ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
     VLOXEI64_V ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.ldu, FuOpType.X, N, N, Y, N, N, N, N, SelImm.IMM_X),
@@ -701,10 +701,10 @@ object VectorStoreDecode extends DecodeConstants {
     VSUXEI32_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
     VSUXEI64_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
     VSUXEI8_V -> List(SrcType.reg, SrcType.vec, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
-    VS1R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_VS),
-    VS2R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_VS),
-    VS4R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_VS),
-    VS8R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_VS),
+    VS1R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
+    VS2R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
+    VS4R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
+    VS8R_V -> List(SrcType.reg, SrcType.DC, SrcType.vec, FuType.stu, FuOpType.X, N, N, N, N, N, N, N, SelImm.IMM_X),
 
   )
 }
@@ -949,16 +949,6 @@ case class Imm_VI() extends Imm(5) {
   override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
 }
 
-case class Imm_VL() extends Imm(5) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(minBits, 32)
-  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
-}
-
-case class Imm_VS() extends Imm(5) {
-  override def do_toImm32(minBits: UInt): UInt = SignExt(Cat(minBits, 0.U(1.W)), 32)
-  override def minBitsFromInstr(instr: UInt): UInt = Cat(instr(24, 20))
-}
-
 case class Imm_C() extends Imm(11) {
   override def do_toImm32(minBits: UInt): UInt = ZeroExt(Cat(minBits, 0.U(1.W)), 32)
 
@@ -981,9 +971,7 @@ object ImmUnion {
   val VC = Imm_C()
   val VCI = Imm_CI()
   val VA = Imm_VI()
-  val VL = Imm_VL()
-  val VS = Imm_VS()
-  val imms = Seq(I, S, B, U, J, Z, B6, VC, VCI, VA, VL, VS)
+  val imms = Seq(I, S, B, U, J, Z, B6, VC, VCI, VA)
   val maxLen = imms.maxBy(_.len).len
   val immSelMap = Seq(
     SelImm.IMM_I,
@@ -995,9 +983,7 @@ object ImmUnion {
     SelImm.IMM_B6,
     SelImm.IMM_C,
     SelImm.IMM_CI,
-    SelImm.IMM_VA,
-    SelImm.IMM_VL,
-    SelImm.IMM_VS
+    SelImm.IMM_VA
   ).zip(imms)
   println(s"ImmUnion max len: $maxLen")
 }
