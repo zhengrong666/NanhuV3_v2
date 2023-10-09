@@ -101,13 +101,16 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
 
   mergeTable.zip(cancelVec).zip(stateVec).zipWithIndex.foreach {
     case (((e, cancel), s), i) => {
-      val flushValid = (e.uop.robIdx < io.redirect.bits.robIdx) || (e.uop.robIdx === io.redirect.bits.robIdx && io.redirect.bits.flushItself)
-      cancel := s =/= s_free && flushValid && io.redirect.valid
+      val flushValid = e.uop.robIdx.needFlush(io.redirect)
+      cancel := s =/= s_free && flushValid
       val initEn = io.vmbInit.valid && (io.vmbInit.bits.mergeIdx.value === i.U)
       when(initEn) {
         e.uop := io.vmbInit.bits
         mergeCnt(i) := 0.U
         s := s_alloc
+      }
+      when(cancel) {
+        s := s_free
       }
     }
   }
