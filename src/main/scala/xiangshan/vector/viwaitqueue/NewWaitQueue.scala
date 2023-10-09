@@ -122,12 +122,17 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
+
+  private val splitEnqPipe = Module(new DequeuePipeline(1))
+  splitEnqPipe.io.redirect := io.redirect
+  splitEnqPipe.io.in(0).bits := deqUop.uop
+  splitEnqPipe.io.in(0).valid := hasValid && !vstartHold && uopRdy
+
   splitNetwork.io.redirect := io.redirect
-  splitNetwork.io.in.valid := hasValid && !vstartHold && uopRdy
-  splitNetwork.io.in.bits := deqUop.uop
+  splitNetwork.io.in <> splitEnqPipe.io.out(0)
   splitNetwork.io.vstart := io.vstart
 
-  private val deqValid = splitNetwork.io.in.fire
+  private val deqValid = splitEnqPipe.io.in(0).fire
   when(deqValid){
     deqPtr := deqPtr + 1.U
   }
@@ -137,7 +142,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     vstartHold := false.B
   }
 
-  private val splitPipe = Module(new DequeuePipeline)
+  private val splitPipe = Module(new DequeuePipeline(VIRenameWidth))
   splitPipe.io.redirect := io.redirect
   splitPipe.io.in <> splitNetwork.io.out
   io.out <> splitPipe.io.out

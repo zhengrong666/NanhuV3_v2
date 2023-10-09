@@ -4,13 +4,13 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.{MicroOp, Redirect, XSModule}
-class DequeuePipeline(implicit p: Parameters) extends XSModule {
+class DequeuePipeline(PipelineWidth: Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
-    val in = Vec(VIRenameWidth, Flipped(Decoupled(new MicroOp)))
-    val out = Vec(VIRenameWidth, Decoupled(new MicroOp))
+    val in = Vec(PipelineWidth, Flipped(Decoupled(new MicroOp)))
+    val out = Vec(PipelineWidth, Decoupled(new MicroOp))
     val redirect = Input(new Valid(new Redirect))
   })
-  assert(PopCount(io.out.map(_.ready)) === VIRenameWidth.U || PopCount(io.out.map(_.ready)) === 0.U)
+  assert(PopCount(io.out.map(_.ready)) === PipelineWidth.U || PopCount(io.out.map(_.ready)) === 0.U)
 
   for((out, in) <- io.out.zip(io.in)){
     val validReg = RegInit(false.B)
