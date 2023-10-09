@@ -57,15 +57,16 @@ class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
       }))
     }
   })
-  private val array = Mem(size, (new RollBackListEntry).asUInt)
+  private val entryWidth = (new RollBackListEntry).getWidth
+  private val ram = Mem(size, UInt(entryWidth.W))
   io.enq.foreach(e => {
     when(e.valid) {
-      array.write(e.bits.addr, e.bits.data.asUInt)
+      ram.write(e.bits.addr, e.bits.data.asUInt)
     }
   })
   io.read.data.zipWithIndex.foreach({ case (d, i) =>
     val addr = Mux(io.read.commit, io.read.addr + i.U, io.read.addr - (i + 1).U)
-    val entry = array.read(addr).asTypeOf(new RollBackListEntry)
+    val entry = ram.read(addr).asTypeOf(new RollBackListEntry)
     d.hit := entry.robIdx === io.read.robPtr
     d.logicRegIdx := entry.logicRegIdx
     d.oldPhyRegIdx := entry.oldPhyRegIdx
