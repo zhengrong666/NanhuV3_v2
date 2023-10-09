@@ -558,10 +558,11 @@ class NewIFU(implicit p: Parameters) extends XSModule
   }
 
   val f3_last_validIdx             = ~ParallelPriorityEncoder(checkerOutStage1.fixedRange.reverse)
+  val f3_last_validIdxOH     = UIntToOH(f3_last_validIdx.asUInt)
 
   val f3_hasLastHalf         = hasLastHalf((PredictWidth - 1).U)
   val f3_false_lastHalf      = hasLastHalf(f3_last_validIdx)
-  val f3_false_snpc          = f3_half_snpc(f3_last_validIdx)
+  val f3_false_snpc          = Mux1H(f3_last_validIdxOH, f3_half_snpc)
 
   val f3_lastHalf_mask    = VecInit((0 until PredictWidth).map( i => if(i ==0) false.B else true.B )).asUInt
   val f3_lastHalf_disable = RegInit(false.B)
