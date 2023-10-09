@@ -2,6 +2,7 @@ package xiangshan.vector.vbackend.vexecute.vexu
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
+import darecreek.exu.vfu.VFpuOutput
 import darecreek.exu.vfu.fp.VFPUWrapper
 import xiangshan.HasXSParameter
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
@@ -53,13 +54,17 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     vfp.io.out.ready := true.B
     vfp.io.redirect := redirectIn
 
-    wb.valid := vfp.io.out.valid
+    private val outDelay = Wire(Valid(new VFpuOutput))
+    outDelay.valid := RegNext(vfp.io.out.valid, false.B)
+    outDelay.bits := RegEnable(vfp.io.out.bits, vfp.io.out.valid)
+    
+    wb.valid := outDelay.valid
     wb.bits := DontCare
-    wb.bits.uop := vfp.io.out.bits.uop.sysUop
-    wb.bits.data := vfp.io.out.bits.vd
-    wb.bits.fflags := vfp.io.out.bits.fflags
+    wb.bits.uop := outDelay.bits.uop.sysUop
+    wb.bits.data := outDelay.bits.vd
+    wb.bits.fflags := outDelay.bits.fflags
 
-    private val uopOut = vfp.io.out.bits.uop.sysUop
+    private val uopOut = outDelay.bits.uop.sysUop
     private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
     private val lowHalf = !uopOut.uopIdx(0)
     private val highHalf = uopOut.uopIdx(0)
