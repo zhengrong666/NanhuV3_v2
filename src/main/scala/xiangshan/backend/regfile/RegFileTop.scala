@@ -41,18 +41,27 @@ class ScalarRfReadPort(implicit p:Parameters) extends XSBundle{
 }
 
 object RegFileTop{
-  def extractElement(vsrc:UInt, sew:UInt, uopIdx:UInt, VLEN:Int, XLEN:Int): UInt = {
+  def extractElement(vsrc:UInt, sew:UInt, uopIdx:UInt, nf:UInt, VLEN:Int, XLEN:Int): UInt = {
     require(vsrc.getWidth == VLEN)
+    val elemsIdx = MuxCase(uopIdx, Seq(
+      (nf === 2.U) -> uopIdx / 2.U,
+      (nf === 3.U) -> uopIdx / 3.U,
+      (nf === 4.U) -> uopIdx / 4.U,
+      (nf === 5.U) -> uopIdx / 5.U,
+      (nf === 6.U) -> uopIdx / 6.U,
+      (nf === 7.U) -> uopIdx / 7.U,
+      (nf === 8.U) -> uopIdx / 8.U,
+    ))
     val res = WireInit(0.U(XLEN.W))
     val vsrcSplit8  = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7,  idx * 8)))
     val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15,  idx * 16)))
     val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 31,  idx * 32)))
     val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 63,  idx * 64)))
     res := MuxCase(0.U, Seq(
-      (sew === 0.U) -> ZeroExt(vsrcSplit8(uopIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
-      (sew === 1.U) -> ZeroExt(vsrcSplit16(uopIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
-      (sew === 2.U) -> ZeroExt(vsrcSplit32(uopIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
-      (sew === 3.U) -> ZeroExt(vsrcSplit64(uopIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
+      (sew === 0.U) -> ZeroExt(vsrcSplit8(elemsIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
+      (sew === 1.U) -> ZeroExt(vsrcSplit16(elemsIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
+      (sew === 2.U) -> ZeroExt(vsrcSplit32(elemsIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
+      (sew === 3.U) -> ZeroExt(vsrcSplit64(elemsIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
     ))
     res
   }
@@ -69,7 +78,7 @@ class AddrGen(implicit p:Parameters) extends XSModule{
     val target = Output(UInt(XLEN.W))
     val imm = Output(UInt(12.W))
   })
-  private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, VLEN, XLEN)
+  private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, 1.U, VLEN, XLEN)
   private val offset = MuxCase(0.U, Seq(
     (io.sew === 0.U) -> SignExt(rawOffset(7, 0), XLEN),
     (io.sew === 1.U) -> SignExt(rawOffset(15, 0), XLEN),
@@ -250,7 +259,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isStd){
               io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
-              exuInBundle.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, VLEN, XLEN)
+              exuInBundle.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, bi.issue.bits.uop.vctrl.nf, VLEN, XLEN)
             }.elsewhen(isUnitStride){
               exuInBundle.src(0) := intRf.io.read(intRfReadIdx).data
               exuInBundle.uop.ctrl.imm := (ZeroExt(uopIdx,12) << sew)(11, 0)
