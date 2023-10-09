@@ -56,7 +56,7 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
         !in.bits.isOrdered
       }
       val outPort = io.issueInfo(bidx * issueNum / bankNum)
-      val addrHit = outPort.fire && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
+      val addrHit = outPort.valid && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
       selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond && !addrHit && !io.redirect.valid
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)

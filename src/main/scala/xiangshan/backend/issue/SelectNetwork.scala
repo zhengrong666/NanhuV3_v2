@@ -144,7 +144,7 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
       val selEn = in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
       if(regOut){
         val outPort = io.issueInfo(bidx * issueNum / bankNum)
-        val addrHit = outPort.fire && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
+        val addrHit = outPort.valid && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
         selInfo.valid := selEn && !addrHit
       } else {
         selInfo.valid := selEn
