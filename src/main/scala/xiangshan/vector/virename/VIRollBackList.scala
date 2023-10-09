@@ -4,7 +4,7 @@
  * XiangShan is licensed under Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *          http://license.coscl.org.cn/MulanPSL2
+ * http://license.coscl.org.cn/MulanPSL2
  *
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
  * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
@@ -57,16 +57,15 @@ class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
       }))
     }
   })
-  private val array = Reg(Vec(size, new RollBackListEntry))
-  for((entry, idx) <- array.zipWithIndex){
-    val wens = io.enq.map(e => e.valid && e.bits.addr === idx.U)
-    val data = Mux1H(wens, io.enq.map(_.bits.data))
-    when(Cat(wens).orR){
-      entry := data
+  private val array = Mem(size, (new RollBackListEntry).asUInt)
+  io.enq.foreach(e => {
+    when(e.valid) {
+      array.write(e.bits.addr, e.bits.data.asUInt)
     }
-  }
-  io.read.data.zipWithIndex.foreach({case(d,i) =>
-    val entry = Mux(io.read.commit, array(io.read.addr + i.U), array(io.read.addr - i.U))
+  })
+  io.read.data.zipWithIndex.foreach({ case (d, i) =>
+    val addr = Mux(io.read.commit, io.read.addr + i.U, io.read.addr - (i + 1).U)
+    val entry = array.read(addr).asTypeOf(new RollBackListEntry)
     d.hit := entry.robIdx === io.read.robPtr
     d.logicRegIdx := entry.logicRegIdx
     d.oldPhyRegIdx := entry.oldPhyRegIdx
@@ -121,7 +120,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   private val robIdxSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
   payload.io.read.robPtr := rollingRobIdx
-  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, (headPtr - 1.U).value)
+  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, headPtr.value)
   payload.io.read.commit := io.commit.rob.isCommit
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
