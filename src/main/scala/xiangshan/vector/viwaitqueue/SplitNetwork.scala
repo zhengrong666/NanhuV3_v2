@@ -38,7 +38,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       (nf === 7.U) -> idx / 7.U,
       (nf === 8.U) -> idx / 8.U,
     ))
-    idxModNf := MuxCase(idx, Seq(
+    idxModNf := MuxCase(0.U, Seq(
       (nf === 2.U) -> idx % 2.U,
       (nf === 3.U) -> idx % 3.U,
       (nf === 4.U) -> idx % 4.U,
