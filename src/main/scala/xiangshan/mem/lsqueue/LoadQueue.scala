@@ -27,6 +27,8 @@ import xiangshan.backend.rob.RobPtr
 import xiangshan.cache._
 import xiangshan.frontend.FtqPtr
 import xiangshan.ExceptionNO._
+import xiangshan.backend.execute.fu.FuConfigs
+import xiangshan.backend.issue.SelectPolicy
 import xs.utils.perf.HasPerfLogging
 
 class LqPtr(implicit p: Parameters) extends CircularQueuePtr[LqPtr](
@@ -127,7 +129,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 //  val vaddrModule = Module(new SyncDataModuleTemplate(UInt(VAddrBits.W), LoadQueueSize, numRead = LoadPipelineWidth + 1, numWrite = LoadPipelineWidth, "LqVaddr"))
 //  vaddrModule.io := DontCare  //todo
 
-  val vaddrModule = Module(new LoadQueueVaddrModule(UInt(VAddrBits.W), LoadQueueSize, numRead = LoadPipelineWidth + 1, numWrite = LoadPipelineWidth, "LqVaddr"))
+  val vaddrModule = Module(new LoadQueueVaddrModule(UInt(VAddrBits.W), LoadQueueSize, numRead = LoadPipelineWidth, numWrite = LoadPipelineWidth, "LqVaddr"))
   vaddrModule.io := DontCare //todo
 
 //  val vaddrTriggerResultModule = Module(new SyncDataModuleTemplate(Vec(TriggerNum, Bool()), LoadQueueSize, numRead = LoadPipelineWidth, numWrite = LoadPipelineWidth, "LqTrigger"))
@@ -168,6 +170,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val release2cycle_valid = RegNext(io.release.valid)
   val release2cycle_paddr = RegEnable(io.release.bits.paddr, io.release.valid)
   val release2cycle_paddr_dup_lsu = RegEnable(io.release.bits.paddr, io.release.valid)
+  private val exceptionInfo = RegInit(0.U.asTypeOf(new LSQExceptionInfo))
 
   /*
    *  if ROB is waiting index-ordered instruction, lq should flush sbuffer
@@ -537,7 +540,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     io.ldout(i).bits.debug.isMMIO := debug_mmio(loadWbSel(i))
     io.ldout(i).bits.debug.isPerfCnt := false.B
     io.ldout(i).bits.debug.paddr := debug_paddr(loadWbSel(i))
-    io.ldout(i).bits.debug.vaddr := vaddrModule.io.rdata(i+1)
+    io.ldout(i).bits.debug.vaddr := vaddrModule.io.rdata(i)
     io.ldout(i).bits.fflags := DontCare
     io.ldout(i).valid := loadWbSelV(i) && !io.ldout(i).bits.uop.robIdx.needFlush(lastCycleRedirect)
     //io.ldout(i).bits.wbmask := DontCare
@@ -987,15 +990,47 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   // Read vaddr for mem exception
   // no inst will be commited 1 cycle before tval update
-  vaddrModule.io.raddr(0) := RegNext(deqPtrExtNext).value
-  io.exceptionAddr.vaddr := vaddrModule.io.rdata(0)
+
+  private val loadExceptionInfo = Wire(Vec(2, new LSQExceptionInfo))
+  loadExceptionInfo.zipWithIndex.foreach({ case (d, i) =>
+    val validCond = io.loadIn(i).valid && !io.loadIn(i).bits.uop.robIdx.needFlush(io.brqRedirect)
+    d.robIdx := RegEnable(io.loadIn(i).bits.uop.robIdx, validCond)
+    d.vaddr := RegEnable(io.loadIn(i).bits.vaddr, validCond)
+    d.eVec := RegEnable(io.loadIn(i).bits.uop.cf.exceptionVec, validCond)
+    d.valid := RegNext(validCond, false.B)
+  })
+  private val loadExceptionInfoDelay = loadExceptionInfo.map(s => {
+    val res = Wire(new LSQExceptionInfo)
+    val validCond = s.valid && !s.robIdx.needFlush(io.brqRedirect)
+    res.robIdx := RegEnable(s.robIdx, validCond)
+    res.eVec := RegEnable(s.eVec, validCond)
+    res.vaddr := RegEnable(s.vaddr, validCond)
+    val hasException = ExceptionNO.selectByFu(res.eVec, FuConfigs.lduCfg).asUInt.orR
+    res.valid := RegNext(validCond, false.B) && hasException
+    res
+  })
+  private val exceptionSrcs = exceptionInfo +: loadExceptionInfoDelay
+  private val excptSelector = Module(new SelectPolicy(exceptionSrcs.length, true, true))
+  excptSelector.io.in.zip(exceptionSrcs).foreach({ case (a, b) =>
+    a.valid := b.valid && !b.robIdx.needFlush(io.brqRedirect)
+    a.bits := b.robIdx
+  })
+  private val excptUpdateCond = excptSelector.io.out.valid && excptSelector.io.out.bits =/= 1.U(exceptionSrcs.length.W)
+  when(excptUpdateCond) {
+    exceptionInfo := Mux1H(excptSelector.io.out.bits, exceptionSrcs)
+  }.elsewhen(io.brqRedirect.valid && exceptionInfo.robIdx.needFlush(io.brqRedirect)) {
+    exceptionInfo.valid := false.B
+  }
+
+  io.exceptionAddr.vaddr := exceptionInfo.vaddr
+
 
   // Read vaddr for debug
-  (0 until LoadPipelineWidth).map(i => {
-    vaddrModule.io.raddr(i+1) := RegNext(loadWbSel(i))
+  (0 until LoadPipelineWidth).foreach(i => {
+    vaddrModule.io.raddr(i) := RegNext(loadWbSel(i))
   })
 
-  (0 until LoadPipelineWidth).map(i => {
+  (0 until LoadPipelineWidth).foreach(i => {
 //    vaddrTriggerResultModule.io.raddr(i) := loadWbSelGen(i)
     vaddrTriggerResultModule.io.raddr(i) := loadWbSel(i)
     io.trigger(i).lqLoadAddrTriggerHitVec := Mux(
