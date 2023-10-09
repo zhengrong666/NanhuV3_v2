@@ -121,14 +121,14 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   private val robIdxSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
   payload.io.read.robPtr := rollingRobIdx
-  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, headPtr.value)
+  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, (headPtr - 1.U).value)
   payload.io.read.commit := io.commit.rob.isCommit
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
   io.commit.rat.doWalk := io.commit.rob.isWalk
   assert(PopCount(Seq(io.commit.rat.doCommit, io.commit.rat.doWalk)) <= 1.U, "Walk and commit at the same time!")
   for(i <- 0 until 8){
-    io.commit.rat.mask(i) := payload.io.read.data(i).hit && i.U < entryNum
+    io.commit.rat.mask(i) := payload.io.read.data(i).hit && (i.U < entryNum)
     io.commit.rat.lrIdx(i) := payload.io.read.data(i).logicRegIdx
     io.commit.rat.prIdxOld(i) := payload.io.read.data(i).oldPhyRegIdx
     io.commit.rat.prIdxNew(i) := payload.io.read.data(i).newPhyRegIdx
