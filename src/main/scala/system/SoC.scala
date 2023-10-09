@@ -94,7 +94,7 @@ abstract class BaseSoC()(implicit p: Parameters) extends LazyModule with HasSoCP
 trait HaveSlaveAXI4Port {
   this: BaseSoC =>
 
-  val idBits = 14
+  val idBits = 12
 
   val l3FrontendAXI4Node = AXI4MasterNode(Seq(AXI4MasterPortParameters(
     Seq(AXI4MasterParameters(
