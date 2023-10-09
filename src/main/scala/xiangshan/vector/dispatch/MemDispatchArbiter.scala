@@ -109,7 +109,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
   
   when(arbState === s_vmem) {
     val needFlush = io.redirect.valid && (redirectRobIdx <= vRobIdx)
-    val accessTail = (io.vmemIn(vmemDeqTail).bits.uopIdx + 1.U) === io.vmemIn(vmemDeqTail).bits.uopNum
+    val accessTail = io.vmemIn(vmemDeqTail).bits.uopIdx === (io.vmemIn(vmemDeqTail).bits.uopNum - 1.U)
     val stateSwitch = (io.vmemIn(vmemDeqTail).fire && accessTail) || needFlush
     arbState := Mux(stateSwitch, s_mem, s_vmem)
   }
