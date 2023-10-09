@@ -64,7 +64,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val mmuEnable = Input(Bool())
     val commits = new RobCommitIO
     val lsq = new RobLsqIO
-    val robDeqPtr = Output(new RobPtr)
     val csr = new RobCSRIO
     val robFull = Output(Bool())
     val cpu_halt = Output(Bool())
@@ -168,8 +167,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   val allowEnqueue = RegInit(true.B)
   val isEmpty = (enqPtr === deqPtr)
-
-  io.robDeqPtr := deqPtr
 
   /**
     * states of Rob
@@ -536,6 +533,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.lsq.pendingst := RegNext(io.commits.isCommit && io.commits.info(0).commitType === CommitType.STORE && valid(deqPtr.value))
   io.lsq.commit := RegNext(io.commits.isCommit && io.commits.commitValid(0))
   io.lsq.pendingOrdered := RegNext(io.commits.isCommit && io.commits.info(0).isOrder && valid(deqPtr.value))
+  io.lsq.pendingInst := RegNext(deqPtr)
 
   /**
     * state changes

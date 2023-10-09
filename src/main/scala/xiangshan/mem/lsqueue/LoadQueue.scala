@@ -23,7 +23,7 @@ import utils._
 import xs.utils._
 import xiangshan._
 import xiangshan.backend.execute.fu.fpu.FPU
-import xiangshan.backend.rob.RobLsqIO
+import xiangshan.backend.rob.RobPtr
 import xiangshan.cache._
 import xiangshan.frontend.FtqPtr
 import xiangshan.ExceptionNO._
@@ -104,7 +104,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val ldRawDataOut = Vec(2, Output(new LoadDataFromLQBundle))
     val load_s1 = Vec(LoadPipelineWidth, Flipped(new PipeLoadForwardQueryIO)) // TODO: to be renamed
     val loadViolationQuery = Vec(LoadPipelineWidth, Flipped(new LoadViolationQueryIO))
-    val rob = Flipped(new RobLsqIO)
+    val rob = Input(new RobPtr)
     val rollback = Output(Valid(new Redirect)) // replay now starts from load instead of store
     val dcache = Flipped(ValidIO(new Refill)) // TODO: to be renamed
     val release = Flipped(ValidIO(new Release))
@@ -115,11 +115,9 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val lqCancelCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
     val vectorOrderedFlushSBuffer = new SbufferFlushBundle
-    val loadVectorDeqCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
+    val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
   })
 
-
-  io.loadVectorDeqCnt := 0.U
   println("LoadQueue: size:" + LoadQueueSize)
 
   val uop = Reg(Vec(LoadQueueSize, new MicroOp))
@@ -139,6 +137,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
 
   val allocated = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // lq entry has been allocated
+  val readyToLeave = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // lq entry is ready to leave
   val datavalid = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // data is valid
   val writebacked = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // inst has been writebacked to CDB
   val released = RegInit(VecInit(List.fill(LoadQueueSize)(false.B))) // load data has been released by dcache
@@ -154,6 +153,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new LqPtr))))
   val deqPtrExt = RegInit(0.U.asTypeOf(new LqPtr))
   val deqPtrExtNext = Wire(new LqPtr)
+  dontTouch(deqPtrExt)
 
   val enqPtr = enqPtrExt(0).value
   val deqPtr = deqPtrExt.value
@@ -164,21 +164,6 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val deqMask = UIntToMask(deqPtr, LoadQueueSize)
   val enqMask = UIntToMask(enqPtr, LoadQueueSize)
 
-  val commitCount = RegNext(io.rob.lcommit)
-  val orderedAutoDeq = RegInit(false.B)
-  val pendingOrder = io.rob.pendingOrdered
-  val deqIsOrder = uop(deqPtr).vctrl.ordered
-  orderedAutoDeq := Mux(pendingOrder && allocated(deqPtr) && writebacked(deqPtr), true.B, false.B)
-
-  when(orderedAutoDeq){
-    allocated(deqPtr) := false.B
-    io.loadVectorDeqCnt := 1.U
-  }
-
-  when(pendingOrder){
-    assert(allocated(deqPtr) && deqIsOrder)
-  }
-
   val release1cycle = io.release
   val release2cycle_valid = RegNext(io.release.valid)
   val release2cycle_paddr = RegEnable(io.release.bits.paddr, io.release.valid)
@@ -188,7 +173,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
    *  if ROB is waiting index-ordered instruction, lq should flush sbuffer
    */
   val SbufferCleaned = RegInit(false.B)
-  val needFlushSbuffer = io.rob.pendingOrdered && allocated(deqPtr) && (uop(deqPtr).uopIdx === 0.U) && (!SbufferCleaned)
+  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).vctrl.ordered && (!SbufferCleaned)
 
   io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
 
@@ -230,6 +215,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     when (canEnqueue(i) && !enqCancel(i)) {
 //      uop(index).robIdx := io.enq.req(i).bits.robIdx
       allocated(index) := true.B
+      readyToLeave(index) := false.B
       datavalid(index) := false.B
       writebacked(index) := false.B
       released(index) := false.B
@@ -578,16 +564,31 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     * When load commited, mark it as !allocated and move deqPtrExt forward.
     */
   //when scalar load is committed and index-ordered instruction is committed, allocated flag is false
+  private val readyToDeq = Reg(Vec(LoadQueueSize, Bool()))
+  for (i <- 0 until LoadQueueSize) {
+    readyToDeq(i) := readyToLeave(i) & allocated(i) & writebacked(i) & !io.brqRedirect.valid
+  }
+  private val deqWindow = Seq.tabulate(CommitWidth)(idx => (deqPtrExt + idx.U).value)
+  private val deqVec = deqWindow.map(addr => readyToDeq(addr) & !io.brqRedirect.valid)
+  private val deqNum = PopCount(deqVec)
+  io.lqDeq := RegNext(deqNum)
+  uop.zip(readyToLeave).zipWithIndex.foreach({case((u, r), idx) =>
+    val updateReadyToLeave = Wire(Bool())
+    updateReadyToLeave := u.robIdx <= io.rob && allocated(idx) && !r
+    when(updateReadyToLeave){
+      r := true.B
+    }
+  })
   (0 until CommitWidth).map(i => {
-    when(commitCount > i.U){
+    when(deqNum > i.U){
       allocated((deqPtrExt+i.U).value) := false.B
-      XSError(!allocated((deqPtrExt+i.U).value), s"why commit invalid entry $i?\n")
+      XSError(!allocated((deqPtrExt+i.U).value), s"why release invalid entry $i?\n")
     }
   })
 
   def getFirstOne(mask: Vec[Bool], startMask: UInt) = {
     val length = mask.length
-    val highBits = (0 until length).map(i => mask(i) & ~startMask(i))
+    val highBits = (0 until length).map(i => mask(i) & (~startMask(i)).asBool)
     val highBitsUint = Cat(highBits.reverse)
     PriorityEncoder(Mux(highBitsUint.orR, highBitsUint, mask.asUInt))
   }
@@ -904,13 +905,15 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   //(2) when they reach ROB's head, they can be sent to uncache channel
   dataModule.io.uncache.ren := false.B
 
-  val lqTailMmioPending = WireInit(pending(deqPtr))
-  val lqTailAllocated = WireInit(allocated(deqPtr))
+  private val lqTailMmioPending = WireInit(pending(deqPtr))
+  private val lqTailAllocated = WireInit(allocated(deqPtr))
+  private val ldTailReadyToLeave = WireInit(readyToLeave(deqPtr))
+  private val ldTailWritebacked = WireInit(writebacked(deqPtr))
   val s_idle :: s_req :: s_resp :: s_wait :: Nil = Enum(4)
-  val uncache_Order_State = RegInit(s_idle)
+  private val uncache_Order_State = RegInit(s_idle)
   switch(uncache_Order_State) {
     is(s_idle) {
-      when(RegNext(io.rob.pendingld && lqTailMmioPending && lqTailAllocated)) {
+      when(RegNext(ldTailReadyToLeave && lqTailMmioPending && lqTailAllocated)) {
         dataModule.io.uncache.ren := true.B
         uncache_Order_State := s_req
       }
@@ -926,7 +929,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       }
     }
     is(s_wait) {
-      when(RegNext(io.rob.commit) || orderedAutoDeq) {
+      when(RegNext(ldTailWritebacked)) {
         uncache_Order_State := s_idle // ready for next mmio
       }
     }
@@ -984,7 +987,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   // Read vaddr for mem exception
   // no inst will be commited 1 cycle before tval update
-  vaddrModule.io.raddr(0) := RegNext(deqPtrExt + commitCount + orderedAutoDeq).value
+  vaddrModule.io.raddr(0) := RegNext(deqPtrExtNext).value
   io.exceptionAddr.vaddr := vaddrModule.io.rdata(0)
 
   // Read vaddr for debug
@@ -1042,8 +1045,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     enqPtrExt := VecInit(enqPtrExt.map(_ + enqNumber_enq))
   }
 
-  ///todo: ----------------------------------------------
-  deqPtrExtNext := deqPtrExt + commitCount + orderedAutoDeq
+  deqPtrExtNext := deqPtrExt + deqNum
   deqPtrExt := deqPtrExtNext
 
   io.lqCancelCnt := RegNext(lastCycleCancelCount + lastEnqCancel)
