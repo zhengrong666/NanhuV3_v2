@@ -59,7 +59,16 @@ object VRegfileTopUtil{
     val width = VLEN / 8
     val vlenShiftBits = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
-    val uopIdx = in.uopIdx
+    val nf = in.vctrl.nf
+    val uopIdx = MuxCase(uopIdx, Seq(
+      (nf === 2.U) -> in.uopIdx / 2.U,
+      (nf === 3.U) -> in.uopIdx / 3.U,
+      (nf === 4.U) -> in.uopIdx / 4.U,
+      (nf === 5.U) -> in.uopIdx / 5.U,
+      (nf === 6.U) -> in.uopIdx / 6.U,
+      (nf === 7.U) -> in.uopIdx / 7.U,
+      (nf === 8.U) -> in.uopIdx / 8.U,
+    ))
     val partialMask = Mux(in.partialTail, UIntToMask(in.vctrl.tailOffset, 8), ~(0.U(8.W)))
     val mask = MuxCase(0.U, Seq(
       (sew === 0.U) -> (("h01".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),

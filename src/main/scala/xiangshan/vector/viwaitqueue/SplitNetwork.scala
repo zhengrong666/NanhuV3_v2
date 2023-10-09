@@ -29,8 +29,24 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     val shouldRename = Wire(Bool())
     val lFuOpType = Wire(FuOpType())
     val sFuOpType = Wire(FuOpType())
-    idxDivNf := idx / nf
-    idxModNf := idx % nf
+    idxDivNf := MuxCase(idx, Seq(
+      (nf === 2.U) -> idx / 2.U,
+      (nf === 3.U) -> idx / 3.U,
+      (nf === 4.U) -> idx / 4.U,
+      (nf === 5.U) -> idx / 5.U,
+      (nf === 6.U) -> idx / 6.U,
+      (nf === 7.U) -> idx / 7.U,
+      (nf === 8.U) -> idx / 8.U,
+    ))
+    idxModNf := MuxCase(idx, Seq(
+      (nf === 2.U) -> idx % 2.U,
+      (nf === 3.U) -> idx % 3.U,
+      (nf === 4.U) -> idx % 4.U,
+      (nf === 5.U) -> idx % 5.U,
+      (nf === 6.U) -> idx % 6.U,
+      (nf === 7.U) -> idx % 7.U,
+      (nf === 8.U) -> idx % 8.U,
+    ))
     shouldRename := MuxCase(false.B, Seq(
       (memSew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
       (memSew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
