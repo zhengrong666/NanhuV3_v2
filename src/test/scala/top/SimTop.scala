@@ -112,7 +112,7 @@ object SimTop extends App {
     FirtoolOption("--lower-memories"),
     FirtoolOption("--add-mux-pragmas"),
     FirtoolOption("--lowering-options=noAlwaysComb," +
-      " disallowPackedArrays, disallowPortDeclSharing, disallowLocalVariables," +
+      " disallowPortDeclSharing, disallowLocalVariables," +
       " emittedLineLength=120, explicitBitcast, locationInfoStyle=plain," +
       " disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
