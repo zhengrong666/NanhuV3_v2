@@ -128,7 +128,6 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val wd = Mux1H(wenVec, io.exu)
     when(wen) {
       e.vxsat := wd.bits.vxsat | e.vxsat
-      e.uop := wd.bits.uop
     }
   }
 
