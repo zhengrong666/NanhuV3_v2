@@ -257,7 +257,11 @@ object TopMain extends App {
     FirtoolOption("--disable-annotation-unknown"),
     FirtoolOption("--strip-debug-info"),
     FirtoolOption("--lower-memories"),
-    FirtoolOption("--lowering-options=noAlwaysComb, disallowLocalVariables, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
+    FirtoolOption("--add-mux-pragmas"),
+    FirtoolOption("--lowering-options=noAlwaysComb," +
+      " disallowPackedArrays, disallowPortDeclSharing, disallowLocalVariables," +
+      " emittedLineLength=120, explicitBitcast, locationInfoStyle=plain," +
+      " disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       soc.module
     })
