@@ -108,8 +108,12 @@ object SimTop extends App {
     FirtoolOption("-O=release"),
     FirtoolOption("--disable-all-randomization"),
     FirtoolOption("--disable-annotation-unknown"),
+    FirtoolOption("--strip-debug-info"),
     FirtoolOption("--lower-memories"),
-    FirtoolOption("--lowering-options=noAlwaysComb, disallowLocalVariables, emittedLineLength=120, explicitBitcast, locationInfoStyle=plain, disallowExpressionInliningInPorts, disallowMuxInlining"),
+    FirtoolOption("--lowering-options=noAlwaysComb," +
+      " disallowPortDeclSharing, disallowLocalVariables," +
+      " emittedLineLength=120, explicitBitcast, locationInfoStyle=plain," +
+      " disallowExpressionInliningInPorts, disallowMuxInlining"),
     ChiselGeneratorAnnotation(() => {
       DisableMonitors(p => new SimTop()(p))(config)
     })

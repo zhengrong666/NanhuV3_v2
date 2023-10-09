@@ -93,6 +93,7 @@ else
 	@sed -i 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
 	@python3 scripts/assertion_alter.py -o $@ $@
+	@sed -i "s/assign \([a-zA-Z0-9_]\+\) = .* ? \(.*\) : [0-9]\+'bx;/assign \1 = \2;/g" $@
 	@sed -i 's/_LOG_MODULE_PATH_/%m/g' $@
 	@sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
 	@sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
@@ -116,6 +117,7 @@ else
 	@sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
 	@python3 scripts/assertion_alter.py -o $@ $@
+	@sed -i "s/assign \([a-zA-Z0-9_]\+\) = .* ? \(.*\) : [0-9]\+'bx;/assign \1 = \2;/g" $@
 	@sed -i 's/_LOG_MODULE_PATH_/%m/g' $@
 	@sed -i 's/\(\b[a-zA-Z_0-9]\+_[0-9]\+x[0-9]\+\b\)/$(PREFIX)\1/g' $@
 	@sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files.f" ----- 8< -----/,$$d' $@
