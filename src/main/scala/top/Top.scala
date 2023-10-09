@@ -257,7 +257,6 @@ object TopMain extends App {
     FirtoolOption("--disable-annotation-unknown"),
     FirtoolOption("--strip-debug-info"),
     FirtoolOption("--lower-memories"),
-    FirtoolOption("--add-mux-pragmas"),
     FirtoolOption("--lowering-options=noAlwaysComb," +
       " disallowPortDeclSharing, disallowLocalVariables," +
       " emittedLineLength=120, explicitBitcast, locationInfoStyle=plain," +
