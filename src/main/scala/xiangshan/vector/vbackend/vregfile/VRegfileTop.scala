@@ -60,7 +60,7 @@ object VRegfileTopUtil{
     val vlenShiftBits = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
     val nf = in.vctrl.nf
-    val uopIdx = MuxCase(uopIdx, Seq(
+    val uopIdx = MuxCase(in.uopIdx, Seq(
       (nf === 2.U) -> in.uopIdx / 2.U,
       (nf === 3.U) -> in.uopIdx / 3.U,
       (nf === 4.U) -> in.uopIdx / 4.U,
