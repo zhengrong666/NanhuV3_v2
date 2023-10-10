@@ -560,11 +560,14 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
 
   val resp_meta = Wire(new TageMeta)
   override val meta_size = resp_meta.getWidth
+
+  val s0PCdup = WireDefault(Vec(5, s0_pc_dup(4)))
+
   val tables = TageTableInfos.zipWithIndex.map {
     case ((nRows, histLen, tagLen), i) => {
       val t = Module(new TageTable(nRows, histLen, tagLen, i, parentName = parentName + s"tagtable${i}_"))
       t.io.req.valid := io.s0_fire(1)
-      t.io.req.bits.pc := s0_pc_dup(4)
+      t.io.req.bits.pc := s0PCdup(i) //s0_pc_dup(4)
       t.io.req.bits.folded_hist := io.in.bits.folded_hist(1)
       t.io.req.bits.ghist := io.in.bits.ghist
       t
@@ -572,7 +575,7 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   }
   val bt = Module (new TageBTable(parentName = parentName + "bttable_"))
   bt.io.s0_fire := io.s0_fire(1)
-  bt.io.s0_pc   := s0_pc_dup(4)
+  bt.io.s0_pc   := s0PCdup(4) //s0_pc_dup(4)
 
   val bankTickCtrDistanceToTops = Seq.fill(numBr)(RegInit((1 << (TickWidth-1)).U(TickWidth.W)))
   val bankTickCtrs = Seq.fill(numBr)(RegInit(0.U(TickWidth.W)))
