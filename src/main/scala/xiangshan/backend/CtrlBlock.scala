@@ -326,7 +326,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     port.valid := true.B
   }
 
-  rob.io.wbFromMergeBuffer <> outer.wbMergeBuffer.module.io.rob
+  rob.io.wbFromMergeBuffer.zip(outer.wbMergeBuffer.module.io.rob).foreach({case(a, b) => a := Pipe(b)})
   outer.wbMergeBuffer.module.io.redirect := Pipe(io.redirectIn)
   
   
