@@ -248,14 +248,7 @@ case class XSCoreParameters
 
   //vector
   hasVector: Boolean = true,
-  vectorParameters: VectorParameters = VectorParameters(
-    vLen               = 128, //maybe 64、256、512...
-    vDecodeWidth       = 4,
-    vRenameWidth       = 4,
-    vCommitWidth       = 4,
-    vPhyRegsNum        = 48,
-    viWalkRobIdxQueueWidth = 32
-  )
+  vectorParameters: VectorParameters = VectorParameters()
 ){
   val allHistLens: Seq[Int] = SCHistLens ++ ITTageTableInfos.map(_._2) ++ TageTableInfos.map(_._2) :+ UbtbGHRLength
   val HistoryLength: Int = allHistLens.max + numBr * FtqSize + 9 // 256 for the predictor configs now
