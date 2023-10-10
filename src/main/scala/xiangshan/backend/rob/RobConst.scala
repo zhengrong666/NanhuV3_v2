@@ -76,6 +76,8 @@ class RobLsqIO(implicit p: Parameters) extends XSBundle {
   val pendingst = Output(Bool())
   val commit = Output(Bool())
   val pendingOrdered = Output(Bool())
+  val pendingInst = Output(new RobPtr)
+  val lqSafeDeq = Output(new RobPtr)
 }
 
 class RobEnqIO(implicit p: Parameters) extends XSBundle {

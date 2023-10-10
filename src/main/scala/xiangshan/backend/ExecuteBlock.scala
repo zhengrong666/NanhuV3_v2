@@ -104,6 +104,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
     val ptw = new BTlbPtwIO(ld_tlb_ports + exuParameters.StuCnt)
     val rob = Flipped(new RobLsqIO) // rob to lsq
     val lsqVecDeqCnt = Output(new LsqVecDeqIO)
+    val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
 
     //Rename
     val integerAllocPregs = Vec(RenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
@@ -211,6 +212,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   memBlk.io.sfence := intBlk.io.fenceio.sfence
   memBlk.io.tlbCsr <> intBlk.io.csrio.tlb
   memBlk.io.hartId := io.hartId
+  io.lqDeq := RegNext(memBlk.io.lqDeq)
 
   memBlk.io.sqWbout(0).ready := true.B
   memBlk.io.sqWbout(1).ready := true.B

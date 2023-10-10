@@ -123,20 +123,23 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val hasValid = deqPtr =/= enqPtr
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
 
-  private val splitEnqPipe = Module(new DequeuePipeline(1))
-  splitEnqPipe.io.redirect := io.redirect
-  splitEnqPipe.io.in(0).bits := deqUop.uop
-  splitEnqPipe.io.in(0).valid := hasValid && !vstartHold && uopRdy
+  private val splitDriver = Module(new DequeuePipeline(1))
+  splitDriver.io.redirect := io.redirect
+  splitDriver.io.in(0).bits := deqUop.uop
+  splitDriver.io.in(0).valid := hasValid && uopRdy
+  private val splitUop = splitDriver.io.out(0)
 
   splitNetwork.io.redirect := io.redirect
-  splitNetwork.io.in <> splitEnqPipe.io.out(0)
-  splitNetwork.io.vstart := io.vstart
+  splitNetwork.io.in.valid := splitDriver.io.out(0).valid && !vstartHold
+  splitNetwork.io.in.bits := splitDriver.io.out(0).bits
+  splitDriver.io.out(0).ready := splitNetwork.io.in.ready && !vstartHold
+  splitNetwork.io.vstart := RegNextN(io.vstart, 3)
 
-  private val deqValid = splitEnqPipe.io.in(0).fire
+  private val deqValid = splitDriver.io.in(0).fire
   when(deqValid){
     deqPtr := deqPtr + 1.U
   }
-  when(deqValid && io.vstart =/= 0.U){
+  when(splitNetwork.io.in.fire && io.vstart =/= 0.U){
     vstartHold := true.B
   }.elsewhen(io.vstart === 0.U && vstartHold){
     vstartHold := false.B
@@ -148,14 +151,14 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   io.out <> splitPipe.io.out
 
   private val vmbInit = Wire(Valid(new MicroOp))
-  vmbInit.valid := deqValid
-  vmbInit.bits := deqUop.uop
-  private val isLoad = deqUop.uop.ctrl.fuType === FuType.ldu
-  private val isNarrowToMask = deqUop.uop.vctrl.isNarrow &&
-    deqUop.uop.vctrl.eewType(2) === EewType.const &&
-    deqUop.uop.vctrl.eew(2) === EewVal.mask
-  private val emul = deqUop.uop.vctrl.emul
-  when(deqUop.uop.uopNum =/= 0.U) {
+  vmbInit.valid := splitUop.fire
+  vmbInit.bits := splitUop.bits
+  private val isLoad = splitUop.bits.ctrl.fuType === FuType.ldu
+  private val isNarrowToMask = splitUop.bits.vctrl.isNarrow &&
+    splitUop.bits.vctrl.eewType(2) === EewType.const &&
+    splitUop.bits.vctrl.eew(2) === EewVal.mask
+  private val emul = splitUop.bits.vctrl.emul
+  when(splitUop.bits.uopNum =/= 0.U) {
     when(isLoad) {
       vmbInit.bits.uopNum := MuxCase(1.U, Seq(
         (emul === 0.U(3.W)) -> 1.U,

@@ -102,6 +102,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val loadQueueDcache = new LQDcacheReqResp
     val storeQueueDcache = Flipped(new DCacheToSbufferIO)
     val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
+    val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
   })
 
   val loadQueue = Module(new LoadQueue)
@@ -153,7 +154,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.s3_replay_from_fetch <> io.s3_replay_from_fetch
   loadQueue.io.ldout <> io.ldout
   loadQueue.io.ldRawDataOut <> io.ldRawDataOut
-  loadQueue.io.rob <> io.rob
+  loadQueue.io.robHead := RegNext(io.rob.pendingInst)
+  loadQueue.io.lqSafeDeq := RegNext(io.rob.lqSafeDeq)
   loadQueue.io.rollback <> io.rollback
   loadQueue.io.dcache <> io.dcache
   loadQueue.io.release <> io.release
@@ -161,7 +163,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.exceptionAddr.isStore := DontCare
   loadQueue.io.lqCancelCnt <> io.lqCancelCnt
   loadQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
-  io.lsqVecDeqCnt.loadVectorDeqCnt := loadQueue.io.loadVectorDeqCnt
+  io.lsqVecDeqCnt.loadVectorDeqCnt := 0.U
+  io.lqDeq := loadQueue.io.lqDeq
 //  loadQueue.io.dcacheReqResp <> io.loadQueueDcache
   loadQueue.io.dcacheReqResp := DontCare
 

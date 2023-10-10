@@ -132,7 +132,7 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   private val vl = Wire(UInt(log2Ceil(VLEN + 1).W))
   when(vtype.vill){
     vl := 0.U
-  }.elsewhen(type2 || type3 || avl > Cat(vlmax, 0.U(1.W))){
+  }.elsewhen(type2 || type3 || avl >= Cat(vlmax, 0.U(1.W))){
     vl := vlmax
   }.elsewhen(avl > vlmax) {
     vl := LogicShiftRight(vlmax, 1) + 1.U
