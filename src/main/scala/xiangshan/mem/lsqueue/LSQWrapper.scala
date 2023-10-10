@@ -154,7 +154,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.s3_replay_from_fetch <> io.s3_replay_from_fetch
   loadQueue.io.ldout <> io.ldout
   loadQueue.io.ldRawDataOut <> io.ldRawDataOut
-  loadQueue.io.rob := RegNext(io.rob.pendingInst)
+  loadQueue.io.robHead := RegNext(io.rob.pendingInst)
+  loadQueue.io.lqSafeDeq := RegNext(io.rob.lqSafeDeq)
   loadQueue.io.rollback <> io.rollback
   loadQueue.io.dcache <> io.dcache
   loadQueue.io.release <> io.release

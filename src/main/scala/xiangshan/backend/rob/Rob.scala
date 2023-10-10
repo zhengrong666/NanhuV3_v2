@@ -534,6 +534,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.lsq.commit := RegNext(io.commits.isCommit && io.commits.commitValid(0))
   io.lsq.pendingOrdered := RegNext(io.commits.isCommit && io.commits.info(0).isOrder && valid(deqPtr.value))
   io.lsq.pendingInst := RegNext(deqPtr)
+  io.lsq.lqSafeDeq := RegNext(deqPtr)
 
   /**
     * state changes

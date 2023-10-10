@@ -106,7 +106,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val ldRawDataOut = Vec(2, Output(new LoadDataFromLQBundle))
     val load_s1 = Vec(LoadPipelineWidth, Flipped(new PipeLoadForwardQueryIO)) // TODO: to be renamed
     val loadViolationQuery = Vec(LoadPipelineWidth, Flipped(new LoadViolationQueryIO))
-    val rob = Input(new RobPtr)
+    val lqSafeDeq = Input(new RobPtr)
+    val robHead = Input(new RobPtr)
     val rollback = Output(Valid(new Redirect)) // replay now starts from load instead of store
     val dcache = Flipped(ValidIO(new Refill)) // TODO: to be renamed
     val release = Flipped(ValidIO(new Release))
@@ -176,7 +177,9 @@ class LoadQueue(implicit p: Parameters) extends XSModule
    *  if ROB is waiting index-ordered instruction, lq should flush sbuffer
    */
   val SbufferCleaned = RegInit(false.B)
-  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).vctrl.ordered && (!SbufferCleaned)
+  //TODO:Fixed this
+//  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).vctrl.ordered && (!SbufferCleaned)
+  val needFlushSbuffer = false.B
 
   io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
 
@@ -577,7 +580,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.lqDeq := RegNext(deqNum)
   uop.zip(readyToLeave).zipWithIndex.foreach({case((u, r), idx) =>
     val updateReadyToLeave = Wire(Bool())
-    updateReadyToLeave := u.robIdx <= io.rob && allocated(idx) && !r
+    updateReadyToLeave := u.robIdx <= io.lqSafeDeq && allocated(idx) && !r
     when(updateReadyToLeave){
       r := true.B
     }
@@ -912,11 +915,12 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   private val lqTailAllocated = WireInit(allocated(deqPtr))
   private val ldTailReadyToLeave = WireInit(readyToLeave(deqPtr))
   private val ldTailWritebacked = WireInit(writebacked(deqPtr))
+  private val pendingHead = uop(deqPtrExt.value).robIdx === io.robHead
   val s_idle :: s_req :: s_resp :: s_wait :: Nil = Enum(4)
   private val uncache_Order_State = RegInit(s_idle)
   switch(uncache_Order_State) {
     is(s_idle) {
-      when(RegNext(ldTailReadyToLeave && lqTailMmioPending && lqTailAllocated)) {
+      when(RegNext(ldTailReadyToLeave && lqTailMmioPending && lqTailAllocated && pendingHead)) {
         dataModule.io.uncache.ren := true.B
         uncache_Order_State := s_req
       }
