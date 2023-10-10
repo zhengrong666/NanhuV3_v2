@@ -561,7 +561,7 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   val resp_meta = Wire(new TageMeta)
   override val meta_size = resp_meta.getWidth
 
-  val s0PCdup = WireDefault(Vec(5, s0_pc_dup(4)))
+  val s0PCdup = WireDefault(VecInit(Seq.fill(5) {s0_pc_dup(4)} ))
 
   val tables = TageTableInfos.zipWithIndex.map {
     case ((nRows, histLen, tagLen), i) => {
