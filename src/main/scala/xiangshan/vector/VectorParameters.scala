@@ -27,8 +27,6 @@ import org.chipsalliance.cde.config._
 import xiangshan.HasXSParameter
 
 case class VectorParameters (
-    //common
-    vLen: Int               = 128, //maybe 64、256、512...
     //decode
     vDecodeWidth: Int       = 4,
     //vector instr rename
@@ -36,8 +34,7 @@ case class VectorParameters (
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 48,
     vWaitQueueNum: Int      = 24,
-    vVtypeRegsNum: Int      = 16,
-    viWalkRobIdxQueueWidth: Int = 32,
+    vVtypeRegsNum: Int      = 8,
     //dispatch
     vDispatchQueueMem: Int      = 16,
     vDispatchQueuePermu: Int    = 16,
@@ -49,10 +46,10 @@ case class VectorParameters (
     vPRsDepth: Int      = 4,
     //merge
     vMergeBufferDepth: Int = 32,
-    vMergeBufferAllocateWidth: Int = 4,
-    vMergeWidth: Int = 4,
-    vMergeWbWdith: Int = 4
+    vMergeWbWdith: Int = 2
 ) {
+    val vLen: Int = 128 //maybe 64、256、512...
+    val vMergeBufferAllocateWidth: Int = vDecodeWidth
     def vPhyRegIdxWidth: Int = log2Up(vPhyRegsNum)
 }
 
@@ -73,7 +70,6 @@ trait HasVectorParameters extends HasXSParameter {
     val VIPhyRegIdxWidth    = vectorParams.vPhyRegIdxWidth
     val VIWaitQueueWidth    = vectorParams.vWaitQueueNum
     val VIVtypeRegsNum      = vectorParams.vVtypeRegsNum
-    val VIWalkRobIdxQueueWidth = vectorParams.viWalkRobIdxQueueWidth
 
     val VectorDispatchCommonWidth = vectorParams.vDispatchQueueCommon
     val VectorDispatchMemWidth = vectorParams.vDispatchQueueMem
@@ -87,5 +83,4 @@ trait HasVectorParameters extends HasXSParameter {
     val VectorMergeBufferDepth = vectorParams.vMergeBufferDepth
     val VectorMergeAllocateWidth = vectorParams.vMergeBufferAllocateWidth
     val VectorMergeWbWidth = vectorParams.vMergeWbWdith
-    val VectorMergeWidth = vectorParams.vMergeWidth
 }
