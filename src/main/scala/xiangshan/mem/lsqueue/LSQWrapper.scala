@@ -177,7 +177,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.storeMaskIn <> io.storeMaskIn
   storeQueue.io.sbuffer <> io.sbuffer
   storeQueue.io.mmioStout <> io.mmioStout
-  storeQueue.io.rob <> io.rob
+  storeQueue.io.rob := RegNext(io.rob.pendingInst)
   storeQueue.io.exceptionAddr.isStore := DontCare
   storeQueue.io.issuePtrExt <> io.issuePtrExt
   storeQueue.io.sqCancelCnt <> io.sqCancelCnt
@@ -185,7 +185,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
   storeQueue.io.dcacheReqResp <> io.storeQueueDcache
   storeQueue.io.stout <> io.stout
-  io.lsqVecDeqCnt.storeVectorDeqCnt := storeQueue.io.storeVectorDeqCnt
+  io.lsqVecDeqCnt.storeVectorDeqCnt := 0.U
 
   io.vectorOrderedFlushSBuffer.valid := (loadQueue.io.vectorOrderedFlushSBuffer.valid || storeQueue.io.vectorOrderedFlushSBuffer.valid)
 
