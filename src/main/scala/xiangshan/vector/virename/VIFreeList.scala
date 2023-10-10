@@ -90,8 +90,12 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   releasePtr := releasePtrNext
 
   for((rls, i) <- io.releasePhyReg.zipWithIndex) {
-    val ptr = releasePtr + PopCount(io.releasePhyReg.take(i+1).map(_.valid))
-    when(rls.valid === true.B) {
+    val ptr = if(i == 0) {
+      releasePtr
+    } else {
+      releasePtr + PopCount(io.releasePhyReg.take(i).map(_.valid))
+    }
+    when(rls.valid) {
       freeList(ptr.value) := rls.bits
     }
   }
