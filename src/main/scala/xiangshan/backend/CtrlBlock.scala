@@ -321,9 +321,9 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vCtrlBlock.io.vtypewriteback := io.vcsrToRename.vtypeWbToRename
 
   vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
-  for((robId, port) <- rob.io.enq.resp.zip(vCtrlBlock.io.robPtr)) {
-    port.bits := robId
-    port.valid := true.B
+  for((req, port) <- rob.io.enq.req.zip(vCtrlBlock.io.robPtr)) {
+    port.bits := RegEnable(req.bits.robIdx, req.valid && rob.io.enq.canAccept)
+    port.valid := RegNext(req.valid && rob.io.enq.canAccept, false.B)
   }
 
   rob.io.wbFromMergeBuffer.zip(outer.wbMergeBuffer.module.io.rob).foreach({case(a, b) => a := Pipe(b)})
