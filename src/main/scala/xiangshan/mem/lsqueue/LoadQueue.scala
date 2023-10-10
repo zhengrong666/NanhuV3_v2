@@ -576,7 +576,8 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   }
   private val deqWindow = Seq.tabulate(CommitWidth)(idx => (deqPtrExt + idx.U).value)
   private val deqVec = deqWindow.map(addr => readyToDeq(addr) & !io.brqRedirect.valid)
-  private val deqNum = PopCount(deqVec)
+  private val deqBlocked = deqVec.map(!_) :+ true.B
+  private val deqNum = PriorityEncoder(deqBlocked)
   io.lqDeq := RegNext(deqNum)
   uop.zip(readyToLeave).zipWithIndex.foreach({case((u, r), idx) =>
     val updateReadyToLeave = Wire(Bool())
