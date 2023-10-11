@@ -15,12 +15,19 @@
 
 /*--------------------------------------------------------------------------------------
     Author: GMX
-    Date: 2023-06-28
+    Date: 2023-10-10
     email: guanmingxing@bosc.ac.cn
 
     Vector Instruction writeback merge
-    if mask = 8'b1111_1111  => can write back
-    else                    => store it in here
+    1.writeback
+    ---------------------------------------------------
+    if uopNum == mergeCnt   => writeback this instr to ROB
+    else                    => store it in here, and mergeCnt += this cycle merge Num
+
+    2.vector instr exception
+    ---------------------------------------------------
+
+
 ---------------------------------------------------------------------------------------*/
 
 package xiangshan.vector.writeback
@@ -35,7 +42,6 @@ import xiangshan._
 import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
-import os.stat
 
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
 object WbMergeBufferPtr {
@@ -47,11 +53,22 @@ object WbMergeBufferPtr {
   }
 }
 
+class VecExceptionInfo(size: Int)(implicit p: Parameters) extends XSBundle {
+  val valid = Bool()
+  val robPtr = new RobPtr
+  val mergePtr = new WbMergeBufferPtr(size)
+  val exceptionVec = ExceptionVec()
+  val trigger = new TriggerCf
+}
+
 class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4, wbWidth: Int = 4)(implicit p: Parameters)
   extends XSModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle {
     val redirect = Flipped(ValidIO(new Redirect))
-    val waitqueueAlloc = Vec(allocateWidth, DecoupledIO(new WbMergeBufferPtr(size)))
+    val waitqueueAlloc = Vec(allocateWidth, new Bundle {
+      val mergePtr = DecoupledIO(new WbMergeBufferPtr(size))
+      val robPtr = Input(new RobPtr)
+    })
     val rob = Vec(wbWidth, ValidIO(new ExuOutput))
     val exu = Vec(mergeWidth, Flipped(ValidIO(new ExuOutput)))
     //from WaitQueue
@@ -59,68 +76,65 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     val wbExceptionGen = Flipped(Valid(new ExuOutput))
   })
 
+  val s_free :: s_alloc :: s_wb :: Nil = Enum(3)
+  val stateVec = RegInit(VecInit(Seq.fill(size)(s_free)))
+  val mergeTable = Reg(Vec(size, new ExuOutput))
+  val mergeCnt = RegInit(VecInit(Seq.fill(size)(0.U(8.W))))
+
   val allocatePtr = RegInit(WbMergeBufferPtr(false, 0, size))
   val writebackPtr  = RegInit(WbMergeBufferPtr(false, 0, size))
 
-  val mergeTable = Reg(Vec(size, new ExuOutput))
+  val exception_info = RegInit(0.U.asTypeOf(new VecExceptionInfo(size)))
 
-  val s_free :: s_alloc :: s_wb :: Nil = Enum(3)
-  val stateVec = RegInit(VecInit(Seq.fill(size)(s_free)))
-  
-  val mergeCnt = RegInit(VecInit(Seq.fill(size)(0.U(8.W))))
-
-  val exceptionHappen = RegInit(false.B)
-  val exceptionPtr = RegInit(WbMergeBufferPtr(false, 0, size))
-
-  //allocate, connect with WaitQueue
-  val cancelVec = Wire(Vec(size, Bool()))
-
+  // allocate, connect with WaitQueue
   io.waitqueueAlloc.zipWithIndex.foreach {
     case (port, i) => {
-      val allocPtr = allocatePtr + i.U
+      val allocPtr = (allocatePtr + i.U)
+      port.mergePtr.bits := allocPtr
       val allocPtrOH = allocPtr.toOH
-      port.bits := allocPtr
       val allocState = Mux1H(allocPtrOH, stateVec)
-      port.valid := allocState === s_free
+      port.mergePtr.valid := (allocState === s_free)
     }
   }
 
-  val exceptionHandle = RegNext(RegNext((io.vmbInit.valid && io.vmbInit.bits.cf.exceptionVec.asUInt =/= 0.U))) || io.wbExceptionGen.valid
-  val vmException_s1 = RegNext(io.vmbInit)
-  val s1_low = vmException_s1.valid && (vmException_s1.bits.mergeIdx < exceptionPtr)
-  val exceptionHere = Wire(ValidIO(new MicroOp))
-  val exceptionRead = Mux1H(exceptionPtr.toOH, mergeTable)
-  exceptionHere.bits := exceptionRead.uop
-  exceptionHere.valid := exceptionHappen
-  val s1_res = RegNext(Mux(s1_low, vmException_s1, exceptionHere))
-
-  when(exceptionHandle) {
-    exceptionHappen := exceptionHappen || exceptionHandle
-    exceptionPtr := Mux(io.wbExceptionGen.valid && io.wbExceptionGen.bits.uop.mergeIdx < s1_res.bits.mergeIdx, io.vmbInit.bits.mergeIdx, s1_res.bits.mergeIdx)
-  }
-
+  val cancelVec = Wire(Vec(size, Bool()))
+  val allocCancel = io.vmbInit.bits.robIdx.needFlush(io.redirect)
   mergeTable.zip(cancelVec).zip(stateVec).zipWithIndex.foreach {
     case (((e, cancel), s), i) => {
-      val flushValid = e.uop.robIdx.needFlush(io.redirect)
-      cancel := s =/= s_free && flushValid
-      val initEn = io.vmbInit.valid && (io.vmbInit.bits.mergeIdx.value === i.U)
+      val initEn = io.vmbInit.valid && (io.vmbInit.bits.mergeIdx.value === i.U) && (!allocCancel) && (s === s_alloc)
+      cancel := (s =/= s_free) && e.uop.robIdx.needFlush(io.redirect)
       when(initEn) {
         e.uop := io.vmbInit.bits
         mergeCnt(i) := 0.U
         s := s_alloc
-      }
-      when(cancel) {
+      }.elsewhen(cancel) {
         s := s_free
       }
     }
   }
 
-  val allocNum = PopCount(io.waitqueueAlloc.map(_.fire))
+  val allocNum = PopCount(io.waitqueueAlloc.map(alloc => alloc.mergePtr.fire && !alloc.robPtr.needFlush(io.redirect)))
   val cancelNum = PopCount(cancelVec)
-  allocatePtr := Mux(io.redirect.valid, allocatePtr - cancelNum, allocatePtr + allocNum)
+  allocatePtr := allocatePtr + allocNum - cancelNum
 
+  // Exception
+  val exceptionHandle = RegNext(RegNext((io.vmbInit.valid && io.vmbInit.bits.cf.exceptionVec.asUInt =/= 0.U))) || io.wbExceptionGen.valid
+  val vmException_s1 = RegNext(io.vmbInit)
+  val s1_low = vmException_s1.valid && (vmException_s1.bits.mergeIdx < exception_info.mergePtr)
+  val exceptionHere = Wire(ValidIO(new MicroOp))
+  val exceptionRead = Mux1H(exception_info.mergePtr.toOH, mergeTable)
+  exceptionHere.bits := exceptionRead.uop
+  exceptionHere.valid := exception_info.valid
+  val s1_res = RegNext(Mux(s1_low, vmException_s1, exceptionHere))
+
+  when(exceptionHandle) {
+    exception_info.valid := exception_info.valid || exceptionHandle
+    exception_info.mergePtr := Mux(io.wbExceptionGen.valid && io.wbExceptionGen.bits.uop.mergeIdx < s1_res.bits.mergeIdx, io.vmbInit.bits.mergeIdx, s1_res.bits.mergeIdx)
+  }
+
+  // Writeback
   for((e, i) <- mergeTable.zipWithIndex) {
-    val needMerge = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid && (wb.bits.uop.cf.exceptionVec.asUInt === 0.U))
+    val needMerge = io.exu.map(wb => wb.valid && (wb.bits.uop.mergeIdx.value === i.U) && (wb.bits.uop.cf.exceptionVec.asUInt === 0.U) && wb.bits.uop.robIdx.needFlush(io.redirect))
     val cntNext = mergeCnt(i) + PopCount(needMerge)
     mergeCnt(i) := cntNext
     when(stateVec(i) === s_alloc && cntNext === e.uop.uopNum) {
@@ -134,7 +148,7 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
     }
   }
 
-  //select writeback, connect with ROB, and release mergeIdx to freeIdxQueue
+  // select writeback, connect with ROB, and release mergeIdx to freeIdxQueue
   val wbPtrVec = Wire(Vec(wbWidth, new WbMergeBufferPtr(size)))
   wbPtrVec.zipWithIndex.foreach {
     case (wb, i) => {
@@ -143,13 +157,12 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
   }
 
   val wbVec = Wire(Vec(wbWidth, Bool()))
-
   wbVec.zip(wbPtrVec).zipWithIndex.foreach {
     case ((wb, ptr), i) => {
       val ptrOH = ptr.toOH
       val s = Mux1H(ptrOH, stateVec)
       if(i == 0) {
-        wb := (s === s_wb) || (exceptionHappen && exceptionPtr === ptr)
+        wb := (s === s_wb) || (exception_info.valid && exception_info.mergePtr === ptr)
       } else {
         val frontWb = WireInit(VecInit(wbVec.take(i)))
         wb := (s === s_wb) && frontWb.asUInt.andR

@@ -24,24 +24,22 @@
 
 package xiangshan.vector.writeback
 
-import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 
 import utils._
 import xs.utils._
+import xs.utils.{HasCircularQueuePtrHelper, ParallelPriorityMux}
+
 import xiangshan._
 import xiangshan.backend._
 import xiangshan.backend.rob._
-import freechips.rocketchip.diplomacy._
 import xiangshan.backend.execute.exu.ExuType
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 
-import xiangshan.backend.issue.SelectPolicy
-import xs.utils.{HasCircularQueuePtrHelper, ParallelPriorityMux}
-
 import freechips.rocketchip.diplomacy._
+import org.chipsalliance.cde.config.Parameters
 
 class WbMergeBufferWrapper(implicit p: Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
   val wbNodeParam = WriteBackSinkParam(name = "MergeBuffer", sinkType = WriteBackSinkType.vecMs)
@@ -71,7 +69,10 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
   }
   
   val io = IO(new Bundle {
-    val allocate = Vec(VectorMergeAllocateWidth, DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
+    val allocate = Vec(VectorMergeAllocateWidth, new Bundle {
+      val mergePtr = DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))
+      val robPtr = Input(new RobPtr)
+    })
     val redirect = Flipped(Valid(new Redirect))
     val rob = Vec(VectorMergeWbWidth, ValidIO(new ExuOutput))
     val vmbInit = Flipped(ValidIO(new MicroOp))
@@ -79,6 +80,8 @@ class WbMergeBufferWrapperImp(outer:WbMergeBufferWrapper)(implicit p: Parameters
 
   val bufferImp = Module(new WbMergeBuffer(VectorMergeBufferDepth, VectorMergeAllocateWidth, vectorWbNodeNum, VectorMergeWbWidth))
 
+
+  // Exception Gen
   val exceptionPortGroup = wbHasException.map(_._2)
   assert(exceptionPortGroup.length == 4)
 

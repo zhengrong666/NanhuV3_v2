@@ -29,7 +29,11 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     val vstart = Input(UInt(7.W))
     val vtypeWbData = Flipped(ValidIO(new VtypeWbIO))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
+    //val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
+    val mergeId = Vec(VectorMergeAllocateWidth, new Bundle {
+      val mergePtr = Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
+      val robPtr = Output(new RobPtr)
+    })
     val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
     val enq = new NewWqEnqIO
@@ -90,16 +94,17 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val needMergeNum = distanceBetween(enqPtr, mergePtr)
 
   io.mergeId.zipWithIndex.foreach({case(m, i) =>
-    m.ready := needMergeNum >= (i + 1).U
+    m.mergePtr.ready := needMergeNum >= (i + 1).U
   })
 
   table.io.vmsIdAllocte.zipWithIndex.foreach({ case(va, i) =>
-    va.en := io.mergeId(i).fire
-    va.data := io.mergeId(i).bits
+    va.en := io.mergeId(i).mergePtr.fire
+    va.data := io.mergeId(i).mergePtr.bits
     va.addr := (mergePtr + i.U).value
+    io.mergeId(i).robPtr := io.enq.req(i).bits.uop.robIdx
   })
 
-  private val mergeAllocs = io.mergeId.map(_.fire)
+  private val mergeAllocs = io.mergeId.map(_.mergePtr.fire)
   private val mergeAllocNum = PopCount(mergeAllocs)
   when(io.redirect.valid){
     when(enqPtrNext < mergePtr){

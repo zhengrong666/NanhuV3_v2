@@ -118,7 +118,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   // instvalid field
   val valid = RegInit(VecInit(Seq.fill(RobSize)(false.B)))
   // writeback status
-  val writebacked = Mem(RobSize, Bool())
+  val writebacked = Reg(Vec(RobSize, Bool()))
   // data for redirect, exception, etc.
   val flagBkup = Mem(RobSize, Bool())
   // some instructions are not allowed to trigger interrupts
@@ -515,6 +515,25 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.csr.fflags   := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
   io.csr.vxsat    := Pipe(vxsat)
+
+  val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
+  vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
+    case((vcv, cv), i) => {
+      vcv := io.commits.isCommit && cv && io.commits.info(i).isVector
+    }
+  }
+
+  when(io.exception.valid && io.exception.bits.uop.ctrl.isVector) {
+    io.csr.vstart.valid := true.B
+    io.csr.vstart.bits := exceptionGen.io.state.bits.vstart
+  }.elsewhen(vectorCommitValidVec.asUInt.orR) {
+    io.csr.vstart.valid := true.B
+    io.csr.vstart.bits := 0.U
+  }.otherwise {
+    io.csr.vstart.valid := false.B
+    io.csr.vstart.bits := 0.U
+  }
+
   io.csr.vstart.valid := io.exception.valid && io.exception.bits.uop.ctrl.isVector
   io.csr.vstart.bits  := exceptionGen.io.state.bits.vstart
 

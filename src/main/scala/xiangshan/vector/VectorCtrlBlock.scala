@@ -34,6 +34,7 @@ import xiangshan.vector.virename._
 import xiangshan.vector.dispatch._
 import xiangshan.vector.writeback._
 import xiangshan.backend.execute.fu.csr.vcsr._
+import freechips.rocketchip.jtag.JtagState
 
 class SIRenameInfo(implicit p: Parameters) extends VectorBaseBundle {
   val psrc = Vec(3, UInt(PhyRegIdxWidth.W))
@@ -52,7 +53,10 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     //from ctrl rob
     val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Flipped(ValidIO(new VtypeWbIO)) //to wait queue
-    val mergeIdAllocate = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))) //to wait queue
+    val mergeIdAllocate = Vec(VectorMergeAllocateWidth, new Bundle {
+      val mergePtr = Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
+      val robPtr = Output(new RobPtr)
+    })
     val commit = Flipped(new RobCommitIO) // to rename
     val redirect = Flipped(ValidIO(new Redirect))
     //from csr vstart
@@ -101,7 +105,12 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   waitqueue.io.vstart         := io.vstart
   waitqueue.io.vtypeWbData    := io.vtypewriteback
   waitqueue.io.robin          := io.robPtr
-  waitqueue.io.mergeId        <> io.mergeIdAllocate
+  waitqueue.io.mergeId.zip(io.mergeIdAllocate).foreach {
+    case (wq, alloc) => {
+      wq.mergePtr <> alloc.mergePtr
+      alloc.robPtr := wq.robPtr
+    }
+  }
   waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
   waitqueue.io.redirect       := redirectDelay_dup_1
 
