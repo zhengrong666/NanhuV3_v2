@@ -100,7 +100,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
     }
   }
 
-  val memHasVec = VecInit(io.memIn.map(req => req.valid && req.bits.ctrl.isVector)).asUInt.orR
+  val memHasVec = VecInit(io.memIn.map(req => req.fire && req.bits.ctrl.isVector)).asUInt.orR
   when(arbState === s_mem && memHasVec) {
     val selIn = Mux1H(memVecSel, io.memIn)
     arbState := s_vmem
