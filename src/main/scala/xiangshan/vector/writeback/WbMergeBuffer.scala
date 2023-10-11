@@ -174,11 +174,14 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
 
   // Writeback
   for((e, i) <- mergeTable.zipWithIndex) {
-    val needMerge = io.exu.map(wb => wb.valid && (wb.bits.uop.mergeIdx.value === i.U) && (wb.bits.uop.cf.exceptionVec.asUInt === 0.U) && wb.bits.uop.robIdx.needFlush(io.redirect))
+    val needMerge = io.exu.map(wb => wb.valid && (wb.bits.uop.mergeIdx.value === i.U) && (wb.bits.uop.cf.exceptionVec.asUInt === 0.U) && !(wb.bits.uop.robIdx.needFlush(io.redirect)))
     val cntNext = mergeCnt(i) + PopCount(needMerge)
-    mergeCnt(i) := cntNext
-    when(stateVec(i) === s_alloc && cntNext === e.uop.uopNum) {
-      stateVec(i) := s_wb
+    when(stateVec(i) === s_alloc) {
+      when(cntNext === e.uop.uopNum) {
+        stateVec(i) := s_wb
+      }.otherwise {
+        mergeCnt(i) := cntNext
+      }
     }
     val wenVec = io.exu.map(wb => wb.bits.uop.mergeIdx.value === i.U && wb.valid)
     val wen = WireInit(VecInit(wenVec)).asUInt.orR
