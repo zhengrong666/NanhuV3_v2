@@ -192,7 +192,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
 
     vtyperename.io.needAlloc(i) := io.in(i).valid && io.in(i).bits.ctrl.isVtype
     vtyperename.io.in(i).bits := uops(i)
-    vtyperename.io.in(i).valid := io.in(i).valid && io.in(i).bits.ctrl.isVtype && io.allowIn
+    vtyperename.io.in(i).valid := io.in(i).fire && io.in(i).bits.ctrl.isVtype && io.allowIn
     vtyperename.io.vcsr <> io.vcsrio
 
     //out

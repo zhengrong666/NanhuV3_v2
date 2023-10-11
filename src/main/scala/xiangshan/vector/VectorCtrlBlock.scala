@@ -64,7 +64,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
     val vDispatch = Vec(vecDpWidth, DecoupledIO(new MicroOp))
     val vpDispatch = Vec(vpDpWidth, DecoupledIO(new MicroOp))
-    val vmemDispath = Vec(memDpWidth, DecoupledIO(new MicroOp))
+    val vmemDispatch = Vec(memDpWidth, DecoupledIO(new MicroOp))
 
     val vmbInit = Output(Valid(new MicroOp))
     val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
@@ -136,7 +136,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   io.vDispatch <> dispatch.io.toVectorCommonRS
   io.vpDispatch <> dispatch.io.toVectorPermuRS
-  io.vmemDispath <> dispatch.io.toMem2RS
+  io.vmemDispatch <> dispatch.io.toMem2RS
 
   io.vmbInit := waitqueue.io.vmbInit
 }

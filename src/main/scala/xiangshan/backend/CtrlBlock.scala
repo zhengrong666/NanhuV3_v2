@@ -387,7 +387,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
 
   //mem and vmem dispatch merge
   memDqArb.io.memIn <> lsDq.io.deq
-  memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispath
+  memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispatch
   memDqArb.io.redirect := redirectDelay
 
   memDispatch2Rs.io.redirect := redirectDelay_dup_3
