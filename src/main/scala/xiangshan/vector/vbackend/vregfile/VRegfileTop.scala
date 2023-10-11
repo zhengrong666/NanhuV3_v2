@@ -119,10 +119,15 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     private val vrf = Module(new VRegfile(wbPairNeedMerge.length, wbPairDontNeedMerge.length, readPortsNum))
     vrf.io.vecAllocPregs.zip(io.vecAllocPregs).foreach({case(a, b) => a := Pipe(b)})
 
-    println("VRF writeback port need merged:")
+    println("====================VRF writeback port:====================")
+    wbVFUPair.foreach(e => print(e._3))
+
+    println("\n====================VRF writeback port need merged:====================")
     wbPairNeedMerge.foreach(e => print(e._3))
-    println("\nVRF writeback port not need merged:")
+
+    println("\n====================VRF writeback port not need merged:====================")
     wbPairDontNeedMerge.foreach(e => print(e._3))
+
     vrf.io.wbWakeup.zip(vrf.io.wakeups).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
       if(cfg.exuType == ExuType.ldu){
         val sew = wbin.bits.uop.vctrl.eew(0)
