@@ -42,6 +42,9 @@ import xiangshan._
 import xiangshan.backend._
 import xiangshan.backend.rob._
 import freechips.rocketchip.diplomacy._
+import xiangshan.ExceptionVec
+import xiangshan.ExceptionVec
+import xiangshan.ExceptionVec
 
 class WbMergeBufferPtr(size: Int) extends CircularQueuePtr[WbMergeBufferPtr](size) with HasCircularQueuePtrHelper
 object WbMergeBufferPtr {
@@ -110,6 +113,14 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
       }.elsewhen(cancel) {
         s := s_free
       }
+
+      val robIdxWenVec = io.waitqueueAlloc.map(alloc => alloc.mergePtr.fire && alloc.mergePtr.bits.value === i.U)
+      val robIdxWen = WireInit(VecInit(robIdxWenVec))
+      val robIdxData = Mux1H(robIdxWen, io.waitqueueAlloc.map(_.robPtr))
+      when(robIdxWen.asUInt.orR) {
+        e.uop.robIdx := robIdxData
+      }
+
     }
   }
 
@@ -118,18 +129,47 @@ class WbMergeBuffer(size: Int = 64, allocateWidth: Int = 4, mergeWidth: Int = 4,
   allocatePtr := allocatePtr + allocNum - cancelNum
 
   // Exception
-  val exceptionHandle = RegNext(RegNext((io.vmbInit.valid && io.vmbInit.bits.cf.exceptionVec.asUInt =/= 0.U))) || io.wbExceptionGen.valid
-  val vmException_s1 = RegNext(io.vmbInit)
-  val s1_low = vmException_s1.valid && (vmException_s1.bits.mergeIdx < exception_info.mergePtr)
-  val exceptionHere = Wire(ValidIO(new MicroOp))
-  val exceptionRead = Mux1H(exception_info.mergePtr.toOH, mergeTable)
-  exceptionHere.bits := exceptionRead.uop
-  exceptionHere.valid := exception_info.valid
-  val s1_res = RegNext(Mux(s1_low, vmException_s1, exceptionHere))
+  val exceptionFromVmbInit_delay1 = RegNext(io.vmbInit)
+  val exceptionFromVmbInitVec = RegEnable(exceptionFromVmbInit_delay1.bits.cf.exceptionVec, VecInit(0.U(16.W).asBools), exceptionFromVmbInit_delay1.valid)
+
+  val exceptionHandle = (RegNext(exceptionFromVmbInit_delay1.valid) && exceptionFromVmbInitVec.asUInt =/= 0.U) || io.wbExceptionGen.valid
+
+  val s1_low = exceptionFromVmbInit_delay1.valid && (exceptionFromVmbInit_delay1.bits.mergeIdx < exception_info.mergePtr)
+
+  val s1_res = Wire(new Bundle {
+    val valid = Bool()
+    val mergeIdx = new WbMergeBufferPtr(size)
+    val exceptionVec = ExceptionVec()
+    val trigger = new TriggerCf
+    //val uopIdx = UInt(7.W)
+  })
+  s1_res.valid := exceptionFromVmbInit_delay1.valid || exception_info.valid
+  when(exceptionFromVmbInit_delay1.valid && exception_info.valid) {
+    s1_res.mergeIdx := Mux(exceptionFromVmbInit_delay1.bits.mergeIdx < exception_info.mergePtr, exceptionFromVmbInit_delay1.bits.mergeIdx, exception_info.mergePtr)
+    s1_res.exceptionVec := Mux(exceptionFromVmbInit_delay1.bits.mergeIdx < exception_info.mergePtr, exceptionFromVmbInit_delay1.bits.cf.exceptionVec, exception_info.exceptionVec)
+    s1_res.trigger := Mux(exceptionFromVmbInit_delay1.bits.mergeIdx < exception_info.mergePtr, exceptionFromVmbInit_delay1.bits.cf.trigger, exception_info.trigger)
+  }.elsewhen(exceptionFromVmbInit_delay1.valid) {
+    s1_res.mergeIdx := exceptionFromVmbInit_delay1.bits.mergeIdx
+    s1_res.exceptionVec := exceptionFromVmbInit_delay1.bits.cf.exceptionVec
+    s1_res.trigger := exceptionFromVmbInit_delay1.bits.cf.trigger
+  }.otherwise {
+    s1_res.mergeIdx := exception_info.mergePtr
+    s1_res.exceptionVec := exception_info.exceptionVec
+    s1_res.trigger := exception_info.trigger
+  }
+
+  val s1_res_delay1 = RegNext(s1_res)
 
   when(exceptionHandle) {
     exception_info.valid := exception_info.valid || exceptionHandle
-    exception_info.mergePtr := Mux(io.wbExceptionGen.valid && io.wbExceptionGen.bits.uop.mergeIdx < s1_res.bits.mergeIdx, io.vmbInit.bits.mergeIdx, s1_res.bits.mergeIdx)
+    exception_info.mergePtr := Mux(io.wbExceptionGen.valid && (io.wbExceptionGen.bits.uop.mergeIdx < s1_res_delay1.mergeIdx), io.vmbInit.bits.mergeIdx, s1_res_delay1.mergeIdx)
+    when(io.wbExceptionGen.valid && (io.wbExceptionGen.bits.uop.mergeIdx < s1_res_delay1.mergeIdx)) {
+      exception_info.exceptionVec := io.wbExceptionGen.bits.uop.cf.exceptionVec
+      exception_info.trigger := io.wbExceptionGen.bits.uop.cf.trigger
+    }.otherwise {
+      exception_info.exceptionVec :=  s1_res_delay1.exceptionVec
+      exception_info.trigger :=  s1_res_delay1.trigger
+    }
   }
 
   // Writeback
