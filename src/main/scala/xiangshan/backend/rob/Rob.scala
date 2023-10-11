@@ -534,9 +534,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     io.csr.vstart.bits := 0.U
   }
 
-  io.csr.vstart.valid := io.exception.valid && io.exception.bits.uop.ctrl.isVector
-  io.csr.vstart.bits := exceptionGen.io.state.bits.vstart
-
   //************************MemBlock************************
   // commit load/store to lsq
   val ldCommitVec = VecInit((0 until CommitWidth).map(
