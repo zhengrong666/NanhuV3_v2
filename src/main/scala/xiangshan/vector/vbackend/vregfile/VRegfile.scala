@@ -2,8 +2,9 @@ package xiangshan.vector.vbackend.vregfile
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
+import xiangshan.vector.vbackend.vregfile.VRegfileTopUtil.GenLoadVrfMask
 import xiangshan.{ExuOutput, XSBundle, XSModule}
-import xs.utils.ZeroExt
+import xs.utils.{UIntToMask, ZeroExt}
 
 class MoveReq(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
@@ -13,6 +14,7 @@ class MoveReq(implicit p: Parameters) extends XSBundle{
   val agnostic = Bool()
   val enable = Bool()
   val sew = UInt(2.W)
+  val nf = UInt(3.W)
   val uopIdx = UInt(7.W)
 }
 
@@ -86,24 +88,37 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
       vrf.write(addr, data, dataMask)
     }
   }
+
+  private def GenMoveMask(in:MoveReq):UInt = {
+    val width = VLEN / 8
+    val vlenShiftBits = log2Ceil(VLEN / 8)
+    val sew = in.sew
+    val nf = in.nf
+    val uopIdx = MuxCase(in.uopIdx, Seq(
+      (nf === 2.U) -> in.uopIdx / 2.U,
+      (nf === 3.U) -> in.uopIdx / 3.U,
+      (nf === 4.U) -> in.uopIdx / 4.U,
+      (nf === 5.U) -> in.uopIdx / 5.U,
+      (nf === 6.U) -> in.uopIdx / 6.U,
+      (nf === 7.U) -> in.uopIdx / 7.U,
+      (nf === 8.U) -> in.uopIdx / 8.U,
+    ))
+    val mask = MuxCase(0.U, Seq(
+      (sew === 0.U) -> ("h01".U << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
+      (sew === 1.U) -> ("h03".U << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
+      (sew === 2.U) -> ("h0f".U << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
+      (sew === 3.U) -> ("hff".U << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
+    ))
+    mask(width - 1, 0).asUInt
+  }
   // Move request
   for (i <- 0 until loadUnitNum) {
     val mReq = io.moveOldValReqs(i)
     when (mReq.valid) {
       val dst = io.moveOldValReqs(i).bits.dstAddr
       val srcData = WireInit(vrf.read(mReq.bits.srcAddr))
-      val elmIdx = MuxCase(0.U, Seq(
-        (mReq.bits.sew === 0.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 8) - 1, 0), log2Ceil(VLEN / 8)),
-        (mReq.bits.sew === 1.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 16) - 1, 0), log2Ceil(VLEN / 8)),
-        (mReq.bits.sew === 2.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 32) - 1, 0), log2Ceil(VLEN / 8)),
-        (mReq.bits.sew === 3.U) -> ZeroExt(mReq.bits.uopIdx(log2Ceil(VLEN / 64) - 1, 0), log2Ceil(VLEN / 8)),
-      ))
-      val wm = MuxCase(0.U, Seq(
-        (mReq.bits.sew === 0.U) -> (0x1.U << elmIdx)(maskWidth - 1, 0),
-        (mReq.bits.sew === 1.U) -> (0x3.U << elmIdx)(maskWidth - 1, 0),
-        (mReq.bits.sew === 2.U) -> (0xf.U << elmIdx)(maskWidth - 1, 0),
-        (mReq.bits.sew === 3.U) -> (0xff.U << elmIdx)(maskWidth - 1, 0),
-      ))
+      val wm = Wire(UInt(maskWidth.W))
+      wm := GenMoveMask(mReq.bits)
       when(mReq.bits.agnostic){
         srcData.foreach(_ := 0xffff.U)
       }
