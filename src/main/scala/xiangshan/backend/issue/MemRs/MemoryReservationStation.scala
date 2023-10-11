@@ -124,13 +124,13 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   private val wkpToRsBank = allWkpIns.map(_._1) ++ fmaSpecWakeup ++ io.mulSpecWakeup ++ aluJmpSpecWakeup
   private val wbWkpLen = allWkpIns.length
 
-  private val regWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeIntRf).map(_._2) ++
+  private val regWkpIdx = allWkpIns.zipWithIndex.filter(e => e._1._2.writeIntRf && !e._1._2.isVldu).map(_._2) ++
     Seq.tabulate((io.mulSpecWakeup ++ aluJmpSpecWakeup).length)(_ + wbWkpLen + fmaSpecWakeup.length)
 
-  private val fpWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeFpRf).map(_._2) ++
+  private val fpWkpIdx = allWkpIns.zipWithIndex.filter(e => e._1._2.writeFpRf && !e._1._2.isVldu).map(_._2) ++
     Seq.tabulate((fmaSpecWakeup ++ io.mulSpecWakeup).length)(_ + wbWkpLen)
 
-  private val vecWkpIdx = allWkpIns.zipWithIndex.filter(_._1._2.writeVecRf).map(_._2)
+  private val vecWkpIdx = allWkpIns.zipWithIndex.filter(e => e._1._2.writeVecRf && e._1._2.throughVectorRf).map(_._2)
 
   private val stIssuedWires = Wire(Vec(staIssuePortNum, Valid(new RobPtr)))
 
