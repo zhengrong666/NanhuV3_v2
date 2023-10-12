@@ -37,43 +37,6 @@ class RollBackListEntry(implicit p: Parameters) extends VectorBaseBundle {
   val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
 }
 
-class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
-  private val enqNum = VIRenameWidth
-  private val size = VIPhyRegsNum
-  val io = IO(new Bundle{
-    val enq = Input(Vec(enqNum, Valid(new Bundle{
-      val addr = UInt(log2Ceil(size).W)
-      val data = new RollBackListEntry
-    })))
-    val read = new Bundle {
-      val addr = Input(UInt(log2Ceil(size).W))
-      val robPtr = Input(new RobPtr)
-      val commit = Input(Bool())
-      val data = Output(Vec(8, new Bundle{
-        val hit = Bool()
-        val logicRegIdx = UInt(5.W)
-        val oldPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
-        val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
-      }))
-    }
-  })
-  private val entryWidth = (new RollBackListEntry).getWidth
-  private val ram = Mem(size, UInt(entryWidth.W))
-  io.enq.foreach(e => {
-    when(e.valid) {
-      ram.write(e.bits.addr, e.bits.data.asUInt)
-    }
-  })
-  io.read.data.zipWithIndex.foreach({ case (d, i) =>
-    val addr = Mux(io.read.commit, io.read.addr + i.U, io.read.addr - (i + 1).U)
-    val entry = ram.read(addr).asTypeOf(new RollBackListEntry)
-    d.hit := entry.robIdx === io.read.robPtr
-    d.logicRegIdx := entry.logicRegIdx
-    d.oldPhyRegIdx := entry.oldPhyRegIdx
-    d.newPhyRegIdx := entry.newPhyRegIdx
-  })
-}
-
 class RollBackListRenamePort(implicit p: Parameters) extends VectorBaseBundle {
   val robIdx = new RobPtr
   val lrIdx = UInt(5.W)
@@ -90,7 +53,45 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
     }
   })
 
-  private class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)
+  class RollBackListPtr extends CircularQueuePtr[RollBackListPtr](VIPhyRegsNum)
+
+  class RollbackListPayload(implicit p: Parameters) extends VectorBaseModule {
+    private val enqNum = VIRenameWidth
+    private val size = VIPhyRegsNum
+    val io = IO(new Bundle{
+      val enq = Input(Vec(enqNum, Valid(new Bundle{
+        val addr = UInt(log2Ceil(size).W)
+        val data = new RollBackListEntry
+      })))
+      val read = new Bundle {
+        val addr = Input(new RollBackListPtr)
+        val robPtr = Input(new RobPtr)
+        val commit = Input(Bool())
+        val data = Output(Vec(8, new Bundle{
+          val hit = Bool()
+          val logicRegIdx = UInt(5.W)
+          val oldPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+          val newPhyRegIdx = UInt(VIPhyRegIdxWidth.W)
+        }))
+      }
+    })
+    private val entryWidth = (new RollBackListEntry).getWidth
+    private val ram = Mem(size, UInt(entryWidth.W))
+    io.enq.foreach(e => {
+      when(e.valid) {
+        ram.write(e.bits.addr, e.bits.data.asUInt)
+      }
+    })
+    io.read.data.zipWithIndex.foreach({ case (d, i) =>
+      val readPtr = io.read.addr
+      val addr = Mux(io.read.commit, (readPtr + i.U).value, (readPtr - (i + 1).U).value)
+      val entry = ram.read(addr).asTypeOf(new RollBackListEntry)
+      d.hit := entry.robIdx === io.read.robPtr
+      d.logicRegIdx := entry.logicRegIdx
+      d.oldPhyRegIdx := entry.oldPhyRegIdx
+      d.newPhyRegIdx := entry.newPhyRegIdx
+    })
+  }
 
   private val headPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
   private val tailPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
@@ -121,7 +122,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   private val robIdxSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
   payload.io.read.robPtr := rollingRobIdx
-  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr.value, headPtr.value)
+  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr, headPtr)
   payload.io.read.commit := io.commit.rob.isCommit
 
   io.commit.rat.doCommit := io.commit.rob.isCommit
