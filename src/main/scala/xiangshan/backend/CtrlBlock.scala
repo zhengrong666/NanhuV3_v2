@@ -28,8 +28,6 @@ import xiangshan.mem.mdp.{LFST, SSIT, WaitTable}
 import xiangshan.mem.LsqEnqIO
 import xiangshan.mem._
 import xiangshan.vector._
-import xiangshan.vector.SIRenameInfo
-import xiangshan.vector.vtyperename._
 import xiangshan.vector.dispatch._
 import xiangshan.vector.writeback._
 import xiangshan.vector.VectorCtrlBlock
@@ -39,7 +37,6 @@ import xiangshan.backend.execute.fu.csr.PFEvent
 import xiangshan.backend.rename.{Rename, RenameTableWrapper}
 import xiangshan.backend.rob.{Rob, RobCSRIO, RobLsqIO, RobPtr}
 import xiangshan.backend.issue.DqDispatchNode
-import xiangshan.backend.execute.fu.FuOutput
 import xiangshan.backend.execute.fu.csr.vcsr._
 import xs.utils.perf.HasPerfLogging
 
@@ -50,7 +47,7 @@ class CtrlToFtqIO(implicit p: Parameters) extends XSBundle {
 
 class CtrlBlock(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val rob = LazyModule(new Rob)
-  val wbMergeBuffer = LazyModule(new WbMergeBufferWrapper)
+  val wbMergeBuffer = LazyModule(new WbMergeBufferV2)
   val dispatchNode = new DqDispatchNode
   lazy val module = new CtrlBlockImp(this)
 }
@@ -306,6 +303,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   rename.io.robCommits  := commitScalar
   rename.io.ssit        := ssit.io.rdata
   rename.io.vcsrio    <> io.vcsrToRename
+  rename.io.vlUpdate := Pipe(wbMergeBuffer.io.vlUpdate, 2)
 
   //pipeline between rename and dispatch
   for (d <- 0 until RenameWidth) {
@@ -320,14 +318,14 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   //TODO: vtype writeback here.
   vCtrlBlock.io.vtypewriteback := io.vcsrToRename.vtypeWbToRename
 
-  vCtrlBlock.io.mergeIdAllocate <> outer.wbMergeBuffer.module.io.allocate
-  for((req, port) <- rob.io.enq.req.zip(vCtrlBlock.io.robPtr)) {
+  vCtrlBlock.io.vmbAlloc <> wbMergeBuffer.io.allocate
+  for((req, port) <- rob.io.enq.req.zip(vCtrlBlock.io.robEnq)) {
     port.bits := RegEnable(req.bits.robIdx, req.valid && rob.io.enq.canAccept)
     port.valid := RegNext(req.valid && rob.io.enq.canAccept, false.B)
   }
 
-  rob.io.wbFromMergeBuffer.zip(outer.wbMergeBuffer.module.io.rob).foreach({case(a, b) => a := Pipe(b)})
-  outer.wbMergeBuffer.module.io.redirect := Pipe(io.redirectIn)
+  rob.io.wbFromMergeBuffer.zip(wbMergeBuffer.io.rob).foreach({case(a, b) => a := Pipe(b)})
+  wbMergeBuffer.io.redirect := Pipe(io.redirectIn)
   
   
   val commitVector = Wire(new RobCommitIO)

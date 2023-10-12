@@ -8,7 +8,7 @@ import xiangshan.vector._
 import xs.utils._
 import xiangshan.backend.dispatch.DispatchQueue
 import xiangshan.backend.rob._
-import xiangshan.vector.writeback.WbMergeBufferPtr
+import xiangshan.vector.writeback.VmbAlloc
 import xiangshan.backend.execute.fu.csr.vcsr._
 
 class NewVIMop(implicit p: Parameters) extends VectorBaseBundle {
@@ -29,11 +29,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     val vstart = Input(UInt(7.W))
     val vtypeWbData = Flipped(ValidIO(new VtypeWbIO))
     val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
-    //val mergeId = Vec(VIDecodeWidth, Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth))))
-    val mergeId = Vec(VectorMergeAllocateWidth, new Bundle {
-      val mergePtr = Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
-      val robPtr = Output(new RobPtr)
-    })
+    val vmbAlloc = Flipped(new VmbAlloc)
     val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
     val enq = new NewWqEnqIO
@@ -43,7 +39,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private class WqPtr extends CircularQueuePtr[WqPtr](VIWaitQueueWidth)
   private val deqPtr = RegInit(0.U.asTypeOf(new WqPtr))
   private val enqPtr = RegInit(0.U.asTypeOf(new WqPtr))
-  private val mergePtr = RegInit(0.U.asTypeOf(new WqPtr))
+  private val mergePtrVec = RegInit(VecInit(Seq.tabulate(VIDecodeWidth)(i => i.U.asTypeOf(new WqPtr))))
+  private val mergePtr = mergePtrVec.head
   private val table = Module(new VIWaitQueueArray)
   private val splitNetwork = Module(new SplitNetwork(VIRenameWidth))
 
@@ -58,7 +55,6 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val flushNum = PopCount(redirectMask)
 
   //Enqueue Logics
-//  private val allocNum = PopCount(io.enq.needAlloc)
   io.enq.canAccept := emptyEntriesNum >= VIDecodeWidth.U
   io.enq.isEmpty := deqPtr === enqPtr
   private val enqAddrDelta = Wire(Vec(VIDecodeWidth, UInt(VIWaitQueueWidth.W)))
@@ -84,34 +80,33 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val enqPtrNext = WireInit(enqPtr)
   when(io.redirect.valid){
     enqPtrNext := enqPtr - flushNum
+    enqPtr := enqPtrNext
   }.elsewhen(enqValids.reduce(_|_)){
     enqPtrNext := enqPtr + enqNum
+    enqPtr := enqPtrNext
   }
-  enqPtr := enqPtrNext
-
 
   //MergeId Allocation Logics
   private val needMergeNum = distanceBetween(enqPtr, mergePtr)
-
-  io.mergeId.zipWithIndex.foreach({case(m, i) =>
-    m.mergePtr.ready := needMergeNum >= (i + 1).U
+  io.vmbAlloc.req.zipWithIndex.foreach({case(req, i) =>
+    req.valid := i.U < needMergeNum
+    table.io.read(i).addr := mergePtrVec(i).value
+    req.bits := table.io.read(i).data.uop.robIdx
   })
-
   table.io.vmsIdAllocte.zipWithIndex.foreach({ case(va, i) =>
-    va.en := io.mergeId(i).mergePtr.fire
-    va.data := io.mergeId(i).mergePtr.bits
-    va.addr := (mergePtr + i.U).value
-    io.mergeId(i).robPtr := io.enq.req(i).bits.uop.robIdx
+    va.en := io.vmbAlloc.resp(i).valid
+    va.data := io.vmbAlloc.resp(i).bits
+    va.addr := mergePtrVec(i).value
   })
 
-  private val mergeAllocs = io.mergeId.map(_.mergePtr.fire)
+  private val mergeAllocs = io.vmbAlloc.resp.map(_.valid)
   private val mergeAllocNum = PopCount(mergeAllocs)
   when(io.redirect.valid){
     when(enqPtrNext < mergePtr){
-      mergePtr := enqPtrNext
+      mergePtrVec.zipWithIndex.foreach({case(ptr, i) => ptr := enqPtrNext + i.U})
     }
   }.elsewhen(mergeAllocs.reduce(_|_)){
-    mergePtr := mergePtr + mergeAllocNum
+    mergePtrVec.foreach(ptr => ptr := ptr + mergeAllocNum)
   }
 
   //Misc entry update logics

@@ -57,6 +57,7 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
       val addr = Input(UInt(log2Ceil(size).W))
       val data = Output(new VTypeEntry)
     })
+    val vlUpdate = Input(Valid(UInt(log2Ceil(VLEN + 1).W)))
     val redirect = Input(Valid(new Redirect))
     val flushVec = Output(UInt(size.W))
   })
@@ -75,6 +76,8 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
     val en = hitSeq.reduce(_|_)
     when(en) {
       entry := data
+    }.elsewhen(io.vlUpdate.valid){
+      entry.info.vl := entry.info.vl - io.vlUpdate.bits
     }
   }
 
@@ -97,6 +100,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     val out = Vec(RenameWidth, ValidIO(new MicroOp))
     val toVCtl = Output(Vec(RenameWidth, new VtpToVCtl))
     val vcsr  = Flipped(new VCSRWithVtypeRenameIO)
+    val vlUpdate = Input(Valid(UInt(log2Ceil(VLEN + 1).W)))
   })
 
   private val enqPtrInit = Wire(new VtypePtr)
@@ -141,6 +145,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   table.io.w.last.data.robIdx := DontCare
   table.io.w.last.addr := io.vcsr.vtypeWbToRename.bits.vtypeRegIdx
   table.io.w.last.data.pdest := DontCare
+
+  table.io.vlUpdate := io.vlUpdate
 
   private val enqAddrEnqSeq = Wire(Vec(RenameWidth, new VtypePtr))
   private val vtypeEnqSeq = Wire(Vec(RenameWidth, new VTypeEntry))

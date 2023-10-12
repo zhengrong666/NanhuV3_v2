@@ -39,7 +39,7 @@ import xiangshan.frontend.Ftq_Redirect_SRAMEntry
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
 import xs.utils.DataChanged
 import xiangshan.vector._
-import xiangshan.vector.writeback.WbMergeBufferPtr
+import xiangshan.vector.writeback.VmbPtr
 
 import scala.math.max
 
@@ -223,7 +223,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val partialTail = Bool()
   val isPrestart = Bool()
   val canRename = Bool()
-  val mergeIdx = new WbMergeBufferPtr(VectorMergeBufferDepth)
+  val mergeIdx = new VmbPtr
   val loadStoreEnable = Bool()
   val vtypeRegIdx = UInt(log2Ceil(VIVtypeRegsNum).W)
 
