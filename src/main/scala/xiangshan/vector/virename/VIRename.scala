@@ -76,7 +76,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     if(i == 0){
       a := updateEntryAllocator
     } else {
-      a := updateEntryAllocator + PopCount(io.rename.take(i).map(r => r.in.valid && r.in.bits.canRename))
+      a := updateEntryAllocator + PopCount(io.rename.take(i).map(r => r.in.fire && r.in.bits.canRename))
     }
   }
   private val allocateNew = io.rename.map(r => r.in.valid && r.in.bits.canRename)
