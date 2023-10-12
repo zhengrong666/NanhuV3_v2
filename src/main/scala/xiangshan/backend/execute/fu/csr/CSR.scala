@@ -530,7 +530,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   def vxrm_rfn(rdata: UInt): UInt = rdata(2,1)
 
   def vxsat_wfn(update: Boolean)(wdata: UInt): UInt = {
-    val vcsrOld = fcsr.asTypeOf(new VCsrStruct)
+    val vcsrOld = vcsr.asTypeOf(new VCsrStruct)
     val vcsrNew = WireInit(vcsrOld)
     csrw_dirty_vec_state := true.B
     if (update) {
