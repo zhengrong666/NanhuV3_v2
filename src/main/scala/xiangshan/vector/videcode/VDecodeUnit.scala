@@ -44,7 +44,7 @@ class VDecodeUnit(implicit p: Parameters) extends XSModule with VDecodeUnitConst
   uop.vctrl.vm := !io.in.cf.instr(VM_LSB)
   uop.cf.exceptionVec(illegalInstr) := uop.vctrl.eewType(2) === EewType.dc
 
-  when(io.in.ctrl.selImm =/= SelImm.X) {
+  when(io.in.ctrl.selImm =/= SelImm.IMM_X) {
     uop.ctrl.imm := io.in.cf.instr(VS1_MSB, VS1_LSB)
   }
   io.out := uop
