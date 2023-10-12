@@ -558,7 +558,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   lqSafeWindow.zipWithIndex.foreach({ case (l, i) =>
     l := lqSafeDeqPtrNext + i.U
   })
-  private val lqDeqSafeLimit = RegNext(enqPtr)
+  private val lqDeqSafeLimit = RegNext(enqPtr - 1.U)
   private val lqSafeBlocked = Seq.tabulate(CommitWidth)(idx => {
     val res = Wire(Bool())
     val presentPtr = lqSafeDeqPtr + idx.U
