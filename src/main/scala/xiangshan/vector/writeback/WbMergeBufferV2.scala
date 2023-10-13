@@ -154,9 +154,10 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   when(io.rob.map(_.valid).reduce(_|_)){
     cmtPtrVec.foreach(ptr => ptr := ptr + deqNum)
   }
-  when(io.vmbInit.valid){
-    table(io.vmbInit.bits.mergeIdx.value) := DontCare
-    table(io.vmbInit.bits.mergeIdx.value).uop := io.vmbInit.bits
+  private val vmbInitDelay = Pipe(io.vmbInit)
+  when(vmbInitDelay.valid){
+    table(vmbInitDelay.bits.mergeIdx.value) := DontCare
+    table(vmbInitDelay.bits.mergeIdx.value).uop := vmbInitDelay.bits
   }
 
   private def checkWbHit(wb:Valid[ExuOutput], idx:Int):Bool = {
