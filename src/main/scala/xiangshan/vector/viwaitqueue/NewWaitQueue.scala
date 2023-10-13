@@ -89,7 +89,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   //MergeId Allocation Logics
   private val needMergeNum = distanceBetween(enqPtr, mergePtr)
   io.vmbAlloc.req.zipWithIndex.foreach({case(req, i) =>
-    req.valid := i.U < needMergeNum
+    req.valid := i.U < needMergeNum & !io.redirect.valid
     table.io.read(i).addr := mergePtrVec(i).value
     req.bits := table.io.read(i).data.uop.robIdx
   })
