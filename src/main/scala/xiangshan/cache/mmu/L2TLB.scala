@@ -298,7 +298,6 @@ class PTWImp(outer: PTW)(implicit p: Parameters) extends PtwModule(outer) with H
       difftest_ptw_addr(mem.a.bits.source) := mem.a.bits.address
     }
     val difftestRefill = DifftestModule(new DiffRefillEvent)
-    difftestRefill.clock := clock
     difftestRefill.coreid := p(XSCoreParamsKey).HartId.asUInt
     difftestRefill.index := 2.U
     difftestRefill.idtfr := 2.U

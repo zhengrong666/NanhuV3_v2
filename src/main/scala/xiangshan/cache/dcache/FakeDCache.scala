@@ -61,7 +61,6 @@ class FakeDCache()(implicit p: Parameters) extends XSModule with HasDCacheParame
   io.lsu.store.main_pipe_hit_resp.bits.id := RegNext(io.lsu.store.req.bits.id)
   // to atomics
   val amoHelper = Module(new AMOHelper)
-  amoHelper.clock := clock
   amoHelper.enable := io.lsu.atomics.req.valid && !reset.asBool
   amoHelper.cmd := io.lsu.atomics.req.bits.cmd
   amoHelper.addr := io.lsu.atomics.req.bits.addr

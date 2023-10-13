@@ -1280,7 +1280,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Always instantiate basic difftest modules.
   if (env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftestException = DifftestModule(new DiffArchEvent, delay = 3)
-    difftestException.clock := clock
     difftestException.coreid := csrio.hartId
     difftestException.valid := csrio.exception.valid
     difftestException.interrupt := difftestIntrNO
@@ -1292,7 +1291,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Always instantiate basic difftest modules.
   if (env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffCSRState)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.priviledgeMode := priviledgeMode
     difftest.mstatus := mstatus
@@ -1316,7 +1314,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffDebugMode)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.debugMode := debugMode
     difftest.dcsr := dcsr
@@ -1327,7 +1324,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffVecCSRState, delay = 1)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.vlenb := vlenb
     difftest.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))
