@@ -165,7 +165,9 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }
   for((c, idx) <- wbCnts.zipWithIndex){
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
-    c := c + PopCount(hitVec)
+    when(hitVec.reduce(_|_)){
+      c := c + PopCount(hitVec)
+    }
   }
   for((t, idx) <- table.zipWithIndex){
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
