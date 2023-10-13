@@ -172,6 +172,8 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   for((t, idx) <- table.zipWithIndex){
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
     t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat))
-    assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
+    when(hitVec.reduce(_|_)){
+      assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
+    }
   }
 }
