@@ -175,7 +175,7 @@ object XDecode extends DecodeConstants {
     CSRRSI  -> List(SrcType.reg, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.seti, Y, N, N, N, Y, Y, N, N, SelImm.IMM_Z),
     CSRRCI  -> List(SrcType.reg, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.clri, Y, N, N, N, Y, Y, N, N, SelImm.IMM_Z),
 
-    SFENCE_VMA->List(SrcType.reg, SrcType.reg, SrcType.DC, FuType.fence, FenceOpType.sfence, N, N, N, N, Y, Y, Y, SelImm.IMM_X),
+    SFENCE_VMA->List(SrcType.reg, SrcType.reg, SrcType.DC, FuType.fence, FenceOpType.sfence, N, N, N, N, Y, Y, N, Y, SelImm.IMM_X),
     EBREAK  -> List(SrcType.reg, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.jmp, Y, N, N, N, Y, Y, N, N, SelImm.IMM_I),
     ECALL   -> List(SrcType.reg, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.jmp, Y, N, N, N, Y, Y, N, N, SelImm.IMM_I),
     SRET    -> List(SrcType.reg, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.jmp, Y, N, N, N, Y, Y, N, N, SelImm.IMM_I),
@@ -184,8 +184,8 @@ object XDecode extends DecodeConstants {
 
     WFI     -> List(SrcType.pc, SrcType.imm, SrcType.DC, FuType.csr, CSROpType.wfi, Y, N, N, N, Y, Y, N, N, SelImm.IMM_X),
 
-    FENCE_I -> List(SrcType.pc, SrcType.imm, SrcType.DC, FuType.fence, FenceOpType.fencei, N, N, N, N, Y, Y, Y, SelImm.IMM_X),
-    FENCE   -> List(SrcType.pc, SrcType.imm, SrcType.DC, FuType.fence, FenceOpType.fence,  N, N, N, N, Y, Y, Y, SelImm.IMM_X),
+    FENCE_I -> List(SrcType.pc, SrcType.imm, SrcType.DC, FuType.fence, FenceOpType.fencei, N, N, N, N, Y, Y, N, Y, SelImm.IMM_X),
+    FENCE   -> List(SrcType.pc, SrcType.imm, SrcType.DC, FuType.fence, FenceOpType.fence,  N, N, N, N, Y, Y, N, Y, SelImm.IMM_X),
 
     // A-type
     AMOADD_W-> List(SrcType.reg, SrcType.reg, SrcType.DC, FuType.mou, LSUOpType.amoadd_w,  Y, N, N, N, Y, Y, N, N, SelImm.IMM_X),
