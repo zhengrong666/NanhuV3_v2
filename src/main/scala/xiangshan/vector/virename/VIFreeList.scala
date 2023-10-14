@@ -63,6 +63,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   //head and tail pointer
   private val allocatePtr = RegInit(VIFreeListPtr(false, 0))
   private val releasePtr = RegInit(VIFreeListPtr(false, VIPhyRegsNum - 32))
+  assert(releasePtr >= allocatePtr, "Unexpected V phy regs are released!")
 
   //Allocate
   private val allocateNum = PopCount(io.needAlloc)
