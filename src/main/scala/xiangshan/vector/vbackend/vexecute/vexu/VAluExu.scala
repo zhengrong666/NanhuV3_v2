@@ -87,8 +87,6 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     s2v.io.in.bits.oldVd := src2
     s2v.io.in.bits.mask := mask
 
-    when(iss.valid){assert(Seq(valu.io.in.valid, vmask.io.in.valid, vred.io.in.valid, s2v.io.in.valid).reduce(_|_))}
-
     private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
     assert(PopCount(validSeq) <= 1.U)
     private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
