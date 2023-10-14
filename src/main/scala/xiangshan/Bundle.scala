@@ -152,7 +152,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val wvxsat = Bool()
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
+    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, wvxsat, selImm)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     this := DontCare
