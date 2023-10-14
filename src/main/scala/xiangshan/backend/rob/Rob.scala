@@ -776,7 +776,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.ftqIdx := req.cf.ftqPtr
       wdata.ftqOffset := req.cf.ftqOffset
       wdata.vecWen := req.ctrl.isVector
-      wdata.wvcsr := false.B
+      wdata.wvcsr := req.ctrl.wvxsat
       wdata.vtypeWb := req.ctrl.isVtype
       wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered

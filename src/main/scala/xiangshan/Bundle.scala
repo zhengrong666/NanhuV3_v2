@@ -149,6 +149,7 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val vdWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
+  val wvxsat = Bool()
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
     vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
