@@ -130,7 +130,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   io.commit.rat.doCommit := io.commit.rob.isCommit && shouldAct
   io.commit.rat.doWalk := io.commit.rob.isWalk && shouldAct
 
-  assert(PopCount(robIdxSel) <= 1.U, "Only one v inst should be walked or committed")
+  when(io.commit.rat.doCommit || io.commit.rat.doWalk){assert(PopCount(robIdxSel) <= 1.U, "Only one v inst should be walked or committed")}
   assert(PopCount(Seq(io.commit.rat.doCommit, io.commit.rat.doWalk)) <= 1.U, "Walk and commit at the same time!")
   for(i <- 0 until 8){
     io.commit.rat.mask(i) := payload.io.read.data(i).hit && (i.U < entryNum)
