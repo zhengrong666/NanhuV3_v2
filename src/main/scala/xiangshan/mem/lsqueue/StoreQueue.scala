@@ -608,7 +608,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       !(uop(i).robIdx === exception_info.robIdx && exception_info.valid)
   }
   private val cmtWindow = Seq.tabulate(CommitWidth)(idx => cmtPtrExt(idx).value)
-  private val cmtVec = cmtWindow.map(addr => readyToDeq(addr) & !io.brqRedirect.valid)
+  private val cmtVec = cmtWindow.map(addr => readyToDeq(addr) & allocated(addr) & !io.brqRedirect.valid)
   private val cmtBlocked = cmtVec.map(!_) :+ true.B
   commitCount := PriorityEncoder(cmtBlocked)
   uop.zip(readyToLeave).zipWithIndex.foreach({ case ((u, r), idx) =>
