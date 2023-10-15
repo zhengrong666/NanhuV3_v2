@@ -843,13 +843,12 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   }
   csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
-  when (csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.vstart.valid) || RegNext(csrio.vcsr.robWb.vxsat.valid)) {
+  when (csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid)) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     mstatusNew.vs := "b11".U
     mstatusNew.sd := true.B
     mstatus := mstatusNew.asUInt
   }
-  csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>

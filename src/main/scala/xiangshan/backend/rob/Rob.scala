@@ -399,13 +399,13 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     }
   ).unzip
 
-  val wvcsr = (0 until CommitWidth).map(
+  val (wvcsr, vecWen) = (0 until CommitWidth).map(
     i => {
       val v = io.commits.commitValid(i)
       val info = io.commits.info(i)
-      v & info.wvcsr
+      (v & info.wvcsr, v & info.vecWen)
     }
-  )
+  ).unzip
 
   val fflags = Wire(ValidIO(UInt(5.W)))
   val vxsat = Wire(ValidIO(Bool()))
@@ -419,7 +419,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   vxsat.bits := wvcsr.zip(csrDataRead).map({
     case (w, c) => Mux(w, c.vxsat, 0.U)
   }).reduce(_ | _)
-
+  val dirty_vs = io.commits.isCommit && VecInit(vecWen).asUInt.orR
   val dirty_fs = io.commits.isCommit && VecInit(fpWen).asUInt.orR
   val blockCommit = hasWFI || exceptionWaitingRedirect
 
@@ -515,7 +515,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.csr.fflags := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
   io.csr.vxsat := Pipe(vxsat)
-
+  io.csr.dirty_vs := RegNext(dirty_vs, false.B)
   val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
   vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
     case ((vcv, cv), i) => {
