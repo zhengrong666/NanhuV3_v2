@@ -101,5 +101,6 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
       wbCounter := 0.U
     }
     wb.bits.uop.uopIdx := wbCounter
+    wb.bits.uop.pdest := issueDataReg.pdest(wbCounter)
   }
 }
