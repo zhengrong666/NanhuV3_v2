@@ -93,6 +93,10 @@ class SimTop(implicit p: Parameters) extends Module {
     dontTouch(clean)
     dontTouch(dump)
   }
+
+  if(merge.Merge.isEffective) {
+    merge.Merge.collect()
+  }
 }
 
 object SimTop extends App {
