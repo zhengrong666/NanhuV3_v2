@@ -79,9 +79,11 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.uop.info.vxrm := io.vcsr(2,1)
     permutation.io.in.uop.info.frm := io.frm
     permutation.io.in.rs1 := issueScalarDataReg
-    permutation.io.in.vs1_preg_idx.zip(issueDataReg.pvs1).foreach({case(a,b) => a := b})
-    permutation.io.in.vs2_preg_idx.zip(issueDataReg.pvs2).foreach({case(a,b) => a := b})
-    permutation.io.in.old_vd_preg_idx.zip(issueDataReg.pov).foreach({case(a,b) => a := b})
+    for(i <- 0 until 8){
+      permutation.io.in.vs1_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pvs1(i), 0.U)
+      permutation.io.in.vs2_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pvs2(i), 0.U)
+      permutation.io.in.old_vd_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pov(i), 0.U)
+    }
     permutation.io.in.mask_preg_idx := issueDataReg.pvm
     permutation.io.in.uop_valid := issueValidReg
     permutation.io.in.rdata := rfRespData
