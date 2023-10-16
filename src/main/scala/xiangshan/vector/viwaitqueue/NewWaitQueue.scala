@@ -123,15 +123,12 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
+  private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U || io.vstart >= deqUop.uop.vCsrInfo.vl
 
   private val splitDriver = Module(new DequeuePipeline(1))
   splitDriver.io.redirect := io.redirect
   splitDriver.io.in(0).bits := deqUop.uop
-  when(io.vstart >= deqUop.uop.vCsrInfo.vl){
-    splitDriver.io.in(0).bits.vCsrInfo.vta := 0.U
-    splitDriver.io.in(0).bits.vCsrInfo.vma := 0.U
-  }
-  splitDriver.io.in(0).valid := hasValid && uopRdy && !deqHasException && !(deqUop.uop.uopNum === 0.U)
+  splitDriver.io.in(0).valid := hasValid && uopRdy && !directlyWb
 
   splitNetwork.io.redirect := io.redirect
   splitNetwork.io.in.valid := splitDriver.io.out(0).valid && !vstartHold
@@ -139,7 +136,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitDriver.io.out(0).ready := splitNetwork.io.in.ready && !vstartHold
   splitNetwork.io.vstart := RegNextN(io.vstart, 3)
 
-  private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || deqHasException || deqUop.uop.uopNum === 0.U)
+  private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || directlyWb)
   when(deqValid){
     deqPtr := deqPtr + 1.U
   }
@@ -162,7 +159,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     deqUop.uop.vctrl.eewType(2) === EewType.const &&
     deqUop.uop.vctrl.eew(2) === EewVal.mask
   private val emul = deqUop.uop.vctrl.emul
-  when(deqHasException){
+  when(directlyWb){
     vmbInit.bits.uopNum := 0.U
   }.elsewhen(deqUop.uop.uopNum =/= 0.U) {
     when(isLoad) {
