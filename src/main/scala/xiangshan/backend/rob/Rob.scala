@@ -953,7 +953,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val exuOut = debug_exuDebug(ptr)
       val exuData = debug_exuData(ptr)
       val difftestInstCmt = DifftestModule(new DiffInstrCommit(NRPhyRegs), delay = 3)
-      difftestInstCmt.clock := clock
       difftestInstCmt.coreid := io.hartId
       difftestInstCmt.index := i.U
       difftestInstCmt.valid := io.commits.commitValid(i) && io.commits.isCommit
@@ -981,7 +980,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
       // runahead commit hint
       val runahead_commit = DifftestModule(new DiffRunaheadCommitEvent)
-      runahead_commit.clock := clock
       runahead_commit.coreid := io.hartId
       runahead_commit.index := i.U
       runahead_commit.valid := difftestInstCmt.valid &&
@@ -994,7 +992,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   if (env.EnableDifftest) {
     for (i <- 0 until CommitWidth) {
       val difftestLdEvent = DifftestModule(new DiffLoadEvent, delay = 3)
-      difftestLdEvent.clock := clock
       difftestLdEvent.coreid := io.hartId
       difftestLdEvent.index := i.U
 
@@ -1021,7 +1018,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val trapCode = PriorityMux(wdata.zip(trapVec).map(x => x._2 -> x._1))
     val trapPC = SignExt(PriorityMux(wpc.zip(trapVec).map(x => x._2 -> x._1)), XLEN)
     val difftestTrapEvent = DifftestModule(new DiffTrapEvent)
-    difftestTrapEvent.clock := clock
     difftestTrapEvent.coreid := io.hartId
     difftestTrapEvent.hasTrap := hitTrap
     difftestTrapEvent.code := trapCode
