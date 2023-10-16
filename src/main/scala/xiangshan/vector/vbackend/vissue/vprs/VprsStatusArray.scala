@@ -156,7 +156,7 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
 
   for(((v, e), i) <- valids.zip(array).zipWithIndex){
     val updateNetwork = Module(new VprsStatusArrayEntryUpdateNetwork(sWkpWidth, vWkpWidth))
-    updateNetwork.io.enq.valid := io.enq.fire
+    updateNetwork.io.enq.valid := io.enq.fire & emptyEntry.bits(i)
     updateNetwork.io.enq.bits := io.enq.bits
     updateNetwork.io.enqIsMerge := needMerge
     updateNetwork.io.entry.valid := v
