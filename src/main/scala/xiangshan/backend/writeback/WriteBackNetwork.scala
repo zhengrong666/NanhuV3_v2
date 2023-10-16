@@ -138,7 +138,6 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
 
     fpWb.foreach(wb => {
       val difftestFpWb = DifftestModule(new DiffFpWriteback(NRPhyRegs))
-      difftestFpWb.clock := clock
       difftestFpWb.coreid := p(XSCoreParamsKey).HartId.U
       difftestFpWb.address := wb.bits.uop.pdest
       difftestFpWb.valid := wb.valid && wb.bits.uop.ctrl.fpWen
@@ -147,7 +146,6 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
 
     intWb.foreach(wb => {
       val difftestIntWb = DifftestModule(new DiffIntWriteback(NRPhyRegs))
-      difftestIntWb.clock := clock
       difftestIntWb.coreid := p(XSCoreParamsKey).HartId.U
       difftestIntWb.address := wb.bits.uop.pdest
       difftestIntWb.valid := wb.valid && wb.bits.uop.ctrl.rfWen

@@ -366,12 +366,10 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
       debugFpRegfile.io.read.zip(io.debug_fp_rat).foreach(e => e._1.addr := e._2)
 
       val difftestArchInt = DifftestModule(new DiffArchIntRegState, delay = 2)
-      difftestArchInt.clock := clock
       difftestArchInt.coreid := io.hartId
       difftestArchInt.value := VecInit(debugIntRegfile.io.read.map(_.data))
 
       val difftestArchFp = DifftestModule(new DiffArchFpRegState, delay = 2)
-      difftestArchFp.clock := clock
       difftestArchFp.coreid := io.hartId
       difftestArchFp.value := VecInit(debugFpRegfile.io.read.map(_.data))
     }
