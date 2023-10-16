@@ -48,7 +48,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pvs2States(io.enq.bits.uopIdx) := io.enq.bits.srcState(1)
       enqEntryNext.bits.pov(io.enq.bits.uopIdx) := io.enq.bits.psrc(2)
       enqEntryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
-      enqEntryNext.bits.allMerged := io.enq.bits.uopNum === io.enq.bits.uopIdx
+      enqEntryNext.bits.allMerged := (io.enq.bits.uopNum - 1.U) === io.enq.bits.uopIdx
     }.otherwise{
       assert(!io.entry.valid)
       val src1IsVec = SrcType.isVec(io.enq.bits.ctrl.srcType(0))
@@ -64,17 +64,17 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
       enqEntryNext.bits.pvm := io.enq.bits.vm
       enqEntryNext.bits.pvmState := Mux(io.enq.bits.vctrl.vm, io.enq.bits.vmState, SrcState.rdy)
-      enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 0.U
+      enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 1.U
       enqEntryNext.valid := true.B
 
       enqEntryNext.bits.pvs1States.zipWithIndex.drop(1).foreach({ case (s,i) =>
-        s := Mux(src1IsVec, Mux(i.U <= io.enq.bits.uopNum, SrcState.busy, SrcState.rdy), SrcState.rdy)
+        s := Mux(src1IsVec, Mux(i.U < io.enq.bits.uopNum, SrcState.busy, SrcState.rdy), SrcState.rdy)
       })
       enqEntryNext.bits.pvs2States.zipWithIndex.drop(1).foreach({ case (s, i) =>
-        s := Mux(i.U <= io.enq.bits.uopNum, SrcState.busy, SrcState.rdy)
+        s := Mux(i.U < io.enq.bits.uopNum, SrcState.busy, SrcState.rdy)
       })
       enqEntryNext.bits.povStates.zipWithIndex.drop(1).foreach({ case (s, i) =>
-        s := Mux(i.U <= io.enq.bits.uopNum, Mux(agnostic, SrcState.rdy, SrcState.busy), SrcState.rdy)
+        s := Mux(i.U < io.enq.bits.uopNum, Mux(agnostic, SrcState.rdy, SrcState.busy), SrcState.rdy)
       })
     }
   }.elsewhen(io.entry.valid && io.entry.bits.robPtr.needFlush(io.redirect) || io.issued) {
