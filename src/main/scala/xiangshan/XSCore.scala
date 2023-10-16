@@ -34,6 +34,7 @@ import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
 import system.HasSoCParameter
 import utils._
 import xiangshan.backend._
+import xiangshan.backend.execute.fu.csr.CSRConst.ModeM
 import xiangshan.cache.mmu._
 import xiangshan.frontend._
 import xiangshan.vector.HasVectorParameters
@@ -144,7 +145,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.sqDeq := exuBlock.io.sqDeq
   ctrlBlock.io.lqDeq := exuBlock.io.lqDeq
   ctrlBlock.io.stIn := exuBlock.io.stIn
-  ctrlBlock.io.mmuEnable := exuBlock.io.csrio.tlb.satp.mode =/= 0.U
+  ctrlBlock.io.mmuEnable := exuBlock.io.csrio.tlb.satp.mode =/= 0.U && exuBlock.io.csrio.tlb.priv.dmode < ModeM
   exuBlock.io.enqLsq <> ctrlBlock.io.enqLsq
   ctrlBlock.io.redirectIn := exuBlock.io.redirectOut
   ctrlBlock.io.lsqVecDeqCnt <> exuBlock.io.lsqVecDeqCnt

@@ -1114,7 +1114,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   // mtval write logic
   // Due to timing reasons of memExceptionVAddr, we delay the write of mtval and stval
-  val memExceptionAddr = SignExt(csrio.memExceptionVAddr, XLEN)
+
+  val mmuEnable = priviledgeMode < ModeM && tlbBundle.satp.mode =/= 0.U
+  val memExceptionAddr = Mux(mmuEnable, SignExt(csrio.memExceptionVAddr, XLEN), ZeroExt(csrio.memExceptionVAddr, XLEN))
+  val exceptionNextAddr = Mux(mmuEnable, SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN), ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN))
   val updateTval = VecInit(Seq(
     hasInstrPageFault,
     hasLoadPageFault,
@@ -1126,28 +1129,19 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     hasStoreAddrMisalign
   )).asUInt.orR
   when (RegNext(RegNext(updateTval))) {
-      val _mtval = Mux(
+      val tval = Mux(
         RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
         RegNext(RegNext(Mux(
           csrio.exception.bits.uop.cf.crossPageIPFFix,
-          ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
+          exceptionNextAddr,
           iexceptionPC
         ))),
-        ZeroExt(csrio.memExceptionVAddr, XLEN)
-    )
-    val _stval = Mux(
-      RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
-      RegNext(RegNext(Mux(
-        csrio.exception.bits.uop.cf.crossPageIPFFix,
-        SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
-        iexceptionPC
-      ))),
-      memExceptionAddr
+        memExceptionAddr
     )
     when (RegNext(priviledgeMode === ModeM)) {
-      mtval := _mtval
+      mtval := tval
     }.otherwise {
-      stval := _stval
+      stval := tval
     }
   }
 
