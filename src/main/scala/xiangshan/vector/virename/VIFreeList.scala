@@ -70,7 +70,12 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   private val freeEntryNum = distanceBetween(releasePtr, allocatePtr)
   io.canAccept := allocateNum <= freeEntryNum
   io.allocatePhyReg.zipWithIndex.foreach({case(a, i) =>
-    a := freeList((allocatePtr + i.U).value)
+    if(i == 0){
+      a := freeList(allocatePtr.value)
+    } else {
+      val addend = PopCount(io.needAlloc.take(i))
+      a := freeList((allocatePtr + addend).value)
+    }
   })
 
   private val doAlloc = io.needAlloc.map(_ && io.canAccept).reduce(_|_)
