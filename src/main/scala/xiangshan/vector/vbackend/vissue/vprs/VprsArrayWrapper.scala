@@ -58,8 +58,8 @@ class VprsArrayWrapper(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) ext
   payloadArray.io.read.head.addr := io.issueOH.bits
   io.issueUop := payloadArray.io.read.head.data
 
-  pdestArray.io.enq.valid := statusArray.io.enqToPayload.valid
-  pdestArray.io.enq.bits.addrOH := statusArray.io.enqToPayload.bits
+  pdestArray.io.enq.valid := statusArray.io.pdestUpdate.valid
+  pdestArray.io.enq.bits.addrOH := statusArray.io.pdestUpdate.bits
   pdestArray.io.enq.bits.uopIdx := io.enq.bits.uopIdx
   pdestArray.io.enq.bits.pdest := io.enq.bits.pdest
   pdestArray.io.read.addrOH := io.issueOH.bits

@@ -79,11 +79,9 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.uop.info.vxrm := io.vcsr(2,1)
     permutation.io.in.uop.info.frm := io.frm
     permutation.io.in.rs1 := issueScalarDataReg
-    for(i <- 0 until 8){
-      permutation.io.in.vs1_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pvs1(i), 0.U)
-      permutation.io.in.vs2_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pvs2(i), 0.U)
-      permutation.io.in.old_vd_preg_idx(i) := Mux(i.U < issueDataReg.uop.uopNum, issueDataReg.pov(i), 0.U)
-    }
+    permutation.io.in.vs1_preg_idx := issueDataReg.pvs1
+    permutation.io.in.vs2_preg_idx := issueDataReg.pvs2
+    permutation.io.in.old_vd_preg_idx := issueDataReg.pov
     permutation.io.in.mask_preg_idx := issueDataReg.pvm
     permutation.io.in.uop_valid := issueValidReg
     permutation.io.in.rdata := rfRespData
@@ -92,7 +90,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
 
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
-    wb.valid := DelayN(permutation.io.out.wb_vld, 3)
+    wb.valid := DelayN(permutation.io.out.wb_vld, 4)
     wb.bits.data := permutation.io.out.wb_data
     wb.bits.uop := permutation.io.out.uop.sysUop
     wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)

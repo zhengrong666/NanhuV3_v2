@@ -114,6 +114,7 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
     val selectInfo = Output(Vec(size, Valid(new VprsStatusArrayEntry)))
     val issueOH = Input(Valid(UInt(size.W)))
     val enqToPayload = Output(Valid(UInt(size.W)))
+    val pdestUpdate = Output(Valid(UInt(size.W)))
     val scalarWakeUps = Input(Vec(sWkpWidth, Valid(new WakeUpInfo)))
     val vectorWakeUps = Input(Vec(vWkpWidth, Valid(new WakeUpInfo)))
     val redirect = Input(Valid(new Redirect))
@@ -122,7 +123,6 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
   private val array = Reg(Vec(size, new VprsStatusArrayEntry))
   private val valids = RegInit(VecInit(Seq.fill(size)(false.B)))
   private val validsAux = RegInit(VecInit(Seq.fill(size)(false.B)))
-  private val robIdxAux = Reg(Vec(size, new RobPtr))
 
   for(((port, entry), v) <- io.selectInfo.zip(array).zip(valids)){
     val selCond0 = entry.prsState === SrcState.rdy
@@ -137,26 +137,25 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
   private val mergeVec = valids.zip(array).map({case(v, e) =>
     v && e.robPtr === io.enq.bits.robIdx
   })
-  private val mergeAuxVec = validsAux.zip(robIdxAux).map({ case (v, e) =>
-    v && e === io.enq.bits.robIdx
-  })
 
   when(io.enq.valid){assert(PopCount(mergeVec) <= 1.U)}
 
   private val emptyEntry = PickOneLow(validsAux)
 
   private val needMerge = mergeVec.reduce(_|_)
-  private val needMergeAux = mergeAuxVec.reduce(_|_)
-  private val needAlloc = !needMergeAux && emptyEntry.valid && io.enq.valid
+  private val needAlloc = !needMerge && emptyEntry.valid && io.enq.valid
 
-  io.enq.ready := needMergeAux | emptyEntry.valid
+  io.enq.ready := needMerge | emptyEntry.valid
+  private val enqEntryOH = Mux(needMerge, Cat(mergeVec.reverse), emptyEntry.bits)
 
   io.enqToPayload.valid := needAlloc
   io.enqToPayload.bits := emptyEntry.bits
+  io.pdestUpdate.valid := io.enq.fire
+  io.pdestUpdate.bits := enqEntryOH
 
   for(((v, e), i) <- valids.zip(array).zipWithIndex){
     val updateNetwork = Module(new VprsStatusArrayEntryUpdateNetwork(sWkpWidth, vWkpWidth))
-    updateNetwork.io.enq.valid := io.enq.fire & emptyEntry.bits(i)
+    updateNetwork.io.enq.valid := io.enq.fire & enqEntryOH(i)
     updateNetwork.io.enq.bits := io.enq.bits
     updateNetwork.io.enqIsMerge := needMerge
     updateNetwork.io.entry.valid := v
@@ -169,12 +168,8 @@ class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) exte
       v := updateNetwork.io.entryNext.valid
       validsAux(i) := updateNetwork.io.entryNext.valid
       e := updateNetwork.io.entryNext.bits
-      robIdxAux(i) := updateNetwork.io.entryNext.bits.robPtr
     }
   }
   assert(valids === validsAux)
-  for(i <- 0 until size){
-    when(valids(i)){assert(robIdxAux(i) === array(i).robPtr)}
-  }
   when(io.issueOH.valid){assert((valids.asUInt & io.issueOH.bits).orR)}
 }

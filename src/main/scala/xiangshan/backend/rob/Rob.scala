@@ -409,6 +409,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   val fflags = Wire(ValidIO(UInt(5.W)))
   val vxsat = Wire(ValidIO(Bool()))
+  val vstart = Wire(ValidIO(UInt(7.W)))
 
   fflags.valid := io.commits.isCommit && VecInit(wflags).asUInt.orR
   fflags.bits := wflags.zip(csrDataRead).map({
@@ -514,7 +515,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   // sync fflags/dirty_fs to csr
   io.csr.fflags := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
-  io.csr.vxsat := vxsat
+  
   io.csr.dirty_vs := RegNext(dirty_vs, false.B)
   val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
   vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
@@ -524,15 +525,18 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   when(io.exception.valid && io.exception.bits.uop.ctrl.isVector) {
-    io.csr.vstart.valid := true.B
-    io.csr.vstart.bits := exceptionGen.io.state.bits.vstart
+    vstart.valid := true.B
+    vstart.bits := exceptionGen.io.state.bits.vstart
   }.elsewhen(vectorCommitValidVec.asUInt.orR) {
-    io.csr.vstart.valid := true.B
-    io.csr.vstart.bits := 0.U
+    vstart.valid := true.B
+    vstart.bits := 0.U
   }.otherwise {
-    io.csr.vstart.valid := false.B
-    io.csr.vstart.bits := 0.U
+    vstart.valid := false.B
+    vstart.bits := 0.U
   }
+
+  io.csr.vxsat := vxsat
+  io.csr.vstart := vstart
 
   //************************MemBlock************************
   // commit load/store to lsq
