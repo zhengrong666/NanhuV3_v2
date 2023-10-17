@@ -175,7 +175,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
         (emul === 7.U(3.W)) -> 1.U
       ))
     }.elsewhen(narrow) {
-      vmbInit.bits.uopNum := LogicShiftRight(deqUop.uop.uopNum, 1)
+      vmbInit.bits.uopNum := Mux(deqUop.uop.uopNum === 1.U, deqUop.uop.uopNum, LogicShiftRight(deqUop.uop.uopNum, 1))
     }.elsewhen(isNarrowToMask) {
       vmbInit.bits.uopNum := 1.U
     }
