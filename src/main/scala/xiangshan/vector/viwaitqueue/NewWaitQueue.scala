@@ -154,6 +154,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val vmbInit = Wire(Valid(new MicroOp))
   vmbInit.valid := deqValid
   vmbInit.bits := deqUop.uop
+  vmbInit.bits.uopIdx := 0.U
   private val isLoad = deqUop.uop.ctrl.fuType === FuType.ldu
   private val isNarrowToMask = deqUop.uop.vctrl.isNarrow &&
     deqUop.uop.vctrl.eewType(2) === EewType.const &&
@@ -174,7 +175,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
         (emul === 7.U(3.W)) -> 1.U
       ))
     }.elsewhen(narrow) {
-      vmbInit.bits.uopNum := LogicShiftRight(vmbInit.bits.uopNum, 1)
+      vmbInit.bits.uopNum := LogicShiftRight(deqUop.uop.uopNum, 1)
     }.elsewhen(isNarrowToMask) {
       vmbInit.bits.uopNum := 1.U
     }
