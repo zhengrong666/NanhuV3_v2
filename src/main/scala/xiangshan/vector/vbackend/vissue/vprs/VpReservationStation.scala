@@ -11,6 +11,7 @@ import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, Write
 
 class VprsIssueBundle(implicit p: Parameters) extends XSBundle{
   val uop: MicroOp = new MicroOp
+  val pdest:Vec[UInt] = Vec(8, UInt(PhyRegIdxWidth.W))
   val prs: UInt = UInt(PhyRegIdxWidth.W)
   val prsType: UInt = SrcType()
   val rsRen: Bool = Bool()
@@ -137,6 +138,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
   selectNetwork.io.issueInfo.ready := issueDriver.io.enq.ready
   issueDriver.io.enq.valid := selectNetwork.io.issueInfo.valid
   issueDriver.io.enq.bits.uop := arrayWrapper.io.issueUop
+  issueDriver.io.enq.bits.pdest := arrayWrapper.io.issuePdest
   issueDriver.io.enq.bits.pov := issueInfo.pov
   issueDriver.io.enq.bits.prs := issueInfo.prs
   issueDriver.io.enq.bits.prsType := issueInfo.prsType

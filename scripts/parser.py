@@ -279,12 +279,12 @@ class VCollection(object):
             os.makedirs(output_dir, exist_ok=True)
         if split:
             for module in modules:
-                output_file = os.path.join(output_dir, module.get_name() + ".v")
+                output_file = os.path.join(output_dir, module.get_name() + ".sv")
                 # print("write module", module.get_name(), "to", output_file)
                 with open(output_file, "w") as f:
                     f.writelines(module.get_lines())
         else:
-            output_file = os.path.join(output_dir, name + ".v")
+            output_file = os.path.join(output_dir, name + ".sv")
             with open(output_file, "w") as f:
                 for module in modules:
                     f.writelines(module.get_lines())
@@ -364,7 +364,7 @@ def get_files(build_path):
     files = []
     for f in os.listdir(build_path):
         file_path = os.path.join(build_path, f)
-        if f.endswith(".v") or f.endswith(".sv"):
+        if f.endswith(".sv") or f.endswith(".sv"):
             files.append(file_path)
         elif os.path.isdir(file_path):
             files += get_files(file_path)
@@ -612,7 +612,7 @@ def get_combMem_path(sram_path, rtl_path):
     for l in lines:
       if combMem_pattern.search(l) != None:
         combMem_name = l.strip().split(' ')[0]
-        combMem_path = rtl_path + '/' + combMem_name + ".v"
+        combMem_path = rtl_path + '/' + combMem_name + ".sv"
         res.append(combMem_path)
   return res
 
@@ -639,7 +639,7 @@ def export_sram_files(release_path, top_module):
     return res
   
   def key_gen(cm_path):
-    segments = cm_path.strip(".v").split('_')
+    segments = cm_path.strip(".sv").split('_')
     segments.reverse()
     suffix = segments[0]
     if re.match(r"\d+", suffix) == None:
@@ -662,11 +662,11 @@ def export_sram_files(release_path, top_module):
   combMem_list = dedup(combMem_list)
   combMem_list.sort(key=key_gen)
   if(len(combMem_list)):
-    merge_combMem(combMem_list, out_dir + '/sram_cobmMem.v')
+    merge_combMem(combMem_list, out_dir + '/sram_cobmMem.sv')
 
   with open(sram_flist_path, "w+") as sram_flist_file:
     if(len(combMem_list)):
-      sram_flist_file.write("SRAM/sram_cobmMem.v\n")
+      sram_flist_file.write("SRAM/sram_cobmMem.sv\n")
     for f in os.listdir(out_dir):
       if sram_pattern.search(f) != None:
         sram_flist_file.write("SRAM/" + f + '\n')

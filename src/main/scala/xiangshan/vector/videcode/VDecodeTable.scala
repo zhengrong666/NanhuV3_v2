@@ -316,7 +316,7 @@ object VADecode extends VDecodeConstants {
     VREDXOR_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.const, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
 
     //permutation instructions
-    VCOMPRESS_VM -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
+    VCOMPRESS_VM -> List(EewVal.mask, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VSLIDE1DOWN_VX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VSLIDE1UP_VX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VSLIDEDOWN_VI -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),

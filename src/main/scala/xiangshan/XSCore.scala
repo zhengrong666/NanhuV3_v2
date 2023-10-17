@@ -34,6 +34,7 @@ import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
 import system.HasSoCParameter
 import utils._
 import xiangshan.backend._
+import xiangshan.backend.execute.fu.csr.CSRConst.ModeM
 import xiangshan.cache.mmu._
 import xiangshan.frontend._
 import xiangshan.vector.HasVectorParameters
@@ -129,9 +130,9 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   //TODO:
   csrioIn.vcsr.robWb.vstart.valid := ctrlBlock.io.robio.toCSR.vstart.valid
   csrioIn.vcsr.robWb.vstart.bits := ctrlBlock.io.robio.toCSR.vstart.bits
-
   csrioIn.vcsr.robWb.vxsat.valid := ctrlBlock.io.robio.toCSR.vxsat.valid
   csrioIn.vcsr.robWb.vxsat.bits := ctrlBlock.io.robio.toCSR.vxsat.bits
+  csrioIn.vcsr.robWb.dirty_vs := ctrlBlock.io.robio.toCSR.dirty_vs
 
   csrioIn.vcsr.vtype <> ctrlBlock.io.vcsrToRename
   ctrlBlock.io.vcsrToRename.vtypeRead.readEn := RegNext(csrioIn.vcsr.vtype.vtypeRead.readEn, false.B)
@@ -144,7 +145,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.sqDeq := exuBlock.io.sqDeq
   ctrlBlock.io.lqDeq := exuBlock.io.lqDeq
   ctrlBlock.io.stIn := exuBlock.io.stIn
-  ctrlBlock.io.mmuEnable := exuBlock.io.csrio.tlb.satp.mode =/= 0.U
+  ctrlBlock.io.mmuEnable := exuBlock.io.csrio.tlb.satp.mode =/= 0.U && exuBlock.io.csrio.tlb.priv.dmode < ModeM
   exuBlock.io.enqLsq <> ctrlBlock.io.enqLsq
   ctrlBlock.io.redirectIn := exuBlock.io.redirectOut
   ctrlBlock.io.lsqVecDeqCnt <> exuBlock.io.lsqVecDeqCnt

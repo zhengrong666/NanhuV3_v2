@@ -57,37 +57,38 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
   }
 
   //free list
-  val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum - 32)(i => (i + 32).U(PhyRegIdxWidth.W)) ++ (Seq.tabulate(32)(i => (i).U(PhyRegIdxWidth.W))))
-  val freeList = RegInit(freeList_ds)
+  private val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum - 32)(i => (i + 32).U(PhyRegIdxWidth.W)) ++ (Seq.tabulate(32)(i => (i).U(PhyRegIdxWidth.W))))
+  private val freeList = RegInit(freeList_ds)
 
   //head and tail pointer
-  val allocatePtr = RegInit(VIFreeListPtr(false, 0))
-  val releasePtr = RegInit(VIFreeListPtr(false, VIPhyRegsNum - 32))
+  private val allocatePtr = RegInit(VIFreeListPtr(false, 0))
+  private val releasePtr = RegInit(VIFreeListPtr(false, VIPhyRegsNum - 32))
+  assert(releasePtr >= allocatePtr, "Unexpected V phy regs are released!")
 
   //Allocate
   private val allocateNum = PopCount(io.needAlloc)
   private val freeEntryNum = distanceBetween(releasePtr, allocatePtr)
   io.canAccept := allocateNum <= freeEntryNum
+  io.allocatePhyReg.zipWithIndex.foreach({case(a, i) =>
+    if(i == 0){
+      a := freeList(allocatePtr.value)
+    } else {
+      val addend = PopCount(io.needAlloc.take(i))
+      a := freeList((allocatePtr + addend).value)
+    }
+  })
 
-  val allocPtrOHVec = Wire(Vec(VIRenameWidth, UInt(VIPhyRegsNum.W)))
-  for(i <- 0 until VIRenameWidth) {
-    allocPtrOHVec(i) := (allocatePtr + i.U).toOH
+  private val doAlloc = io.needAlloc.map(_ && io.canAccept).reduce(_|_)
+  when(doAlloc){
+    allocatePtr := allocatePtr + allocateNum
   }
 
-  val phyRegCandidates = Wire(Vec(VIRenameWidth, UInt(VIPhyRegIdxWidth.W)))
-  phyRegCandidates := allocPtrOHVec.map(sel => Mux1H(sel, freeList))
-
-  // io.canAllocateNum := Mux(freeEntryNum >= VIRenameWidth.U, VIRenameWidth.U, freeEntryNum)
-   io.allocatePhyReg := phyRegCandidates
-
-  val allocNum = PopCount(io.needAlloc.map(_ && io.canAccept))
-  val allocPtrNext = allocatePtr + allocNum
-  allocatePtr := allocPtrNext
-
   //Release
-  val releaseNum = PopCount(io.releasePhyReg.map(_.valid))
-  val releasePtrNext = releasePtr + releaseNum
-  releasePtr := releasePtrNext
+  private val releaseNum = PopCount(io.releasePhyReg.map(_.valid))
+  private val doRelease = io.releasePhyReg.map(_.valid).reduce(_|_)
+  when(doRelease){
+    releasePtr := releasePtr + releaseNum
+  }
 
   for((rls, i) <- io.releasePhyReg.zipWithIndex) {
     val ptr = if(i == 0) {

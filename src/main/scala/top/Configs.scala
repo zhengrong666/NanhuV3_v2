@@ -16,6 +16,7 @@
 
 package top
 
+import axi2tl.{AXI2TLParam, AXI2TLParamKey}
 import chisel3._
 import chisel3.util._
 import xiangshan._
@@ -56,6 +57,7 @@ class BaseConfig(n: Int, mbist:Boolean = false) extends Config((site, here, up) 
   case PrefixKey => ""
 
   case VFuParamsKey => VFuParameters()
+  case AXI2TLParamKey => AXI2TLParam()
 })
 
 // Synthesizable minimal XiangShan

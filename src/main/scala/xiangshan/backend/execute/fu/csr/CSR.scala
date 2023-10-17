@@ -835,17 +835,16 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     fcsr := fflags_wfn(update = true)(RegNext(csrio.fpu.fflags.bits))
   }
   // set fs and sd in mstatus
-  when (csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs)) {
+  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs)
+  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid)
+  when (vsUpdate || fsUpdate) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    mstatusNew.fs := "b11".U
-    mstatusNew.sd := true.B
-    mstatus := mstatusNew.asUInt
-  }
-  csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
-
-  when (csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.vstart.valid) || RegNext(csrio.vcsr.robWb.vxsat.valid)) {
-    val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
-    mstatusNew.vs := "b11".U
+    when(fsUpdate){
+      mstatusNew.fs := "b11".U
+    }
+    when(vsUpdate){
+      mstatusNew.vs := "b11".U
+    }
     mstatusNew.sd := true.B
     mstatus := mstatusNew.asUInt
   }
@@ -1115,7 +1114,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   // mtval write logic
   // Due to timing reasons of memExceptionVAddr, we delay the write of mtval and stval
-  val memExceptionAddr = SignExt(csrio.memExceptionVAddr, XLEN)
+
+  val mmuEnable = priviledgeMode < ModeM && tlbBundle.satp.mode =/= 0.U
+  val memExceptionAddr = Mux(mmuEnable, SignExt(csrio.memExceptionVAddr, XLEN), ZeroExt(csrio.memExceptionVAddr, XLEN))
+  val exceptionNextAddr = Mux(mmuEnable, SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN), ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN))
   val updateTval = VecInit(Seq(
     hasInstrPageFault,
     hasLoadPageFault,
@@ -1127,28 +1129,19 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     hasStoreAddrMisalign
   )).asUInt.orR
   when (RegNext(RegNext(updateTval))) {
-      val _mtval = Mux(
+      val tval = Mux(
         RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
         RegNext(RegNext(Mux(
           csrio.exception.bits.uop.cf.crossPageIPFFix,
-          ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
+          exceptionNextAddr,
           iexceptionPC
         ))),
-        ZeroExt(csrio.memExceptionVAddr, XLEN)
-    )
-    val _stval = Mux(
-      RegNext(RegNext(hasInstrPageFault || hasInstrAccessFault)),
-      RegNext(RegNext(Mux(
-        csrio.exception.bits.uop.cf.crossPageIPFFix,
-        SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN),
-        iexceptionPC
-      ))),
-      memExceptionAddr
+        memExceptionAddr
     )
     when (RegNext(priviledgeMode === ModeM)) {
-      mtval := _mtval
+      mtval := tval
     }.otherwise {
-      stval := _stval
+      stval := tval
     }
   }
 
@@ -1287,7 +1280,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Always instantiate basic difftest modules.
   if (env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftestException = DifftestModule(new DiffArchEvent, delay = 3)
-    difftestException.clock := clock
     difftestException.coreid := csrio.hartId
     difftestException.valid := csrio.exception.valid
     difftestException.interrupt := difftestIntrNO
@@ -1299,7 +1291,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Always instantiate basic difftest modules.
   if (env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffCSRState)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.priviledgeMode := priviledgeMode
     difftest.mstatus := mstatus
@@ -1323,7 +1314,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffDebugMode)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.debugMode := debugMode
     difftest.dcsr := dcsr
@@ -1334,7 +1324,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
     val difftest = DifftestModule(new DiffVecCSRState, delay = 1)
-    difftest.clock := clock
     difftest.coreid := csrio.hartId
     difftest.vlenb := vlenb
     difftest.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))

@@ -64,6 +64,7 @@ class RobCSRIO(implicit p: Parameters) extends XSBundle {
   val vstart     = Output(Valid(UInt(7.W)))
   val vxsat      = Output(ValidIO(Bool()))
   val dirty_fs   = Output(Bool())
+  val dirty_vs   = Output(Bool())
   val perfinfo   = new Bundle {
     val retiredInstr = Output(UInt(3.W))
   }

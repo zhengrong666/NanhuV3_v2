@@ -93,11 +93,12 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
     })
   }
 
-  private val headPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
-  private val tailPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
+  private val enqPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
+  private val deqPtr = RegInit(0.U.asTypeOf(new RollBackListPtr))
 
-  private val entryNum = distanceBetween(headPtr, tailPtr)
+  private val entryNum = distanceBetween(enqPtr, deqPtr)
   private val payload = Module(new RollbackListPayload)
+  assert(enqPtr >= deqPtr)
 
   //rename write robIdx、sRAT_old(from sRAT)、sRAT_new(from freeList)
   private val allocateDeltas = Wire(Vec(VIRenameWidth, UInt(log2Ceil(VIRenameWidth).W)))
@@ -111,7 +112,7 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
 
   for((e, i) <- payload.io.enq.zipWithIndex){
     e.valid := io.rename(i).valid
-    e.bits.addr := (headPtr + allocateDeltas(i)).value
+    e.bits.addr := (enqPtr + allocateDeltas(i)).value
     e.bits.data.robIdx := io.rename(i).bits.robIdx
     e.bits.data.logicRegIdx := io.rename(i).bits.lrIdx
     e.bits.data.oldPhyRegIdx := io.rename(i).bits.oldPrIdx
@@ -121,12 +122,15 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   //commit
   private val robIdxSel = Mux(io.commit.rob.isCommit, io.commit.rob.commitValid, io.commit.rob.walkValid)
   private val rollingRobIdx = Mux1H(robIdxSel, io.commit.rob.robIdx)
+  private val shouldAct = robIdxSel.asUInt.orR
   payload.io.read.robPtr := rollingRobIdx
-  payload.io.read.addr := Mux(io.commit.rob.isCommit, tailPtr, headPtr)
+  payload.io.read.addr := Mux(io.commit.rob.isCommit, deqPtr, enqPtr)
   payload.io.read.commit := io.commit.rob.isCommit
 
-  io.commit.rat.doCommit := io.commit.rob.isCommit
-  io.commit.rat.doWalk := io.commit.rob.isWalk
+  io.commit.rat.doCommit := io.commit.rob.isCommit && shouldAct
+  io.commit.rat.doWalk := io.commit.rob.isWalk && shouldAct
+
+  when(io.commit.rat.doCommit || io.commit.rat.doWalk){assert(PopCount(robIdxSel) <= 1.U, "Only one v inst should be walked or committed")}
   assert(PopCount(Seq(io.commit.rat.doCommit, io.commit.rat.doWalk)) <= 1.U, "Walk and commit at the same time!")
   for(i <- 0 until 8){
     io.commit.rat.mask(i) := payload.io.read.data(i).hit && (i.U < entryNum)
@@ -140,10 +144,10 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
   private val walkLeaving = Mux(io.commit.rat.doWalk, rollLeaving, 0.U)
   private val doEnq = io.rename.map(_.valid).reduce(_||_)
   private val enqNum = PopCount(io.rename.map(_.valid))
-  when(io.commit.rob.isCommit){
-    tailPtr := tailPtr + commitLeaving
+  when(io.commit.rat.doCommit){
+    deqPtr := deqPtr + commitLeaving
   }
-  when(io.commit.rob.isWalk || doEnq){
-    headPtr := headPtr + enqNum - walkLeaving
+  when(io.commit.rat.doWalk || doEnq){
+    enqPtr := enqPtr + enqNum - walkLeaving
   }
 }

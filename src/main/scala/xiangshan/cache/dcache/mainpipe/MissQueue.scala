@@ -671,7 +671,6 @@ class MissQueue(edge: TLEdgeOut)(implicit p: Parameters) extends DCacheModule wi
 
   if (env.EnableDifftest) {
     val difftest = DifftestModule(new DiffRefillEvent)
-    difftest.clock := clock
     difftest.coreid := io.hartId
     difftest.index := 1.U
     difftest.idtfr := 1.U

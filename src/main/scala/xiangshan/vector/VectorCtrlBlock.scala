@@ -51,12 +51,9 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     //from ctrl rename
     val fromVtpRn = Input(Vec(RenameWidth, new VtpToVCtl))
     //from ctrl rob
-    val robPtr = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
+    val robEnq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
     val vtypewriteback = Flipped(ValidIO(new VtypeWbIO)) //to wait queue
-    val mergeIdAllocate = Vec(VectorMergeAllocateWidth, new Bundle {
-      val mergePtr = Flipped(DecoupledIO(new WbMergeBufferPtr(VectorMergeBufferDepth)))
-      val robPtr = Output(new RobPtr)
-    })
+    val vmbAlloc = Flipped(new VmbAlloc)
     val commit = Flipped(new RobCommitIO) // to rename
     val redirect = Flipped(ValidIO(new Redirect))
     //from csr vstart
@@ -101,16 +98,10 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     waitqueue.io.enq.req(i).bits.uop.vtypeRegIdx := io.fromVtpRn(i).vtypeIdx
   }
 
-
   waitqueue.io.vstart         := io.vstart
   waitqueue.io.vtypeWbData    := io.vtypewriteback
-  waitqueue.io.robin          := io.robPtr
-  waitqueue.io.mergeId.zip(io.mergeIdAllocate).foreach {
-    case (wq, alloc) => {
-      wq.mergePtr <> alloc.mergePtr
-      alloc.robPtr := wq.robPtr
-    }
-  }
+  waitqueue.io.robin          := io.robEnq
+  waitqueue.io.vmbAlloc       <> io.vmbAlloc
   waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
   waitqueue.io.redirect       := redirectDelay_dup_1
 

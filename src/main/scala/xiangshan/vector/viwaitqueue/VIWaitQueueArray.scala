@@ -5,11 +5,10 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.backend.rob.RobPtr
-import xiangshan.{MicroOp, Redirect, VICsrInfo, XSBundle, XSModule}
+import xiangshan.{MicroOp, Redirect, XSBundle, XSModule}
 import xiangshan.vector._
-import xiangshan.vector.writeback.WbMergeBufferPtr
+import xiangshan.vector.writeback.VmbPtr
 import xiangshan.backend.execute.fu.csr.vcsr._
-import xs.utils.{LogicShiftLeft, LogicShiftRight}
 object WqState {
   def s_updating:UInt = "b0".U
   def s_waiting:UInt = "b1".U
@@ -35,7 +34,7 @@ class ViwqReadPort(implicit p: Parameters) extends XSBundle{
 
 class VmsIdAlloc(implicit p: Parameters) extends XSBundle{
   val en = Input(Bool())
-  val data = Input(new WbMergeBufferPtr(VectorMergeBufferDepth))
+  val data = Input(new VmbPtr)
   val addr = Input(UInt(log2Ceil(VIWaitQueueWidth).W))
 }
 
@@ -44,7 +43,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val enq = Input(Valid(new VIWakeQueueEntry))
     val entry = Input(new VIWakeQueueEntry)
     val robEnq = Input(Vec(RenameWidth, Valid(new RobPtr)))
-    val vmsResp = Input(Valid(new WbMergeBufferPtr(VectorMergeBufferDepth)))
+    val vmsResp = Input(Valid(new VmbPtr))
     val vtypeWb = Flipped(ValidIO(new VtypeWbIO))
     val entryNext = Output(new VIWakeQueueEntry)
     val updateEnable = Output(Bool())
@@ -141,6 +140,7 @@ class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorPa
   val io = IO(new Bundle{
     val enq = Vec(VIDecodeWidth, new ViwqWritePort)
     val deq = new ViwqReadPort
+    val read = Vec(VIDecodeWidth, new ViwqReadPort)
     val robEnq = Input(Vec(RenameWidth, Valid(new RobPtr)))
     val vmsIdAllocte = Vec(VIDecodeWidth, new VmsIdAlloc)
     val vtypeWb = Flipped(ValidIO(new VtypeWbIO))
@@ -173,7 +173,9 @@ class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorPa
     }
   })
 
-  private val readSel = array.indices.map(_.U === io.deq.addr)
-  io.deq.data := Mux1H(readSel, array)
+  io.deq.data := array(io.deq.addr)
 
+  io.read.foreach(r => {
+    r.data := array(r.addr)
+  })
 }

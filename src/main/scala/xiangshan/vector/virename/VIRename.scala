@@ -131,7 +131,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   renameTable.io.commit := rollbackDelay
 
   for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
-    rls.valid := rollbackDelay.mask(i)
+    rls.valid := rollbackDelay.mask(i) && (rollbackDelay.doCommit || rollbackDelay.doWalk)
     rls.bits := Mux(rollbackDelay.doCommit, rollbackDelay.prIdxOld(i), rollbackDelay.prIdxNew(i))
   }
 }

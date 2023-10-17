@@ -39,7 +39,7 @@ import xiangshan.frontend.Ftq_Redirect_SRAMEntry
 import xiangshan.frontend.AllAheadFoldedHistoryOldestBits
 import xs.utils.DataChanged
 import xiangshan.vector._
-import xiangshan.vector.writeback.WbMergeBufferPtr
+import xiangshan.vector.writeback.VmbPtr
 
 import scala.math.max
 
@@ -149,9 +149,10 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val vdWen = Bool()
   val isVector = Bool()
   val isVtype = Bool()
+  val wvxsat = Bool()
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, selImm)
+    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, wvxsat, selImm)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     this := DontCare
@@ -223,7 +224,7 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val partialTail = Bool()
   val isPrestart = Bool()
   val canRename = Bool()
-  val mergeIdx = new WbMergeBufferPtr(VectorMergeBufferDepth)
+  val mergeIdx = new VmbPtr
   val loadStoreEnable = Bool()
   val vtypeRegIdx = UInt(log2Ceil(VIVtypeRegsNum).W)
 

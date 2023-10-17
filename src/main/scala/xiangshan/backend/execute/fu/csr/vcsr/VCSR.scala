@@ -31,6 +31,7 @@ class VCSRWithVtypeRenameIO(implicit p: Parameters) extends VectorBaseBundle {
 class VCSRWithRobIO(implicit p: Parameters) extends VectorBaseBundle {
   val vstart = Flipped(ValidIO(UInt(XLEN.W)))
   val vxsat  = Flipped(ValidIO(UInt(XLEN.W)))
+  val dirty_vs = Input(Bool())
 }
 
 class VCsrIO(implicit p: Parameters) extends VectorBaseBundle {

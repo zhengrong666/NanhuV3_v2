@@ -399,13 +399,13 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     }
   ).unzip
 
-  val wvcsr = (0 until CommitWidth).map(
+  val (wvcsr, vecWen) = (0 until CommitWidth).map(
     i => {
       val v = io.commits.commitValid(i)
       val info = io.commits.info(i)
-      v & info.wvcsr
+      (v & info.wvcsr, v & info.vecWen)
     }
-  )
+  ).unzip
 
   val fflags = Wire(ValidIO(UInt(5.W)))
   val vxsat = Wire(ValidIO(Bool()))
@@ -419,7 +419,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   vxsat.bits := wvcsr.zip(csrDataRead).map({
     case (w, c) => Mux(w, c.vxsat, 0.U)
   }).reduce(_ | _)
-
+  val dirty_vs = io.commits.isCommit && VecInit(vecWen).asUInt.orR
   val dirty_fs = io.commits.isCommit && VecInit(fpWen).asUInt.orR
   val blockCommit = hasWFI || exceptionWaitingRedirect
 
@@ -514,8 +514,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   // sync fflags/dirty_fs to csr
   io.csr.fflags := Pipe(fflags)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
-  io.csr.vxsat := Pipe(vxsat)
-
+  io.csr.vxsat := vxsat
+  io.csr.dirty_vs := RegNext(dirty_vs, false.B)
   val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
   vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
     case ((vcv, cv), i) => {
@@ -776,7 +776,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.ftqIdx := req.cf.ftqPtr
       wdata.ftqOffset := req.cf.ftqOffset
       wdata.vecWen := req.ctrl.isVector
-      wdata.wvcsr := false.B
+      wdata.wvcsr := req.ctrl.wvxsat
       wdata.vtypeWb := req.ctrl.isVtype
       wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered
@@ -953,7 +953,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val exuOut = debug_exuDebug(ptr)
       val exuData = debug_exuData(ptr)
       val difftestInstCmt = DifftestModule(new DiffInstrCommit(NRPhyRegs), delay = 3)
-      difftestInstCmt.clock := clock
       difftestInstCmt.coreid := io.hartId
       difftestInstCmt.index := i.U
       difftestInstCmt.valid := io.commits.commitValid(i) && io.commits.isCommit
@@ -981,7 +980,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
       // runahead commit hint
       val runahead_commit = DifftestModule(new DiffRunaheadCommitEvent)
-      runahead_commit.clock := clock
       runahead_commit.coreid := io.hartId
       runahead_commit.index := i.U
       runahead_commit.valid := difftestInstCmt.valid &&
@@ -994,7 +992,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   if (env.EnableDifftest) {
     for (i <- 0 until CommitWidth) {
       val difftestLdEvent = DifftestModule(new DiffLoadEvent, delay = 3)
-      difftestLdEvent.clock := clock
       difftestLdEvent.coreid := io.hartId
       difftestLdEvent.index := i.U
 
@@ -1021,7 +1018,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val trapCode = PriorityMux(wdata.zip(trapVec).map(x => x._2 -> x._1))
     val trapPC = SignExt(PriorityMux(wpc.zip(trapVec).map(x => x._2 -> x._1)), XLEN)
     val difftestTrapEvent = DifftestModule(new DiffTrapEvent)
-    difftestTrapEvent.clock := clock
     difftestTrapEvent.coreid := io.hartId
     difftestTrapEvent.hasTrap := hitTrap
     difftestTrapEvent.code := trapCode

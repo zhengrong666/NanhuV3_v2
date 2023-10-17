@@ -58,7 +58,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     private val issueDataReg = Reg(new VprsIssueBundle)
     private val issueScalarDataReg = Reg(UInt(XLEN.W))
     private val issueValidReg = RegInit(false.B)
-    private val allowPipe = !issueValidReg || permutation.io.out.perm_busy || (issueValidReg && issueDataReg.uop.robIdx.needFlush(io.redirect))
+    private val allowPipe = !issueValidReg || !permutation.io.out.perm_busy || (issueValidReg && issueDataReg.uop.robIdx.needFlush(io.redirect))
     when(allowPipe){
       issueValidReg := vprs.module.io.issue.valid
     }
@@ -79,9 +79,9 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.uop.info.vxrm := io.vcsr(2,1)
     permutation.io.in.uop.info.frm := io.frm
     permutation.io.in.rs1 := issueScalarDataReg
-    permutation.io.in.vs1_preg_idx.zip(issueDataReg.pvs1).foreach({case(a,b) => a := b})
-    permutation.io.in.vs2_preg_idx.zip(issueDataReg.pvs2).foreach({case(a,b) => a := b})
-    permutation.io.in.old_vd_preg_idx.zip(issueDataReg.pov).foreach({case(a,b) => a := b})
+    permutation.io.in.vs1_preg_idx := issueDataReg.pvs1
+    permutation.io.in.vs2_preg_idx := issueDataReg.pvs2
+    permutation.io.in.old_vd_preg_idx := issueDataReg.pov
     permutation.io.in.mask_preg_idx := issueDataReg.pvm
     permutation.io.in.uop_valid := issueValidReg
     permutation.io.in.rdata := rfRespData
@@ -101,5 +101,6 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
       wbCounter := 0.U
     }
     wb.bits.uop.uopIdx := wbCounter
+    wb.bits.uop.pdest := issueDataReg.pdest(wbCounter)
   }
 }
