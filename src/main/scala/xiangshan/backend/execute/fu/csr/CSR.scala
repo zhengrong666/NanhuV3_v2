@@ -592,8 +592,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.vcsr.vtype.vtypeWbToRename.valid := vsetFu.io.wbToCtrlValid
   csrio.vcsr.vcsr := vcsr(2, 0)
 
-  when(csrio.vcsr.robWb.vstart.valid) {
-    vstart := csrio.vcsr.robWb.vstart.bits
+  when(RegNext(csrio.vcsr.robWb.vstart.valid)) {
+    vstart := RegNext(csrio.vcsr.robWb.vstart.bits)
   }
 
   when(RegNext(csrio.vcsr.robWb.vxsat.valid)) {
