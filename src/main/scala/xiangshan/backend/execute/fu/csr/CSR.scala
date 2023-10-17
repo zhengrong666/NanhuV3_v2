@@ -594,9 +594,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   when(csrio.vcsr.robWb.vstart.valid) {
     vstart := csrio.vcsr.robWb.vstart.bits
-  }.elsewhen(csrio.vcsr.robWb.vxsat.valid) {
-    //vxsat is valid only when vector instr commit, control by rob
-    vstart := 0.U
   }
 
   when(RegNext(csrio.vcsr.robWb.vxsat.valid)) {
@@ -1326,12 +1323,12 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     val difftest = DifftestModule(new DiffVecCSRState, delay = 1)
     difftest.coreid := csrio.hartId
     difftest.vlenb := vlenb
-    difftest.vxsat := RegNext(Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0))))
+    difftest.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))
     difftest.vxrm := Cat(0.U((XLEN-3).W), vcsr(2, 1))
-    difftest.vcsr := RegNext(Mux(csrio.vcsr.robWb.vxsat.valid, Cat(vcsr(XLEN - 1, 1), csrio.vcsr.robWb.vxsat.bits(0)), vcsr))
+    difftest.vcsr := Mux(csrio.vcsr.robWb.vxsat.valid, Cat(vcsr(XLEN - 1, 1), csrio.vcsr.robWb.vxsat.bits(0)), vcsr)
     difftest.vtype := csrio.vcsr.vtype.debug_vtype
     difftest.vl := csrio.vcsr.vtype.debug_vl
-    difftest.vstart := RegNext(Mux(csrio.vcsr.robWb.vstart.valid, csrio.vcsr.robWb.vstart.bits, vstart))
+    difftest.vstart := Mux(csrio.vcsr.robWb.vstart.valid, csrio.vcsr.robWb.vstart.bits, vstart)
   }
 }
 
