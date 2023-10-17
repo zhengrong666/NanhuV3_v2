@@ -136,7 +136,7 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   }.elsewhen(type2 || type3 || avl >= Cat(vlmax, 0.U(1.W))){
     vl := vlmax
   }.elsewhen(avl > vlmax) {
-    vl := LogicShiftRight(vlmax, 1) + 1.U
+    vl := LogicShiftRight(avl, 1) + 1.U
   }.otherwise{
     vl := avl
   }
