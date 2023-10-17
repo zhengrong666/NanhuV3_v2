@@ -119,7 +119,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       when(narrowToMask) {
         o.bits.canRename := currentnum === 0.U
       }.elsewhen(narrow) {
-        o.bits.canRename := LogicShiftRight(currentnum, 1)
+        o.bits.canRename := currentnum(0) === 0.U
       }.otherwise {
         o.bits.canRename := true.B
       }
