@@ -144,97 +144,33 @@ class SbufferData(implicit p: Parameters) extends XSModule with HasSbufferConst 
   //s0
   val req = io.writeReq
   //s1
-  val w_valid_s1 = req.map(a => RegNext(a.valid))
-  val w_data_s1 = req.map(a => RegEnable(a.bits.data, a.valid))
-  val w_wline_s1 = req.map(a => RegEnable(a.bits.wline, a.valid))
-  val w_mask_s1 = req.map(a => RegEnable(a.bits.mask, a.valid))
-  val w_addr_s1 = req.map(a => RegEnable(OHToUInt(a.bits.wvec), a.valid))
-  val w_word_offset_s1 = req.map(a => RegEnable(a.bits.wordOffset(WordsWidth - 1, 0), a.valid))
+  val w_valid_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegNext(a.valid)))
+  val w_data_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.data, a.valid)))
+  val w_wline_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.wline, a.valid)))
+  val w_mask_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.mask, a.valid)))
+  val w_addr_s1_dup  = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(OHToUInt(a.bits.wvec), a.valid)))
+  val w_word_offset_s1_dup = Seq.fill(StoreBufferSize)(req.map(a => RegEnable(a.bits.wordOffset(WordsWidth - 1, 0), a.valid)))
 
-  w_valid_s1.zipWithIndex.foreach({ case (valid, i) =>
-    for (word <- 0 until CacheLineWords) {
-      for (byte <- 0 until DataBytes) {
-        val wen = valid && (
-          (w_mask_s1(i)(byte) && (w_word_offset_s1(i) === word.U)) ||
-            w_wline_s1(i)
-          )
-        when(wen) {
-          data(w_addr_s1(i))(word)(byte) := w_data_s1(i)(byte * 8 + 7, byte * 8)
-          mask(w_addr_s1(i))(word)(byte) := true.B
+  for(entry <- 0 until StoreBufferSize){
+    w_valid_s1_dup(entry).zipWithIndex.foreach({ case (valid, i) =>
+      for (word <- 0 until CacheLineWords) {
+        for (byte <- 0 until DataBytes) {
+          val wen = valid && (
+            (w_mask_s1_dup(entry)(i)(byte) && (w_word_offset_s1_dup(entry)(i) === word.U)) ||
+              w_wline_s1_dup(entry)(i)
+            )
+          when(wen){
+            when(w_addr_s1_dup(entry)(i) === entry.U){
+              data(entry)(word)(byte) := w_data_s1_dup(entry)(i)(byte * 8 + 7, byte * 8)
+              mask(entry)(word)(byte) := true.B
+            }
+          }
         }
       }
-    }
-  })
+    })
+  }
 
-//  // 2 cycle line mask clean
-//  for(line <- 0 until StoreBufferSize){
-//    val line_mask_clean_flag = RegNext(
-//      io.maskFlushReq.map(a => a.valid && a.bits.wvec(line)).reduce(_ || _)
-//    )
-//    line_mask_clean_flag.suggestName("line_mask_clean_flag_"+line)
-//    when(line_mask_clean_flag){
-//      for(word <- 0 until CacheLineWords){
-//        for(byte <- 0 until DataBytes){
-//          mask(line)(word)(byte) := false.B
-//        }
-//      }
-//    }
-//  }
-//
-//  // 2 cycle data / mask update
-//  for(i <- 0 until EnsbufferWidth) {
-//    val req = io.writeReq(i)
-//    for(line <- 0 until StoreBufferSize){
-//      val sbuffer_in_s1_line_wen = req.valid && req.bits.wvec(line)
-//      val sbuffer_in_s2_line_wen = RegNext(sbuffer_in_s1_line_wen)
-//      val line_write_buffer_data = RegEnable(req.bits.data, sbuffer_in_s1_line_wen)
-//      val line_write_buffer_wline = RegEnable(req.bits.wline, sbuffer_in_s1_line_wen)
-//      val line_write_buffer_mask = RegEnable(req.bits.mask, sbuffer_in_s1_line_wen)
-//      val line_write_buffer_offset = RegEnable(req.bits.wordOffset(WordsWidth-1, 0), sbuffer_in_s1_line_wen)
-//      sbuffer_in_s1_line_wen.suggestName("sbuffer_in_s1_line_wen_"+line)
-//      sbuffer_in_s2_line_wen.suggestName("sbuffer_in_s2_line_wen_"+line)
-//      line_write_buffer_data.suggestName("line_write_buffer_data_"+line)
-//      line_write_buffer_wline.suggestName("line_write_buffer_wline_"+line)
-//      line_write_buffer_mask.suggestName("line_write_buffer_mask_"+line)
-//      line_write_buffer_offset.suggestName("line_write_buffer_offset_"+line)
-//      for(word <- 0 until CacheLineWords){
-//        for(byte <- 0 until DataBytes){
-//          val write_byte = sbuffer_in_s2_line_wen && (
-//            line_write_buffer_mask(byte) && (line_write_buffer_offset === word.U) ||
-//            line_write_buffer_wline
-//          )
-//          when(write_byte){
-//            data(line)(word)(byte) := line_write_buffer_data(byte*8+7, byte*8)
-//            mask(line)(word)(byte) := true.B
-//          }
-//        }
-//      }
-//    }
-//  }
 
-  // 1 cycle line mask clean
-  // for(i <- 0 until EnsbufferWidth) {
-  //   val req = io.writeReq(i)
-  //   when(req.valid){
-  //     for(line <- 0 until StoreBufferSize){
-  //       when(
-  //         req.bits.wvec(line) && 
-  //         req.bits.cleanMask
-  //       ){
-  //         for(word <- 0 until CacheLineWords){
-  //           for(byte <- 0 until DataBytes){
-  //             mask(line)(word)(byte) := false.B
-  //             val debug_last_cycle_write_byte = RegNext(req.valid && req.bits.wvec(line) && (
-  //               req.bits.mask(byte) && (req.bits.wordOffset(WordsWidth-1, 0) === word.U) || 
-  //               req.bits.wline
-  //             ))
-  //             assert(!debug_last_cycle_write_byte)
-  //           }
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
 
   io.dataOut := data
   io.maskOut := mask
