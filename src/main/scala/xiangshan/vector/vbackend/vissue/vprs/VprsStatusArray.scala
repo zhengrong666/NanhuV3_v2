@@ -78,11 +78,11 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       })
     }
   }.elsewhen(io.entry.valid && io.entry.bits.robPtr.needFlush(io.redirect) || io.issued) {
-    assert(enqEntryNext.valid)
+    assert(io.entry.valid)
     enqEntryNext.valid := false.B
   }
 
-  private val enqOrRedirectOrDeqUpdateEn = io.entry.valid && io.entry.bits.robPtr.needFlush(io.redirect) || io.enq.valid || io.issued
+  private val enqOrRedirectOrDeqUpdateEn = io.entry.valid && io.redirect.valid || io.enq.valid || io.issued
 
   private val wkpEntryNext = WireInit(io.entry)
   private val rsWakeupValid = io.scalarWakeUps.map(wkp=> {
