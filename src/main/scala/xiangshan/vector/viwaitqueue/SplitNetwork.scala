@@ -2,7 +2,7 @@ package xiangshan.vector.viwaitqueue
 import chisel3._
 import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
-import xiangshan.vector.EewType
+import xiangshan.vector.{EewType, EewVal}
 import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Redirect, SrcType, XSModule}
 import xs.utils.LogicShiftRight
 
@@ -110,11 +110,19 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + vs2a, ctrl.lsrc(1))
       o.bits.ctrl.fuOpType := ft
     }.otherwise {
+      val narrowToMask = vctrl.isNarrow && vctrl.eewType(2) === EewType.const && vctrl.eew(2) === EewVal.mask
+      val narrow = vctrl.isNarrow && vctrl.eewType(2) === EewType.sew
       val narrowOrWiden = vctrl.isNarrow | vctrl.isWidden
       val vs1Addend = GenAddend(vctrl.eewType(0), narrowOrWiden, currentnum)
       val vs2Addend = GenAddend(vctrl.eewType(1), narrowOrWiden, currentnum)
       val vdAddend  = GenAddend(vctrl.eewType(2), narrowOrWiden, currentnum)
-      o.bits.canRename := true.B
+      when(narrowToMask) {
+        o.bits.canRename := currentnum === 0.U
+      }.elsewhen(narrow) {
+        o.bits.canRename := LogicShiftRight(currentnum, 1)
+      }.otherwise {
+        o.bits.canRename := true.B
+      }
       o.bits.ctrl.ldest := ctrl.ldest + vdAddend
       o.bits.ctrl.lsrc(0) := ctrl.lsrc(0) + vs1Addend
       o.bits.ctrl.lsrc(1) := ctrl.lsrc(1) + vs2Addend
