@@ -82,7 +82,7 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
-    wb.bits.wakeupMask := Mux(uopIdx === uopNum - 1.U, fullMask, finalMask)
-    wb.bits.writeDataMask := Mux(uopIdx === uopNum - 1.U, fullMask, finalMask)
+    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
+    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
   }
 }
