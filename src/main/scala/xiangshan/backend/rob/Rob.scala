@@ -520,7 +520,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
   vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
     case ((vcv, cv), i) => {
-      vcv := io.commits.isCommit && cv && (io.commits.info(i).isVector || io.commits.info(i).vtypeWb)
+      vcv := io.commits.isCommit && cv && (io.commits.info(i).vstartType === 0.U) && (io.commits.info(i).isVector || io.commits.info(i).vtypeWb)
     }
   }
 
@@ -784,6 +784,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.vtypeWb := req.ctrl.isVtype
       wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered
+      wdata.vstartType := req.ctrl.wvstartType
   }
 
   for (i <- 0 until fflagsWbNums) {

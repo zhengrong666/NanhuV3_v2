@@ -65,9 +65,11 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     wb.bits.fflags := outDelay.bits.fflags
 
     private val uopOut = outDelay.bits.uop.sysUop
+    private val uopIdx = uopOut.uopIdx
+    private val uopNum = uopOut.uopNum
     private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
-    private val lowHalf = !uopOut.uopIdx(0)
-    private val highHalf = uopOut.uopIdx(0)
+    private val lowHalf = !uopIdx(0)
+    private val highHalf = uopIdx(0)
     private val maskLen = VLEN / 8
     private val halfMaskLen = maskLen / 2
 
@@ -80,7 +82,7 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
-    wb.bits.wakeupMask := finalMask
-    wb.bits.writeDataMask := finalMask
+    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
+    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
   }
 }

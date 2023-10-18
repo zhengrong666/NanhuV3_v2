@@ -98,10 +98,12 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     wb.bits.data := wbData.vd
     wb.bits.vxsat := wbData.vxsat
 
+    private val uopIdx = uopShiftQueue.io.out.bits.uopIdx
+    private val uopNum = uopShiftQueue.io.out.bits.uopNum
     private val uopOut = uopShiftQueue.io.out.bits
     private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
-    private val lowHalf = !uopShiftQueue.io.out.bits.uopIdx(0)
-    private val highHalf = uopShiftQueue.io.out.bits.uopIdx(0)
+    private val lowHalf = !uopIdx(0)
+    private val highHalf = uopIdx(0)
     private val maskLen = VLEN / 8
     private val halfMaskLen = maskLen / 2
     private def ones(in:Int):UInt = ((1 << in) - 1).U(in.W)
@@ -113,7 +115,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
-    wb.bits.wakeupMask := finalMask
-    wb.bits.writeDataMask := finalMask
+    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
+    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
     }
 }
