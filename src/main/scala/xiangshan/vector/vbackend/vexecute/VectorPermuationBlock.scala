@@ -53,7 +53,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
 
     io.rfReadPort.srf.addr := vprs.module.io.issue.bits.prs
     io.rfReadPort.srf.isFp := vprs.module.io.issue.bits.prsType === SrcType.fp
-    private val rsData = RegEnable(io.rfReadPort.srf.data, vprs.module.io.issue.bits.rsRen)
+    io.rfReadPort.srf.en := vprs.module.io.issue.bits.rsRen
 
     private val issueDataReg = Reg(new VprsIssueBundle)
     private val issueScalarDataReg = Reg(UInt(XLEN.W))
@@ -64,15 +64,16 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     }
     when(allowPipe && vprs.module.io.issue.valid){
       issueDataReg := vprs.module.io.issue.bits
-      issueScalarDataReg := rsData
+      issueScalarDataReg := io.rfReadPort.srf.data
     }
     vprs.module.io.issue.ready := allowPipe
 
     private val rfReqValid = RegNext(permutation.io.out.rd_en, false.B)
     private val rfReqAddr = RegEnable(permutation.io.out.rd_preg_idx, permutation.io.out.rd_en)
     io.rfReadPort.vrf.addr := rfReqAddr
+    io.rfReadPort.vrf.en := rfReqValid
     private val rfRespValid = RegNext(rfReqValid, false.B)
-    private val rfRespData = RegEnable(io.rfReadPort.vrf.data, rfReqValid)
+    private val rfRespData = io.rfReadPort.vrf.data
 
     permutation.io.in.uop := uopToVuop(issueDataReg.uop, issueValidReg, io.vstart, io.vcsr(2,1), io.frm, p)
     permutation.io.in.uop.info.vstart := io.vstart

@@ -22,6 +22,7 @@ class VrfReadPort(implicit p: Parameters) extends XSBundle{
   private val VRFSize = coreParams.vectorParameters.vPhyRegsNum
   val addr = Input(UInt(log2Up(VRFSize).W))
   val data = Output(UInt(VLEN.W))
+  val en = Input(Bool())
 }
 
 class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parameters) extends XSModule {
@@ -52,7 +53,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
 
   // read vector register file
   for (r <- io.readPorts) {
-    r.data := vrf(r.addr).asUInt
+    r.data := RegEnable(vrf(r.addr).asUInt, r.en)
   }
 
   //difftest read
