@@ -157,6 +157,10 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   val issuePtrExt = RegInit(0.U.asTypeOf(new SqPtr))
   val validCounter = RegInit(0.U(log2Ceil(LoadQueueSize + 1).W))
 
+  assert(cmtPtrExt.head <= enqPtrExt.head)
+  assert(rdataPtrExt.head <= cmtPtrExt.head)
+  assert(deqPtrExt.head <= rdataPtrExt.head)
+
   val enqPtr = enqPtrExt(0).value
   val deqPtr = deqPtrExt(0).value
   val cmtPtr = cmtPtrExt(0).value
@@ -607,8 +611,10 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     readyToDeq(i) := readyToLeave(i) & writebacked(i) & allocated(i) &
       !(uop(i).robIdx === exception_info.robIdx && exception_info.valid)
   }
-  private val cmtWindow = Seq.tabulate(CommitWidth)(idx => cmtPtrExt(idx).value)
-  private val cmtVec = cmtWindow.map(addr => readyToDeq(addr) & allocated(addr) & !io.brqRedirect.valid)
+  private val cmtVec = Seq.tabulate(CommitWidth)({idx =>
+    val ptr = cmtPtrExt(idx)
+    readyToDeq(ptr.value) & ptr < enqPtrExt.head & !io.brqRedirect.valid
+  })
   private val cmtBlocked = cmtVec.map(!_) :+ true.B
   commitCount := PriorityEncoder(cmtBlocked)
   uop.zip(readyToLeave).zipWithIndex.foreach({ case ((u, r), idx) =>
