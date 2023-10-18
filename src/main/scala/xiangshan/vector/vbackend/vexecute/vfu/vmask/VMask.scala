@@ -160,7 +160,7 @@ class VMask(implicit p: Parameters) extends VFuModule {
 
   when(uopEnd && fire) {
     one_sum := 0.U
-  }.otherwise {
+  }.elsewhen(fire) {
     one_sum := one_cnt(ele_cnt)
   }
 
