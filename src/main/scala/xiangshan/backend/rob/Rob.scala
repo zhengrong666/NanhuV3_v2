@@ -642,7 +642,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       VecInit(walkPtrVec.map(_ - thisCycleWalkCount)),
       VecInit((0 until CommitWidth).map(i => enqPtr - (i + 1).U))
     ),
-    Mux(state === s_walk, VecInit(walkPtrVec.map(_ - CommitWidth.U)), walkPtrVec)
+    Mux(state === s_walk, VecInit(walkPtrVec.map(_ - canWalkNum)), walkPtrVec)
   )
   walkPtrVec := walkPtrVec_next
 
