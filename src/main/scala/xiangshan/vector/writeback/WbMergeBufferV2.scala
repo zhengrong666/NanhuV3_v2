@@ -144,6 +144,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     deq.bits := deqCandidates(idx)
     when(deq.valid){
       valids(ptr) := false.B
+      table(ptr).vxsat := false.B
     }
   })
   io.rob.head.bits.uop.uopIdx := Mux(deqException, exceptionGen.io.current.bits.uopIdx, 0.U)
@@ -171,7 +172,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }
   for((t, idx) <- table.zipWithIndex){
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
-    t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat))
+    t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat)) || t.vxsat
     when(hitVec.reduce(_|_)){
       assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
     }
