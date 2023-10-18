@@ -198,12 +198,14 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         bo.issue.bits.uop.loadStoreEnable := true.B
         bo.rsIdx := rsIdxReg
         bo.auxValid := auxValidReg
+        val immWire = WireInit(bi.issue.bits.uop.ctrl.imm)
         when(allowPipe) {
           issueValidReg := bi.issue.valid && !bi.hold && !bi.issue.bits.uop.robIdx.needFlush(io.redirect)
           auxValidReg := bi.auxValid && !bi.hold && !bi.issue.bits.uop.robIdx.needFlush(io.redirect)
         }
         when(bi.issue.fire) {
           issueUopReg := bi.issue.bits.uop
+          issueUopReg.ctrl.imm := immWire
           rsIdxReg := bi.rsIdx
         }
         bi.issue.ready := allowPipe
@@ -256,7 +258,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val isUnitStrideDelay = (issueUopReg.ctrl.fuType === FuType.ldu || issueUopReg.ctrl.fuType === FuType.stu) && !is2StageDelay
           val isStdDelay = issueUopReg.ctrl.fuType === FuType.std
 
-          io.vectorReads(vecReadPortIdx).addr := DontCare
+          io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(1)
           io.vectorReads(vecReadPortIdx).en := bi.auxValid
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
@@ -295,15 +297,13 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := issueUopReg.vctrl.eew(0)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := issueUopReg.uopIdx
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.nf := issueUopReg.vctrl.nf
-
-          when(bi.issue.bits.uop.ctrl.isVector){
-            when(isStd){
-              io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
-            }.elsewhen(isUnitStride){
-              issueUopReg.ctrl.imm := (ZeroExt(bi.issue.bits.uop.uopIdx, 12) << bi.issue.bits.uop.vctrl.eew(0))(11, 0)
-            }.otherwise{
-              io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(1)
-            }
+          when(bi.issue.bits.uop.ctrl.isVector && is2Stage){
+            immWire := addrGen.io.imm
+          }.elsewhen(bi.issue.bits.uop.ctrl.isVector && isUnitStride){
+            immWire := (ZeroExt(bi.issue.bits.uop.uopIdx, 12) << bi.issue.bits.uop.vctrl.eew(0))(11, 0)
+          }
+          when(bi.issue.bits.uop.ctrl.isVector && isStd){
+            io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
           }
           when(issueUopReg.ctrl.isVector) {
             when(isStdDelay) {
@@ -311,7 +311,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             }.elsewhen(isUnitStrideDelay) {
               bo.issue.bits.src(0) := intRf.io.read(intRfReadIdx).data
             }.otherwise {
-              issueUopReg.ctrl.imm := addrGen.io.imm
               bo.issue.bits.src(0) := RegEnable(addrGen.io.target, bi.auxValid)
             }
           }.otherwise {
