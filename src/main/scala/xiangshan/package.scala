@@ -362,4 +362,10 @@ package object xiangshan {
     def selectByExu(vec:Vec[Bool], exuConfigs: Seq[ExuConfig]): Vec[Bool] =
       partialSelect(vec, exuConfigs.map(_.exceptionOut).reduce(_ ++ _).distinct.sorted)
   }
+  object VstartType {
+    def apply() = UInt(2.W)
+    def write = "b00".U
+    def hold = "b01".U
+    def X = BitPat("b??")
+  }
 }

@@ -150,9 +150,10 @@ class CtrlSignals(implicit p: Parameters) extends XSBundle {
   val isVector = Bool()
   val isVtype = Bool()
   val wvxsat = Bool()
+  val wvstartType = VstartType()
 
   private def allSignals = srcType ++ Seq(fuType, fuOpType, rfWen, fpWen,
-    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, wvxsat, selImm)
+    vdWen, isXSTrap, noSpecExec, blockBackward, flushPipe, wvxsat, wvstartType, selImm)
 
   def decode(inst: UInt, table: Iterable[(BitPat, List[BitPat])]): CtrlSignals = {
     this := DontCare
@@ -339,6 +340,7 @@ class RobEntryData(implicit p: Parameters) extends XSBundle {
   val vtypeWb = Bool()
   val isVector = Bool()
   val isOrder = Bool()
+  val vstartType = VstartType()
 }
 
 class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
@@ -360,6 +362,7 @@ class RobCommitInfo(implicit p: Parameters) extends RobEntryData {
     vtypeWb := data.vtypeWb
     isVector := data.isVector
     isOrder := data.isOrder
+    vstartType := data.vstartType
   }
 }
 
