@@ -111,13 +111,12 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       o.bits.ctrl.fuOpType := ft
     }.otherwise {
       val narrowToMask = vctrl.isNarrow && vctrl.eewType(2) === EewType.const && vctrl.eew(2) === EewVal.mask
-      val mask = vctrl.eewType(2) === EewType.const && vctrl.eewType(1) === EewType.dc && vctrl.eewType(0) === EewType.dc
       val narrow = vctrl.isNarrow && vctrl.eewType(2) === EewType.sew
       val narrowOrWiden = vctrl.isNarrow | vctrl.isWidden
       val vs1Addend = GenAddend(vctrl.eewType(0), narrowOrWiden, currentnum)
       val vs2Addend = GenAddend(vctrl.eewType(1), narrowOrWiden, currentnum)
       val vdAddend  = GenAddend(vctrl.eewType(2), narrowOrWiden, currentnum)
-      when(narrowToMask || mask) {
+      when(narrowToMask) {
         o.bits.canRename := currentnum === 0.U
       }.elsewhen(narrow) {
         o.bits.canRename := currentnum(0) === 0.U
