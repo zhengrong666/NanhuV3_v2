@@ -148,13 +148,16 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         rfwb.bits.writeDataMask := Mux(bitsReg.uop.loadStoreEnable, GenLoadVrfMask(bitsReg.uop, VLEN), 0.U)
         rfwb.bits.redirectValid := false.B
         rfwb.bits.redirect := DontCare
+
+        val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
+        wbout.valid := rfwkp.valid
+        wbout.bits := wbBitsReg
       } else {
-        rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
+        rfwb.valid := wbin.valid
         rfwb.bits := wbin.bits
+        wbout.valid := rfwkp.valid
+        wbout.bits := rfwkp.bits
       }
-      val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
-      wbout.valid := rfwkp.valid
-      wbout.bits := wbBitsReg
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen

@@ -68,16 +68,17 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val data = io.wbWakeup(i).bits.data.asTypeOf(Vec(dataWidth / 8, UInt(8.W)))
     val wbMask = io.wbWakeup(i).bits.writeDataMask.asBools
     val wkpMask = io.wbWakeup(i).bits.wakeupMask.asBools
-    when (io.wbWakeup(i).valid) {
+    when (io.wbWakeup(i).valid && io.wbWakeup(i).bits.uop.ctrl.vdWen) {
       vrf.write(addr, data, wbMask)
       mrf.write(addr, fullMaskVec, wkpMask)
     }
     // wakeup
     val wbValidReg = RegNext(io.wbWakeup(i).valid, false.B)
+    val wbBitsReg = RegEnable(io.wbWakeup(i).bits, io.wbWakeup(i).valid)
     val wbAddrReg = RegEnable(addr, io.wbWakeup(i).valid)
     val maskRead = mrf(wbAddrReg)
-    io.wakeups(i).valid := wbValidReg && maskRead.reduce(_&_)
-    io.wakeups(i).bits := DontCare
+    io.wakeups(i).valid := (wbValidReg && maskRead.reduce(_&_)) || (wbValidReg && (wbBitsReg.uop.ctrl.rfWen || wbBitsReg.uop.ctrl.fpWen))
+    io.wakeups(i).bits := wbBitsReg
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {
