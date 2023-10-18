@@ -431,7 +431,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val shouldWalkVec = VecInit((0 until CommitWidth).map(
     i => (i.U < walkCounter)
   ))
-  val walkFinished = walkCounter <= CommitWidth.U
+
+  val canWalkNum = PopCount(io.commits.walkValid)
+  val walkFinished = walkCounter === canWalkNum
   val walk_v = VecInit(walkPtrVec.map(ptr => valid(ptr.value)))
   val commit_v = VecInit(deqPtrVec.map(ptr => valid(ptr.value)))
   val commit_w = VecInit(deqPtrVec.map(ptr => writebacked(ptr.value)))
@@ -445,8 +447,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     val vecNum = PopCount(commits_vec.take(i + 1))
     v := (!(vecNum.orR) || (vecNum === 1.U)) && walk_v(i)
   }
-
-  val canWalkNum = PopCount(io.commits.walkValid)
 
   val deqPtrGenModule = Module(new RobCommitHelper)
   val deqPtrVec_next = deqPtrGenModule.io.deqPtrNextVec
