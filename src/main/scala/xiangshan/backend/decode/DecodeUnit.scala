@@ -52,8 +52,8 @@ abstract trait DecodeConstants {
     //   |           |           |           |         |           |  |  |  |  |  |  flushPipe
     //   |           |           |           |         |           |  |  |  |  |  |  |  wvxsat
     //   |           |           |           |         |           |  |  |  |  |  |  |  |  wvstart
-    //   |           |           |           |         |           |  |  |  |  |  |  |  |  |  selImm
-    //   |           |           |           |         |           |  |  |  |  |  |  |  |  |  |
+    //   |           |           |           |         |           |  |  |  |  |  |  |  |  |                 selImm
+    //   |           |           |           |         |           |  |  |  |  |  |  |  |  |                 |
     List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.X, FuOpType.X, N, N, N, N, N, N, N, N, VstartType.write, SelImm.INVALID_INSTR) // Use SelImm to indicate invalid instr
 
   val table: Array[(BitPat, List[BitPat])]

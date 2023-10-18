@@ -3,6 +3,7 @@ package xiangshan.vector.viwaitqueue
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
+import xiangshan.ExceptionNO.illegalInstr
 import xiangshan._
 import xiangshan.vector._
 import xs.utils._
@@ -119,11 +120,12 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   table.io.deq.addr := deqPtr.value
   private val deqUop = table.io.deq.data
   private val deqHasException = deqUop.uop.cf.exceptionVec.reduce(_|_)
+  private val raiseII = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
 
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
-  private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U || io.vstart >= deqUop.uop.vCsrInfo.vl
+  private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U || io.vstart >= deqUop.uop.vCsrInfo.vl || raiseII
 
   private val splitDriver = Module(new DequeuePipeline(1))
   splitDriver.io.redirect := io.redirect
@@ -155,31 +157,18 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   vmbInit.valid := deqValid
   vmbInit.bits := deqUop.uop
   vmbInit.bits.uopIdx := 0.U
-  private val isLoad = deqUop.uop.ctrl.fuType === FuType.ldu
   private val isNarrowToMask = deqUop.uop.vctrl.isNarrow &&
     deqUop.uop.vctrl.eewType(2) === EewType.const &&
     deqUop.uop.vctrl.eew(2) === EewVal.mask
-  private val narrow = deqUop.uop.vctrl.isNarrow && deqUop.uop.vctrl.eewType(2) === EewType.sew
-  private val emul = deqUop.uop.vctrl.emul
   when(directlyWb){
     vmbInit.bits.uopNum := 0.U
   }.elsewhen(deqUop.uop.uopNum =/= 0.U) {
-    when(isLoad) {
-      vmbInit.bits.uopNum := MuxCase(1.U, Seq(
-        (emul === 0.U(3.W)) -> 1.U,
-        (emul === 1.U(3.W)) -> 2.U,
-        (emul === 2.U(3.W)) -> 4.U,
-        (emul === 3.U(3.W)) -> 8.U,
-        (emul === 5.U(3.W)) -> 1.U,
-        (emul === 6.U(3.W)) -> 1.U,
-        (emul === 7.U(3.W)) -> 1.U
-      ))
-    }.elsewhen(narrow) {
-      vmbInit.bits.uopNum := Mux(deqUop.uop.uopNum === 1.U, deqUop.uop.uopNum, LogicShiftRight(deqUop.uop.uopNum, 1))
-    }.elsewhen(isNarrowToMask) {
+    when(isNarrowToMask) {
       vmbInit.bits.uopNum := 1.U
     }
   }
-
+  when(raiseII){
+    vmbInit.bits.cf.exceptionVec(illegalInstr) := true.B
+  }
   io.vmbInit := Pipe(vmbInit)
 }

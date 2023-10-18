@@ -59,6 +59,7 @@ class AluExuImpl(outer:AluExu, exuCfg:ExuConfig)(implicit p:Parameters) extends 
 
   writebackPort := DontCare
   writebackPort.valid := alu.io.out.valid
+  writebackPort.bits.wakeupValid := true.B
   writebackPort.bits.uop := alu.io.out.bits.uop
   writebackPort.bits.data := alu.io.out.bits.data
   writebackPort.bits.redirectValid := alu.redirectOutValid

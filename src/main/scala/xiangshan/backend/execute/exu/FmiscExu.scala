@@ -66,6 +66,7 @@ class FmiscExuImpl(outer:FmiscExu, exuCfg:ExuConfig)(implicit p:Parameters) exte
   private val data = fuList.map(_.io.out.bits.data)
   private val fflags = fuList.map(_.fflags)
   writebackPort.valid := valids.reduce(_|_)
+  writebackPort.bits.wakeupValid := true.B
   writebackPort.bits.uop := Mux1H(valids, uops)
   writebackPort.bits.data := Mux1H(valids, data)
   writebackPort.bits.fflags := Mux1H(valids, fflags)
