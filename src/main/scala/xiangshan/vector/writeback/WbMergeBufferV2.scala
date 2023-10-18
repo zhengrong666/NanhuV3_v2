@@ -80,6 +80,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     when(req.valid){
       table(ptr.value).uop.robIdx := req.bits
       table(ptr.value).uop.uopNum := VLEN.U
+      table(ptr.value).vxsat := false.B
       wbCnts(ptr.value) := 0.U
     }
     when(resp.valid){
@@ -93,9 +94,10 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }.elsewhen(io.allocate.resp.map(_.valid).reduce(_|_)){
     allocPtrVec.foreach(ptr => ptr := ptr + enqNum)
   }
-  valids.zip(redirectMask.asBools).foreach({case(v, r) =>
+  valids.zip(redirectMask.asBools).zip(table).foreach({case((v, r), t) =>
     when(v & r & io.redirect.valid){
       v := false.B
+      t.vxsat := false.B
     }
   })
 
