@@ -34,6 +34,7 @@ class WritePort(dataWidth:Int)(implicit p: Parameters) extends XSBundle {
 
 class ReadPort(dataWidth:Int)(implicit p: Parameters) extends XSBundle {
   val addr = Input(UInt(PhyRegIdxWidth.W))
+  val en = Input(Bool())
   val data = Output(UInt(dataWidth.W))
 }
 
@@ -73,7 +74,8 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
     val bypassHits = writeSrcs.map(w => w.en && w.addr === r.addr)
     val bypassData = Mux1H(bypassHits, writeSrcs.map(_.data))
     val bypassValid = bypassHits.reduce(_ | _)
-    r.data := Mux(bypassValid, bypassData, memReadData)
+    val data = Mux(bypassValid, bypassData, memReadData)
+    r.data := RegEnable(data, r.en)
   })
   io.readNoBypass.foreach(r => {
     val addrOH = mem.indices.map(_.U === r.addr)
@@ -82,6 +84,7 @@ class GenericRegFile(entriesNum:Int, writeBackNum:Int, bypassNum:Int, readPortNu
     val bypassHits = writeSrcs.map(w => w.en && w.addr === r.addr)
     val bypassData = Mux1H(bypassHits, writeSrcs.map(_.data))
     val bypassValid = bypassHits.reduce(_ | _)
-    r.data := Mux(bypassValid, bypassData, memReadData)
+    val data = Mux(bypassValid, bypassData, memReadData)
+    r.data := RegEnable(data, r.en)
   })
 }

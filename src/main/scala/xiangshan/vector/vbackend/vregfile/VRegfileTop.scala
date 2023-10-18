@@ -18,6 +18,7 @@ class VectorWritebackMergeNode(implicit valName: ValName) extends AdapterNode(Ex
 class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
   val addr = Input(UInt(PhyRegIdxWidth.W))
   val data = Output(UInt(VLEN.W))
+  val en = Input(Bool())
 }
 
 object VRegfileTopUtil{
@@ -181,6 +182,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     vrf.io.moveOldValReqs := io.moveOldValReqs
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>
       rr.addr := ir.addr
+      rr.en := ir.en
       ir.data := rr.data
     })
     private val lduWbs = toWritebackNetwork.filter(_._2.exuType == ExuType.ldu)
@@ -202,15 +204,22 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       exuInBundle.src := DontCare
       io.scalarReads(scalarReadPortIdx).addr := bi.specialPsrc
       io.scalarReads(scalarReadPortIdx).isFp := bi.specialPsrcType === SrcType.fp
+      io.scalarReads(scalarReadPortIdx).en := bi.specialPsrcRen
       vrf.io.readPorts(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(0)
       vrf.io.readPorts(vecReadPortIdx + 1).addr := bi.issue.bits.uop.psrc(1)
       vrf.io.readPorts(vecReadPortIdx + 2).addr := bi.issue.bits.uop.psrc(2)
       vrf.io.readPorts(vecReadPortIdx + 3).addr := bi.issue.bits.uop.vm
+      vrf.io.readPorts(vecReadPortIdx).en := bi.issue.valid
+      vrf.io.readPorts(vecReadPortIdx + 1).en := bi.issue.valid
+      vrf.io.readPorts(vecReadPortIdx + 2).en := bi.issue.valid
+      vrf.io.readPorts(vecReadPortIdx + 3).en := bi.issue.valid
 
+      val src0TypeReg = RegEnable(bi.issue.bits.uop.ctrl.srcType(0), bi.issue.valid)
+      val immReg = RegEnable(SignExt(bi.issue.bits.uop.ctrl.imm(4,0), VLEN), bi.issue.valid)
       exuInBundle.src(0) := MuxCase(vrf.io.readPorts(vecReadPortIdx).data, Seq(
-        SrcType.isRegOrFp(bi.issue.bits.uop.ctrl.srcType(0)) -> RegEnable(io.scalarReads(scalarReadPortIdx).data, bi.specialPsrcRen),
-        SrcType.isVec(bi.issue.bits.uop.ctrl.srcType(0)) -> vrf.io.readPorts(vecReadPortIdx).data,
-        SrcType.isImm(bi.issue.bits.uop.ctrl.srcType(0)) -> SignExt(bi.issue.bits.uop.ctrl.imm(4,0), VLEN)
+        SrcType.isRegOrFp(src0TypeReg) -> io.scalarReads(scalarReadPortIdx).data,
+        SrcType.isVec(src0TypeReg) -> vrf.io.readPorts(vecReadPortIdx).data,
+        SrcType.isImm(src0TypeReg) -> immReg
       ))
       exuInBundle.src(1) := vrf.io.readPorts(vecReadPortIdx + 1).data
       exuInBundle.src(2) := vrf.io.readPorts(vecReadPortIdx + 2).data
@@ -221,6 +230,8 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val allowPipe = !issValidReg || bo.issue.ready || (issValidReg && issDataReg.uop.robIdx.needFlush(io.redirect))
       bo.issue.valid := issValidReg && !issDataReg.uop.robIdx.needFlush(io.redirect)
       bo.issue.bits := issDataReg
+      bo.issue.bits.src := exuInBundle.src
+      bo.issue.bits.vm := exuInBundle.vm
       when(allowPipe){
         issValidReg := bi.issue.valid
       }
