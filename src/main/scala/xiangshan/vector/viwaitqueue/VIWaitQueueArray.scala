@@ -89,7 +89,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (et === EewType.sewd8) -> (vcsr.vsew - 3.U),
       ))
     }
-    val newEmul = Mux(vctrl.isWidden, vcsr.vlmul + 1.U, vcsr.vlmul)
+    val newEmul = Mux(vctrl.isWidden || vctrl.isNarrow, vcsr.vlmul + 1.U, vcsr.vlmul)
     vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, newEmul, vctrl.emul)
     when(vctrl.isLs){
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
@@ -102,15 +102,14 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (vctrlNext.emul ===  7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
       ))
     }.otherwise{
-      val emul = Mux(vctrl.isWidden || vctrl.isNarrow, vcsr.vlmul + 1.U, vcsr.vlmul)
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (emul === 0.U(3.W)) -> 1.U,
-        (emul === 1.U(3.W)) -> 2.U,
-        (emul === 2.U(3.W)) -> 4.U,
-        (emul === 3.U(3.W)) -> 8.U,
-        (emul === 5.U(3.W)) -> 1.U,
-        (emul === 6.U(3.W)) -> 1.U,
-        (emul === 7.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 0.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 1.U(3.W)) -> 2.U,
+        (vctrlNext.emul === 2.U(3.W)) -> 4.U,
+        (vctrlNext.emul === 3.U(3.W)) -> 8.U,
+        (vctrlNext.emul === 5.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 6.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 7.U(3.W)) -> 1.U,
       ))
     }
     when(vctrl.isLs && vctrl.maskOp){
