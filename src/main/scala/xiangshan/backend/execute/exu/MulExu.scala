@@ -109,6 +109,7 @@ class MulExuImpl(outer:MulExu, exuCfg:ExuConfig)(implicit p:Parameters) extends 
   private val finalData = Mux1H(outValids, outData)
   writebackPort := DontCare
   writebackPort.valid := finalValid
+  writebackPort.bits.wakeupValid := true.B
   writebackPort.bits.uop := finalUop
   writebackPort.bits.data := finalData
   writebackPort.bits.fflags := i2f.fflags

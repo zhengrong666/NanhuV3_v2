@@ -104,6 +104,7 @@ class JmpCsrExuImpl(outer:JmpCsrExu, exuCfg:ExuConfig)(implicit p:Parameters) ex
 
   writebackPort := DontCare
   writebackPort.valid := outSel.reduce(_ || _)
+  writebackPort.bits.wakeupValid := true.B
   writebackPort.bits.uop := finalData.uop
   writebackPort.bits.data := finalData.data
 

@@ -151,12 +151,14 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         rfwb.bits.redirect := DontCare
 
         val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
-        wbout.valid := rfwkp.valid
+        wbout.valid := RegNext(rfwb.valid, false.B)
+        wbout.bits.wakeupValid := rfwkp.valid
         wbout.bits := wbBitsReg
       } else {
         rfwb.valid := wbin.valid
         rfwb.bits := wbin.bits
-        wbout.valid := rfwkp.valid
+        wbout.valid := RegNext(wbin.valid, false.B)
+        wbout.bits.wakeupValid := rfwkp.valid
         wbout.bits := rfwkp.bits
       }
     })
@@ -168,6 +170,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val bitsReg = RegEnable(wbin.bits, wbin.valid && validCond)
       wbout.valid := validReg
       wbout.bits := bitsReg
+      wbout.bits.wakeupValid := true.B
       wbout.bits.redirectValid := false.B
       wbout.bits.redirect := DontCare
     })
@@ -191,9 +194,9 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     private val lduWbs = toWritebackNetwork.filter(_._2.exuType == ExuType.ldu)
     lduWbs.zipWithIndex.foreach({case(lwb, i) =>
       val preLduWbs = lduWbs.take(i)
-      val kill = (preLduWbs.map(_._1).map(l => l.valid && l.bits.uop.pdest === lwb._1.bits.uop.pdest) :+ false.B).reduce(_||_)
+      val kill = (preLduWbs.map(_._1).map(l => l.valid && l.bits.uop.pdest === lwb._1.bits.uop.pdest && l.bits.wakeupValid) :+ false.B).reduce(_||_)
       when(kill){
-        lwb._1.valid := false.B
+        lwb._1.bits.wakeupValid := false.B
       }
     })
 

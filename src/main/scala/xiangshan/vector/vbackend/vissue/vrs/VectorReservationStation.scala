@@ -46,7 +46,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
 
   private val wakeupSignals = VecInit(wakeup.map(_._1).map(elm =>{
     val wkp = Wire(Valid(new WakeUpInfo))
-    wkp.valid := elm.valid
+    wkp.valid := elm.valid && elm.bits.wakeupValid
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)

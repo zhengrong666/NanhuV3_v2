@@ -369,6 +369,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     .foreach({case(wb, out) =>
       wb.valid := out.valid && !out.bits.uop.ctrl.isVector
       wb.bits := out.bits
+      wb.bits.wakeupValid := true.B
       out.ready := true.B
   })
 
@@ -377,6 +378,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     .foreach({case(vwb, vout) =>
       vwb.valid := vout.valid && vout.bits.uop.ctrl.isVector
       vwb.bits := vout.bits
+      vwb.bits.wakeupValid := false.B
       vout.ready := true.B
     })
 

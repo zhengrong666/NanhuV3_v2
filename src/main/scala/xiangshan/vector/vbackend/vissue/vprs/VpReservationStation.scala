@@ -54,7 +54,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
 
   private val intWakeupSignals = VecInit(intWkps.map(_._1).map(elm =>{
     val wkp = Wire(Valid(new WakeUpInfo))
-    wkp.valid := elm.valid
+    wkp.valid := elm.valid && elm.bits.wakeupValid
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
@@ -64,7 +64,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
 
   private val fpWakeupSignals = VecInit(fpWkps.map(_._1).map(elm => {
     val wkp = Wire(Valid(new WakeUpInfo))
-    wkp.valid := elm.valid
+    wkp.valid := elm.valid && elm.bits.wakeupValid
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
@@ -74,7 +74,7 @@ class VpReservationStationImpl(outer:VpReservationStation, param:RsParam) extend
 
   private val vectorWakeupSignals = VecInit(vecWkps.map(_._1).map(elm => {
     val wkp = Wire(Valid(new WakeUpInfo))
-    wkp.valid := elm.valid
+    wkp.valid := elm.valid && elm.bits.wakeupValid
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)

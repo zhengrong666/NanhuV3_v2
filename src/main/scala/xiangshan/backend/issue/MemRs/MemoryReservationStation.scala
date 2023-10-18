@@ -42,7 +42,7 @@ import xiangshan.mem.SqPtr
 object MemRsHelper {
   def WbToWkp(in:Valid[ExuOutput], p:Parameters):Valid[WakeUpInfo] = {
     val wkp = Wire(Valid(new WakeUpInfo()(p)))
-    wkp.valid := in.valid
+    wkp.valid := in.valid && in.bits.wakeupValid
     wkp.bits.pdest := in.bits.uop.pdest
     wkp.bits.robPtr := in.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)

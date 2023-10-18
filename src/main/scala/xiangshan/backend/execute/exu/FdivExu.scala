@@ -68,6 +68,7 @@ class FdivExuImpl(outer:FdivExu, exuCfg:ExuConfig)(implicit p:Parameters) extend
   })
   when(issuePort.issue.valid && issuePort.issue.bits.uop.ctrl.fuType === exuCfg.fuConfigs.head.fuType){assert(fuSel.valid)}
   writebackPort.valid := outputArbiter.io.out.valid
+  writebackPort.bits.wakeupValid := true.B
   writebackPort.bits.uop := outputArbiter.io.out.bits
   private val uopSel = RegEnable(UIntToOH(outputArbiter.io.chosen)(exuCfg.fuConfigs.length - 1, 0), outputArbiter.io.out.fire)
   private val dataOut = fdivSqrts.map(_.io.out.bits.data)
