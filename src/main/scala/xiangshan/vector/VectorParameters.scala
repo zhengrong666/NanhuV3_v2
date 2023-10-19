@@ -32,13 +32,13 @@ case class VectorParameters (
     //vector instr rename
     vRenameWidth: Int       = 4,
     vCommitWidth: Int       = 4,
-    vPhyRegsNum: Int        = 48,
+    vPhyRegsNum: Int        = 64,
     vWaitQueueNum: Int      = 24,
     vVtypeRegsNum: Int      = 8,
     //dispatch
-    vDispatchQueueMem: Int      = 16,
-    vDispatchQueuePermu: Int    = 16,
-    vDispatchQueueCommon: Int   = 16,
+    vDispatchQueueMem: Int      = 12,
+    vDispatchQueuePermu: Int    = 12,
+    vDispatchQueueCommon: Int   = 12,
     vDispatchTypeNum: Int = 3,
     //rs
     vRsDepth: Int       = 16,
