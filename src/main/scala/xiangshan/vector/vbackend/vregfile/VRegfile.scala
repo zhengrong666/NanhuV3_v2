@@ -33,7 +33,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   val io = IO(new Bundle{
     val wbWakeup = Input(Vec(wbWkpNum, Valid(new ExuOutput)))
     val wbNoWakeup = Input(Vec(wbNoWkpNum, Valid(new ExuOutput)))
-    val wakeups = Output(Vec(wbWkpNum, Valid(new ExuOutput)))
+    val wakeupMask = Output(Vec(wbWkpNum, UInt(maskWidth.W)))
     val moveOldValReqs = Input(Vec(loadUnitNum, Valid(new MoveReq)))
     val readPorts = Vec(readPortNum, new VrfReadPort)
     val vecAllocPregs = Vec(vectorParameters.vRenameWidth, Flipped(ValidIO(UInt(PhyRegIdxWidth.W))))
@@ -74,11 +74,8 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
       mrf.write(addr, fullMaskVec, wkpMask)
     }
     // wakeup
-    val wbBitsReg = RegEnable(io.wbWakeup(i).bits, io.wbWakeup(i).valid)
     val wbAddrReg = RegEnable(addr, io.wbWakeup(i).valid)
-    val maskRead = mrf(wbAddrReg)
-    io.wakeups(i).valid := maskRead.reduce(_&_) || wbBitsReg.uop.ctrl.rfWen || wbBitsReg.uop.ctrl.fpWen
-    io.wakeups(i).bits := wbBitsReg
+    io.wakeupMask(i) := mrf(wbAddrReg).asUInt
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {

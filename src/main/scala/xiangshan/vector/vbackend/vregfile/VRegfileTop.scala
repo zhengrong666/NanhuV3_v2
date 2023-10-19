@@ -129,7 +129,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
     println("\n====================VRF writeback port not need merged:====================")
     wbPairDontNeedMerge.foreach(e => print(e._3))
 
-    vrf.io.wbWakeup.zip(vrf.io.wakeups).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
+    vrf.io.wbWakeup.zip(vrf.io.wakeupMask).zip(wbPairNeedMerge).foreach({case((rfwb, rfwkp),(wbin, wbout, cfg)) =>
       if(cfg.exuType == ExuType.ldu){
         val sew = wbin.bits.uop.vctrl.eew(0)
         val bitsWire = WireInit(wbin.bits)
@@ -149,18 +149,16 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         rfwb.bits.writeDataMask := Mux(bitsReg.uop.loadStoreEnable, GenLoadVrfMask(bitsReg.uop, VLEN), 0.U)
         rfwb.bits.redirectValid := false.B
         rfwb.bits.redirect := DontCare
-
-        val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
-        wbout.valid := RegNext(rfwb.valid, false.B)
-        wbout.bits.wakeupValid := rfwkp.valid
-        wbout.bits := wbBitsReg
       } else {
         rfwb.valid := wbin.valid
         rfwb.bits := wbin.bits
-        wbout.valid := RegNext(wbin.valid, false.B)
-        wbout.bits.wakeupValid := rfwkp.valid
-        wbout.bits := rfwkp.bits
+        rfwb.bits.writeDataMask := Mux(wbin.bits.uop.ctrl.vdWen, wbin.bits.writeDataMask, 0.U)
+        rfwb.bits.wakeupMask := Mux(wbin.bits.uop.ctrl.vdWen, wbin.bits.wakeupMask, 0.U)
       }
+      val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
+      wbout.valid := RegNext(rfwb.valid, false.B)
+      wbout.bits.wakeupValid := rfwkp.andR || wbBitsReg.uop.ctrl.fpWen || wbBitsReg.uop.ctrl.rfWen
+      wbout.bits := wbBitsReg
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
