@@ -109,7 +109,7 @@ package object xiangshan {
     val integerTypes: Seq[UInt] = Seq(jmp, i2f, csr, alu, mul, div, fence, bku, mou)
     val floatingTypes: Seq[UInt] = Seq(fmac, f2f, f2i, fDivSqrt)
     val memoryTypes: Seq[UInt] = Seq(ldu, stu)
-    val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu, ldu, stu)
+    val vectorTypes: Seq[UInt] = Seq(vmac, valu, vfp, vdiv, vmask, vreduc, vpermu, s2v, ldu, stu)
 
     def isIntExu(fuType: UInt): Bool = integerTypes.map(_ === fuType).reduce(_||_)
 
