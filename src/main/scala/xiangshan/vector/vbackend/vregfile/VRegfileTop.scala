@@ -213,13 +213,13 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       vrf.io.readPorts(vecReadPortIdx + 1).addr := bi.issue.bits.uop.psrc(1)
       vrf.io.readPorts(vecReadPortIdx + 2).addr := bi.issue.bits.uop.psrc(2)
       vrf.io.readPorts(vecReadPortIdx + 3).addr := bi.issue.bits.uop.vm
-      vrf.io.readPorts(vecReadPortIdx).en := bi.issue.valid
-      vrf.io.readPorts(vecReadPortIdx + 1).en := bi.issue.valid
-      vrf.io.readPorts(vecReadPortIdx + 2).en := bi.issue.valid
-      vrf.io.readPorts(vecReadPortIdx + 3).en := bi.issue.valid
+      vrf.io.readPorts(vecReadPortIdx).en := bi.issue.fire
+      vrf.io.readPorts(vecReadPortIdx + 1).en := bi.issue.fire
+      vrf.io.readPorts(vecReadPortIdx + 2).en := bi.issue.fire
+      vrf.io.readPorts(vecReadPortIdx + 3).en := bi.issue.fire
 
-      val src0TypeReg = RegEnable(bi.issue.bits.uop.ctrl.srcType(0), bi.issue.valid)
-      val immReg = RegEnable(SignExt(bi.issue.bits.uop.ctrl.imm(4,0), VLEN), bi.issue.valid)
+      val src0TypeReg = RegEnable(bi.issue.bits.uop.ctrl.srcType(0), bi.issue.fire)
+      val immReg = RegEnable(SignExt(bi.issue.bits.uop.ctrl.imm(4,0), VLEN), bi.issue.fire)
       exuInBundle.src(0) := MuxCase(vrf.io.readPorts(vecReadPortIdx).data, Seq(
         SrcType.isRegOrFp(src0TypeReg) -> io.scalarReads(scalarReadPortIdx).data,
         SrcType.isVec(src0TypeReg) -> vrf.io.readPorts(vecReadPortIdx).data,

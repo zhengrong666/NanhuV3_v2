@@ -220,15 +220,15 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val srcNum = exuComplexParam.intSrcNum
           for((d, addr) <- bo.issue.bits.src.zip(bi.issue.bits.uop.psrc).take(srcNum)){
             intRf.io.read(intRfReadIdx).addr := addr
-            intRf.io.read(intRfReadIdx).en := bi.auxValid
+            intRf.io.read(intRfReadIdx).en := bi.issue.fire
             d := intRf.io.read(intRfReadIdx).data
             intRfReadIdx = intRfReadIdx + 1
           }
           if(exuComplexParam.hasJmp){
             io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
             io.pcReadAddr(pcReadPortIdx + 1) := (bi.issue.bits.uop.cf.ftqPtr + 1.U).value
-            val instrPc = RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.auxValid)
-            val jalrTarget = RegEnable(io.pcReadData(pcReadPortIdx + 1).startAddr, bi.auxValid)
+            val instrPc = RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.issue.fire)
+            val jalrTarget = RegEnable(io.pcReadData(pcReadPortIdx + 1).startAddr, bi.issue.fire)
             pcReadPortIdx = pcReadPortIdx + 2
             ImmExtractor(exuComplexParam, bo.issue.bits, Some(instrPc), Some(jalrTarget), Some(io.mmuEnable))
           } else {
@@ -238,7 +238,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val srcNum = exuComplexParam.fpSrcNum
           for ((d, addr) <- bo.issue.bits.src.zip(bi.issue.bits.uop.psrc).take(srcNum)) {
             fpRf.io.read(fpRfReadIdx).addr := addr
-            fpRf.io.read(fpRfReadIdx).en := bi.auxValid
+            fpRf.io.read(fpRfReadIdx).en := bi.issue.fire
             d := fpRf.io.read(fpRfReadIdx).data
             fpRfReadIdx = fpRfReadIdx + 1
           }
@@ -259,23 +259,23 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val isStdDelay = issueUopReg.ctrl.fuType === FuType.std
 
           io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(1)
-          io.vectorReads(vecReadPortIdx).en := bi.auxValid
+          io.vectorReads(vecReadPortIdx).en := bi.issue.fire
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
-          io.vectorReads(vecReadPortIdx + 1).en := bi.auxValid
+          io.vectorReads(vecReadPortIdx + 1).en := bi.issue.fire
           val vmVal = io.vectorReads(vecReadPortIdx + 1).data
           val isMaskDisabled = issueUopReg.vctrl.vm && !(vmVal(issueUopReg.uopIdx).asBool)
           val isTailDisabled = issueUopReg.isTail
           val isPrestartDisabled = issueUopReg.isPrestart
           //Base address read
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
-          intRf.io.read(intRfReadIdx).en := bi.auxValid
+          intRf.io.read(intRfReadIdx).en := bi.issue.fire
           //Stride read
           intRf.io.read(intRfReadIdx + 1).addr := bi.issue.bits.uop.psrc(1)
-          intRf.io.read(intRfReadIdx + 1).en := bi.auxValid
+          intRf.io.read(intRfReadIdx + 1).en := bi.issue.fire
           //Scalar STD data read
           fpRf.io.readNoBypass(noBypassFpReadIdx).addr := bi.issue.bits.uop.psrc(0)
-          fpRf.io.readNoBypass(noBypassFpReadIdx).en := bi.auxValid
+          fpRf.io.readNoBypass(noBypassFpReadIdx).en := bi.issue.fire
           //Move req
           io.vectorRfMoveReq(vecMoveReqPortIdx).valid := issueUopReg.ctrl.fuType === FuType.ldu &&
             bo.auxValid && issueUopReg.ctrl.isVector
@@ -311,7 +311,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             }.elsewhen(isUnitStrideDelay) {
               bo.issue.bits.src(0) := intRf.io.read(intRfReadIdx).data
             }.otherwise {
-              bo.issue.bits.src(0) := RegEnable(addrGen.io.target, bi.auxValid)
+              bo.issue.bits.src(0) := RegEnable(addrGen.io.target, bi.issue.fire)
             }
           }.otherwise {
             val intSrcData = intRf.io.read(intRfReadIdx).data
@@ -325,7 +325,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             ImmExtractor(exuComplexParam, bo.issue.bits)
           }
           io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
-          bo.issue.bits.uop.cf.pc := RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.auxValid)
+          bo.issue.bits.uop.cf.pc := RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.issue.fire)
           bo.issue.bits.uop.loadStoreEnable := !(issueUopReg.ctrl.isVector && (isMaskDisabled || isTailDisabled || isPrestartDisabled))
 
           intRfReadIdx = intRfReadIdx + 2
@@ -336,8 +336,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
         } else if (exuComplexParam.isMemType && exuComplexParam.isSpecialLoad) {
           io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
           intRf.io.read(intRfReadIdx).addr := bi.issue.bits.uop.psrc(0)
-          intRf.io.read(intRfReadIdx).en := bi.auxValid
-          bo.issue.bits.uop.cf.pc := RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.auxValid)
+          intRf.io.read(intRfReadIdx).en := bi.issue.fire
+          bo.issue.bits.uop.cf.pc := RegEnable(io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset), bi.issue.fire)
           bo.issue.bits.src(0) := intRf.io.read(intRfReadIdx).data
           ImmExtractor(exuComplexParam, bo.issue.bits)
           intRfReadIdx = intRfReadIdx + 1
