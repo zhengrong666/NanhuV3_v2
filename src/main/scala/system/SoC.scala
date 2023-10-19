@@ -250,7 +250,7 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   clint.node := peripheralXbar
 
 
-  val plic = LazyModule(new TLPLIC(PLICParams(0x3c000000L), 8))
+  val plic = LazyModule(new TLPLIC(PLICParams(baseAddress = 0x3c000000L, maxPriorities = 3), 8))
   val intSourceNode = IntSourceNode(IntSourcePortSimple(NrExtIntr, ports = 1, sources = 1))
 
   plic.intnode := intSourceNode
