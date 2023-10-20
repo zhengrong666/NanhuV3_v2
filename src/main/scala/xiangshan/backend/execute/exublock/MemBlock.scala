@@ -64,7 +64,7 @@ class MemIssueRouter(implicit p: Parameters) extends LazyModule{
       ib.issue.ready := true.B
       assert(ob.issue.ready === true.B)
       ob.rsIdx := ib.rsIdx
-      ob.auxValid := ib.auxValid
+      ob.auxValid := ib.auxValid && ib.issue.bits.uop.ctrl.fuType === oe._2.fuConfigs.head.fuType
       if (oe._2.fuConfigs.head.name == "ldu") {
         ib.rsFeedback.feedbackFastLoad := ob.rsFeedback.feedbackFastLoad
         ib.rsFeedback.feedbackSlowLoad := ob.rsFeedback.feedbackSlowLoad
