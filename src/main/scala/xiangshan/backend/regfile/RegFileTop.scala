@@ -306,9 +306,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
           }
           when(issueUopReg.ctrl.isVector) {
-            when(isStdDelay) {
-              bo.issue.bits.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, issueUopReg.vctrl.eew(0), issueUopReg.uopIdx, issueUopReg.vctrl.nf, VLEN, XLEN)
-            }.elsewhen(isUnitStrideDelay) {
+            bo.issue.bits.src(1) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, issueUopReg.vctrl.eew(0), issueUopReg.uopIdx, issueUopReg.vctrl.nf, VLEN, XLEN)
+            when(isUnitStrideDelay) {
               bo.issue.bits.src(0) := intRf.io.read(intRfReadIdx).data
             }.otherwise {
               bo.issue.bits.src(0) := RegEnable(addrGen.io.target, bi.issue.fire)
@@ -316,7 +315,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           }.otherwise {
             val intSrcData = intRf.io.read(intRfReadIdx).data
             val fpSrcData = fpRf.io.readNoBypass(noBypassFpReadIdx).data
-            bo.issue.bits.src(0) := MuxCase(intSrcData,
+            bo.issue.bits.src(0) := intSrcData
+            bo.issue.bits.src(1) := MuxCase(intSrcData,
               Seq(
                 (issueUopReg.ctrl.srcType(0) === SrcType.reg, intSrcData),
                 (issueUopReg.ctrl.srcType(0) === SrcType.fp, fpSrcData)
