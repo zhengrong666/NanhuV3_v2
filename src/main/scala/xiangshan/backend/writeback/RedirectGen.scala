@@ -45,7 +45,7 @@ object RedirectGen{
   }
 
   private def selectOldest(in: Seq[Valid[Redirect]], p: Parameters): (Valid[Redirect], UInt) = {
-    val selector = Module(new SelectPolicy(in.length, true, false)(p))
+    val selector = Module(new SelectPolicy(in.length, true, true)(p))
     selector.io.in.zip(in).foreach({ case (a, b) =>
       a.valid := b.valid
       a.bits := b.bits.robIdx
