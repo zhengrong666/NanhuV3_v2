@@ -556,7 +556,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.lsq.commit := RegNext(io.commits.isCommit && io.commits.commitValid(0))
   io.lsq.pendingOrdered := RegNext(io.commits.isCommit && io.commits.info(0).isOrder && valid(deqPtr.value))
   io.lsq.pendingInst := RegNext(deqPtr)
-  io.lsq.lqSafeDeq := RegNext(deqPtr)
   io.lsq.lqSafeDeq := RegNext(lqSafeDeqPtr)
 
   private val lqSafeDeqPtrNext = WireInit(lqSafeDeqPtr)
@@ -576,13 +575,14 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }) :+ true.B
   private val lqSafeAddend = Mux(io.redirect.valid, 0.U, PriorityEncoder(lqSafeBlocked))
   private val redirectDelay = Pipe(io.redirect)
-  when(redirectDelay.valid && redirectDelay.bits.robIdx < lqSafeDeqPtr) {
-    lqSafeDeqPtrNext := redirectDelay.bits.robIdx
+  when(redirectDelay.valid) {
+    lqSafeDeqPtrNext := Mux(redirectDelay.bits.robIdx < lqSafeDeqPtr, redirectDelay.bits.robIdx, lqSafeDeqPtr)
     lqSafeDeqPtr := lqSafeDeqPtrNext
   }.elsewhen(lqSafeAddend =/= 0.U) {
     lqSafeDeqPtrNext := lqSafeDeqPtr + lqSafeAddend
     lqSafeDeqPtr := lqSafeDeqPtrNext
   }
+  assert(lqSafeDeqPtrNext < enqPtr)
 
   /**
    * state changes
