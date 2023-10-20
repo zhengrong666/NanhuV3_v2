@@ -582,7 +582,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     lqSafeDeqPtrNext := lqSafeDeqPtr + lqSafeAddend
     lqSafeDeqPtr := lqSafeDeqPtrNext
   }
-  assert(lqSafeDeqPtrNext < enqPtr)
+  assert(lqSafeDeqPtrNext <= enqPtr)
 
   /**
    * state changes
