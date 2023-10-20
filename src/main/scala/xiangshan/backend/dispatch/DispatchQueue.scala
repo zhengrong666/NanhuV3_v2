@@ -122,24 +122,27 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   private class DispatchQueuePtr extends CircularQueuePtr[DispatchQueuePtr](size)
 
-    private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 2 * deqNum))
+  private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 2 * deqNum))
   private val deqDriver = Module(new DeqDriver(deqNum))
   private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
   private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
-  private val enqPtrIntDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val enqPtrFpDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val enqPtrLsDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val enqPtrIntdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val enqPtrFpdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val enqPtrLsdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
   private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
   private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
-  private val deqPtrIntDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val deqPtrFpDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val deqPtrLsDq = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val deqPtrIntVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrFpVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrLsVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
+  private val deqPtrIntdup = deqPtrIntVec.head
+  private val deqPtrFpdup = deqPtrFpVec.head
+  private val deqPtrLsdup = deqPtrLsVec.head
   //TODO: ADD THE NUMBER OF PTR AND ACCEPT PORT TO DECREASE FANOUT
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
-  private val validEntriesNumToIntDq = distanceBetween(enqPtrIntDq, deqPtr)
-  private val validEntriesNumToFpDq = distanceBetween(enqPtrFpDq, deqPtr)
-  private val validEntriesNumToLsDq = distanceBetween(enqPtrLsDq, deqPtr)
+  private val validEntriesNumToIntDq = distanceBetween(enqPtrIntdup, deqPtrIntdup)
+  private val validEntriesNumToFpDq = distanceBetween(enqPtrFpdup, deqPtrFpdup)
+  private val validEntriesNumToLsDq = distanceBetween(enqPtrLsdup, deqPtrLsdup)
   private val emptyEntriesNum = size.U - validEntriesNum
   io.dqFull := deqPtr.value === enqPtrAux.value && deqPtr.flag =/= enqPtrAux.flag
 
@@ -174,15 +177,15 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   when(io.redirect.valid){
     enqPtr := enqPtr - flushNum
     enqPtrAux := enqPtr - flushNum
-    enqPtrIntDq := enqPtr - flushNum
-    enqPtrFpDq := enqPtr - flushNum
-    enqPtrLsDq := enqPtr - flushNum
+    enqPtrIntdup := enqPtr - flushNum
+    enqPtrFpdup := enqPtr - flushNum
+    enqPtrLsdup := enqPtr - flushNum
   }.elsewhen(actualEnqNum =/= 0.U){
     enqPtr := enqPtr + actualEnqNum
     enqPtrAux := enqPtr + actualEnqNum
-    enqPtrIntDq := enqPtr + actualEnqNum
-    enqPtrFpDq := enqPtr + actualEnqNum
-    enqPtrLsDq := enqPtr + actualEnqNum
+    enqPtrIntdup := enqPtr + actualEnqNum
+    enqPtrFpdup := enqPtr + actualEnqNum
+    enqPtrLsdup := enqPtr + actualEnqNum
   }
 
 
@@ -206,9 +209,24 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     dn := d + deqDriver.io.deqPtrMoveVal
     when(deqDriver.io.deqPtrUpdate){
       d := dn
-      deqPtrIntDq := dn
-      deqPtrFpDq := dn
-      deqPtrLsDq := dn
+    }
+  })
+  deqPtrVecNext.zip(deqPtrIntVec).foreach({case(dn, d) =>
+    dn := d + deqDriver.io.deqPtrMoveVal
+    when(deqDriver.io.deqPtrUpdate){
+      d := dn
+    }
+  })
+  deqPtrVecNext.zip(deqPtrFpVec).foreach({case(dn, d) =>
+    dn := d + deqDriver.io.deqPtrMoveVal
+    when(deqDriver.io.deqPtrUpdate){
+      d := dn
+    }
+  })
+  deqPtrVecNext.zip(deqPtrLsVec).foreach({case(dn, d) =>
+    dn := d + deqDriver.io.deqPtrMoveVal
+    when(deqDriver.io.deqPtrUpdate){
+      d := dn
     }
   })
   io.deq.zip(deqDriver.io.deq).foreach({case(a,b) => a <> b})
