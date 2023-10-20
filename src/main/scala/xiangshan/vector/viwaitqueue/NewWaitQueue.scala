@@ -163,7 +163,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   when(directlyWb){
     vmbInit.bits.uopNum := 0.U
   }.elsewhen(deqUop.uop.uopNum =/= 0.U) {
-    when(isNarrowToMask) {
+    when(isNarrowToMask || (deqUop.uop.vctrl.ff && !deqUop.uop.vctrl.isLs)) {
       vmbInit.bits.uopNum := 1.U
     }
   }
