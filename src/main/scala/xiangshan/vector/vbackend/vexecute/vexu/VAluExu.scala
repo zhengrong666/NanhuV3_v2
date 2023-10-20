@@ -87,17 +87,6 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     s2v.io.in.bits.oldVd := src2
     s2v.io.in.bits.mask := mask
 
-    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
-    assert(PopCount(validSeq) <= 1.U)
-    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
-    private val wbData = Mux1H(validSeq, dataSeq)
-
-    wb.valid := uopShiftQueue.io.out.valid
-    wb.bits := DontCare
-    wb.bits.uop := uopShiftQueue.io.out.bits
-    wb.bits.data := wbData.vd
-    wb.bits.vxsat := wbData.vxsat
-
     private val uopIdx = uopShiftQueue.io.out.bits.uopIdx
     private val uopNum = uopShiftQueue.io.out.bits.uopNum
     private val uopOut = uopShiftQueue.io.out.bits
@@ -108,26 +97,26 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val maskLen = VLEN / 8
     private val halfMaskLen = maskLen / 2
     private def ones(in:Int):UInt = ((1 << in) - 1).U(in.W)
+
     private val lowHalfMask = Cat(0.U(halfMaskLen.W), ones(halfMaskLen))
     private val highHalfMask = Cat(ones(halfMaskLen), 0.U(halfMaskLen.W))
     private val fullMask = ones(maskLen)
-
-    private def GenCpopMask(uopIdx: UInt, uopNum: UInt): UInt = {
-      val res = Wire(UInt(maskLen.W))
-      res := MuxCase(fullMask, Seq(
-        (uopNum === 2.U) -> (ones(maskLen / 2) << uopIdx),
-        (uopNum === 4.U) -> (ones(maskLen / 4) << uopIdx),
-        (uopNum === 8.U) -> (ones(maskLen / 8) << uopIdx)
-      ))
-      res
-    }
-
-    private val vcpopMask = GenCpopMask(uopIdx(2, 0), uopNum(3, 0))
-    private val finalNarrowMask = MuxCase(fullMask, Seq(
+    private val finalMask = MuxCase(fullMask, Seq(
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
-    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, Mux(isVcpop, vcpopMask, finalNarrowMask))
-    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, Mux(isVcpop, vcpopMask, finalNarrowMask))
+
+    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
+    assert(PopCount(validSeq) <= 1.U)
+    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
+    private val wbData = Mux1H(validSeq, dataSeq)
+
+    wb.valid := validSeq.reduce(_|_) && Mux(isVcpop, uopIdx === uopNum, true.B)
+    wb.bits := DontCare
+    wb.bits.uop := uopShiftQueue.io.out.bits
+    wb.bits.data := wbData.vd
+    wb.bits.vxsat := wbData.vxsat
+    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
+    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
     }
 }
