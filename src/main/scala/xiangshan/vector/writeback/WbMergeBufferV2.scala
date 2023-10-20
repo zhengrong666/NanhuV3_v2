@@ -85,7 +85,6 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     }
     when(resp.valid){
       valids(allocPtrVec(idx).value) := true.B
-      table(allocPtrVec(idx).value).vxsat := false.B
     }
   })
 
@@ -95,10 +94,9 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }.elsewhen(io.allocate.resp.map(_.valid).reduce(_|_)){
     allocPtrVec.foreach(ptr => ptr := ptr + enqNum)
   }
-  valids.zip(redirectMask.asBools).zip(table).foreach({case((v, r), t) =>
+  valids.zip(redirectMask.asBools).foreach({case(v, r) =>
     when(v & r & io.redirect.valid){
       v := false.B
-      t.vxsat := false.B
     }
   })
 
@@ -147,7 +145,6 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     deq.bits := deqCandidates(idx)
     when(deq.valid){
       valids(ptr) := false.B
-      table(ptr).vxsat := false.B
     }
   })
   io.rob.head.bits.uop.uopIdx := Mux(deqException, exceptionGen.io.current.bits.uopIdx, 0.U)
@@ -162,6 +159,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   when(vmbInitDelay.valid){
     table(vmbInitDelay.bits.mergeIdx.value) := DontCare
     table(vmbInitDelay.bits.mergeIdx.value).uop := vmbInitDelay.bits
+    table(vmbInitDelay.bits.mergeIdx.value).vxsat := false.B
   }
 
   private def checkWbHit(wb:Valid[ExuOutput], idx:Int):Bool = {
@@ -175,7 +173,9 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }
   for((t, idx) <- table.zipWithIndex){
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
-    t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat)) || t.vxsat
+    when(hitVec.reduce(_|_)) {
+      t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat)) || t.vxsat
+    }
     when(hitVec.reduce(_|_)){
       assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
     }
