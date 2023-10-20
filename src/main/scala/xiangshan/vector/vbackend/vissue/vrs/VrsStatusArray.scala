@@ -24,7 +24,7 @@ class VrsIssueInfoGenerator(implicit p: Parameters) extends XSModule{
   })
   private val iv = io.in.valid
   private val ib = io.in.bits
-  private val readyToIssue = ib.srcState.map(_ === SrcState.rdy).reduce(_|_)
+  private val readyToIssue = ib.srcState.map(_ === SrcState.rdy).reduce(_&_)
   io.out.valid := readyToIssue && iv
   io.out.bits.fuType := ib.fuType
   io.out.bits.robPtr := ib.robIdx

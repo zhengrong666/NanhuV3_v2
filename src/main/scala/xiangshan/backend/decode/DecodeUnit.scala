@@ -32,6 +32,7 @@ import xiangshan.backend.execute.fu.csr.CSROpType
 import xiangshan.backend.execute.fu.fence.FenceOpType
 import xiangshan.backend.execute.fu.jmp.JumpOpType
 import xiangshan.backend.execute.fu.mdu.MDUOpType
+import xiangshan.vector.vbackend.vexecute.vfu.s2v.S2vOpType
 
 /**
  * Abstract trait giving defaults and other relevant values to different Decode constants/
@@ -452,10 +453,10 @@ object VectorArithDecode extends DecodeConstants {
     VMV2R_V -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV4R_V -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV8R_V -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VMV_S_X -> List(SrcType.reg, SrcType.DC, SrcType.DC, FuType.s2v, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VMV_V_I -> List(SrcType.imm, SrcType.DC, SrcType.DC, FuType.s2v, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VMV_S_X -> List(SrcType.reg, SrcType.DC, SrcType.DC, FuType.s2v, S2vOpType.sx, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VMV_V_I -> List(SrcType.imm, SrcType.DC, SrcType.DC, FuType.s2v, S2vOpType.vi, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV_V_V -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VMV_V_X -> List(SrcType.reg, SrcType.DC, SrcType.DC, FuType.s2v, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VMV_V_X -> List(SrcType.reg, SrcType.DC, SrcType.DC, FuType.s2v, S2vOpType.vx, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV_X_S -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, Y, N, N, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VOR_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VOR_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
@@ -604,7 +605,7 @@ object VectorArithDecode extends DecodeConstants {
     VMSBF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VMSIF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VMSOF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
-    VID_V -> List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VID_V -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VIOTA_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
 
 
