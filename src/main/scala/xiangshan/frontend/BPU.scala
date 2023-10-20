@@ -57,7 +57,6 @@ trait HasBPUConst extends HasXSParameter {
   val numBpStages = BP_STAGES.length
 
   val debug = true
-  val resetVector = bootAddress
   // TODO: Replace log2Up by log2Ceil
 }
 
@@ -189,7 +188,14 @@ abstract class BasePredictor(implicit p: Parameters) extends XSModule
   io.s3_ready := true.B
 
   val s0_pc_dup   = WireInit(io.in.bits.s0_pc) // fetchIdx(io.f0_pc)
-  val s1_pc_dup   = s0_pc_dup.zip(io.s0_fire).map {case (s0_pc, s0_fire) => RegEnable(s0_pc, resetVector.U, s0_fire)}
+  val s1_pc_dup   = s0_pc_dup.indices.map(i => Reg(UInt(VAddrBits.W)))
+  for(((s1, s0), s0f) <- s1_pc_dup.zip(s0_pc_dup).zip(io.s0_fire)){
+    when(reset.asBool) {
+      s1 := io.reset_vector.asTypeOf(UInt(VAddrBits.W))
+    }.elsewhen(s0f) {
+      s1 := s0
+    }
+  }
   val s2_pc_dup   = s1_pc_dup.zip(io.s1_fire).map {case (s1_pc, s1_fire) => RegEnable(s1_pc, s1_fire)}
   val s3_pc_dup   = s2_pc_dup.zip(io.s2_fire).map {case (s2_pc, s2_fire) => RegEnable(s2_pc, s2_fire)}
 
