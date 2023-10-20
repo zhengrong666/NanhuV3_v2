@@ -87,21 +87,11 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     s2v.io.in.bits.oldVd := src2
     s2v.io.in.bits.mask := mask
 
-    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
-    assert(PopCount(validSeq) <= 1.U)
-    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
-    private val wbData = Mux1H(validSeq, dataSeq)
-
-    wb.valid := uopShiftQueue.io.out.valid
-    wb.bits := DontCare
-    wb.bits.uop := uopShiftQueue.io.out.bits
-    wb.bits.data := wbData.vd
-    wb.bits.vxsat := wbData.vxsat
-
     private val uopIdx = uopShiftQueue.io.out.bits.uopIdx
     private val uopNum = uopShiftQueue.io.out.bits.uopNum
     private val uopOut = uopShiftQueue.io.out.bits
     private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
+    private val isVcpop = uopOut.vctrl.ff
     private val lowHalf = !uopIdx(0)
     private val highHalf = uopIdx(0)
     private val maskLen = VLEN / 8
@@ -115,6 +105,17 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
+
+    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
+    assert(PopCount(validSeq) <= 1.U)
+    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
+    private val wbData = Mux1H(validSeq, dataSeq)
+
+    wb.valid := validSeq.reduce(_|_) && Mux(isVcpop, uopIdx === uopNum, true.B)
+    wb.bits := DontCare
+    wb.bits.uop := uopShiftQueue.io.out.bits
+    wb.bits.data := wbData.vd
+    wb.bits.vxsat := wbData.vxsat
     wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
     wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
     }
