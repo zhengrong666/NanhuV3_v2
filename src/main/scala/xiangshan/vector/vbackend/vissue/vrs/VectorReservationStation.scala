@@ -113,7 +113,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   private var intBusyTableReadIdx = 0
   private var fpBusyTableReadIdx = 0
   private var vectorBusyTableReadIdx = 0
-  allocateNetwork.io.enqFromDispatch.zip(oiq.io.enq).zip(enq).foreach({case((sink, o_sink), source) =>
+  allocateNetwork.io.enqFromDispatch.zip(oiq.io.enq).zip(oiq.io.needAlloc).zip(enq).foreach({case(((sink, o_sink), o_alloc), source) =>
     val intReadPort = integerBusyTable.io.read(intBusyTableReadIdx)
     val fpReadPort = floatingBusyTable.io.read(fpBusyTableReadIdx)
     val vecReadPorts = Seq.tabulate(4)(idx => vectorBusyTable.io.read(vectorBusyTableReadIdx + idx))
@@ -135,7 +135,8 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
     sink.bits.vmState := vecReadPorts(3).resp
     source.ready := sink.ready && oiq.io.enqCanAccept
 
-    o_sink.valid := source.valid && sink.ready
+    o_alloc := source.valid && source.bits.vctrl.ordered
+    o_sink.valid := source.valid && source.bits.vctrl.ordered && sink.ready
     o_sink.bits := source.bits
     intBusyTableReadIdx = intBusyTableReadIdx + 1
     fpBusyTableReadIdx = fpBusyTableReadIdx + 1
