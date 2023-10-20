@@ -188,13 +188,30 @@ class VFCVTDataModule(implicit val p: Parameters) extends VFPUPipelineModule {
     narrow32b := i2sNarrow32b
     narrowFlag := i2sNarrowFlag
   }
+  // when(regEnable(2) && uop.ctrl.narrow) {
+  //   when(state === State.sEmpty) {
+  //     narrowBuf(0) := narrow32b
+  //     narrowFlagBuf := narrowFlag
+  //   }.elsewhen(state === State.sNarrow) {
+  //     narrowBuf(1) := narrow32b
+  //     narrowFlagBuf := narrowFlagBuf | narrowFlag
+  //   }
+  // }
   when(regEnable(2) && uop.ctrl.narrow) {
     when(state === State.sEmpty) {
-      narrowBuf(0) := narrow32b
       narrowFlagBuf := narrowFlag
+      when(uop.expdIdx(0)) {
+        narrowBuf(1) := narrow32b
+      }.otherwise {
+        narrowBuf(0) := narrow32b
+      }
     }.elsewhen(state === State.sNarrow) {
-      narrowBuf(1) := narrow32b
       narrowFlagBuf := narrowFlagBuf | narrowFlag
+      when(uop.expdIdx(0)) {
+        narrowBuf(1) := narrow32b
+      }.otherwise {
+        narrowBuf(0) := narrow32b
+      }
     }
   }
   val narrowOutReg = Cat(narrowBuf(1), narrowBuf(0))
