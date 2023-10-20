@@ -85,7 +85,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     }
     when(resp.valid){
       valids(allocPtrVec(idx).value) := true.B
-      table(allocPtrVec(idx).value) := false.B
+      table(allocPtrVec(idx).value).vxsat := false.B
     }
   })
 
