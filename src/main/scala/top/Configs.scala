@@ -267,19 +267,6 @@ class WithNKBL2
           HyperPrefetchParams    => spp+bop+sms
         */
         sppMultiLevelRefill = Some(coupledL2.prefetch.PrefetchReceiverParams()),
-        /*must has spp, otherwise Assert Fail
-        sppMultiLevelRefill options:
-        PrefetchReceiverParams() => spp has cross level refill
-        None                     => spp only refill L2
-        */
-        // prefetch = None
-        // enablePerf = true,
-        // sramDepthDiv = 2,
-        // tagECC = None,
-        // dataECC = None,
-        // hasShareBus = false,
-        // hasMbist = false,
-        // simulation = !site(DebugOptionsKey).FPGAPlatform
       )),
       L2NBanks = banks
     ))
@@ -310,7 +297,7 @@ class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1
         ctrl = None,
         reqField = Seq(xs.utils.tl.ReqSourceField()),
         sramClkDivBy2 = true,
-        sramDepthDiv = 4,
+        sramDepthDiv = 8,
         hasMbist = up(SoCParamsKey).hasMbist,
         hasShareBus = up(SoCParamsKey).hasShareBus,
         tagECC = Some("secded"),
