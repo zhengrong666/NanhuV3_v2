@@ -241,7 +241,7 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   for ((core_out, i) <- core_to_l3_ports.zipWithIndex){
     l3_banked_xbar :=*
       TLLogger(s"L3_L2_$i", !debugOpts.FPGAPlatform) :=*
-      TLBuffer() :=
+      TLBuffer.chainNode(2) :=
       core_out
   }
   l3_banked_xbar := TLBuffer.chainNode(2) := l3_xbar
