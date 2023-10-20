@@ -15,7 +15,7 @@ abstract trait VDecodeConstants {
   def decodeDefault: List[BitPat] = // illegal instruction
   //     eew0       eew1       eew2       eewType0    eewType1    eewType2    emul        emulType       ordered
   //     |          |          |          |           |           |           |           |              |  isLs
-  //     |          |          |          |           |           |           |           |              |  |  ff/vcpop
+  //     |          |          |          |           |           |           |           |              |  |  ff
   //     |          |          |          |           |           |           |           |              |  |  |  maskOp
   //     |          |          |          |           |           |           |           |              |  |  |  |  widden
   //     |          |          |          |           |           |           |           |              |  |  |  |  |  narrow
@@ -298,7 +298,7 @@ object VADecode extends VDecodeConstants {
     VMORN_MM -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
 
     VFIRST_M -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
-    VCPOP_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, Y, Y, N, N),
+    VCPOP_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, N, N),
     VMSBF_M -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
     VMSIF_M -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
     VMSOF_M -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),

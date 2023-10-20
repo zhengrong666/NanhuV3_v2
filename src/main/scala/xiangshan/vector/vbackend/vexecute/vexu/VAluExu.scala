@@ -102,32 +102,20 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val uopNum = uopShiftQueue.io.out.bits.uopNum
     private val uopOut = uopShiftQueue.io.out.bits
     private val isNarrow = uopOut.vctrl.isNarrow && uopOut.vctrl.eewType(2) === EewType.sew
-    private val isVcpop = uopOut.vctrl.ff
     private val lowHalf = !uopIdx(0)
     private val highHalf = uopIdx(0)
     private val maskLen = VLEN / 8
     private val halfMaskLen = maskLen / 2
     private def ones(in:Int):UInt = ((1 << in) - 1).U(in.W)
+
     private val lowHalfMask = Cat(0.U(halfMaskLen.W), ones(halfMaskLen))
     private val highHalfMask = Cat(ones(halfMaskLen), 0.U(halfMaskLen.W))
     private val fullMask = ones(maskLen)
-
-    private def GenCpopMask(uopIdx: UInt, uopNum: UInt): UInt = {
-      val res = Wire(UInt(maskLen.W))
-      res := MuxCase(fullMask, Seq(
-        (uopNum === 2.U) -> (ones(maskLen / 2) << uopIdx),
-        (uopNum === 4.U) -> (ones(maskLen / 4) << uopIdx),
-        (uopNum === 8.U) -> (ones(maskLen / 8) << uopIdx)
-      ))
-      res
-    }
-
-    private val vcpopMask = GenCpopMask(uopIdx(2, 0), uopNum(3, 0))
-    private val finalNarrowMask = MuxCase(fullMask, Seq(
+    private val finalMask = MuxCase(fullMask, Seq(
       (isNarrow && lowHalf) -> lowHalfMask,
       (isNarrow && highHalf) -> highHalfMask,
     ))
-    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, Mux(isVcpop, vcpopMask, finalNarrowMask))
-    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, Mux(isVcpop, vcpopMask, finalNarrowMask))
+    wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
+    wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
     }
 }
