@@ -180,7 +180,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
   // (1) resources are ready
   // (2) previous instructions are ready
   val thisCanActualOut = (0 until RenameWidth).map(i => !thisIsBlocked(i) && notBlockedByPrevious(i))
-  val hasValidException = io.fromRename(0).zip(hasException).map(x => x._1.valid && x._2)
+  val hasValidException = io.fromRename(1).zip(hasException).map(x => x._1.valid && x._2)
 
   // input for ROB, LSQ, Dispatch Queue
   for (i <- 0 until RenameWidth) {
