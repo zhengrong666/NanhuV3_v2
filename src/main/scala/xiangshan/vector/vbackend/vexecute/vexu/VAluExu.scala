@@ -111,7 +111,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
     private val wbData = Mux1H(validSeq, dataSeq)
 
-    wb.valid := validSeq.reduce(_|_) && Mux(isVcpop, uopIdx === uopNum, true.B)
+    wb.valid := validSeq.reduce(_|_) && Mux(isVcpop, uopIdx === (uopNum - 1.U), true.B)
     wb.bits := DontCare
     wb.bits.uop := uopShiftQueue.io.out.bits
     wb.bits.data := wbData.vd
