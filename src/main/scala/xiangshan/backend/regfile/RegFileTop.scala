@@ -77,22 +77,27 @@ class AddrGen(implicit p:Parameters) extends XSModule{
     val isStride = Input(Bool())
     val uopIdx = Input(UInt(7.W))
     val target = Output(UInt(XLEN.W))
-    val imm = Output(UInt(12.W))
   })
   private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, 1.U, VLEN, XLEN)
-  private val offset = MuxCase(0.U, Seq(
-    (io.sew === 0.U) -> SignExt(rawOffset(7, 0), XLEN),
-    (io.sew === 1.U) -> SignExt(rawOffset(15, 0), XLEN),
-    (io.sew === 2.U) -> SignExt(rawOffset(31, 0), XLEN),
-    (io.sew === 3.U) -> rawOffset(63, 0),
+  private val offset = MuxCase(0.U(VAddrBits.W), Seq(
+    (io.sew === 0.U) -> SignExt(rawOffset(7, 0), VAddrBits),
+    (io.sew === 1.U) -> SignExt(rawOffset(15, 0), VAddrBits),
+    (io.sew === 2.U) -> SignExt(rawOffset(31, 0), VAddrBits),
+    (io.sew === 3.U) -> rawOffset(VAddrBits - 1, 0),
   ))
-  private val offsetTarget = io.base + offset
+  private val offsetTarget = io.base(VAddrBits - 1, 0) + offset
 
-  private val strideOffset = (io.stride * io.uopIdx)(63, 0)
-  private val strideTarget = Cat(strideOffset(63,12), 0.U(12.W)) + io.base
+  private val stride = MuxCase(0.U, Seq(
+    (io.sew === 0.U) -> SignExt(io.stride(7, 0), XLEN),
+    (io.sew === 1.U) -> SignExt(io.stride(15, 0), XLEN),
+    (io.sew === 2.U) -> SignExt(io.stride(31, 0), XLEN),
+    (io.sew === 3.U) -> io.stride(63, 0),
+  ))
+
+  private val strideOffset = (stride.asSInt * io.uopIdx)(VAddrBits - 1, 0).asUInt
+  private val strideTarget = strideOffset + io.base(VAddrBits - 1, 0)
 
   io.target := Mux(io.isStride, strideTarget, offsetTarget)
-  io.imm := Mux(io.isStride, 0.U, strideOffset(11, 0))
 }
 
 class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
@@ -247,7 +252,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           addrGen.io.base := intRf.io.read(intRfReadIdx).data
           addrGen.io.stride := intRf.io.read(intRfReadIdx + 1).data
           addrGen.io.offset := io.vectorReads(vecReadPortIdx).data
-          addrGen.io.sew := issueUopReg.vCsrInfo.vsew
+          addrGen.io.sew := issueUopReg.vctrl.eew(2)
           addrGen.io.isStride := issueUopReg.ctrl.srcType(1) === SrcType.reg
           addrGen.io.uopIdx := issueUopReg.uopIdx
           val is2Stage = SrcType.isVec(bi.issue.bits.uop.ctrl.srcType(1)) || SrcType.isReg(bi.issue.bits.uop.ctrl.srcType(1))
@@ -256,7 +261,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
 
           val is2StageDelay = SrcType.isVec(issueUopReg.ctrl.srcType(1)) || SrcType.isReg(issueUopReg.ctrl.srcType(1))
           val isUnitStrideDelay = (issueUopReg.ctrl.fuType === FuType.ldu || issueUopReg.ctrl.fuType === FuType.stu) && !is2StageDelay
-          val isStdDelay = issueUopReg.ctrl.fuType === FuType.std
 
           io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(1)
           io.vectorReads(vecReadPortIdx).en := bi.issue.fire
@@ -297,18 +301,15 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := issueUopReg.vctrl.eew(0)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := issueUopReg.uopIdx
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.nf := issueUopReg.vctrl.nf
-          when(bi.issue.bits.uop.ctrl.isVector && is2Stage){
-            immWire := addrGen.io.imm
-          }.elsewhen(bi.issue.bits.uop.ctrl.isVector && isUnitStride){
+          when(bi.issue.bits.uop.ctrl.isVector && isUnitStride){
             immWire := (ZeroExt(bi.issue.bits.uop.uopIdx, 12) << bi.issue.bits.uop.vctrl.eew(0))(11, 0)
           }
           when(bi.issue.bits.uop.ctrl.isVector && isStd){
             io.vectorReads(vecReadPortIdx).addr := bi.issue.bits.uop.psrc(2)
           }
           when(issueUopReg.ctrl.isVector) {
-            when(isStdDelay) {
-              bo.issue.bits.src(0) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, issueUopReg.vctrl.eew(0), issueUopReg.uopIdx, issueUopReg.vctrl.nf, VLEN, XLEN)
-            }.elsewhen(isUnitStrideDelay) {
+            bo.issue.bits.src(1) := RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, issueUopReg.vctrl.eew(0), issueUopReg.uopIdx, issueUopReg.vctrl.nf, VLEN, XLEN)
+            when(isUnitStrideDelay) {
               bo.issue.bits.src(0) := intRf.io.read(intRfReadIdx).data
             }.otherwise {
               bo.issue.bits.src(0) := RegEnable(addrGen.io.target, bi.issue.fire)
@@ -316,7 +317,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           }.otherwise {
             val intSrcData = intRf.io.read(intRfReadIdx).data
             val fpSrcData = fpRf.io.readNoBypass(noBypassFpReadIdx).data
-            bo.issue.bits.src(0) := MuxCase(intSrcData,
+            bo.issue.bits.src(0) := intSrcData
+            bo.issue.bits.src(1) := MuxCase(intSrcData,
               Seq(
                 (issueUopReg.ctrl.srcType(0) === SrcType.reg, intSrcData),
                 (issueUopReg.ctrl.srcType(0) === SrcType.fp, fpSrcData)

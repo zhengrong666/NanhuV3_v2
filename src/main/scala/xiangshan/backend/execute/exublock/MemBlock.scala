@@ -51,7 +51,7 @@ class Std(implicit p: Parameters) extends XSModule {
   io.out.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
   io.out.bits := DontCare
   io.out.bits.uop := bitsReg.uop
-  io.out.bits.data := bitsReg.src(0)
+  io.out.bits.data := bitsReg.src(1)
 }
 class MemIssueRouter(implicit p: Parameters) extends LazyModule{
   val node = new ExuComplexIssueNode
