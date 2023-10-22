@@ -91,7 +91,7 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
   io.ctrl.valid := (deqPtrValOH & validsMask).orR && !io.redirect.valid
   io.ctrl.bits := Mux1H(deqPtrValOH, array)
 
-  when(io.issued && update.bits.uopIdx === io.ctrl.bits.uopNum && !io.redirect.valid) {
+  when(io.issued && (io.ctrl.bits.uopIdx === io.ctrl.bits.uopNum - 1.U) && !io.redirect.valid) {
     deqPtr := deqPtr + 1.U
   }
 
