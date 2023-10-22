@@ -252,7 +252,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
     }
     is(s_wait_replay) {
       when(needReplay) {
-        staLoadStateNext := Mux(io.replay.bits === 0.U, s_ready, s_wait_counter)
+        staLoadStateNext := Mux(io.replay.bits === 0.U && io.entry.bits.replayPenalty === 0.U, s_ready, s_wait_counter)
       }.elsewhen(counter === 1.U) {
         staLoadStateNext := s_issued
       }
