@@ -11,6 +11,7 @@ import xiangshan.backend.dispatch.DispatchQueue
 import xiangshan.backend.rob._
 import xiangshan.vector.writeback.VmbAlloc
 import xiangshan.backend.execute.fu.csr.vcsr._
+import xiangshan.ExceptionVec
 
 class NewVIMop(implicit p: Parameters) extends VectorBaseBundle {
   val uop = new MicroOp

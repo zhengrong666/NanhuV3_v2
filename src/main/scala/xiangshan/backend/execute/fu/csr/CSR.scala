@@ -1280,55 +1280,55 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     difftestException.coreid := csrio.hartId
     difftestException.valid := csrio.exception.valid
     difftestException.interrupt := difftestIntrNO
-    difftestException.exception  := difftestExptNO
+    difftestException.exception  := difftestExptNO 
     difftestException.exceptionPC := dexceptionPC
     difftestException.exceptionInst := csrio.exception.bits.uop.cf.instr
   }
 
   // Always instantiate basic difftest modules.
   if (env.AlwaysBasicDiff || env.EnableDifftest) {
-    val difftest = DifftestModule(new DiffCSRState)
-    difftest.coreid := csrio.hartId
-    difftest.priviledgeMode := priviledgeMode
-    difftest.mstatus := mstatus
-    difftest.sstatus := mstatus & sstatusRmask
-    difftest.mepc := mepc
-    difftest.sepc := sepc
-    difftest.mtval:= mtval
-    difftest.stval:= stval
-    difftest.mtvec := mtvec
-    difftest.stvec := stvec
-    difftest.mcause := mcause
-    difftest.scause := scause
-    difftest.satp := satp
-    difftest.mip := mipReg
-    difftest.mie := mie
-    difftest.mscratch := mscratch
-    difftest.sscratch := sscratch
-    difftest.mideleg := mideleg
-    difftest.medeleg := medeleg
+    val difftestCSR = DifftestModule(new DiffCSRState)
+    difftestCSR.coreid := csrio.hartId
+    difftestCSR.priviledgeMode := priviledgeMode
+    difftestCSR.mstatus := mstatus
+    difftestCSR.sstatus := mstatus & sstatusRmask
+    difftestCSR.mepc := mepc
+    difftestCSR.sepc := sepc
+    difftestCSR.mtval:= mtval
+    difftestCSR.stval:= stval
+    difftestCSR.mtvec := mtvec
+    difftestCSR.stvec := stvec
+    difftestCSR.mcause := mcause
+    difftestCSR.scause := scause
+    difftestCSR.satp := satp
+    difftestCSR.mip := mipReg
+    difftestCSR.mie := mie
+    difftestCSR.mscratch := mscratch
+    difftestCSR.sscratch := sscratch
+    difftestCSR.mideleg := mideleg
+    difftestCSR.medeleg := medeleg
   }
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
-    val difftest = DifftestModule(new DiffDebugMode)
-    difftest.coreid := csrio.hartId
-    difftest.debugMode := debugMode
-    difftest.dcsr := dcsr
-    difftest.dpc := dpc
-    difftest.dscratch0 := dscratch0
-    difftest.dscratch1 := dscratch1
+    val difftestDebugCSR = DifftestModule(new DiffDebugMode)
+    difftestDebugCSR.coreid := csrio.hartId
+    difftestDebugCSR.debugMode := debugMode
+    difftestDebugCSR.dcsr := dcsr
+    difftestDebugCSR.dpc := dpc
+    difftestDebugCSR.dscratch0 := dscratch0
+    difftestDebugCSR.dscratch1 := dscratch1
   }
 
   if(env.AlwaysBasicDiff || env.EnableDifftest) {
-    val difftest = DifftestModule(new DiffVecCSRState, delay = 1)
-    difftest.coreid := csrio.hartId
-    difftest.vlenb := vlenb
-    difftest.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))
-    difftest.vxrm := Cat(0.U((XLEN-3).W), vcsr(2, 1))
-    difftest.vcsr := Mux(csrio.vcsr.robWb.vxsat.valid, Cat(vcsr(XLEN - 1, 1), csrio.vcsr.robWb.vxsat.bits(0)), vcsr)
-    difftest.vtype := csrio.vcsr.vtype.debug_vtype
-    difftest.vl := csrio.vcsr.vtype.debug_vl
-    difftest.vstart := Mux(csrio.vcsr.robWb.vstart.valid, csrio.vcsr.robWb.vstart.bits, vstart)
+    val difftestVCSR = DifftestModule(new DiffVecCSRState, delay = 1)
+    difftestVCSR.coreid := csrio.hartId
+    difftestVCSR.vlenb := vlenb
+    difftestVCSR.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))
+    difftestVCSR.vxrm := Cat(0.U((XLEN-3).W), vcsr(2, 1))
+    difftestVCSR.vcsr := Mux(csrio.vcsr.robWb.vxsat.valid, Cat(vcsr(XLEN - 1, 1), csrio.vcsr.robWb.vxsat.bits(0)), vcsr)
+    difftestVCSR.vtype := csrio.vcsr.vtype.debug_vtype
+    difftestVCSR.vl := csrio.vcsr.vtype.debug_vl
+    difftestVCSR.vstart := Mux(csrio.vcsr.robWb.vstart.valid, csrio.vcsr.robWb.vstart.bits, vstart)
   }
 }
 
