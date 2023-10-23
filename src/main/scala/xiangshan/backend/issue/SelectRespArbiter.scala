@@ -37,5 +37,11 @@ class SelectRespArbiter(bankNum:Int, entryNum:Int, inNum:Int, haveEqual:Boolean)
   io.out.valid := selector.io.out.valid
   io.out.bits := Mux1H(selector.io.out.bits, io.in.map(_.bits))
   io.chosen := selector.io.out.bits
-  io.in.map(_.ready).zip(io.chosen.asBools).foreach({ case(a, b) => a := b && io.out.ready})
+  io.in.map(_.ready).zipWithIndex.foreach({ case(r, i) =>
+    if(i == 0){
+      r := io.out.ready
+    } else {
+      r := io.out.ready && !io.in.take(i).map(_.valid).reduce(_|_)
+    }
+  })
 }

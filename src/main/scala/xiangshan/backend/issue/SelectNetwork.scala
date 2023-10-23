@@ -52,8 +52,8 @@ class SelectPolicy(width:Int, oldest:Boolean, haveEqual:Boolean)(implicit p: Par
     val out = Output(Valid(UInt(width.W)))
   })
   private val ostr = if(oldest)"o" else "p"
-  private val esrt = if(haveEqual) "e" else ""
-  override val desiredName:String = s"SelectPolicy_w${width}" + ostr + esrt
+  private val estr = if(haveEqual) "e" else ""
+  override val desiredName:String = s"SelectPolicy_w${width}" + ostr + estr
   if(oldest) {
     val onlyOne = PopCount(io.in.map(_.valid)) === 1.U
     val oldestOHMatrix = io.in.zipWithIndex.map({ case (self, idx) =>
