@@ -150,7 +150,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   })
 
   //************************exception generation************************
-  val exceptionGen = Module(new ExceptionGen(wbWithException.length))
+  val exceptionGen = Module(new ExceptionGen(wbWithException.length + VectorMergeWbWidth))
   val exceptionDataRead = exceptionGen.io.state
 
   // pointers
@@ -303,10 +303,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   for (wb <- io.wbFromMergeBuffer) {
     when(wb.valid) {
       val wbIdx = wb.bits.uop.robIdx.value
-      //val wbHasException = ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, cfg).asUInt.orR
-      //val wbHasTriggerCanFire = if (cfg.trigger) wb.bits.uop.cf.trigger.getBackendCanFire else false.B
-      //val block_wb = wbHasException || wbHasTriggerCanFire
-      writebacked(wbIdx) := true.B
+      val wbHasException = wb.bits.uop.cf.exceptionVec.asUInt.orR
+      val wbHasTriggerCanFire = wb.bits.uop.cf.trigger.getBackendCanFire
+      val block_wb = wbHasException || wbHasTriggerCanFire
+      writebacked(wbIdx) := !block_wb
     }
   }
 
@@ -828,20 +828,31 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   println(s"ExceptionGen:")
-  for ((((config, wb), exc_wb), i) <- wbWithException.zip(exceptionGen.io.wb).zipWithIndex) {
-    exc_wb.valid := wb.valid
-    exc_wb.bits.robIdx := wb.bits.uop.robIdx
-    exc_wb.bits.exceptionVec := ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, config)
-    exc_wb.bits.singleStep := false.B
-    exc_wb.bits.crossPageIPFFix := false.B
-    // TODO: make trigger configurable
-    exc_wb.bits.trigger.clear() // Don't care frontend timing, chain, hit and canFire
-    exc_wb.bits.trigger.backendHit := Mux(config.trigger.B, wb.bits.uop.cf.trigger.backendHit,
-      0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendHit)))
-    exc_wb.bits.trigger.backendCanFire := Mux(config.trigger.B, wb.bits.uop.cf.trigger.backendCanFire,
-      0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendCanFire)))
-    exc_wb.bits.vstart := wb.bits.uop.uopIdx
-    println(s"  [$i] ${config.name}: exception ${config.exceptionOut}")
+
+  for(((wb, exc_wb), i) <- (VecInit(wbWithException.map(_._2)) ++ io.wbFromMergeBuffer).zip(exceptionGen.io.wb).zipWithIndex) {
+    if(i < wbWithException.length) {
+      exc_wb.valid := wb.valid
+      exc_wb.bits.robIdx := wb.bits.uop.robIdx
+      exc_wb.bits.exceptionVec := ExceptionNO.selectByExu(wb.bits.uop.cf.exceptionVec, wbWithException(i)._1)
+      exc_wb.bits.singleStep := false.B
+      exc_wb.bits.crossPageIPFFix := false.B
+      // TODO: make trigger configurable
+      exc_wb.bits.trigger.clear() // Don't care frontend timing, chain, hit and canFire
+      exc_wb.bits.trigger.backendHit := Mux(wbWithException(i)._1.trigger.B, wb.bits.uop.cf.trigger.backendHit,
+        0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendHit)))
+      exc_wb.bits.trigger.backendCanFire := Mux(wbWithException(i)._1.trigger.B, wb.bits.uop.cf.trigger.backendCanFire,
+        0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendCanFire)))
+      exc_wb.bits.vstart := wb.bits.uop.uopIdx
+      println(s"  [$i] ${wbWithException(i)._1.name}: exception ${wbWithException(i)._1.exceptionOut}")
+    } else {
+      exc_wb.valid := wb.valid
+      exc_wb.bits.robIdx := wb.bits.uop.robIdx
+      exc_wb.bits.exceptionVec := wb.bits.uop.cf.exceptionVec
+      exc_wb.bits.singleStep := false.B
+      exc_wb.bits.crossPageIPFFix := false.B
+      exc_wb.bits.trigger := wb.bits.uop.cf.trigger
+      exc_wb.bits.vstart := Mux(wb.bits.uop.uopIdx === 0.U, 1.U, wb.bits.uop.uopIdx)
+    }
   }
 
   val instrCntReg = RegInit(0.U(64.W))
