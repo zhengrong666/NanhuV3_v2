@@ -135,6 +135,7 @@ sim-verilog: $(SIM_TOP_V)
 clean:
 	$(MAKE) -C ./difftest clean
 	rm -rf ./build
+	rm -rf ./sim
 
 init:
 	git submodule update --init
