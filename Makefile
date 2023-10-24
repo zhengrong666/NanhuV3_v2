@@ -44,7 +44,7 @@ endif
 ifeq ($(CONSIDER_FSDB),1)
 	RUN_OPTS += +dump-wave=fsdb
 endif
-RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-nemu-interpreter-so
+RUN_OPTS += +diff=$(ABS_WORK_DIR)/ready-to-run/riscv64-spike-so
 #RUN_OPTS += +no-diff
 RUN_OPTS += -fgp=num_threads:4,num_fsdb_threads:4
 RUN_OPTS += -assert finish_maxfail=30 -assert global_finish_maxfail=10000
@@ -175,7 +175,7 @@ emu_rtl-run:
 
 # vcs simulation
 simv:
-	$(MAKE) -C ./difftest simv SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) CONSIDER_FSDB=$(CONSIDER_FSDB) VCS=1
+	$(MAKE) -C ./difftest simv SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) CONSIDER_FSDB=$(CONSIDER_FSDB) VCS=1 REF=Spike
 
 simv-run:
 	$(shell if [ ! -e $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN) ];then mkdir -p $(ABS_WORK_DIR)/sim/rtl/$(RUN_BIN); fi)
