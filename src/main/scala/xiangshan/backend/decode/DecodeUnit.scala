@@ -457,7 +457,7 @@ object VectorArithDecode extends DecodeConstants {
     VMV_V_I -> List(SrcType.imm, SrcType.DC, SrcType.DC, FuType.s2v, S2vOpType.vi, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV_V_V -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV_V_X -> List(SrcType.reg, SrcType.DC, SrcType.DC, FuType.s2v, S2vOpType.vx, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VMV_X_S -> List(SrcType.vec, SrcType.DC, SrcType.DC, FuType.valu, FuOpType.X, Y, N, N, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VMV_X_S -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, Y, N, N, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VOR_VI -> List(SrcType.imm, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VOR_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VOR_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
