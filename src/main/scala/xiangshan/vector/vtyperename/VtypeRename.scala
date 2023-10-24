@@ -213,10 +213,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
       res.info.vsew := in.ctrl.imm(10, 8)
       res.info.vlmul := in.ctrl.imm(7, 5)
       res.info.vlmax := res.info.VLMAXGen()
-      when(in.ctrl.imm(4, 0) > Cat(res.info.vlmax, 0.U(1.W))){
+      when(in.ctrl.imm(4, 0) > res.info.vlmax){
         res.info.vl := res.info.vlmax
-      }.elsewhen(in.ctrl.imm(4, 0) > res.info.vlmax){
-        res.info.vl := LogicShiftRight(res.info.vlmax, 1) + 1.U
       }.otherwise{
         res.info.vl := in.ctrl.imm(4, 0)
       }
