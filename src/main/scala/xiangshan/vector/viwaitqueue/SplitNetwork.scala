@@ -157,7 +157,7 @@ class SplitNetwork(splitNum:Int)(implicit p: Parameters) extends XSModule{
   private val currentDefaultVal = VecInit(Seq.tabulate(splitNum)(_.U))
   private val currentWires = WireInit(currentIndices)
 
-  when(io.in.bits.robIdx.needFlush(io.redirect) && io.in.valid) {
+  when(io.in.bits.robIdx.needFlush(io.redirect)) {
     remain := 0.U
     currentIndices := currentDefaultVal
   }.elsewhen(remain === 0.U && io.in.valid) {
