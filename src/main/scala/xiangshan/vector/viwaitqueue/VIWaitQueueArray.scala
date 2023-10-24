@@ -79,8 +79,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val vctrl = io.entry.uop.vctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val vlenBytes  = VLEN / 8
-  when(io.entry.state === WqState.s_updating){
-    for(((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)){
+  when(io.entry.state === WqState.s_updating) {
+    for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
       vn := MuxCase(v, Seq(
         (et === EewType.sew) -> vcsr.vsew,
         (et === EewType.sewm2) -> (vcsr.vsew + 1.U),
@@ -89,19 +89,36 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (et === EewType.sewd8) -> (vcsr.vsew - 3.U),
       ))
     }
-    val newEmul = Mux(vctrl.isWidden || vctrl.isNarrow, vcsr.vlmul + 1.U, vcsr.vlmul)
-    vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, newEmul, vctrl.emul)
-    when(vctrl.isLs){
+    vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, vcsr.vlmul, vctrl.emul)
+    when(vctrl.isLs) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (vctrlNext.emul ===  0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul ===  7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
       ))
-    }.otherwise{
+    }.elsewhen(vctrl.isWidden) {
+      entryNext.uop.uopNum := MuxCase(0.U, Seq(
+        (vctrlNext.emul === 0.U(3.W)) -> 2.U,
+        (vctrlNext.emul === 1.U(3.W)) -> 4.U,
+        (vctrlNext.emul === 2.U(3.W)) -> 8.U,
+        (vctrlNext.emul === 5.U(3.W)) -> 2.U,
+        (vctrlNext.emul === 6.U(3.W)) -> 2.U,
+        (vctrlNext.emul === 7.U(3.W)) -> 2.U,
+      ))
+    }.elsewhen(vctrl.isNarrow) {
+      entryNext.uop.uopNum := MuxCase(0.U, Seq(
+        (vctrlNext.emul === 0.U(3.W)) -> 2.U,
+        (vctrlNext.emul === 1.U(3.W)) -> 4.U,
+        (vctrlNext.emul === 2.U(3.W)) -> 8.U,
+        (vctrlNext.emul === 5.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 6.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 7.U(3.W)) -> 1.U,
+      ))
+    }.otherwise {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
         (vctrlNext.emul === 0.U(3.W)) -> 1.U,
         (vctrlNext.emul === 1.U(3.W)) -> 2.U,
@@ -128,6 +145,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       vctrlNext.tailOffset := 0.U
     }
     entryNext.state := WqState.s_waiting
+    entryNext.uop.cf.exceptionVec(illegalInstr) := (vctrl.isWidden || vctrl.isNarrow) && vcsr.vlmul === 3.U || vcsr.vill
   }
 
   io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
@@ -159,8 +177,7 @@ class VIWaitQueueArray(implicit p: Parameters) extends XSModule with HasVectorPa
     un.io.enq.bits.uop.ctrl.fpu := DontCare
     un.io.enq.bits.uop.cf.waitForRobIdx := DontCare
     un.io.enq.bits.uop.cf.trigger := DontCare
-    un.io.enq.bits.uop.cf.exceptionVec.foreach(_ := DontCare)
-    un.io.enq.bits.uop.cf.exceptionVec(illegalInstr) := Mux(un.io.enq.bits.vtypeRdy, un.io.enq.bits.uop.vCsrInfo.vill, false.B)
+    un.io.enq.bits.uop.cf.exceptionVec.foreach(_ := false.B)
     un.io.entry := a
     un.io.robEnq := io.robEnq
     val vmsSel = io.vmsIdAllocte.map(e => e.en && idx.U === e.addr)
