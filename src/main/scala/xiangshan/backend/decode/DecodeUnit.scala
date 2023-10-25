@@ -1053,7 +1053,7 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   // val vcs = Wire(new CtrlSignals)
 //  scs := 0.U.asTypeOf(new CtrlSignals()).decode(ctrl_flow.instr, decode_table)
   cs := Wire(new CtrlSignals()).decode(ctrl_flow.instr, decode_table)
-
+  val illegalInst = cs.selImm === SelImm.INVALID_INSTR
   val isvectorload = BitPat("b???????_?????_????0_000_?????_0000111") === ctrl_flow.instr || BitPat("b???????_?????_????0_101_?????_0000111") === ctrl_flow.instr || BitPat("b???????_?????_????0_110_?????_0000111") === ctrl_flow.instr || BitPat("b???????_?????_????0_111_?????_0000111") === ctrl_flow.instr
   val isvectorstore = BitPat("b???????_?????_????0_000_?????_0100111") === ctrl_flow.instr || BitPat("b???????_?????_????0_101_?????_0100111") === ctrl_flow.instr || BitPat("b???????_?????_????0_110_?????_0100111") === ctrl_flow.instr || BitPat("b???????_?????_????0_111_?????_0100111") === ctrl_flow.instr
   val isVtype  = BitPat("b???????_?????_?????_111_?????_1010111") === ctrl_flow.instr
@@ -1063,8 +1063,8 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
 
   // cs := Mux(isVector, vcs, scs)
   // cs := scs
-  cs.isVector := isVector
-  cs.isVtype := isVtype
+  cs.isVector := isVector && !illegalInst && !ctrl_flow.exceptionVec.asUInt.orR
+  cs.isVtype := isVtype && !illegalInst && !ctrl_flow.exceptionVec.asUInt.orR
 
   cs.singleStep := false.B
   cs.replayInst := false.B
@@ -1085,10 +1085,10 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
 
   // fill in exception vector
   cf_ctrl.cf.exceptionVec := io.enq.ctrl_flow.exceptionVec
-  cf_ctrl.cf.exceptionVec(illegalInstr) := cs.selImm === SelImm.INVALID_INSTR
+  cf_ctrl.cf.exceptionVec(illegalInstr) := illegalInst
 
   when (!io.csrCtrl.svinval_enable) {
-    val base_ii = cs.selImm === SelImm.INVALID_INSTR
+    val base_ii = illegalInst
     val sinval = BitPat("b0001011_?????_?????_000_00000_1110011") === ctrl_flow.instr
     val w_inval = BitPat("b0001100_00000_00000_000_00000_1110011") === ctrl_flow.instr
     val inval_ir = BitPat("b0001100_00001_00000_000_00000_1110011") === ctrl_flow.instr
