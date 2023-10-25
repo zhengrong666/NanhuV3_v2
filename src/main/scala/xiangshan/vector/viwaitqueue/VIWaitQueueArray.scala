@@ -79,6 +79,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val vctrl = io.entry.uop.vctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val vlenBytes  = VLEN / 8
+  private val isWiden = vctrl.isWidden
+  private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
       vn := MuxCase(v, Seq(
@@ -100,7 +102,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (vctrlNext.emul === 6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
         (vctrlNext.emul === 7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
       ))
-    }.elsewhen(vctrl.isNarrow || vctrl.isWidden) {
+    }.elsewhen(isNarrow || isWiden) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
         (vctrlNext.emul === 0.U(3.W)) -> 2.U,
         (vctrlNext.emul === 1.U(3.W)) -> 4.U,
@@ -136,7 +138,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       vctrlNext.tailOffset := 0.U
     }
     entryNext.state := WqState.s_waiting
-    entryNext.uop.cf.exceptionVec(illegalInstr) := (vctrl.isWidden || vctrl.isNarrow && vctrl.eewType(2) =/= EewType.const) && vcsr.vlmul === 3.U || vcsr.vill
+    entryNext.uop.cf.exceptionVec(illegalInstr) := (isWiden || isNarrow) && vcsr.vlmul === 3.U || vcsr.vill
   }
 
   io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
