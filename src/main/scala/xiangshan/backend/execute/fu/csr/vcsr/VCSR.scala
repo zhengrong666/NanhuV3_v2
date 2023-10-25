@@ -66,10 +66,6 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
    * 5.vsetvli and vsetvl, with src0 === x0 and dest === x0, oldVl has not been writebacked
    * 6.other vsetvl and vsetvli
    *
-   * imm(19): needOldVl, rs1===x0 && dest===x0
-   * imm(18, 11): oldvl / avlMax
-   * imm(10, 0): zimm -> new Vtype
-   * 
    * 1: fuOpType === vsetivli
    * 2 and 3: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19, 11).andR
    * 4: (fuOpType === vsetvli || fuOpType === vsetvl) && imm(19) && !(imm(18, 11).andR), avl is in imm(18, 11)
@@ -135,17 +131,13 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
     (vlmul === 7.U) -> ((vlenBytes / 2).U >> vsew)
   ))
   private val vl = Wire(UInt(log2Ceil(VLEN + 1).W))
-
-  when(vtype.vill) {
+  when(vtype.vill){
     vl := 0.U
-  }.elsewhen(avl <= vlmax) {
-    vl := avl
-  }.elsewhen((avl >> 1.U) < vlmax) {
-    vl := ((avl + 1.U) >> 1.U)
-  }.otherwise {
+  }.elsewhen(type2 || type3 || avl > vlmax){
     vl := vlmax
+  }.otherwise{
+    vl := avl
   }
-
   private val wbToCtrlCond = type3 || type4 || type56
   io.wbToCtrlValid := io.in.valid && wbToCtrlCond
   io.vtypeNew := Cat(vtype.vill, vtype.vma, vtype.vta, vtype.vsew, vtype.vlmul)
