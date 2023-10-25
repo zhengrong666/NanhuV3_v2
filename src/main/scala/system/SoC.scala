@@ -157,7 +157,7 @@ trait HaveAXI4MemPort {
     AXI4Buffer() :=
     AXI4Buffer() :=
     AXI4Buffer() :=
-    AXI4IdIndexer(idBits = 14) :=
+    AXI4IdIndexer(idBits = 12) :=
     AXI4UserYanker() :=
     AXI4Deinterleaver(L3BlockSize) :=
     TLToAXI4() :=
