@@ -47,7 +47,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pvs2(io.enq.bits.uopIdx) := io.enq.bits.psrc(1)
       enqEntryNext.bits.pvs2States(io.enq.bits.uopIdx) := io.enq.bits.srcState(1)
       enqEntryNext.bits.pov(io.enq.bits.uopIdx) := io.enq.bits.psrc(2)
-      enqEntryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
+      enqEntryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.srcState(2))
       enqEntryNext.bits.allMerged := (io.enq.bits.uopNum - 1.U) === io.enq.bits.uopIdx
     }.otherwise{
       assert(!io.entry.valid)
@@ -61,7 +61,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       enqEntryNext.bits.pvs2(0) := io.enq.bits.psrc(1)
       enqEntryNext.bits.pvs2States(0) := io.enq.bits.srcState(1)
       enqEntryNext.bits.pov(0) := io.enq.bits.psrc(2)
-      enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.psrc(2))
+      enqEntryNext.bits.povStates(0) := Mux(agnostic, SrcState.rdy, io.enq.bits.srcState(2))
       enqEntryNext.bits.pvm := io.enq.bits.vm
       enqEntryNext.bits.pvmState := Mux(io.enq.bits.vctrl.vm, io.enq.bits.vmState, SrcState.rdy)
       enqEntryNext.bits.allMerged := io.enq.bits.uopNum === 1.U

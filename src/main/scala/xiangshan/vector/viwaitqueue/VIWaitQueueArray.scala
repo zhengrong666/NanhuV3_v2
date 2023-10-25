@@ -100,16 +100,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (vctrlNext.emul === 6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
         (vctrlNext.emul === 7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
       ))
-    }.elsewhen(vctrl.isWidden) {
-      entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (vctrlNext.emul === 0.U(3.W)) -> 2.U,
-        (vctrlNext.emul === 1.U(3.W)) -> 4.U,
-        (vctrlNext.emul === 2.U(3.W)) -> 8.U,
-        (vctrlNext.emul === 5.U(3.W)) -> 2.U,
-        (vctrlNext.emul === 6.U(3.W)) -> 2.U,
-        (vctrlNext.emul === 7.U(3.W)) -> 2.U,
-      ))
-    }.elsewhen(vctrl.isNarrow) {
+    }.elsewhen(vctrl.isNarrow || vctrl.isWidden) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
         (vctrlNext.emul === 0.U(3.W)) -> 2.U,
         (vctrlNext.emul === 1.U(3.W)) -> 4.U,
