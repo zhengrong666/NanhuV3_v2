@@ -158,7 +158,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   vmbInit.valid := deqValid
   vmbInit.bits := deqUop.uop
   vmbInit.bits.uopIdx := 0.U
-  private val writebackOnce = deqUop.uop.vctrl.eewType(2) === EewType.const
+  private val writebackOnce = deqUop.uop.vctrl.eewType(2) === EewType.const & !deqUop.uop.vctrl.isLs
   when(directlyWb){
     vmbInit.bits.uopNum := 0.U
   }.elsewhen(deqUop.uop.uopNum =/= 0.U) {
