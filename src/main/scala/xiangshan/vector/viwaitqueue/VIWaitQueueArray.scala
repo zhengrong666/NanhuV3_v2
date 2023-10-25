@@ -136,7 +136,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       vctrlNext.tailOffset := 0.U
     }
     entryNext.state := WqState.s_waiting
-    entryNext.uop.cf.exceptionVec(illegalInstr) := (vctrl.isWidden || vctrl.isNarrow) && vcsr.vlmul === 3.U || vcsr.vill
+    entryNext.uop.cf.exceptionVec(illegalInstr) := (vctrl.isWidden || vctrl.isNarrow && vctrl.eewType(2) =/= EewType.const) && vcsr.vlmul === 3.U || vcsr.vill
   }
 
   io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
