@@ -44,14 +44,23 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
     val orderedCtrl = if(isOrdered) Some(Input(Valid(new OIQEntry))) else None
   })
   override val desiredName:String = name.getOrElse("VrsSelectNetwork")
+  private val finalSelectResult = Wire(Vec(issueNum, Valid(new VrsSelectResp(bankNum, entryNum))))
+  private val oc = io.orderedCtrl.map ({ ioc =>
+    val res = WireInit(ioc)
+    val issSel = Cat(finalSelectResult.map(_.valid).reverse)
+    when(issSel.orR) {
+      res.bits.uopIdx := ioc.bits.uopIdx + 1.U
+    }
+    res
+  })
 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({ case (si, bidx) =>
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new VrsSelectResp(bankNum, entryNum)))
       val orderCond = if(isOrdered) {
-        in.bits.isOrdered && io.orderedCtrl.get.valid &&
-          io.orderedCtrl.get.bits.uopIdx === in.bits.uopIdx &&
-          io.orderedCtrl.get.bits.robIdx === in.bits.robPtr
+        in.bits.isOrdered && oc.get.valid &&
+          oc.get.bits.uopIdx === in.bits.uopIdx &&
+          oc.get.bits.robIdx === in.bits.robPtr
       } else {
         !in.bits.isOrdered
       }
@@ -64,7 +73,7 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
       selInfo
     })
   })
-  private val finalSelectResult = Wire(Vec(issueNum, Valid(new VrsSelectResp(bankNum, entryNum))))
+
   private val bankNumPerIss = bankNum / issueNum
   finalSelectResult.zipWithIndex.foreach({ case (res, i) =>
     val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
