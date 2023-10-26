@@ -28,7 +28,6 @@ class VrfReadPort(implicit p: Parameters) extends XSBundle{
 class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parameters) extends XSModule {
   private val size = coreParams.vectorParameters.vPhyRegsNum
   private val addrBits = coreParams.vectorParameters.vPhyRegIdxWidth
-  private val dataWidth = VLEN
   private val maskWidth = VLEN / 8
   val io = IO(new Bundle{
     val wbWakeup = Input(Vec(wbWkpNum, Valid(new ExuOutput)))
@@ -45,46 +44,42 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
       None
     }
   })
-
-  private val mrf = Mem(size, Vec(maskWidth, Bool()))
-  private val vrf = Mem(size, Vec(maskWidth, UInt(8.W)))
-  private val fullMaskVec = VecInit(Seq.fill(maskWidth)(true.B))
-  private val emptyMaskVec = VecInit(Seq.fill(maskWidth)(false.B))
+  private val mrfReadNum = wbWkpNum
+  private val mrfWriteNum = wbWkpNum + loadUnitNum + vectorParameters.vRenameWidth
+  private val vrfReadNum = if(env.EnableDifftest || env.AlwaysBasicDiff) {
+    readPortNum + loadUnitNum + 32
+  } else {
+    readPortNum + loadUnitNum
+  }
+  private val vrfWriteNum = wbWkpNum + wbNoWkpNum + loadUnitNum
+  private val mrf = Module(new MaskRegfile(size, maskWidth, maskWidth, mrfReadNum, mrfWriteNum))
+  private val vrf = Module(new MaskRegfile(size, VLEN, maskWidth, vrfReadNum, vrfWriteNum))
+  private val fullMask = Fill(maskWidth, 1.U(1.W))
+  private val emptyMask = Fill(maskWidth, 0.U(1.W))
 
   // read vector register file
   for (r <- io.readPorts) {
-    r.data := RegEnable(vrf(r.addr).asUInt, r.en)
-  }
-
-  //difftest read
-  if(io.debug.isDefined){
-    io.debug.get.foreach(r => {
-      r.data := vrf(r.addr).asUInt
-    })
+    r.data := RegEnable(vrf(r.addr), r.en)
   }
 
   // write vector register file
   for (i <- 0 until wbWkpNum) {
     val addr = io.wbWakeup(i).bits.uop.pdest(addrBits - 1 ,0)
-    val data = io.wbWakeup(i).bits.data.asTypeOf(Vec(dataWidth / 8, UInt(8.W)))
-    val wbMask = io.wbWakeup(i).bits.writeDataMask.asBools
-    val wkpMask = io.wbWakeup(i).bits.wakeupMask.asBools
-    when (io.wbWakeup(i).valid && io.wbWakeup(i).bits.uop.ctrl.vdWen) {
-      vrf.write(addr, data, wbMask)
-      mrf.write(addr, fullMaskVec, wkpMask)
-    }
+    val data = io.wbWakeup(i).bits.data
+    val wbMask = io.wbWakeup(i).bits.writeDataMask
+    val wkpMask = io.wbWakeup(i).bits.wakeupMask
+    val wen = io.wbWakeup(i).valid && io.wbWakeup(i).bits.uop.ctrl.vdWen
+    vrf.write(addr, data, wbMask, wen)
+    mrf.write(addr, fullMask, wkpMask, wen)
     // wakeup
     val wbAddrReg = RegEnable(addr, io.wbWakeup(i).valid)
-    io.wakeupMask(i) := mrf(wbAddrReg).asUInt
+    io.wakeupMask(i) := mrf(wbAddrReg)
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {
     val addr = io.wbNoWakeup(i).bits.uop.pdest
-    val data = io.wbNoWakeup(i).bits.data.asTypeOf(Vec(dataWidth / 8, UInt(8.W)))
-    val dataMask = ((1 << maskWidth) - 1).U(maskWidth.W).asBools
-    when(io.wbNoWakeup(i).valid) {
-      vrf.write(addr, data, dataMask)
-    }
+    val data = io.wbNoWakeup(i).bits.data
+    vrf.write(addr, data, fullMask, io.wbNoWakeup(i).valid)
   }
 
   private def GenMoveMask(in:MoveReq):UInt = {
@@ -112,22 +107,23 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
   // Move request
   for (i <- 0 until loadUnitNum) {
     val mReq = io.moveOldValReqs(i)
-    when (mReq.valid) {
-      val dst = io.moveOldValReqs(i).bits.dstAddr
-      val srcData = WireInit(vrf.read(mReq.bits.srcAddr))
-      val wm = Wire(UInt(maskWidth.W))
-      wm := GenMoveMask(mReq.bits)
-      when(mReq.bits.agnostic){
-        srcData.foreach(_ := 0xffff.U)
-      }
-      vrf.write(dst, srcData, wm.asBools)
-      val mask = Mux(io.moveOldValReqs(i).bits.enable, emptyMaskVec, fullMaskVec)
-      mrf.write(dst, mask, wm.asBools)
-    }
+    val mask = Mux(mReq.bits.enable, emptyMask, fullMask)
+    val dst = mReq.bits.dstAddr
+    val srcData = Mux(mReq.bits.agnostic, Fill(VLEN, 1.U(1.W)), vrf(mReq.bits.srcAddr))
+    val wm = Wire(UInt(maskWidth.W))
+    wm := GenMoveMask(mReq.bits)
+    vrf.write(dst, srcData, wm, mReq.valid)
+    mrf.write(dst, mask, wm, mReq.valid)
   }
+
   io.vecAllocPregs.foreach(va => {
-    when(va.valid){
-      mrf.write(va.bits, emptyMaskVec, fullMaskVec)
-    }
+    mrf.write(va.bits, emptyMask, fullMask, va.valid)
   })
+
+  //difftest read
+  if (io.debug.isDefined) {
+    io.debug.get.foreach(r => {
+      r.data := vrf(r.addr)
+    })
+  }
 }
