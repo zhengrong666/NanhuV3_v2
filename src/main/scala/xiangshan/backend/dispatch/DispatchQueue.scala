@@ -119,6 +119,7 @@ class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule{
 class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters)
   extends XSModule with HasCircularQueuePtrHelper with HasPerfEvents with HasPerfLogging{
   val io: DispatchQueueIO = IO(new DispatchQueueIO(enqNum, deqNum))
+  require(size >= 2 * enqNum)
 
   private class DispatchQueuePtr extends CircularQueuePtr[DispatchQueuePtr](size)
 
