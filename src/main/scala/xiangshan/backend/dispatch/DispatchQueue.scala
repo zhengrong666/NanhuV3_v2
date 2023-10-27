@@ -119,46 +119,30 @@ class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule{
 class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters)
   extends XSModule with HasCircularQueuePtrHelper with HasPerfEvents with HasPerfLogging{
   val io: DispatchQueueIO = IO(new DispatchQueueIO(enqNum, deqNum))
+  require(size >= 2 * enqNum)
 
   private class DispatchQueuePtr extends CircularQueuePtr[DispatchQueuePtr](size)
 
   private val payloadArray = Module(new DispatchQueuePayload(size, enqNum, 2 * deqNum))
   private val deqDriver = Module(new DeqDriver(deqNum))
-  private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to enq logics and payloads
-  private val enqPtrAux = RegInit(0.U.asTypeOf(new DispatchQueuePtr)) //Fanout to other logics
-  private val enqPtrIntdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val enqPtrFpdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
-  private val enqPtrLsdup = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
+  private val enqPtr = RegInit(0.U.asTypeOf(new DispatchQueuePtr))
   private val deqPtrVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
   private val deqPtrVecNext = deqPtrVec.map(WireInit(_))
   private val deqPtr = deqPtrVec.head
-  private val deqPtrIntVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
-  private val deqPtrFpVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
-  private val deqPtrLsVec = Seq.tabulate(deqNum)(i => RegInit(i.U.asTypeOf(new DispatchQueuePtr)))
-  private val deqPtrIntdup = deqPtrIntVec.head
-  private val deqPtrFpdup = deqPtrFpVec.head
-  private val deqPtrLsdup = deqPtrLsVec.head
-  //TODO: ADD THE NUMBER OF PTR AND ACCEPT PORT TO DECREASE FANOUT
-  private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
-  private val validEntriesNumToIntDq = distanceBetween(enqPtrIntdup, deqPtrIntdup)
-  private val validEntriesNumToFpDq = distanceBetween(enqPtrFpdup, deqPtrFpdup)
-  private val validEntriesNumToLsDq = distanceBetween(enqPtrLsdup, deqPtrLsdup)
-  private val emptyEntriesNum = size.U - validEntriesNum
-  io.dqFull := deqPtr.value === enqPtrAux.value && deqPtr.flag =/= enqPtrAux.flag
+
+  private val canAcceptRegs = Seq.fill(RenameWidth)(RegInit(true.B))
 
   payloadArray.io.redirect := io.redirect
   deqDriver.io.redirect := io.redirect
-  private val enqMask = UIntToMask(enqPtrAux.value, size)
+  private val enqMask = UIntToMask(enqPtr.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validsMask = Mux(deqPtr.value < enqPtrAux.value || deqPtr === enqPtrAux, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validsMask = Mux(deqPtr.value < enqPtr.value || deqPtr === enqPtr, enqXorDeq, (~enqXorDeq).asUInt)
   private val redirectMask = validsMask & payloadArray.io.flushVec
   private val flushNum = PopCount(redirectMask)
 
-  io.enq.canAccept := ((size - enqNum).U >= validEntriesNum) && !io.redirect.valid
-  io.enq.canAccept_dup(0) := ((size - enqNum).U >= validEntriesNumToIntDq) && !io.redirect.valid
-  io.enq.canAccept_dup(1) := ((size - enqNum).U >= validEntriesNumToFpDq) && !io.redirect.valid
-  io.enq.canAccept_dup(2) := ((size - enqNum).U >= validEntriesNumToLsDq) && !io.redirect.valid
+  (io.enq.canAccept +: io.enq.canAccept_dup).zip(canAcceptRegs).foreach({case(o, r) => o := r && !io.redirect.valid})
+
   private val enqAddrDelta = Wire(Vec(enqNum, UInt(log2Ceil(enqNum).W)))
   for((e,i) <- enqAddrDelta.zipWithIndex){
     if(i == 0) {
@@ -176,18 +160,9 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
   private val actualEnqNum = Mux(io.enq.canAccept, PopCount(io.enq.req.map(_.valid)), 0.U)
   when(io.redirect.valid){
     enqPtr := enqPtr - flushNum
-    enqPtrAux := enqPtr - flushNum
-    enqPtrIntdup := enqPtr - flushNum
-    enqPtrFpdup := enqPtr - flushNum
-    enqPtrLsdup := enqPtr - flushNum
   }.elsewhen(actualEnqNum =/= 0.U){
     enqPtr := enqPtr + actualEnqNum
-    enqPtrAux := enqPtr + actualEnqNum
-    enqPtrIntdup := enqPtr + actualEnqNum
-    enqPtrFpdup := enqPtr + actualEnqNum
-    enqPtrLsdup := enqPtr + actualEnqNum
   }
-
 
   payloadArray.io.r.take(deqNum).zip(deqPtrVecNext).foreach({case(a, b) =>
     a.addr := b.value
@@ -211,25 +186,18 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
       d := dn
     }
   })
-  deqPtrVecNext.zip(deqPtrIntVec).foreach({case(dn, d) =>
-    dn := d + deqDriver.io.deqPtrMoveVal
-    when(deqDriver.io.deqPtrUpdate){
-      d := dn
-    }
-  })
-  deqPtrVecNext.zip(deqPtrFpVec).foreach({case(dn, d) =>
-    dn := d + deqDriver.io.deqPtrMoveVal
-    when(deqDriver.io.deqPtrUpdate){
-      d := dn
-    }
-  })
-  deqPtrVecNext.zip(deqPtrLsVec).foreach({case(dn, d) =>
-    dn := d + deqDriver.io.deqPtrMoveVal
-    when(deqDriver.io.deqPtrUpdate){
-      d := dn
-    }
-  })
   io.deq.zip(deqDriver.io.deq).foreach({case(a,b) => a <> b})
+
+  private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
+  private val emptyEntriesNum = size.U - validEntriesNum
+  private val emptyEntriesNext = Wire(UInt(log2Ceil(size + 1).W))
+  when(io.redirect.valid){
+    emptyEntriesNext := emptyEntriesNum +& flushNum
+  }.otherwise {
+    emptyEntriesNext := emptyEntriesNum +& deqDriver.io.deqPtrMoveVal - actualEnqNum
+  }
+  canAcceptRegs.foreach(_ := emptyEntriesNext >= enqNum.U)
+  io.dqFull := canAcceptRegs.head
 
   private val debug_r = payloadArray.io.r.slice(deqNum, 2 * deqNum)
   debug_r.zip(deqPtrVec).zipWithIndex.foreach({case((r, dp), i) =>
@@ -239,7 +207,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
     }
   })
 
-  assert(deqPtr <= enqPtrAux)
+  assert(deqPtr <= enqPtr)
   assert(actualEnqNum <= emptyEntriesNum)
   assert(flushNum <= validEntriesNum)
   private val enqPtrNext = enqPtr - flushNum
