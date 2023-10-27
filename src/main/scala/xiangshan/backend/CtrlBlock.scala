@@ -339,7 +339,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   commitVector.isExtraWalk := rob.io.commits.isExtraWalk
 
   vCtrlBlock.io.commit := commitVector.Pipe
-  vCtrlBlock.io.redirect := Pipe(io.redirectIn)
+  vCtrlBlock.io.redirect := io.redirectIn
   vCtrlBlock.io.vstart := io.vstart
 
   io.vAllocPregs := vCtrlBlock.io.vAllocPregs
@@ -377,9 +377,13 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val redirectDelay_dup_1 = Pipe(io.redirectIn)
   private val redirectDelay_dup_2 = Pipe(io.redirectIn)
   private val redirectDelay_dup_3 = Pipe(io.redirectIn)
+  private val redirectDelay_dup_4 = Pipe(io.redirectIn)
   intDq.io.redirect := redirectDelay_dup_0
-  fpDq.io.redirect := redirectDelay_dup_1
-  lsDq.io.redirect := redirectDelay_dup_2
+  fpDq.io.redirect := redirectDelay_dup_0
+  lsDq.io.redirect := redirectDelay_dup_0
+  intDq.io.redirect_dup := redirectDelay_dup_1
+  fpDq.io.redirect_dup := redirectDelay_dup_2
+  lsDq.io.redirect_dup := redirectDelay_dup_3
 
   intDeq <> intDq.io.deq
   fpDeq <> fpDq.io.deq
@@ -389,7 +393,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   memDqArb.io.vmemIn <> vCtrlBlock.io.vmemDispatch
   memDqArb.io.redirect := redirectDelay
 
-  memDispatch2Rs.io.redirect := redirectDelay_dup_3
+  memDispatch2Rs.io.redirect := redirectDelay_dup_4
   memDispatch2Rs.io.lcommit := io.lqDeq
   memDispatch2Rs.io.scommit := io.sqDeq
   memDispatch2Rs.io.lqCancelCnt := io.lqCancelCnt

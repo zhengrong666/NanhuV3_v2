@@ -51,12 +51,26 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
     val redirect = Flipped(ValidIO(new Redirect))
   })
 
+  private val redirectDelay_dup_0 = Pipe(io.redirect)
+  private val redirectDelay_dup_1 = Pipe(io.redirect)
+  private val redirectDelay_dup_2 = Pipe(io.redirect)
+  private val redirectDelay_dup_3 = Pipe(io.redirect)
+
   val dispatchNetwork = Module(new VectorDispatchNetwork)
   //TODO: RS Input Width align
   val dqCommon = Module(new DispatchQueue(VectorDispatchCommonWidth, VIRenameWidth, vecDeqNum))
   val dqPermu = Module(new DispatchQueue(VectorDispatchPermuWidth, VIRenameWidth, vpDeqNum))
   val dqMem = Module(new DispatchQueue(VectorDispatchMemWidth, VIRenameWidth, memDeqNum))
   private val renameQueue = Module(new DispatchQueue(VIRenameWidth * 2, VIRenameWidth, VIRenameWidth))
+  dqCommon.io.redirect := redirectDelay_dup_0
+  dqPermu.io.redirect := redirectDelay_dup_0
+  dqMem.io.redirect := redirectDelay_dup_0
+  renameQueue.io.redirect := redirectDelay_dup_0
+
+  dqCommon.io.redirect_dup := redirectDelay_dup_1
+  dqPermu.io.redirect_dup := redirectDelay_dup_2
+  dqMem.io.redirect_dup := redirectDelay_dup_3
+  renameQueue.io.redirect_dup := redirectDelay_dup_0
 
   for(idx <- 0 until VIRenameWidth){
     renameQueue.io.enq.needAlloc(idx) := io.req.uop(idx).valid
@@ -86,11 +100,6 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
   dqPermu.io.enq.needAlloc := dqPermuMask
   dqMem.io.enq.needAlloc := dqMemMask
 
-  dqCommon.io.redirect := io.redirect
-  dqPermu.io.redirect := io.redirect
-  dqMem.io.redirect := io.redirect
-  renameQueue.io.redirect := io.redirect
-
   for ((uop, i) <- renameQueue.io.deq.zipWithIndex) {
     dqCommon.io.enq.req(i).bits := uop.bits
     dqMem.io.enq.req(i).bits := uop.bits
@@ -101,26 +110,7 @@ class VectorDispatchWrapper(vecDeqNum: Int, vpDeqNum: Int, memDeqNum: Int)(impli
     dqPermu.io.enq.req(i).valid := dqPermuMask(i) && dqMemCanAccept && dqCommonCanAccept
   }
 
-//  io.toVectorCommonRS <> dqCommon.io.deq
-//  io.toVectorPermuRS <> dqPermu.io.deq
-//  io.toMem2RS <> dqMem.io.deq
-
-  io.toVectorCommonRS.zip(dqCommon.io.deq).foreach({ case (a, b) =>
-    a.valid := b.valid && !io.redirect.valid
-    a.bits := b.bits
-    b.ready := a.ready
-  })
-
-  io.toVectorPermuRS.zip(dqPermu.io.deq).foreach({ case (a, b) =>
-    a.valid := b.valid && !io.redirect.valid
-    a.bits := b.bits
-    b.ready := a.ready
-  })
-
-  io.toMem2RS.zip(dqMem.io.deq).foreach({ case (a, b) =>
-    a.valid := b.valid && !io.redirect.valid
-    a.bits := b.bits
-    b.ready := a.ready
-  })
-
+  io.toVectorCommonRS <> dqCommon.io.deq
+  io.toVectorPermuRS <> dqPermu.io.deq
+  io.toMem2RS <> dqMem.io.deq
 }
