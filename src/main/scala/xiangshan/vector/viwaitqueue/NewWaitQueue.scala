@@ -130,8 +130,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
 
-  private val isVMV_X_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b010".U) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.ctrl.fuType === FuType.valu) && (deqUop.uop.vctrl.vm === false.B)
-  private val isVFMV_F_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b001".U) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.ctrl.fuType === FuType.vfp) && (deqUop.uop.vctrl.vm === false.B)
+  private val isVMV_X_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b010".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.vctrl.vm === false.B)
+  private val isVFMV_F_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b001".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.vctrl.vm === false.B)
   private val needIgnoreVl = isVMV_X_S || isVFMV_F_S
 
   private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U || (io.vstart >= deqUop.uop.vCsrInfo.vl && !needIgnoreVl) || raiseII
