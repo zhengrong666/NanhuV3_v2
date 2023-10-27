@@ -44,10 +44,9 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
     val orderedCtrl = if(isOrdered) Some(Input(Valid(new OIQEntry))) else None
   })
   override val desiredName:String = name.getOrElse("VrsSelectNetwork")
-  private val finalSelectResult = Wire(Vec(issueNum, Valid(new VrsSelectResp(bankNum, entryNum))))
   private val oc = io.orderedCtrl.map ({ ioc =>
     val res = WireInit(ioc)
-    val issSel = Cat(finalSelectResult.map(_.valid).reverse)
+    val issSel = Cat(io.issueInfo.map(_.fire).reverse)
     when(issSel.orR) {
       res.bits.uopIdx := ioc.bits.uopIdx + 1.U
     }
@@ -75,6 +74,7 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
   })
 
   private val bankNumPerIss = bankNum / issueNum
+  private val finalSelectResult = Wire(Vec(issueNum, Valid(new VrsSelectResp(bankNum, entryNum))))
   finalSelectResult.zipWithIndex.foreach({ case (res, i) =>
     val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
     val selRes = VecSelectPolicy(selBanks, bankNum, entryNum, p)
