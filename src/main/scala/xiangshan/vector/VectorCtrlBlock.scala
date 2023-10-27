@@ -76,7 +76,6 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   private val redirectDelay_dup_0 = Pipe(io.redirect)
   private val redirectDelay_dup_1 = Pipe(io.redirect)
   private val redirectDelay_dup_2 = Pipe(io.redirect)
-  private val redirectDelay_dup_3 = Pipe(io.redirect)
 
   io.debug := virename.io.debug
 
@@ -123,7 +122,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     io.vAllocPregs(i).bits := rp.bits.pdest
   }
 
-  dispatch.io.redirect <> redirectDelay_dup_3
+  dispatch.io.redirect := io.redirect
 
   io.vDispatch <> dispatch.io.toVectorCommonRS
   io.vpDispatch <> dispatch.io.toVectorPermuRS

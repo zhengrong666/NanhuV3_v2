@@ -42,6 +42,7 @@ class DispatchQueueIO(enqNum: Int, deqNum: Int)(implicit p: Parameters) extends 
   }
   val deq = Vec(deqNum, DecoupledIO(new MicroOp))
   val redirect = Flipped(ValidIO(new Redirect))
+  val redirect_dup = Input(Valid(new Redirect))
   val dqFull = Output(Bool())
 }
 
@@ -86,16 +87,18 @@ class DeqDriver(deqNum:Int)(implicit p: Parameters)extends XSModule{
     val deqPtrUpdate = Output(Bool())
     val deqPtrMoveVal = Output(UInt(log2Ceil(deqNum + 1).W))
     val redirect = Input(Valid(new Redirect))
+    val redirect_dup = Input(Valid(new Redirect))
   })
 
   private val validsReg = RegInit(VecInit(Seq.fill(deqNum)(false.B)))
   private val bitsRegs = Reg(Vec(deqNum, new MicroOp()))
   io.deq.zip(validsReg).zip(bitsRegs).foreach({case((d, v), b) =>
-    d.valid := v
+    d.valid := v && !io.redirect_dup.valid
     d.bits := b
   })
   private val fireNum = PopCount(io.deq.map(_.fire))
-  io.deqPtrUpdate := io.deq.map(_.fire).reduce(_|_) && !io.redirect.valid
+  private val maybeFire = validsReg.zip(io.deq.map(_.ready)).map({case(a, b) => a & b}).reduce(_ | _)
+  io.deqPtrUpdate := maybeFire && !io.redirect.valid
   io.deqPtrMoveVal := fireNum
 
   for(((in, v), b) <- io.in.zip(validsReg).zip(bitsRegs)){
@@ -134,6 +137,7 @@ class DispatchQueue (size: Int, enqNum: Int, deqNum: Int)(implicit p: Parameters
 
   payloadArray.io.redirect := io.redirect
   deqDriver.io.redirect := io.redirect
+  deqDriver.io.redirect_dup := io.redirect_dup
   private val enqMask = UIntToMask(enqPtr.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
