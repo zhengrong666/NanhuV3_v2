@@ -241,7 +241,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   val commitScalar  = Wire(new RobCommitIO)
   commitScalar := rob.io.commits
   for(((v, info), i) <- (commitScalar.commitValid zip commitScalar.info).zipWithIndex) {
-    v := (!info.isVector) && rob.io.commits.commitValid(i)
+    v := (!info.vecWen) && rob.io.commits.commitValid(i)
   }
   rat.io.robCommits     := commitScalar
   rat.io.intRenamePorts := rename.io.intRenamePorts
@@ -332,8 +332,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   commitVector := rob.io.commits
   (commitVector.commitValid zip commitVector.walkValid).zip(commitVector.info).zipWithIndex.foreach {
     case (((cv, wv), info), i) => {
-      cv := info.isVector && rob.io.commits.commitValid(i)
-      wv := info.isVector && rob.io.commits.walkValid(i)
+      cv := info.vecWen && rob.io.commits.commitValid(i)
+      wv := info.vecWen && rob.io.commits.walkValid(i)
     }
   }
   commitVector.isExtraWalk := rob.io.commits.isExtraWalk
