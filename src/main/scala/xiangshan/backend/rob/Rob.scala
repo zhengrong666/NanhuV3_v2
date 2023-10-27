@@ -443,7 +443,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val commit_block = VecInit((0 until CommitWidth).map(i => !commit_w(i)))
   val allowOnlyOneCommit = commit_exception || intrBitSetReg
   // for instructions that may block others, we don't allow them to commit
-  val commits_vec = entryDataRead.map(_.isVector)
+  val commits_vec = entryDataRead.map(_.vecWen)
   val canCommitVec = Wire(Vec(CommitWidth, Bool()))
   for ((v, i) <- canCommitVec.zipWithIndex) {
     val vecNum = PopCount(commits_vec.take(i + 1))
@@ -524,14 +524,21 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     case ((vcv, cv), i) => {
       vcv := io.commits.isCommit &&
         cv && io.commits.info(i).vstartType === VstartType.write &&
-        (io.commits.info(i).isVector || io.commits.info(i).vtypeWb)
+        (io.commits.info(i).vecWen || io.commits.info(i).vtypeWb)
+    }
+  }
+
+  val vstartSet0 = Wire(Vec(CommitWidth, Bool()))
+  vstartSet0.zip(io.commits.commitValid).zipWithIndex.foreach {
+    case ((set0, cv), i) => {
+      set0 := io.commits.isCommit && cv && (io.commits.info(i).isVector || io.commits.info(i).vtypeWb)
     }
   }
 
   when(io.exception.valid && io.exception.bits.uop.ctrl.isVector) {
     vstart.valid := true.B
     vstart.bits := exceptionGen.io.state.bits.vstart
-  }.elsewhen(vectorCommitValidVec.asUInt.orR) {
+  }.elsewhen(vstartSet0.asUInt.orR) {
     vstart.valid := true.B
     vstart.bits := 0.U
   }.otherwise {
@@ -783,10 +790,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.old_pdest := req.old_pdest
       wdata.ftqIdx := req.cf.ftqPtr
       wdata.ftqOffset := req.cf.ftqOffset
-      wdata.vecWen := req.ctrl.isVector
+      wdata.vecWen := req.ctrl.vdWen
       wdata.wvcsr := req.ctrl.wvxsat
       wdata.vtypeWb := req.ctrl.isVtype
-      wdata.isVector := req.ctrl.vdWen //req.ctrl.isVector && !req.ctrl.isVtype
+      wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered
       wdata.vstartType := req.ctrl.wvstartType
   }

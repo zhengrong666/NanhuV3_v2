@@ -436,6 +436,8 @@ object VectorArithDecode extends DecodeConstants {
     VSRL_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VSUB_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VSUB_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VRSUB_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VRSUB_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
 
     VMAX_VV -> List(SrcType.vec, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMAX_VX -> List(SrcType.reg, SrcType.vec, SrcType.DC, FuType.valu, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
@@ -618,8 +620,7 @@ object VectorArithDecode extends DecodeConstants {
     VREDOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VREDSUM_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VREDXOR_VS ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
-    VRSUB_VI ->List(SrcType.imm,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VRSUB_VX ->List(SrcType.reg,  SrcType.vec, SrcType.DC, FuType.vreduc, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    
 
 
     //permutation instructions
