@@ -47,12 +47,12 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       (nf === 7.U) -> idx % 7.U,
       (nf === 8.U) -> idx % 8.U,
     ))
-    shouldRename := MuxCase(false.B, Seq(
+    shouldRename := Mux(vctrl.maskOp, idx === 0.U, MuxCase(false.B, Seq(
       (memSew === 0.U) -> (idxDivNf(vlenShiftBits - 1, 0) === 0.U),
       (memSew === 1.U) -> (idxDivNf(vlenShiftBits - 2, 0) === 0.U),
       (memSew === 2.U) -> (idxDivNf(vlenShiftBits - 3, 0) === 0.U),
       (memSew === 3.U) -> (idxDivNf(vlenShiftBits - 4, 0) === 0.U)
-    ))
+    )))
     vdAddend := MuxCase(0.U, Seq(
       (memSew === 0.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits) / nf * nf),
       (memSew === 1.U) -> (idxModNf + idx(idxBits - 1, vlenShiftBits - 1) / nf * nf),
