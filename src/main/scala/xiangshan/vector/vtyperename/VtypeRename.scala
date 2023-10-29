@@ -61,7 +61,11 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
     val redirect = Input(Valid(new Redirect))
     val flushVec = Output(UInt(size.W))
   })
-  private val headEntry = RegInit(0.U.asTypeOf(new VTypeEntry))
+  private val headEntry = RegInit({
+    val vtypeValue = 0.U.asTypeOf(new VTypeEntry)
+    vtypeValue.vill := true.B
+    vtypeValue
+  })
   private val tailEntries = Seq.fill(size - 1)(Reg(new VTypeEntry))
   private val table = headEntry +: tailEntries
 
