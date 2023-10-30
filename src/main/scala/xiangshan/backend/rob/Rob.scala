@@ -28,6 +28,7 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 import xs.utils.perf.HasPerfLogging
+import xiangshan.VstartType
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
@@ -519,19 +520,11 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   io.csr.dirty_fs := RegNext(dirty_fs, false.B)
   
   io.csr.dirty_vs := RegNext(dirty_vs, false.B)
-  val vectorCommitValidVec = Wire(Vec(CommitWidth, Bool()))
-  vectorCommitValidVec.zip(io.commits.commitValid).zipWithIndex.foreach {
-    case ((vcv, cv), i) => {
-      vcv := io.commits.isCommit &&
-        cv && io.commits.info(i).vstartType === VstartType.write &&
-        (io.commits.info(i).vecWen || io.commits.info(i).vtypeWb)
-    }
-  }
 
   val vstartSet0 = Wire(Vec(CommitWidth, Bool()))
   vstartSet0.zip(io.commits.commitValid).zipWithIndex.foreach {
     case ((set0, cv), i) => {
-      set0 := io.commits.isCommit && cv && (io.commits.info(i).isVector || io.commits.info(i).vtypeWb)
+      set0 := io.commits.isCommit && cv && (io.commits.info(i).vstartType === VstartType.write)
     }
   }
 
