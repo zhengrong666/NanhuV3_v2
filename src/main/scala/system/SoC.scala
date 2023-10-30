@@ -32,6 +32,8 @@ import huancun._
 import xs.utils.tl.TLLogger
 import xiangshan.backend.execute.fu.PMAConst
 import axi2tl._
+import freechips.rocketchip.util.{FastToSlow, SlowToFast}
+import xs.utils.mbist.STD_CLKGT_func
 import xs.utils.perf.DebugOptionsKey
 
 case object SoCParamsKey extends Field[SoCParameters]
@@ -47,6 +49,7 @@ case class SoCParameters
     ways = 8,
     sets = 2048 // 1MB per bank
   )),
+  periHalfFreq:Boolean = true,
   hasMbist:Boolean = false,
   hasShareBus:Boolean = false
 ){
@@ -76,6 +79,7 @@ trait HasSoCParameter {
   val L3OuterBusWidth = soc.L3OuterBusWidth
 
   val NrExtIntr = soc.extIntrs
+  val periHf = soc.periHalfFreq
 }
 
 class ILABundle extends Bundle {}
@@ -225,7 +229,14 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
 
   val l3_in = TLTempNode()
   val l3_out = TLTempNode()
-  val l3_mem_pmu = BusPerfMonitor(enable = !debugOpts.FPGAPlatform)
+  private val l3_mem_pmu = BusPerfMonitor(enable = !debugOpts.FPGAPlatform)
+
+  private val periSourceNode = TLRationalCrossingSource()
+  val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex)
+  periCx.sinkNode :*= periSourceNode :*= peripheralXbar
+  periCx.sbSourceNode.foreach { sb2tl =>
+    l3_xbar :=* TLRationalCrossingSink(SlowToFast) :=* sb2tl
+  }
 
   l3_in :*= TLEdgeBuffer(_ => true, Some("L3_in_buffer")) :*= l3_banked_xbar
   bankedNode :*= TLLogger("MEM_L3", !debugOpts.FPGAPlatform) :*= l3_mem_pmu :*= l3_out
@@ -246,40 +257,79 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   }
   l3_banked_xbar := TLBuffer.chainNode(2) := l3_xbar
 
-  val clint = LazyModule(new CLINT(CLINTParams(0x38000000L), 8))
-  clint.node := peripheralXbar
-
-
-  val plic = LazyModule(new TLPLIC(PLICParams(baseAddress = 0x3c000000L, maxPriorities = 3), 8))
-  val intSourceNode = IntSourceNode(IntSourcePortSimple(NrExtIntr, ports = 1, sources = 1))
-
-  plic.intnode := intSourceNode
-  plic.node := peripheralXbar
-
-  val debugModule = LazyModule(new DebugModule(NumCores)(p))
-  debugModule.debug.node := peripheralXbar
-  debugModule.debug.dmInner.dmInner.sb2tlOpt.foreach { sb2tl  =>
-    l3_xbar := TLBuffer() := TLWidthWidget(1) := sb2tl.node
-  }
   lazy val module = new SoCMiscImp(this)
 }
 class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(outer) {
   val debug_module_io = IO(new DebugModuleIO(outer.NumCores))
   val ext_intrs = IO(Input(UInt(outer.NrExtIntr.W)))
 
-  outer.debugModule.module.io <> debug_module_io
+  private val gt_ff = RegInit(true.B)
+  gt_ff := ~gt_ff
 
-  // sync external interrupts
-  require(outer.intSourceNode.out.head._1.length == ext_intrs.getWidth)
-  for ((plic_in, interrupt) <- outer.intSourceNode.out.head._1.zip(ext_intrs.asBools)) {
-    val ext_intr_sync = RegInit(0.U(3.W))
-    ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
-    plic_in := ext_intr_sync(2)
+  private val clk_gt = if(outer.periHf) {
+    val cgt = Module(new STD_CLKGT_func)
+    cgt.io.E := gt_ff
+    cgt.io.TE := false.B
+    cgt.io.CK := clock
+    cgt.io.dft_l3dataram_clk := false.B
+    cgt.io.dft_l3dataramclk_bypass := false.B
+    Some(cgt)
+  } else {
+    None
   }
 
-  val freq = 100
-  val cnt = RegInit((freq - 1).U)
-  val tick = cnt === 0.U
-  cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
-  outer.clint.module.io.rtcTick := tick
+  outer.periCx.module.debug_module_io <> debug_module_io
+  outer.periCx.module.ext_intrs := ext_intrs
+  if(outer.periHf){
+    outer.periCx.module.clock := clk_gt.get.io.Q
+  } else {
+    outer.periCx.module.clock := clock
+  }
+  outer.periCx.module.reset := reset
+}
+
+class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCParameter {
+  private val intSourceNode = IntSourceNode(IntSourcePortSimple(NrExtIntr, ports = 1, sources = 1))
+  private val managerBuffer = LazyModule(new TLBuffer)
+  val plic = LazyModule(new TLPLIC(PLICParams(baseAddress = 0x3c000000L), 8))
+  val clint = LazyModule(new CLINT(CLINTParams(0x38000000L), 8))
+  val debugModule = LazyModule(new DebugModule(NumCores))
+
+  val sinkNode = TLRationalCrossingSink(FastToSlow)
+  val sbSourceNode = if(debugModule.debug.dmInner.dmInner.sb2tlOpt.isDefined) {
+    val res = TLRationalCrossingSource()
+    res :=* TLBuffer() :=* TLWidthWidget(1) :=* debugModule.debug.dmInner.dmInner.sb2tlOpt.get.node
+    Some(res)
+  } else {
+    None
+  }
+
+  managerBuffer.node :*= sinkNode
+  plic.node :*= managerBuffer.node
+  clint.node :*= managerBuffer.node
+  debugModule.debug.node :*= managerBuffer.node
+
+  plic.intnode := intSourceNode
+
+  lazy val module = new Impl
+  class Impl extends LazyModuleImp(this) {
+    val debug_module_io: DebugModuleIO = IO(new DebugModuleIO(NumCores))
+    val ext_intrs: UInt = IO(Input(UInt(NrExtIntr.W)))
+
+    debugModule.module.io <> debug_module_io
+
+    // sync external interrupts
+    require(intSourceNode.out.head._1.length == ext_intrs.getWidth)
+    for ((plic_in, interrupt) <- intSourceNode.out.head._1.zip(ext_intrs.asBools)) {
+      val ext_intr_sync = RegInit(0.U(3.W))
+      ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
+      plic_in := ext_intr_sync(2)
+    }
+
+    val freq = 50
+    private val cnt = RegInit((freq - 1).U)
+    private val tick = cnt === 0.U
+    cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
+    clint.module.io.rtcTick := tick
+  }
 }
