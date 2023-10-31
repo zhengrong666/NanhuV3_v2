@@ -7,12 +7,14 @@ import xiangshan.XSModule
 import xs.utils.{LogicShiftLeft, ZeroExt}
 
 import scala.collection.immutable.Seq
+import darecreek.exu.vfu.HasVFuParameters
+import darecreek.exu.vfu.VFuModule
 object S2vOpType {
   def vx = 0.U
   def vi = 1.U
   def sx = 2.U
 }
-class Scalar2Vector(implicit p: Parameters) extends XSModule{
+class Scalar2Vector(implicit p: Parameters) extends VFuModule{
   val io = IO(new Bundle{
     val in = Flipped(ValidIO(new VFuInput))
     val out = ValidIO(new VAluOutput)
@@ -40,10 +42,10 @@ class Scalar2Vector(implicit p: Parameters) extends XSModule{
   private val vd16 = Wire(Vec(VLEN / 16, UInt(16.W)))
   private val vd32 = Wire(Vec(VLEN / 32, UInt(32.W)))
   private val vd64 = Wire(Vec(VLEN / 64, UInt(64.W)))
-  private val vi8 = WireInit(VecInit(Seq.tabulate(VLEN / 8)(i => i.U | LogicShiftLeft(uidx, log2Ceil(VLEN / 8) - 1))))
-  private val vi16 = WireInit(VecInit(Seq.tabulate(VLEN / 16)(i => i.U | LogicShiftLeft(uidx, log2Ceil(VLEN / 16) - 1))))
-  private val vi32 = WireInit(VecInit(Seq.tabulate(VLEN / 32)(i => i.U | LogicShiftLeft(uidx, log2Ceil(VLEN / 32) - 1))))
-  private val vi64 = WireInit(VecInit(Seq.tabulate(VLEN / 64)(i => i.U | LogicShiftLeft(uidx, log2Ceil(VLEN / 64) - 1))))
+  private val vi8 = WireInit(VecInit(Seq.tabulate(VLEN / 8)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 8)))))
+  private val vi16 = WireInit(VecInit(Seq.tabulate(VLEN / 16)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 16)))))
+  private val vi32 = WireInit(VecInit(Seq.tabulate(VLEN / 32)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 32)))))
+  private val vi64 = WireInit(VecInit(Seq.tabulate(VLEN / 64)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 64)))))
   private val nd8 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 8), io.in.bits.rs1(7, 0))
   private val nd16 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 16), io.in.bits.rs1(15, 0))
   private val nd32 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 32), io.in.bits.rs1(31, 0))
