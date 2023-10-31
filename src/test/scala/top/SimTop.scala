@@ -86,7 +86,7 @@ class SimTop(implicit p: Parameters) extends Module {
     val dump = Wire(Bool())
     timer := GTimer()
     logEnable := (timer >= io.logCtrl.log_begin) && (timer < io.logCtrl.log_end)
-    clean := io.perfInfo.clean
+    clean := RegNext(io.perfInfo.clean, false.B)
     dump := io.perfInfo.dump
     dontTouch(timer)
     dontTouch(logEnable)

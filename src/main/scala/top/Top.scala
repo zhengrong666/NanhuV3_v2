@@ -74,11 +74,15 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
      })))
    )
 
+  l3cacheOpt.map(_.ctlnode.map(_ := misc.peripheralXbar))
+  l3cacheOpt.map(_.intnode.map(int => {
+    misc.periCx.plic.intnode := IntBuffer() := int
+  }))
   for (i <- 0 until NumCores) {
-    core_with_l2(i).clint_int_sink := misc.clint.intnode
-    core_with_l2(i).plic_int_sink :*= misc.plic.intnode
-    core_with_l2(i).debug_int_sink := misc.debugModule.debug.dmOuter.dmOuter.intnode
-    misc.plic.intnode := IntBuffer() := core_with_l2(i).beu_int_source
+    core_with_l2(i).clint_int_sink := misc.periCx.clint.intnode
+    core_with_l2(i).plic_int_sink :*= misc.periCx.plic.intnode
+    core_with_l2(i).debug_int_sink := misc.periCx.debugModule.debug.dmOuter.dmOuter.intnode
+    misc.periCx.plic.intnode := IntBuffer() := core_with_l2(i).beu_int_source
     misc.peripheral_ports(i) := core_with_l2(i).uncache
     misc.core_to_l3_ports(i) :=* core_with_l2(i).memory_port
   }
