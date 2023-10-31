@@ -120,7 +120,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   class VtypePtr extends CircularQueuePtr[VtypePtr](VIVtypeRegsNum)
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
-  private val emptyEntiresNum = VIVtypeRegsNum.U - validEntriesNum
+  private val emptyEntriesNum = VIVtypeRegsNum.U - validEntriesNum
+  private val emptyEntriesNumNext = RegInit(VIVtypeRegsNum.U(log2Ceil(VIWaitQueueWidth + 1).W))
 
   private val enqMask = UIntToMask(enqPtr.value, VIVtypeRegsNum)
   private val flushHeadMask = UIntToMask(flushHeadPtr.value, VIVtypeRegsNum)
@@ -130,7 +131,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val flushNum = PopCount(redirectMask)
 
   private val allocNum = PopCount(io.needAlloc)
-  io.canAccept := allocNum <= emptyEntiresNum && !io.redirect.valid
+  io.canAccept := allocNum <= emptyEntriesNumNext && !io.redirect.valid
 
   private val setVlSeq = io.in.map(i => i.valid)
   private val realValids = setVlSeq.map(_ && io.canAccept)
@@ -295,8 +296,10 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val actualEnqNum = PopCount(realValids)
   when(io.redirect.valid) {
     enqPtr := enqPtr - flushNum
+    emptyEntriesNumNext := emptyEntriesNum +& flushNum
   }.elsewhen(actualEnqNum =/= 0.U) {
     enqPtr := enqPtr + actualEnqNum
+    emptyEntriesNumNext := emptyEntriesNum -& actualEnqNum
   }
 
   private val setVlCommSeq = io.robCommits.commitValid.zip(io.robCommits.info).map({case(a, b) => a && b.vtypeWb})
@@ -307,6 +310,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   when(comValidReg){
     deqPtr := deqPtr + comNumReg
     flushHeadPtr := flushHeadPtr + comNumReg
+    emptyEntriesNumNext := emptyEntriesNum +& comNumReg
   }
 
 

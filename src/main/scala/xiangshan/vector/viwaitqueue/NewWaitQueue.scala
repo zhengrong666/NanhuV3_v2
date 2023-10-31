@@ -51,6 +51,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIWaitQueueWidth.U - validEntriesNum
+  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U(log2Ceil(VIWaitQueueWidth + 1).W))
 
   private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
   private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
@@ -60,7 +61,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val flushNum = PopCount(redirectMask)
 
   //Enqueue Logics
-  io.enq.canAccept := emptyEntriesNum >= VIDecodeWidth.U
+  io.enq.canAccept := emptyEntriesNumNext >= VIDecodeWidth.U
   io.enq.isEmpty := deqPtr === enqPtr
   private val enqAddrDelta = Wire(Vec(VIDecodeWidth, UInt(VIWaitQueueWidth.W)))
   enqAddrDelta.zipWithIndex.foreach({case(d, i) =>
@@ -86,9 +87,11 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   when(io.redirect.valid){
     enqPtrNext := enqPtr - flushNum
     enqPtr := enqPtrNext
+    emptyEntriesNumNext := emptyEntriesNum +& flushNum
   }.elsewhen(enqValids.reduce(_|_)){
     enqPtrNext := enqPtr + enqNum
     enqPtr := enqPtrNext
+    emptyEntriesNumNext := emptyEntriesNum -& enqNum
   }
 
   //MergeId Allocation Logics
@@ -154,6 +157,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || directlyWb)
   when(deqValid){
     deqPtr := deqPtr + 1.U
+    emptyEntriesNumNext := emptyEntriesNum +& 1.U
   }
   when(deqValid && !deqHasException && io.vstart =/= 0.U){
     vstartHold := true.B
