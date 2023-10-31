@@ -28,10 +28,6 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 import xs.utils.perf.HasPerfLogging
-import xiangshan.VstartType
-import xiangshan.VstartType
-import xiangshan.VstartType
-import xiangshan.VstartType
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
