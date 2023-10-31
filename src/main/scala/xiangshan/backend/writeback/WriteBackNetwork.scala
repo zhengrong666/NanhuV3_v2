@@ -81,7 +81,7 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
     } else if (source._2.exuType == ExuType.sta || source._2.exuType == ExuType.ldu) {
       print(source._2)
       redirectGen.io.memWbIn(memRedirectIdx) := source._1
-      if(source._2.name == "vLduExu" && source._2.id == 0) {
+      if(source._2.name == "StuExu" && source._2.id == 1) {
         redirectGen.io.memWbIn(memRedirectIdx) := io.vecFaultOnlyFirst
       }
       memRedirectIdx = memRedirectIdx + 1

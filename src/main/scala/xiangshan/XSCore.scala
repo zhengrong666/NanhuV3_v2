@@ -157,6 +157,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   })
 
   exuBlock.io.vectorAllocPregs.zip(ctrlBlock.io.vAllocPregs).foreach({ case(v, r) => v := Pipe(r)})
+  exuBlock.io.vecFaultOnlyFirst := ctrlBlock.io.vecFaultOnlyFirst
 
   ctrlBlock.io.memPredUpdate := exuBlock.io.memPredUpdate
   exuBlock.io.debug_int_rat := ctrlBlock.io.debug_int_rat
