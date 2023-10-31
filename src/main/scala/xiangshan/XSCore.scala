@@ -30,7 +30,7 @@ import freechips.rocketchip.tile.HasFPUParameters
 import freechips.rocketchip.tilelink.TLBuffer
 import xs.utils.mbist.{MBISTInterface, MBISTPipeline}
 import xs.utils.sram.SRAMTemplate
-import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
+import xs.utils.{DFTResetSignals, ModuleNode, RegNextN, ResetGen, ResetGenNode}
 import system.HasSoCParameter
 import utils._
 import xiangshan.backend._
@@ -120,7 +120,8 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   frontend.io.sfence := fenceio.sfence
   frontend.io.tlbCsr <> csrioIn.tlb
   frontend.io.csrCtrl <> csrioIn.customCtrl
-  frontend.io.fencei <> fenceio.fencei
+  frontend.io.fencei.start := RegNextN(fenceio.fencei.start, 2)
+  fenceio.fencei.done := RegNextN(frontend.io.fencei.done, 2)
   frontend.io.prefetchI := exuBlock.io.prefetchI
 
   ctrlBlock.io.csrCtrl <> csrioIn.customCtrl
