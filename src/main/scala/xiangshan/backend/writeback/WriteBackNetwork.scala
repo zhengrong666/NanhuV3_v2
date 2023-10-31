@@ -45,6 +45,7 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
     val pcReadData = Input(Vec(2, new Ftq_RF_Components))
     val redirectOut = Output(Valid(new Redirect))
     val memPredUpdate = Output(Valid(new MemPredUpdateReq))
+    val vecFaultOnlyFirst = Flipped(ValidIO(new ExuOutput))
   })
   private val jmpNum = wbSources.count(_._2.exuType == ExuType.jmp)
   private val aluNum = wbSources.count(_._2.exuType == ExuType.alu)
@@ -80,6 +81,9 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
     } else if (source._2.exuType == ExuType.sta || source._2.exuType == ExuType.ldu) {
       print(source._2)
       redirectGen.io.memWbIn(memRedirectIdx) := source._1
+      if(source._2.name == "vLduExu" && source._2.id == 0) {
+        redirectGen.io.memWbIn(memRedirectIdx) := io.vecFaultOnlyFirst
+      }
       memRedirectIdx = memRedirectIdx + 1
     } else {
       require(false, "Unexpected redirect out exu!")

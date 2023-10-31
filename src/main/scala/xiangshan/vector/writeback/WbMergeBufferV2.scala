@@ -51,7 +51,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     val rob = Vec(deqWidth, ValidIO(new ExuOutput))
     val vmbInit = Flipped(ValidIO(new MicroOp))
     val vlUpdate = Output(Valid(UInt(log2Ceil(VLEN + 1).W)))
-    val flush = Output(Valid(new Redirect))
+    val ffOut = Output(Valid(new ExuOutput))
     val redirect = Flipped(Valid(new Redirect))
   })
   private val allWritebacks = writebackIn.map(_._2)
@@ -105,26 +105,28 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   private val ff = exceptionGen.io.current.bits.ff
   private val uopIdx = exceptionGen.io.current.bits.uopIdx
   private val sendFlush = deqException && ff && uopIdx =/= 0.U
+  //when fault-only-first instruction has exception, block deq
   private val blockDeq = sendFlush || flushSendCounter.orR
   when(sendFlush){
     flushSendCounter := 3.U
   }.elsewhen(flushSendCounter =/= 0.U){
     flushSendCounter := flushSendCounter - 1.U
   }
-  io.flush.valid := flushSendCounter === 3.U
-  io.flush.bits := DontCare
-  io.flush.bits.robIdx := exceptionGen.io.current.bits.robIdx
-  io.flush.bits.ftqIdx := exceptionGen.io.current.bits.ftqIdx
-  io.flush.bits.ftqOffset := exceptionGen.io.current.bits.ftqOffset
-  io.flush.bits.level := RedirectLevel.flushAfter
-  io.flush.bits.isFlushPipe := true.B
-  io.flush.bits.isException := false.B
-  io.flush.bits.isLoadStore := false.B
-  io.flush.bits.isLoadLoad := false.B
-  io.flush.bits.isXRet := false.B
-  exceptionGen.io.clean := io.flush.valid
+  io.ffOut.valid := flushSendCounter === 3.U
+  io.ffOut.bits := DontCare
+  io.ffOut.bits := table(exceptionGen.io.current.bits.vmbIdx.value)
+  io.ffOut.bits.redirect.robIdx := exceptionGen.io.current.bits.robIdx
+  io.ffOut.bits.redirect.ftqIdx := exceptionGen.io.current.bits.ftqIdx
+  io.ffOut.bits.redirect.ftqOffset := exceptionGen.io.current.bits.ftqOffset
+  io.ffOut.bits.redirect.level := RedirectLevel.flushAfter
+  io.ffOut.bits.redirect.isFlushPipe := true.B
+  io.ffOut.bits.redirect.isException := false.B
+  io.ffOut.bits.redirect.isLoadStore := false.B
+  io.ffOut.bits.redirect.isLoadLoad := false.B
+  io.ffOut.bits.redirect.isXRet := false.B
+  exceptionGen.io.clean := io.ffOut.valid
 
-  io.vlUpdate.valid := io.flush.valid
+  io.vlUpdate.valid := io.ffOut.valid
   io.vlUpdate.bits := exceptionGen.io.current.bits.uopIdx
 
   private val deqCandidates = cmtPtrVec.map(ptr => table(ptr.value))

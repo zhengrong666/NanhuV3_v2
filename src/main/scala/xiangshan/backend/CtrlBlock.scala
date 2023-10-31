@@ -101,6 +101,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     val debug_vec_rat = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
 
     val lsqVecDeqCnt = Input(new LsqVecDeqIO)
+    val vecFaultOnlyFirst = Output(ValidIO(new ExuOutput))
   })
   require(outer.dispatchNode.out.count(_._2._1.isIntRs) == 1)
   require(outer.dispatchNode.out.count(_._2._1.isFpRs) == 1)
@@ -157,6 +158,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 
   wbMergeBuffer.io.vmbInit := vCtrlBlock.io.vmbInit
+  io.vecFaultOnlyFirst := wbMergeBuffer.io.ffOut
 
   //Redirect
   for (i <- 0 until CommitWidth) {

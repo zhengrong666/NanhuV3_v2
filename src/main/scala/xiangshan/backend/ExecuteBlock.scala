@@ -44,6 +44,7 @@ import xiangshan.vector.vbackend.vissue.vrs.VectorReservationStation
 import xiangshan.vector.vbackend.vregfile.VRegfileTop
 import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
 import xiangshan.mem._
+import xiangshan.ExuOutput
 class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
   val integerReservationStation: IntegerReservationStation = LazyModule(new IntegerReservationStation)
   val floatingReservationStation: FloatingReservationStation = LazyModule(new FloatingReservationStation)
@@ -120,6 +121,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
 
     val perfEventsPTW = Input(Vec(19, new PerfEvent))
 
+    val vecFaultOnlyFirst = Flipped(ValidIO(new ExuOutput))
     val redirectOut = Output(Valid(new Redirect))
     val fenceio = new FenceIO
     val csrio = new CSRFileIO
@@ -146,6 +148,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   private val vrf = outer.vRegFile.module
 
   private val writeback = outer.writebackNetwork.module
+  writeback.io.vecFaultOnlyFirst := io.vecFaultOnlyFirst
 
   private val localRedirect = writeback.io.redirectOut
   rf.io.hartId := io.hartId
