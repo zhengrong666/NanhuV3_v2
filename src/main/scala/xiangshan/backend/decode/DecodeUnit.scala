@@ -629,7 +629,7 @@ object VectorArithDecode extends DecodeConstants {
     VMV_X_S  -> List(SrcType.DC, SrcType.vec,  SrcType.DC, FuType.valu,   FuOpType.X,   Y, N, N, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV_S_X  -> List(SrcType.reg, SrcType.DC,   SrcType.DC, FuType.s2v,   S2vOpType.sx, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VFMV_F_S -> List(SrcType.DC,  SrcType.vec,  SrcType.DC, FuType.valu,  FuOpType.X,   N, Y, N, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VFMV_S_F -> List(SrcType.fp,  SrcType.DC,   SrcType.DC, FuType.s2v,   FuOpType.X,   N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VFMV_S_F -> List(SrcType.fp,  SrcType.DC,   SrcType.DC, FuType.s2v,   S2vOpType.sx,   N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV1R_V  -> List(SrcType.DC,  SrcType.vec,  SrcType.DC, FuType.valu,  FuOpType.X,   N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV2R_V  -> List(SrcType.DC,  SrcType.vec,  SrcType.DC, FuType.valu,  FuOpType.X,   N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VMV4R_V  -> List(SrcType.DC,  SrcType.vec,  SrcType.DC, FuType.valu,  FuOpType.X,   N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
