@@ -29,6 +29,9 @@ import xiangshan.backend.writeback._
 import xiangshan.vector._
 import xs.utils.perf.HasPerfLogging
 import xiangshan.VstartType
+import xiangshan.VstartType
+import xiangshan.VstartType
+import xiangshan.VstartType
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
@@ -143,6 +146,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val debug_microOp = Reg(Vec(RobSize, new MicroOp))
   val debug_exuData = Reg(Vec(RobSize, UInt(XLEN.W)))
   val debug_exuDebug = Reg(Vec(RobSize, new DebugBundle))
+  
+  val vstartNeedSet = Reg(Vec(RobSize, Bool()))
 
   //************************for perf counter************************
   val microOpPerfInfo = Mem(RobSize, new Bundle {
@@ -430,12 +435,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   // Commit
   io.commits.isWalk := (state =/= s_idle)
   io.commits.isCommit := (state === s_idle) && (!blockCommit)
+  val canWalkVec = Wire(Vec(CommitWidth, Bool()))
   val walkCounter = Reg(UInt(log2Up(RobSize + 1).W))
-  val shouldWalkVec = VecInit((0 until CommitWidth).map(
-    i => (i.U < walkCounter)
-  ))
-
-  val canWalkNum = PopCount(io.commits.walkValid)
+  val canWalkNum = PopCount(canWalkVec)
   val walkFinished = walkCounter === canWalkNum
   val walk_v = VecInit(walkPtrVec.map(ptr => valid(ptr.value)))
   val commit_v = VecInit(deqPtrVec.map(ptr => valid(ptr.value)))
@@ -445,10 +447,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val allowOnlyOneCommit = commit_exception || intrBitSetReg
   // for instructions that may block others, we don't allow them to commit
   val commits_vec = entryDataRead.map(_.vecWen)
-  val canCommitVec = Wire(Vec(CommitWidth, Bool()))
-  for ((v, i) <- canCommitVec.zipWithIndex) {
+  for (((v, canWalk), i) <- canWalkVec.zip(walk_v).zipWithIndex) {
     val vecNum = PopCount(commits_vec.take(i + 1))
-    v := (!(vecNum.orR) || (vecNum === 1.U)) && walk_v(i)
+    v := (vecNum <= 1.U) && canWalk && (i.U < walkCounter)
   }
 
   val deqPtrGenModule = Module(new RobCommitHelper)
@@ -472,7 +473,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       intrEnable || deqHasException
     }
     io.commits.commitValid(i) := deqPtrGenModule.io.commitValid(i) && !isBlocked
-    io.commits.walkValid(i) := shouldWalkVec(i) & canCommitVec(i)
+    io.commits.walkValid(i) := canWalkVec(i)
     io.commits.info(i).pc := debug_microOp(deqPtrVec(i).value).cf.pc
     io.commits.info(i).connectEntryData(entryDataRead(i))
     io.commits.robIdx(i) := Mux(state === s_idle, deqPtrVec(i), walkPtrVec(i))
@@ -524,7 +525,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val vstartSet0 = Wire(Vec(CommitWidth, Bool()))
   vstartSet0.zip(io.commits.commitValid).zipWithIndex.foreach {
     case ((set0, cv), i) => {
-      set0 := io.commits.isCommit && cv && (io.commits.info(i).vstartType === VstartType.write)
+      set0 := io.commits.isCommit && cv && vstartNeedSet(io.commits.robIdx(i).value)
     }
   }
 
@@ -637,7 +638,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   enqPtrGenModule.io.enq := VecInit(io.enq.req.map(_.valid))
   enqPtrVec := enqPtrGenModule.io.out
 
-  val thisCycleWalkCount = Mux(walkFinished, walkCounter, canWalkNum)
+  val thisCycleWalkCount = canWalkNum
   // next walkPtrVec:
   // (1) redirect occurs: update according to state
   // (2) walk: move backwards
@@ -647,7 +648,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       VecInit((0 until CommitWidth).map(i => enqPtr - (i + 1).U))
     ),
     Mux(state === s_walk, VecInit(walkPtrVec.map(_ - canWalkNum)), walkPtrVec)
-  )
+  ) 
   walkPtrVec := walkPtrVec_next
 
   val numValidEntries = distanceBetween(enqPtr, deqPtr)
@@ -772,8 +773,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   entryDataModule.io.wen := canEnqueue
   entryDataModule.io.waddr := allocatePtrVec.map(_.value)
-  entryDataModule.io.wdata.zip(io.enq.req.map(_.bits)).foreach {
-    case (wdata, req) =>
+  entryDataModule.io.wdata.zip(io.enq.req.map(_.bits)).zip(canEnqueue).foreach {
+    case ((wdata, req), wen) =>
       wdata.ldest := req.ctrl.ldest
       wdata.rfWen := req.ctrl.rfWen
       wdata.fpWen := req.ctrl.fpWen
@@ -788,7 +789,24 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.vtypeWb := req.ctrl.isVtype
       wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered
-      wdata.vstartType := req.ctrl.wvstartType
+  }
+
+  vstartNeedSet.zipWithIndex.foreach {
+    case (needSet, i) => {
+      val reqHitVec = io.enq.req.zip(canEnqueue).map(pair => pair._1.bits.robIdx.value === i.U && pair._2)
+      val reqWen = Cat(reqHitVec).asUInt.orR
+      val reqData = Mux1H(reqHitVec, io.enq.req)
+
+      val wbHitVec = io.wbFromMergeBuffer.map(wb => wb.valid && wb.bits.uop.robIdx.value === i.U)
+      val wbWen = Cat(wbHitVec).asUInt.orR
+      val wbData = Mux1H(wbHitVec, io.wbFromMergeBuffer)
+
+      when(reqWen || wbWen) {
+        assert(!(reqWen && wbWen))
+        val needSetNext = needSet && (wbData.bits.uop.uopNum =/= 0.U)
+        needSet := Mux(reqWen, (reqData.bits.ctrl.wvstartType === VstartType.write), needSetNext)
+      }
+    }
   }
 
   for (i <- 0 until fflagsWbNums) {
