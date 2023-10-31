@@ -106,13 +106,13 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
       if (s._2._1.isRob || s._2._1.isVrs || s._2._1.isVprs || s._2._1.isVms || s._2._1.isMemRs && cfg.throughVectorRf) {
         dst := PipeWithRedirect(realSrc, 2, p)
       } else if (s._2._1.isIntRs) {
-        if (cfg.isIntType || cfg.isMemType) {
+        if (cfg.isIntType || cfg.isMemType || cfg.isVecType) {
           dst := Pipe(realSrc)
         } else {
           dst := realSrc
         }
       } else if (s._2._1.isFpRs) {
-        if (cfg.isFpType || cfg.isMemType) {
+        if (cfg.isFpType || cfg.isMemType || cfg.isVecType) {
           dst := Pipe(realSrc)
         } else {
           dst := realSrc
