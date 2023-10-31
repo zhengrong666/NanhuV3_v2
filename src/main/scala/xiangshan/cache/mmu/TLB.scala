@@ -421,7 +421,7 @@ object TLB {
         //       But don't know what happens when true but not need, so keep it correct value, not just true.B
         if (q.missSameCycle && !q.sameCycle) {
 //          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegNext(tlb.io.requestor(i).resp.bits.miss)
-          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegEnable(tlb.io.requestor(i).resp.bits.miss,tlb.io.requestor(i).resp.valid)
+          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegEnable(tlb.io.requestor(i).resp.bits.miss,tlb.io.requestor(i).req.valid)
         } else {
           in(i).resp.valid := tlb.io.requestor(i).resp.valid && !tlb.io.requestor(i).resp.bits.miss
         }
