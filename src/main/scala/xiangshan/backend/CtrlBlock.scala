@@ -318,7 +318,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   require(RenameWidth == VIDecodeWidth)
   vCtrlBlock.io.fromVtpRn := rename.io.toVCtl
   //TODO: vtype writeback here.
-  vCtrlBlock.io.vtypewriteback := io.vcsrToRename.vtypeWbToRename
+  vCtrlBlock.io.vtypewriteback := Pipe(io.vcsrToRename.vtypeWbToRename, 2)
 
   vCtrlBlock.io.vmbAlloc <> wbMergeBuffer.io.allocate
   for((req, port) <- rob.io.enq.req.zip(vCtrlBlock.io.robEnq)) {

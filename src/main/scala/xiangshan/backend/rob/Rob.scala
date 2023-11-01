@@ -28,6 +28,7 @@ import xiangshan.backend.execute.exu.{ExuConfig, ExuType}
 import xiangshan.backend.writeback._
 import xiangshan.vector._
 import xs.utils.perf.HasPerfLogging
+import xiangshan.VstartType
 
 class Rob(implicit p: Parameters) extends LazyModule with HasXSParameter {
   val wbNodeParam = WriteBackSinkParam(name = "ROB", sinkType = WriteBackSinkType.rob)
@@ -794,13 +795,16 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       val reqData = Mux1H(reqHitVec, io.enq.req)
 
       val wbHitVec = io.wbFromMergeBuffer.map(wb => wb.valid && wb.bits.uop.robIdx.value === i.U)
-      val wbWen = Cat(wbHitVec).asUInt.orR
-      val wbData = Mux1H(wbHitVec, io.wbFromMergeBuffer)
+      // val wbWen = Cat(wbHitVec).asUInt.orR
+      // val wbData = Mux1H(wbHitVec, io.wbFromMergeBuffer)
 
-      when(reqWen || wbWen) {
-        assert(!(reqWen && wbWen))
-        val needSetNext = needSet && (wbData.bits.uop.uopNum =/= 0.U)
-        needSet := Mux(reqWen, (reqData.bits.ctrl.wvstartType === VstartType.write), needSetNext)
+      // when(reqWen || wbWen) {
+      //   assert(!(reqWen && wbWen))
+      //   val needSetNext = needSet && (wbData.bits.uop.uopNum =/= 0.U)
+      //   needSet := Mux(reqWen, (reqData.bits.ctrl.wvstartType === VstartType.write), needSetNext)
+      // }
+      when(reqWen) {
+        needSet := reqData.bits.ctrl.wvstartType === VstartType.write
       }
     }
   }
