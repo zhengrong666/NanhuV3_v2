@@ -25,7 +25,7 @@ def run_case(name, fail_list):
 def result_record(file_name, fail_list):
 	with open(file_name, 'a+') as f:
 		for case in fail_list:
-			f.write(case[0] + "\t\t" + case[1] + '\n')
+			f.write(case[0] + "\t\t\t\t" + case[1] + '\n')
 		f.close()
 
 if __name__ == '__main__':
