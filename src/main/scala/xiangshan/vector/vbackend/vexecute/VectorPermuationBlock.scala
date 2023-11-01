@@ -88,6 +88,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.rdata := rfRespData
     permutation.io.in.rvalid := rfRespValid
     permutation.io.redirect := io.redirect
+    private val pdestReg = RegEnable(issueDataReg.pdest, issueValidReg && !permutation.io.out.perm_busy)
 
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
@@ -102,6 +103,6 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
       wbCounter := 0.U
     }
     wb.bits.uop.uopIdx := wbCounter
-    wb.bits.uop.pdest := issueDataReg.pdest(wbCounter)
+    wb.bits.uop.pdest := pdestReg(wbCounter)
   }
 }
