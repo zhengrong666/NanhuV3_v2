@@ -435,7 +435,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
   // if ld-ld violation is detected, replay from this inst from fetch
   val debug_ldldVioReplay = s2_ldld_violation && !s2_mmio && !s2_is_prefetch && !s2_tlb_miss
   // io.out.bits.uop.ctrl.replayInst := false.B
-  io.lpvCancel := io.in.valid && (s2_tlb_miss || s2_mmio || io.lsq.dataInvalid || s2_cache_miss || s2_cache_replay)
+  io.lpvCancel := io.in.valid && (s2_tlb_miss || s2_mmio || io.lsq.dataInvalid || s2_cache_miss)
   io.out.bits.mmio := s2_mmio
   io.out.bits.uop.ctrl.flushPipe := false.B  ///flushPipe logic is useless
   io.out.bits.uop.cf.exceptionVec := s2_exception_vec // cache error not included
