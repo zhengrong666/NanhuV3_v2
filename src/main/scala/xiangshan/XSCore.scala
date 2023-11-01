@@ -129,10 +129,8 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   ctrlBlock.io.vstart := csrioIn.vcsr.vstart
 
   //TODO:
-  csrioIn.vcsr.robWb.vstart.valid := ctrlBlock.io.robio.toCSR.vstart.valid
-  csrioIn.vcsr.robWb.vstart.bits := ctrlBlock.io.robio.toCSR.vstart.bits
-  csrioIn.vcsr.robWb.vxsat.valid := ctrlBlock.io.robio.toCSR.vxsat.valid
-  csrioIn.vcsr.robWb.vxsat.bits := ctrlBlock.io.robio.toCSR.vxsat.bits
+  csrioIn.vcsr.robWb.vstart := Pipe(ctrlBlock.io.robio.toCSR.vstart, 2)
+  csrioIn.vcsr.robWb.vxsat := Pipe(ctrlBlock.io.robio.toCSR.vxsat, 2)
   csrioIn.vcsr.robWb.dirty_vs := ctrlBlock.io.robio.toCSR.dirty_vs
 
   csrioIn.vcsr.vtype <> ctrlBlock.io.vcsrToRename
