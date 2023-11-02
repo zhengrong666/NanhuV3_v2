@@ -105,7 +105,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
       renameTable.io.update(i).bits.data.pvd := allocPhyIdx
 
       resp.bits := req.bits
-      resp.bits.pdest := Mux(renameEn, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).pvd, req.bits.pdest))
+      resp.bits.pdest := Mux(req.bits.canRename, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).pvd, req.bits.pdest))
       resp.bits.psrc(0) := Mux(req.bits.ctrl.srcType(0) === SrcType.vec, renameTable.io.rename(i).pvs(0), req.bits.psrc(0))
       resp.bits.psrc(1) := Mux(req.bits.ctrl.srcType(1) === SrcType.vec, renameTable.io.rename(i).pvs(1), req.bits.psrc(1))
       resp.bits.psrc(2) := renameTable.io.rename(i).pvs(2)
