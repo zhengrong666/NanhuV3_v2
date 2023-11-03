@@ -290,10 +290,11 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, bi.issue.bits.uop.vctrl.nf, VLEN, XLEN),
             bi.issue.fire && isStd
           )
-          when(bi.issue.bits.uop.ctrl.isVector){
+          when(RegNext(bi.issue.bits.uop.ctrl.isVector)){
             exuInBundle.src(1) := vDataReg
           }.otherwise {
-            exuInBundle.src(1) := Mux(SrcType.isFp(bi.issue.bits.uop.ctrl.srcType(0)),fDataReg, iDataReg)
+            val selReg = RegNext(SrcType.isFp(bi.issue.bits.uop.ctrl.srcType(0)))
+            exuInBundle.src(1) := Mux(selReg, fDataReg, iDataReg)
           }
           io.pcReadAddr(pcReadPortIdx) := bi.issue.bits.uop.cf.ftqPtr.value
           exuInBundle.uop.cf.pc := io.pcReadData(pcReadPortIdx).getPc(bi.issue.bits.uop.cf.ftqOffset)
