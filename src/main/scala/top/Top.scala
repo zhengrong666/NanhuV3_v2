@@ -175,6 +175,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     dontTouch(dft_mode)
     dontTouch(dfx_reset)
     misc.module.ext_intrs := io.extIntrs
+    misc.module.dfx_reset := dfx_reset
 
     for ((core, i) <- core_with_l2.zipWithIndex) {
       core.module.io.hartId := i.U
