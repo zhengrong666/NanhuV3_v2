@@ -73,10 +73,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   val wbWithFFlag = writebackIn.filter(wb => wb._1.writeFFlags)
   val wbWithException = writebackIn.filter(_._1.hasException)
-
-  //params exclude
   val wbPorts = writebackIn.map(_._2)
-
   println(s"Rob     : size: $RobSize, numWbPorts: $numWbPorts, commitwidth: $CommitWidth")
   println(s"fflags  : ${wbWithFFlag.map(_._1.name)}")
   println(s"exception from exu: ${wbWithException.map(_._1.name)}")
@@ -127,6 +124,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val entryDataModule = Module(new SyncDataModuleTemplate(
     new RobEntryData, RobSize, CommitWidth * 2, RenameWidth, "Rob", concatData = true
   ))
+  val vectorMarkVec = RegInit(VecInit(Seq.fill(RobSize)(false.B)))
 
   val fflags_wb = wbWithFFlag.map(_._2)
   val fflagsWbNums = fflags_wb.length
@@ -139,7 +137,6 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   //************************data for debug************************
   // Warn: debug_* prefix should not exist in generated verilog.
-  // TODO: modify it to Reg, for generated verilog
   val debug_microOp = Reg(Vec(RobSize, new MicroOp))
   val debug_exuData = Reg(Vec(RobSize, UInt(XLEN.W)))
   val debug_exuDebug = Reg(Vec(RobSize, new DebugBundle))
@@ -443,7 +440,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val commit_block = VecInit((0 until CommitWidth).map(i => !commit_w(i)))
   val allowOnlyOneCommit = commit_exception || intrBitSetReg
   // for instructions that may block others, we don't allow them to commit
-  val commits_vec = entryDataRead.map(_.vecWen)
+  val deqPtrForMask = Mux(state === s_idle, deqPtrVec, walkPtrVec)
+  val commits_vec = deqPtrForMask.map(ptr => vectorMarkVec(ptr.value))
   for (((v, canWalk), i) <- canWalkVec.zip(walk_v).zipWithIndex) {
     val vecNum = PopCount(commits_vec.take(i + 1))
     v := (vecNum <= 1.U) && canWalk && (i.U < walkCounter)
@@ -770,8 +768,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
 
   entryDataModule.io.wen := canEnqueue
   entryDataModule.io.waddr := allocatePtrVec.map(_.value)
-  entryDataModule.io.wdata.zip(io.enq.req.map(_.bits)).zip(canEnqueue).foreach {
-    case ((wdata, req), wen) =>
+  entryDataModule.io.wdata.zip(io.enq.req.map(_.bits)).zip(canEnqueue).zip(allocatePtrVec).foreach {
+    case (((wdata, req), wen), ptr) =>
       wdata.ldest := req.ctrl.ldest
       wdata.rfWen := req.ctrl.rfWen
       wdata.fpWen := req.ctrl.fpWen
@@ -786,6 +784,16 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.vtypeWb := req.ctrl.isVtype
       wdata.isVector := req.ctrl.isVector && !req.ctrl.isVtype
       wdata.isOrder := req.vctrl.ordered
+  }
+
+  vectorMarkVec.zipWithIndex.foreach {
+    case (mark, i) => {
+      val hitVec = VecInit(allocatePtrVec.zip(canEnqueue).map(req => req._1.value === i.U && req._2))
+      val wdata = Mux1H(hitVec, io.enq.req)
+      when(hitVec.asUInt.orR) {
+        mark := wdata.bits.ctrl.vdWen
+      }
+    }
   }
 
   vstartNeedSet.zipWithIndex.foreach {
