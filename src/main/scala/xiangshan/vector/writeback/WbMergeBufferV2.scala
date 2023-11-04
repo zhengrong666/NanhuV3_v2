@@ -8,6 +8,7 @@ import xiangshan.backend.rob.RobPtr
 import xiangshan.{ExceptionVec, ExuOutput, MicroOp, Redirect, RedirectLevel, TriggerCf, XSBundle, XSCoreParamsKey}
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan.vector.HasVectorParameters
+import xiangshan.vector.viwaitqueue.SplitCtrlIO
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, UIntToMask}
 
 class VmbPtr(implicit p: Parameters) extends CircularQueuePtr[VmbPtr](
@@ -52,6 +53,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     val vmbInit = Flipped(ValidIO(new MicroOp))
     val vlUpdate = Output(Valid(UInt(log2Ceil(VLEN + 1).W)))
     val ffOut = Output(Valid(new ExuOutput))
+    val splitCtrl = Flipped(new SplitCtrlIO)
     val redirect = Flipped(Valid(new Redirect))
   })
   private val allWritebacks = writebackIn.map(_._2)
@@ -59,6 +61,8 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   exceptionGen.io.wb := wbHasException.map(_._2)
   exceptionGen.io.vmbInit := io.vmbInit
   exceptionGen.io.redirect := io.redirect
+  //TODO:Fill This
+  io.splitCtrl := DontCare
 
   private val table = Reg(Vec(size, new ExuOutput))
   private val valids = RegInit(VecInit(Seq.fill(size)(false.B)))
@@ -141,6 +145,13 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
       w := PopCount(io.rob.take(i).map(_.valid)) === i.U && !onlyAllowDeqOne && !blockDeq
     }
   }
+
+  val deqEntry = deqCandidates.head
+  val deqPtr = cmtPtrVec.head
+  val deqEntryIsOrder = (!deqEntry.uop.ctrl.blockBackward) && deqEntry.uop.ctrl.noSpecExec
+  io.splitCtrl.allowNext := deqEntryIsOrder && Cat(allWritebacks.map(wb => wb.valid && wb.bits.uop.mergeIdx === deqPtr)).asUInt.orR
+  io.splitCtrl.allDone := (valids(deqPtr.value) && deqEntry.uop.uopNum === wbCnts(deqPtr.value)) || (valids(deqPtr.value) && deqEntry.uop.uopNum === 0.U)
+
   io.rob.zipWithIndex.foreach({case(deq, idx) =>
     val ptr = cmtPtrVec(idx).value
     deq.valid := (valids(ptr) && deqCandidates(idx).uop.uopNum === wbCnts(ptr) && canDeq(idx)) || (valids(ptr) && deqCandidates(idx).uop.uopNum === 0.U)

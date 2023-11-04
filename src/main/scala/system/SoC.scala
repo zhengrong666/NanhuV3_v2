@@ -33,6 +33,7 @@ import xs.utils.tl.TLLogger
 import xiangshan.backend.execute.fu.PMAConst
 import axi2tl._
 import freechips.rocketchip.util.{FastToSlow, SlowToFast}
+import xs.utils.{DFTResetSignals, ResetGen}
 import xs.utils.mbist.STD_CLKGT_func
 import xs.utils.perf.DebugOptionsKey
 
@@ -262,6 +263,7 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
 class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(outer) {
   val debug_module_io = IO(new DebugModuleIO(outer.NumCores))
   val ext_intrs = IO(Input(UInt(outer.NrExtIntr.W)))
+  val dfx_reset = IO(Input(new DFTResetSignals()))
 
   private val gt_ff = RegInit(true.B)
   gt_ff := ~gt_ff
@@ -285,7 +287,8 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   } else {
     outer.periCx.module.clock := clock
   }
-  outer.periCx.module.reset := reset
+  outer.periCx.module.reset := ResetGen(3, Some(dfx_reset))
+  outer.periCx.module.dfx_reset := dfx_reset
 }
 
 class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCParameter {
@@ -315,21 +318,31 @@ class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCPara
   class Impl extends LazyModuleImp(this) {
     val debug_module_io: DebugModuleIO = IO(new DebugModuleIO(NumCores))
     val ext_intrs: UInt = IO(Input(UInt(NrExtIntr.W)))
-
+    val dfx_reset = IO(Input(new DFTResetSignals()))
+    private val rst_sync = ResetGen(2, Some(dfx_reset))
     debugModule.module.io <> debug_module_io
+    debugModule.module.io.clock := clock.asBool
+    debugModule.module.io.reset := rst_sync
+    debugModule.module.io.debugIO.clock := clock
+    debugModule.module.io.debugIO.reset := rst_sync
+    plic.module.reset := rst_sync
+    clint.module.reset := rst_sync
+    managerBuffer.module.reset := rst_sync
 
     // sync external interrupts
-    require(intSourceNode.out.head._1.length == ext_intrs.getWidth)
-    for ((plic_in, interrupt) <- intSourceNode.out.head._1.zip(ext_intrs.asBools)) {
-      val ext_intr_sync = RegInit(0.U(3.W))
-      ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
-      plic_in := ext_intr_sync(2)
-    }
+    withReset(rst_sync) {
+      require(intSourceNode.out.head._1.length == ext_intrs.getWidth)
+      for ((plic_in, interrupt) <- intSourceNode.out.head._1.zip(ext_intrs.asBools)) {
+        val ext_intr_sync = RegInit(0.U(3.W))
+        ext_intr_sync := Cat(ext_intr_sync(1, 0), interrupt)
+        plic_in := ext_intr_sync(2)
+      }
 
-    val freq = 50
-    private val cnt = RegInit((freq - 1).U)
-    private val tick = cnt === 0.U
-    cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
-    clint.module.io.rtcTick := tick
+      val freq = 50
+      val cnt = RegInit((freq - 1).U)
+      val tick = cnt === 0.U
+      cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
+      clint.module.io.rtcTick := tick
+    }
   }
 }
