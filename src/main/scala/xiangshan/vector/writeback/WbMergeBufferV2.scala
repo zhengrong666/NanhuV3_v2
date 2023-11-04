@@ -145,6 +145,13 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
       w := PopCount(io.rob.take(i).map(_.valid)) === i.U && !onlyAllowDeqOne && !blockDeq
     }
   }
+
+  val deqEntry = deqCandidates.head
+  val deqPtr = cmtPtrVec.head
+  val deqEntryIsOrder = (!deqEntry.uop.ctrl.blockBackward) && deqEntry.uop.ctrl.noSpecExec
+  io.splitCtrl.allowNext := deqEntryIsOrder && Cat(allWritebacks.map(wb => wb.valid && wb.bits.uop.mergeIdx === deqPtr)).asUInt.orR
+  io.splitCtrl.allDone := (valids(deqPtr.value) && deqEntry.uop.uopNum === wbCnts(deqPtr.value)) || (valids(deqPtr.value) && deqEntry.uop.uopNum === 0.U)
+
   io.rob.zipWithIndex.foreach({case(deq, idx) =>
     val ptr = cmtPtrVec(idx).value
     deq.valid := (valids(ptr) && deqCandidates(idx).uop.uopNum === wbCnts(ptr) && canDeq(idx)) || (valids(ptr) && deqCandidates(idx).uop.uopNum === 0.U)
