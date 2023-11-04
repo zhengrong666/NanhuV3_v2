@@ -61,8 +61,6 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   exceptionGen.io.wb := wbHasException.map(_._2)
   exceptionGen.io.vmbInit := io.vmbInit
   exceptionGen.io.redirect := io.redirect
-  //TODO:Fill This
-  io.splitCtrl := DontCare
 
   private val table = Reg(Vec(size, new ExuOutput))
   private val valids = RegInit(VecInit(Seq.fill(size)(false.B)))
