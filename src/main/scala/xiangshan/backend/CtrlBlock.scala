@@ -158,7 +158,8 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   private val wbMergeBuffer = outer.wbMergeBuffer.module
 
   wbMergeBuffer.io.vmbInit := vCtrlBlock.io.vmbInit
-  io.vecFaultOnlyFirst := wbMergeBuffer.io.ffOut
+  vCtrlBlock.io.splitCtrl := RegNext(wbMergeBuffer.io.splitCtrl)
+  io.vecFaultOnlyFirst := Pipe(wbMergeBuffer.io.ffOut)
 
   //Redirect
   for (i <- 0 until CommitWidth) {
