@@ -139,15 +139,21 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
   override val desiredName:String = name.getOrElse("SelectNetwork")
 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({case(si, bidx) =>
+    val validSeqNoLpv = WireInit(Cat(si.map(in => {
+      in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _) && in.bits.lpv.map(_.orR).reduce(_ | _) === false.B
+    }).reverse))
+    val validSeqLpv = WireInit(Cat(si.map(in =>{
+      in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _) && in.bits.lpv.map(_.orR).reduce(_ | _) === true.B
+    }).reverse))
+    val validSeq = Mux(validSeqNoLpv.orR, validSeqNoLpv, validSeqLpv)
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new SelectResp(bankNum, entryNum)))
-      val selEn = in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
       if(regOut){
         val outPort = io.issueInfo(bidx * issueNum / bankNum)
         val addrHit = outPort.valid && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
-        selInfo.valid := selEn && !addrHit
+        selInfo.valid := validSeq(eidx) && !addrHit
       } else {
-        selInfo.valid := selEn
+        selInfo.valid := validSeq(eidx)
       }
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
