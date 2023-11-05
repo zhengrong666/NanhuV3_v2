@@ -94,13 +94,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val sqFull = Output(Bool())
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
-    val storeVectorDeqCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
-    val vectorOrderedFlushSBuffer = new SbufferFlushBundle
-    val dcacheReqResp = Flipped(new DCacheToSbufferIO)
     val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
   })
-  //
-  io.storeVectorDeqCnt := 0.U
 
   println("StoreQueue: size:" + StoreQueueSize)
 
@@ -500,17 +495,12 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   //(2) when they reach ROB's head, order store will be processed.
   private val deqUop = uop(deqPtr)
   private val deqMmio = mmio(deqPtr)
-  private val s_idle :: s_flush :: s_req_dcache :: s_req_mmio :: s_resp_mmio :: s_wb_mmio :: s_end :: Nil = Enum(7)
+  private val s_idle :: s_req_mmio :: s_resp_mmio :: s_wb_mmio :: s_end :: Nil = Enum(5)
   private val order_state = RegInit(s_idle)
   switch(order_state) {
     is(s_idle) {
       when(RegNext(readyToLeave(deqPtr) && order(deqPtr) && allocated(deqPtr) && allvalid(deqPtr))) {
-        order_state := Mux(deqMmio, s_req_mmio, Mux(deqUop.uopIdx === 0.U, s_flush, s_req_dcache))
-      }
-    }
-    is(s_flush){
-      when(io.vectorOrderedFlushSBuffer.empty){
-        order_state := s_req_dcache
+        order_state := s_req_mmio
       }
     }
     is(s_req_mmio) {
@@ -528,16 +518,11 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
         order_state := s_end
       }
     }
-    is(s_req_dcache){
-      when(io.dcacheReqResp.hit_resps.map(_.fire).orR){
-        order_state := s_end
-      }
-    }
     is(s_end){
       order_state := s_idle
     }
   }
-  io.vectorOrderedFlushSBuffer.valid := order_state === s_flush
+//  io.vectorOrderedFlushSBuffer.valid := order_state === s_flush
 
   io.uncache.req.valid := order_state === s_req_mmio
   io.uncache.req.bits.robIdx := DontCare
@@ -546,14 +531,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   io.uncache.req.bits.addr := v_pAddrModule.io.rdata_p(0) // data(deqPtr) -> rdata(0)
   io.uncache.req.bits.data := dataModule.io.rdata(0).data
   io.uncache.req.bits.mask := dataModule.io.rdata(0).mask
-
-  private val dcacheReq_valid = order_state === s_req_dcache
-  io.dcacheReqResp.req.valid := RegNext(dcacheReq_valid)
-  io.dcacheReqResp.req.bits := DontCare
-  io.dcacheReqResp.req.bits.cmd  := RegEnable(MemoryOpConstants.M_XWR,dcacheReq_valid)
-  io.dcacheReqResp.req.bits.addr := RegEnable(v_pAddrModule.io.rdata_p(0),dcacheReq_valid)
-  io.dcacheReqResp.req.bits.data := RegEnable(dataModule.io.rdata(0).data,dcacheReq_valid)
-  io.dcacheReqResp.req.bits.mask := RegEnable(dataModule.io.rdata(0).mask,dcacheReq_valid)
 
   // CBO op type check can be delayed for 1 cycle,
   // as uncache op will not start in s_idle

@@ -97,10 +97,6 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
-    val vectorOrderedFlushSBuffer = new SbufferFlushBundle
-    val lsqVecDeqCnt = Output(new LsqVecDeqIO)
-    val loadQueueDcache = new LQDcacheReqResp
-    val storeQueueDcache = Flipped(new DCacheToSbufferIO)
     val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
     val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
   })
@@ -108,7 +104,6 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   val loadQueue = Module(new LoadQueue)
   val storeQueue = Module(new StoreQueue)
 
-  io.loadQueueDcache := DontCare
   storeQueue.io.hartId := io.hartId
 
   // io.enq logic
@@ -162,11 +157,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.trigger <> io.trigger
   loadQueue.io.exceptionAddr.isStore := DontCare
   loadQueue.io.lqCancelCnt <> io.lqCancelCnt
-  loadQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
-  io.lsqVecDeqCnt.loadVectorDeqCnt := 0.U
   io.lqDeq := loadQueue.io.lqDeq
-//  loadQueue.io.dcacheReqResp <> io.loadQueueDcache
-  loadQueue.io.dcacheReqResp := DontCare
 
   // store queue wiring
   // storeQueue.io <> DontCare
@@ -182,12 +173,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.issuePtrExt <> io.issuePtrExt
   storeQueue.io.sqCancelCnt <> io.sqCancelCnt
   storeQueue.io.sqDeq <> io.sqDeq
-  storeQueue.io.vectorOrderedFlushSBuffer.empty := io.vectorOrderedFlushSBuffer.empty
-  storeQueue.io.dcacheReqResp <> io.storeQueueDcache
   storeQueue.io.stout <> io.stout
-  io.lsqVecDeqCnt.storeVectorDeqCnt := 0.U
-
-  io.vectorOrderedFlushSBuffer.valid := (loadQueue.io.vectorOrderedFlushSBuffer.valid || storeQueue.io.vectorOrderedFlushSBuffer.valid)
 
   loadQueue.io.load_s1 <> io.forward
   storeQueue.io.forward <> io.forward // overlap forwardMask & forwardData, DO NOT CHANGE SEQUENCE

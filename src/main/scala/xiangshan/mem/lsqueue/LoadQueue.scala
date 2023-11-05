@@ -112,12 +112,10 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     val dcache = Flipped(ValidIO(new Refill)) // TODO: to be renamed
     val release = Flipped(ValidIO(new Release))
     val uncache = new UncacheWordIO
-    val dcacheReqResp = new LQDcacheReqResp
     val exceptionAddr = new ExceptionAddrIO
     val lqFull = Output(Bool())
     val lqCancelCnt = Output(UInt(log2Up(LoadQueueSize + 1).W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
-    val vectorOrderedFlushSBuffer = new SbufferFlushBundle
     val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
   })
 
@@ -173,22 +171,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   val release2cycle_paddr_dup_lsu = RegEnable(io.release.bits.paddr, io.release.valid)
   private val exceptionInfo = RegInit(0.U.asTypeOf(new LSQExceptionInfo))
 
-  /*
-   *  if ROB is waiting index-ordered instruction, lq should flush sbuffer
-   */
-  val SbufferCleaned = RegInit(false.B)
-  //TODO:Fixed this
-//  val needFlushSbuffer = allocated(deqPtr) && uop(deqPtr).vctrl.ordered && (!SbufferCleaned)
-  val needFlushSbuffer = false.B
 
-  io.vectorOrderedFlushSBuffer.valid := needFlushSbuffer
-
-  when(needFlushSbuffer && io.vectorOrderedFlushSBuffer.empty) {
-    SbufferCleaned := true.B
-  }
-  when((!uop(deqPtr).vctrl.ordered) && allocated(deqPtr)) {
-    SbufferCleaned := false.B
-  }
   /**
     * Enqueue at dispatch
     *
@@ -927,12 +910,12 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       }
     }
     is(s_req) {
-      when(io.uncache.req.fire || io.dcacheReqResp.req.fire) {
+      when(io.uncache.req.fire) {
         uncache_Order_State := s_resp
       }
     }
     is(s_resp) {
-      when(io.uncache.resp.fire || io.dcacheReqResp.resp.fire) {
+      when(io.uncache.resp.fire) {
         uncache_Order_State := s_wait
       }
     }
@@ -955,21 +938,6 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   io.uncache.req.bits.instrtype := DontCare
 
   io.uncache.resp.ready := true.B
-  io.dcacheReqResp.resp.ready := true.B
-
-//  io.dcacheReqResp.req.valid := (uncache_Order_State === s_req) && (uop(deqPtr).ctrl.isOrder)
-  io.dcacheReqResp.req.valid := false.B //todo
-  io.dcacheReqResp.req.bits := DontCare
-  io.dcacheReqResp.req.bits.cmd := MemoryOpConstants.M_XRD
-  io.dcacheReqResp.req.bits.instrtype := LOAD_SOURCE.U
-  io.dcacheReqResp.req.bits.robIdx := uop(deqPtr).robIdx
-
-//  when(io.dcacheReqResp.resp.fire){
-//    datavalid(deqPtr) := true.B
-//    dataModule.io.uncacheWrite(deqPtr,io.dcacheReqResp.resp.bits.load_data)
-//    dataModule.io.uncache.wen := true.B
-//  }
-
 
   when (io.uncache.req.fire) {
     pending(deqPtr) := false.B

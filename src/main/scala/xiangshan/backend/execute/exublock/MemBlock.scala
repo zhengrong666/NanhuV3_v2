@@ -276,6 +276,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     val lsqVecDeqCnt = Output(new LsqVecDeqIO)
     val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
   })
+  io.lsqVecDeqCnt := DontCare
 
   val dcache = outer.dcache.module
   val uncache = outer.uncache.module
@@ -343,7 +344,6 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   val lsq     = Module(new LsqWrappper)
   val sbuffer = Module(new Sbuffer)
 
-  io.lsqVecDeqCnt <> lsq.io.lsqVecDeqCnt
   io.lqDeq := lsq.io.lqDeq
   // if you wants to stress test dcache store, use FakeSbuffer
   // val sbuffer = Module(new FakeSbuffer)
@@ -756,38 +756,11 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // LSQ to store buffer
   lsq.io.sbuffer        <> sbuffer.io.in
   lsq.io.sqempty        <> sbuffer.io.sqempty
-  lsq.io.vectorOrderedFlushSBuffer.empty := sbuffer.io.flush.empty
 
   // Sbuffer
   sbuffer.io.csrCtrl    <> csrCtrl
+  sbuffer.io.dcache     <> dcache.io.lsu.store
 
-  lsq.io.storeQueueDcache := DontCare
-
-  val SbSq2Dcache = RegInit(0.U(1.W)) //default connect sbuffer
-  dcache.io.lsu.store <> sbuffer.io.dcache
-
-  when(SbSq2Dcache === 1.U){
-    dcache.io.lsu.store <> lsq.io.storeQueueDcache
-  }
-
-  when(!sbuffer.io.dcache.req.valid && lsq.io.storeQueueDcache.req.valid){
-    SbSq2Dcache := 1.U
-  }
-
-  when(sbuffer.io.dcache.req.valid){
-    SbSq2Dcache := 0.U
-  }
-
-//  dcache.io.lsu.load(exuParameters.LduCnt) := DontCare
-//  dcache.io.lsu.load(exuParameters.LduCnt).req <> lsq.io.loadQueueDcache.req
-//  dcache.io.lsu.load(exuParameters.LduCnt).resp <> lsq.io.loadQueueDcache.resp
-
-  lsq.io.loadQueueDcache.req := DontCare
-  lsq.io.loadQueueDcache.resp := DontCare
-
-
-
-//  sbuffer.io.dcache     <> dcache.io.lsu.store
 
   // TODO: if dcache sbuffer resp needs to ne delayed
   // sbuffer.io.dcache.pipe_resp.valid := RegNext(dcache.io.lsu.store.pipe_resp.valid)
@@ -796,12 +769,11 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   // flush sbuffer
   val fenceFlush = io.fenceToSbuffer.flushSb
   val atomicsFlush = atomicsUnit.io.flush_sbuffer.valid
-  val vectorFlush = lsq.io.vectorOrderedFlushSBuffer.valid
   io.fenceToSbuffer.sbIsEmpty := RegNext(sbuffer.io.flush.empty)
   // if both of them tries to flush sbuffer at the same time
   // something must have gone wrong
   assert(!(fenceFlush && atomicsFlush))
-  sbuffer.io.flush.valid := RegNext(fenceFlush || atomicsFlush || vectorFlush)
+  sbuffer.io.flush.valid := RegNext(fenceFlush || atomicsFlush)
 
   // AtomicsUnit: AtomicsUnit will override other control signials,
   // as atomics insts (LR/SC/AMO) will block the pipeline
