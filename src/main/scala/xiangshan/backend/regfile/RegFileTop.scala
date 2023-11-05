@@ -86,13 +86,13 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   ))
   private val offsetTarget = io.base(VAddrBits - 1, 0) + offset
 
-  private val stride = MuxCase(0.U, Seq(
-    (io.sew === 0.U) -> SignExt(io.stride(7, 0), XLEN),
-    (io.sew === 1.U) -> SignExt(io.stride(15, 0), XLEN),
-    (io.sew === 2.U) -> SignExt(io.stride(31, 0), XLEN),
-    (io.sew === 3.U) -> io.stride(63, 0),
+  private val stride = Wire(UInt((VAddrBits + 1).W))
+  stride := MuxCase(0.U((VAddrBits + 1).W), Seq(
+    (io.sew === 0.U) -> SignExt(io.stride(7, 0), VAddrBits + 1),
+    (io.sew === 1.U) -> SignExt(io.stride(15, 0), VAddrBits + 1),
+    (io.sew === 2.U) -> SignExt(io.stride(31, 0), VAddrBits + 1),
+    (io.sew === 3.U) -> Cat(io.stride(XLEN - 1), io.stride(VAddrBits - 1, 0)),
   ))
-
   private val strideOffset = (stride.asSInt * io.uopIdx)(VAddrBits - 1, 0).asUInt
   private val strideTarget = strideOffset + io.base(VAddrBits - 1, 0)
 
