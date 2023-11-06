@@ -1113,8 +1113,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Due to timing reasons of memExceptionVAddr, we delay the write of mtval and stval
 
   val mmuEnable = priviledgeMode < ModeM && tlbBundle.satp.mode =/= 0.U
-  val memExceptionAddr = Mux(mmuEnable, SignExt(csrio.memExceptionVAddr, XLEN), ZeroExt(csrio.memExceptionVAddr, XLEN))
-  val exceptionNextAddr = Mux(mmuEnable, SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN), ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN))
+  // val memExceptionAddr = Mux(mmuEnable, SignExt(csrio.memExceptionVAddr, XLEN), ZeroExt(csrio.memExceptionVAddr, XLEN))
+  // val exceptionNextAddr = Mux(mmuEnable, SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN), ZeroExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN))
+  val memExceptionAddr = SignExt(csrio.memExceptionVAddr, XLEN)
+  val exceptionNextAddr = SignExt(csrio.exception.bits.uop.cf.pc + 2.U, XLEN)
   val updateTval = VecInit(Seq(
     hasInstrPageFault,
     hasLoadPageFault,
