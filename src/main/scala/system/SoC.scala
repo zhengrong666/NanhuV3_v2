@@ -36,6 +36,7 @@ import freechips.rocketchip.util.{FastToSlow, SlowToFast}
 import xs.utils.{DFTResetSignals, ResetGen}
 import xs.utils.mbist.STD_CLKGT_func
 import xs.utils.perf.DebugOptionsKey
+import xs.utils.sram.SRAMTemplate
 
 case object SoCParamsKey extends Field[SoCParameters]
 
@@ -118,7 +119,7 @@ trait HaveSlaveAXI4Port {
 
   l3_xbar :=
     TLBuffer() :=
-    AXI2TL(16,16) :=
+    AXI2TL(16, 16, soc.hasMbist, soc.hasShareBus) :=
     AXI4Buffer() :=
     l3FrontendAXI4Node
   errorDevice.node := l3_xbar
@@ -264,6 +265,13 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   val debug_module_io = IO(new DebugModuleIO(outer.NumCores))
   val ext_intrs = IO(Input(UInt(outer.NrExtIntr.W)))
   val dfx_reset = IO(Input(new DFTResetSignals()))
+
+  val sigFromSrams = if (p(SoCParamsKey).hasMbist) Some(SRAMTemplate.genBroadCastBundleTop()) else None
+  val dft = if (p(SoCParamsKey).hasMbist) Some(IO(sigFromSrams.get.cloneType)) else None
+  if (p(SoCParamsKey).hasMbist) {
+    dft.get <> sigFromSrams.get
+    dontTouch(dft.get)
+  }
 
   private val gt_ff = RegInit(true.B)
   gt_ff := ~gt_ff

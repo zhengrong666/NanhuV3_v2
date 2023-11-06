@@ -1,18 +1,18 @@
-/***************************************************************************************
-* Copyright (c) 2020-2021 Institute of Computing Technology, Chinese Academy of Sciences
-* Copyright (c) 2020-2021 Peng Cheng Laboratory
-*
-* XiangShan is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-***************************************************************************************/
+/** *************************************************************************************
+ * Copyright (c) 2020-2021 Institute of Computing Technology, Chinese Academy of Sciences
+ * Copyright (c) 2020-2021 Peng Cheng Laboratory
+ *
+ * XiangShan is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ * http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ *
+ * See the Mulan PSL v2 for more details.
+ * ************************************************************************************* */
 
 package top
 
@@ -29,18 +29,34 @@ import freechips.rocketchip.jtag.JTAGIO
 import xs.utils.{DFTResetSignals, FileRegisters, ResetGen}
 import xs.utils.sram.BroadCastBundle
 import huancun.{HCCacheParamsKey, HuanCun}
+import xs.utils.mbist.{MBISTInterface, MBISTPipeline}
 import xs.utils.perf.DebugOptionsKey
 
 abstract class BaseXSSoc()(implicit p: Parameters) extends LazyModule
-  with BindingScope
-{
-  val misc = LazyModule(new SoCMisc())
+  with BindingScope {
+
   lazy val dts = DTS(bindingTree)
   lazy val json = JSON(bindingTree)
 }
 
-class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
-{
+class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
+  println(s"FPGASoC cores: $NumCores banks: $L3NBanks block size: $L3BlockSize bus size: $L3OuterBusWidth")
+
+  val core_with_l2 = tiles.zipWithIndex.map({ case (coreParams, idx) =>
+    LazyModule(new XSTile(s"XSTop_XSTile_")(p.alterPartial({
+      case XSCoreParamsKey => coreParams
+    })))
+  })
+
+  val misc = LazyModule(new SoCMisc())
+
+  val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
+    LazyModule(new HuanCun("L3_")(new Config((_, _, _) => {
+      case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
+      case DebugOptionsKey => p(DebugOptionsKey)
+    })))
+  )
+
   ResourceBinding {
     val width = ResourceInt(2)
     val model = "freechips,rocketchip-unknown"
@@ -50,34 +66,22 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     Resource(ResourceAnchors.root, "width").bind(width)
     Resource(ResourceAnchors.soc, "width").bind(width)
     Resource(ResourceAnchors.cpus, "width").bind(ResourceInt(1))
-    def bindManagers(xbar: TLNexusNode) = {
-      ManagerUnification(xbar.edges.in.head.manager.managers).foreach{ manager =>
+
+    def bindManagers(xbar: TLNexusNode): Unit = {
+      ManagerUnification(xbar.edges.in.head.manager.managers).foreach { manager =>
         manager.resources.foreach(r => r.bind(manager.toResource))
       }
     }
+
     bindManagers(misc.l3_xbar.asInstanceOf[TLNexusNode])
     bindManagers(misc.peripheralXbar.asInstanceOf[TLNexusNode])
   }
-
-  println(s"FPGASoC cores: $NumCores banks: $L3NBanks block size: $L3BlockSize bus size: $L3OuterBusWidth")
-
-  val core_with_l2 = tiles.zipWithIndex.map({case (coreParams,idx) =>
-    LazyModule(new XSTile(s"XSTop_XSTile_")(p.alterPartial({
-      case XSCoreParamsKey => coreParams
-    })))
-  })
-
-   val l3cacheOpt = soc.L3CacheParamsOpt.map(l3param =>
-     LazyModule(new HuanCun("L3_")(new Config((_, _, _) => {
-       case HCCacheParamsKey => l3param.copy(enableTopDown = debugOpts.EnableTopDown)
-       case DebugOptionsKey => p(DebugOptionsKey)
-     })))
-   )
 
   l3cacheOpt.map(_.ctlnode.map(_ := misc.peripheralXbar))
   l3cacheOpt.map(_.intnode.map(int => {
     misc.periCx.plic.intnode := IntBuffer() := int
   }))
+
   for (i <- 0 until NumCores) {
     core_with_l2(i).clint_int_sink := misc.periCx.clint.intnode
     core_with_l2(i).plic_int_sink :*= misc.periCx.plic.intnode
@@ -107,7 +111,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
   val core_rst_nodes = core_with_l2.map(_ => BundleBridgeSource(() => Reset()))
 
   core_rst_nodes.zip(core_with_l2.map(_.core_reset_sink)).foreach({
-    case (source, sink) =>  sink := source
+    case (source, sink) => sink := source
   })
 
   l3cacheOpt match {
@@ -117,6 +121,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
   }
 
   lazy val module = new Impl
+
   class Impl extends LazyRawModuleImp(this) {
     FileRegisters.add("dts", dts)
     FileRegisters.add("graphml", graphML)
@@ -155,8 +160,12 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     dfx_reset.mode := dft_mode
     dfx_reset.scan_mode := scan_mode
 
-    val reset_sync = withClockAndReset(io.clock.asClock, io.reset) { ResetGen(2, Some(dfx_reset)) }
-    val jtag_reset_sync = withClockAndReset(io.systemjtag.jtag.TCK, io.systemjtag.reset) { ResetGen(2, Some(dfx_reset)) }
+    val reset_sync = withClockAndReset(io.clock.asClock, io.reset) {
+      ResetGen(2, Some(dfx_reset))
+    }
+    val jtag_reset_sync = withClockAndReset(io.systemjtag.jtag.TCK, io.systemjtag.reset) {
+      ResetGen(2, Some(dfx_reset))
+    }
 
     // override LazyRawModuleImp's clock and reset
     childClock := io.clock.asClock
@@ -179,18 +188,18 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
 
     for ((core, i) <- core_with_l2.zipWithIndex) {
       core.module.io.hartId := i.U
-      core.module.io.dfx_reset:= dfx_reset
-      core.module.io.reset_vector:= io.riscv_rst_vec(i)
+      core.module.io.dfx_reset := dfx_reset
+      core.module.io.reset_vector := io.riscv_rst_vec(i)
       io.riscv_halt(i) := core.module.io.cpu_halt
     }
     core_rst_nodes.foreach(_.out.head._1 := false.B.asAsyncReset)
 
-    if(l3cacheOpt.isDefined){
-      if(l3cacheOpt.get.module.dfx_reset.isDefined) {
+    if (l3cacheOpt.isDefined) {
+      if (l3cacheOpt.get.module.dfx_reset.isDefined) {
         l3cacheOpt.get.module.dfx_reset.get := dfx_reset
       }
     }
-    
+
     misc.module.debug_module_io.resetCtrl.hartIsInReset := core_with_l2.map(_.module.ireset.asBool)
     misc.module.debug_module_io.clock := io.clock
     misc.module.debug_module_io.reset := misc.module.reset
@@ -201,53 +210,90 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter
     misc.module.debug_module_io.debugIO.dmactiveAck := misc.module.debug_module_io.debugIO.dmactive
     // jtag connector
     misc.module.debug_module_io.debugIO.systemjtag.foreach { x =>
-      x.jtag        <> io.systemjtag.jtag
-      x.reset       := jtag_reset_sync
-      x.mfr_id      := io.systemjtag.mfr_id
+      x.jtag <> io.systemjtag.jtag
+      x.reset := jtag_reset_sync
+      x.mfr_id := io.systemjtag.mfr_id
       x.part_number := io.systemjtag.part_number
-      x.version     := io.systemjtag.version
+      x.version := io.systemjtag.version
     }
 
-    val mbistBroadCastToTile = if(core_with_l2.head.module.dft.isDefined) {
+    val mbistBroadCastToTile = if (core_with_l2.head.module.dft.isDefined) {
       val res = Some(Wire(new BroadCastBundle))
       core_with_l2.foreach(_.module.dft.get := res.get)
       res
     } else {
       None
     }
-    val mbistBroadCastToL3 = if(l3cacheOpt.isDefined) {
-       if(l3cacheOpt.get.module.dft.isDefined){
-         val res = Some(Wire(new BroadCastBundle))
-         l3cacheOpt.get.module.dft.get := res.get
-         res
-       } else {
-         None
-       }
+    val mbistBroadCastToL3 = if (l3cacheOpt.isDefined) {
+      if (l3cacheOpt.get.module.dft.isDefined) {
+        val res = Some(Wire(new BroadCastBundle))
+        l3cacheOpt.get.module.dft.get := res.get
+        res
+      } else {
+        None
+      }
     } else {
       None
     }
-    val dft = if(mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined){
+    val mbistBroadCastToMisc = if (misc.module.dft.isDefined) {
+      val res = Some(Wire(new BroadCastBundle))
+      misc.module.dft.get := res.get
+      res
+    } else {
+      None
+    }
+    val dft = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
       Some(IO(new BroadCastBundle))
     } else {
       None
     }
-    if(dft.isDefined){
-      if(mbistBroadCastToTile.isDefined){
+    if (dft.isDefined) {
+      if (mbistBroadCastToTile.isDefined) {
         mbistBroadCastToTile.get := dft.get
       }
-      if(mbistBroadCastToL3.isDefined){
-         mbistBroadCastToL3.get := dft.get
+      if (mbistBroadCastToL3.isDefined) {
+        mbistBroadCastToL3.get := dft.get
+      }
+      if (mbistBroadCastToMisc.isDefined) {
+        mbistBroadCastToMisc.get := dft.get
       }
       dontTouch(dft.get)
     }
 
+    /** ***************************************l3 & misc Mbist Share Bus************************************** */
     withClockAndReset(io.clock.asClock, reset_sync) {
+      val miscPipeLine = if (p(SoCParamsKey).hasMbist && p(SoCParamsKey).hasShareBus) {
+        MBISTPipeline.PlaceMbistPipeline(Int.MaxValue, s"MBIST_L3", true)
+      } else {
+        None
+      }
+      val miscIntf = if (p(SoCParamsKey).hasMbist && p(SoCParamsKey).hasShareBus) {
+        Some(miscPipeLine.zipWithIndex.map({ case (pip, idx) => {
+          val params = pip.nodeParams
+          val intf = Module(new MBISTInterface(
+            params = Seq(params),
+            ids = Seq(pip.childrenIds),
+            name = s"MBIST_intf_misc",
+            pipelineNum = 1
+          ))
+          intf.toPipeline.head <> pip.mbist
+          intf.mbist := DontCare
+          pip.genCSV(intf.info, s"MBIST_MISC")
+          dontTouch(intf.mbist)
+          //TODO: add mbist controller connections here
+          intf
+        }
+        }))
+      } else {
+        None
+      }
+
       // Modules are reset one by one
       // reset ----> SYNC --> {SoCMisc, L3 Cache, Cores}
-      val coreResetChain:Seq[Reset] = core_with_l2.map(_.module.ireset)
+      val coreResetChain: Seq[Reset] = core_with_l2.map(_.module.ireset)
       val resetChain = Seq(misc.module.reset) ++ l3cacheOpt.map(_.module.reset) ++ coreResetChain
       val resetDftSigs = ResetGen.applyOneLevel(resetChain, reset_sync, !debugOpts.FPGAPlatform)
-      resetDftSigs:= dfx_reset
+      resetDftSigs := dfx_reset
     }
   }
 }
