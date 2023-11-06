@@ -58,5 +58,6 @@ class IntegerBlockImp(outer:IntegerBlock) extends BasicExuBlockImp(outer){
   outer.aluJmps.head.module.io.csrio <> io.csrio
   outer.aluJmps.head.module.io.issueToMou <> io.issueToMou
   outer.aluJmps.head.module.io.writebackFromMou <> io.writebackFromMou
+  outer.aluMuls.foreach(_.module.io.csr_frm := io.csrio.fpu.frm)
   io.prefetchI := outer.aluJmps.head.module.io.prefetchI
 }

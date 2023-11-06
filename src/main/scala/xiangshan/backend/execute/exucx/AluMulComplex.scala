@@ -41,6 +41,7 @@ class AluMulCxImp(outer:AluMulComplex, id:Int, bypassNum:Int) extends BasicExuCo
   require(outer.issueNode.out.length == 2)
   val io = IO(new Bundle {
     val bypassOut = Output(Valid(new ExuOutput))
+    val csr_frm: UInt = Input(UInt(3.W))
   })
   private val issueIn = outer.issueNode.in.head._1
   private val issueAlu = outer.issueNode.out.filter(_._2._2.exuType == ExuType.alu).head._1
@@ -52,6 +53,7 @@ class AluMulCxImp(outer:AluMulComplex, id:Int, bypassNum:Int) extends BasicExuCo
 
   issueMul <> issueIn
   outer.mul.module.io.bypassIn := bypassIn
+  outer.mul.module.io.csr_frm := RegNext(io.csr_frm)
   outer.mul.module.redirectIn := redirectIn
 
   io.bypassOut := outer.mul.module.io.bypassOut

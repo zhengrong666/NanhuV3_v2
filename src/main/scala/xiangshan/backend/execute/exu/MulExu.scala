@@ -47,6 +47,7 @@ class MulExuImpl(outer:MulExu, exuCfg:ExuConfig)(implicit p:Parameters) extends 
   val io = IO(new Bundle{
     val bypassIn = Input(Vec(outer.bypassInNum, Valid(new ExuOutput)))
     val bypassOut = Output(Valid(new ExuOutput))
+    val csr_frm: UInt = Input(UInt(3.W))
   })
   private val issuePort = outer.issueNode.in.head._1
   private val writebackPort = outer.writebackNode.out.head._1
@@ -66,7 +67,7 @@ class MulExuImpl(outer:MulExu, exuCfg:ExuConfig)(implicit p:Parameters) extends 
     m.io.out.ready := true.B
     when(m.io.in.valid){assert(m.io.in.ready)}
   })
-  i2f.rm := finalIssueSignals.bits.uop.ctrl.fpu.rm
+  i2f.rm := Mux(finalIssueSignals.bits.uop.ctrl.fpu.rm =/= 7.U, issuePort.issue.bits.uop.ctrl.fpu.rm, io.csr_frm)
 
   private val (func, src1, src2) = (
     finalIssueSignals.bits.uop.ctrl.fuOpType,
