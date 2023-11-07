@@ -148,7 +148,7 @@ class FusedSh1add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFu
   def inst1Cond = instr(0) === Instructions.SLLI && instr(0)(25, 20) === 1.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SLLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.SH1ADD)
   override def lsrc2NeedMux: Boolean = true
@@ -163,7 +163,7 @@ class FusedSh2add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFu
   def inst1Cond = instr(0) === Instructions.SLLI && instr(0)(25, 20) === 2.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SLLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.SH2ADD)
   override def lsrc2NeedMux: Boolean = true
@@ -178,7 +178,7 @@ class FusedSh3add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFu
   def inst1Cond = instr(0) === Instructions.SLLI && instr(0)(25, 20) === 3.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SLLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.SH3ADD)
   override def lsrc2NeedMux: Boolean = true
@@ -245,7 +245,7 @@ class FusedSh4add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFu
   def inst1Cond = instr(0) === Instructions.SLLI && instr(0)(25, 20) === 4.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SLLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.sh4add)
@@ -261,7 +261,7 @@ class FusedSr29add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseF
   def inst1Cond = instr(0) === Instructions.SRLI && instr(0)(25, 20) === 29.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SRLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.sr29add)
@@ -277,7 +277,7 @@ class FusedSr30add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseF
   def inst1Cond = instr(0) === Instructions.SRLI && instr(0)(25, 20) === 30.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SRLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.sr30add)
@@ -293,7 +293,7 @@ class FusedSr31add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseF
   def inst1Cond = instr(0) === Instructions.SRLI && instr(0)(25, 20) === 31.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SRLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.sr31add)
@@ -309,7 +309,7 @@ class FusedSr32add(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseF
   def inst1Cond = instr(0) === Instructions.SRLI && instr(0)(25, 20) === 32.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.SRLI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.sr32add)
@@ -325,7 +325,7 @@ class FusedOddadd(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFu
   def inst1Cond = instr(0) === Instructions.ANDI && instr(0)(31, 20) === 1.U
   def inst2Cond = instr(1) === Instructions.ADD
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.ANDI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.oddadd)
@@ -341,7 +341,7 @@ class FusedOddaddw(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseF
   def inst1Cond = instr(0) === Instructions.ANDI && instr(0)(31, 20) === 1.U
   def inst2Cond = instr(1) === Instructions.ADDW
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.ANDI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.ADD)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.oddaddw)
@@ -435,7 +435,7 @@ class FusedOrh48(pair: Seq[Valid[UInt]])(implicit p: Parameters) extends BaseFus
   def inst1Cond = instr(0) === Instructions.ANDI && instr(0)(31, 20) === 0xf00.U
   def inst2Cond = instr(1) === Instructions.OR
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.ANDI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.OR)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => ALUOpType.orh48)
@@ -452,7 +452,7 @@ class FusedMulw7(pair: Seq[Valid[UInt]])(implicit p: Parameters)
   def inst1Cond = instr(0) === Instructions.ANDI && instr(0)(31, 20) === 127.U
   def inst2Cond = instr(1) === Instructions.MULW
 
-  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2)
+  def isValid: Bool = inst1Cond && inst2Cond && withSameDest && (destToRs1 || destToRs2) && instr2Rs2 =/= instr2Rs1
   override def thisInstr: Option[BitPat] = Some(Instructions.ANDI)
   override def fusedInstr: Option[BitPat] = Some(Instructions.MULW)
   override def fuOpType: Option[UInt => UInt] = Some((_: UInt) => MDUOpType.mulw7)
