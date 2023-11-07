@@ -285,7 +285,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
             exuInBundle := ImmExtractor(exuComplexParam, issueBundle)
           }
           val iDataReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.fire && isStd)
-          val fDataReg = RegEnable(fpRf.io.read(intRfReadIdx).data, bi.issue.fire && isStd)
+          val fDataReg = RegEnable(fpRf.io.readNoBypass(noBypassFpReadIdx).data, bi.issue.fire && isStd)
           val vDataReg = RegEnable(
             RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, bi.issue.bits.uop.vctrl.nf, VLEN, XLEN),
             bi.issue.fire && isStd
