@@ -44,11 +44,11 @@ class VMacExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val src2 = iss.bits.src(2)
     private val mask = iss.bits.vm
 
-    uopShiftQueue.io.in.valid := iss.valid && cfg.fuConfigs.map(_.fuType === iss.bits.uop.ctrl.fuType).reduce(_|_)
+    uopShiftQueue.io.in.valid := iss.valid && cfg.fuConfigs.map(_.fuType === iss.bits.uop.ctrl.fuType).reduce(_|_) && !iss.bits.uop.robIdx.needFlush(redirectIn)
     uopShiftQueue.io.in.bits := iss.bits.uop
     uopShiftQueue.io.redirect := redirectIn
 
-    vmac.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType
+    vmac.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     vmac.io.in.bits.uop := vuop
     vmac.io.in.bits.vs1 := src0
     vmac.io.in.bits.vs2 := src1

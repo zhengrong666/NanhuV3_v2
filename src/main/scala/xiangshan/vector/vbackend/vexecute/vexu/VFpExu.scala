@@ -44,7 +44,7 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     private val mask = iss.bits.vm
 
     iss.ready := vfp.io.in.ready
-    vfp.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType
+    vfp.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     vfp.io.in.bits.uop := vuop
     vfp.io.in.bits.vs1 := src0
     vfp.io.in.bits.vs2 := src1

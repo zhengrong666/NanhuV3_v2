@@ -225,7 +225,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val issValidReg = RegInit(false.B)
       val issDataReg = Reg(new ExuInput())
       val allowPipe = !issValidReg || bo.issue.ready || (issValidReg && issDataReg.uop.robIdx.needFlush(io.redirect))
-      bo.issue.valid := issValidReg && !issDataReg.uop.robIdx.needFlush(io.redirect)
+      bo.issue.valid := issValidReg
       bo.issue.bits := issDataReg
       when(allowPipe){
         issValidReg := bi.issue.valid

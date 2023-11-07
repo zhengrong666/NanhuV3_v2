@@ -51,11 +51,11 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val src2 = iss.bits.src(2)
     private val mask = iss.bits.vm
 
-    uopShiftQueue.io.in.valid := iss.valid && cfg.fuConfigs.map(_.fuType === iss.bits.uop.ctrl.fuType).reduce(_|_)
+    uopShiftQueue.io.in.valid := iss.valid && cfg.fuConfigs.map(_.fuType === iss.bits.uop.ctrl.fuType).reduce(_|_) && !iss.bits.uop.robIdx.needFlush(redirectIn)
     uopShiftQueue.io.in.bits := iss.bits.uop
     uopShiftQueue.io.redirect := redirectIn
 
-    valu.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.valuCfg.fuType
+    valu.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.valuCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     valu.io.in.bits.uop := vuop
     valu.io.in.bits.vs1 := src0
     valu.io.in.bits.vs2 := src1
@@ -63,7 +63,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     valu.io.in.bits.oldVd := src2
     valu.io.in.bits.mask := mask
 
-    vmask.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vmaskCfg.fuType
+    vmask.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vmaskCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     vmask.io.in.bits.uop := vuop
     vmask.io.in.bits.vs1 := src0
     vmask.io.in.bits.vs2 := src1
@@ -71,7 +71,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vmask.io.in.bits.oldVd := src2
     vmask.io.in.bits.mask := mask
 
-    vred.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vredCfg.fuType
+    vred.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vredCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     vred.io.in.bits.uop := vuop
     vred.io.in.bits.vs1 := src0
     vred.io.in.bits.vs2 := src1
@@ -79,7 +79,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vred.io.in.bits.oldVd := src2
     vred.io.in.bits.mask := mask
 
-    s2v.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.s2vCfg.fuType
+    s2v.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.s2vCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     s2v.io.in.bits.uop := vuop
     s2v.io.in.bits.vs1 := src0
     s2v.io.in.bits.vs2 := src1

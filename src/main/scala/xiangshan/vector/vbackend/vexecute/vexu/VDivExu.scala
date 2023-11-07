@@ -43,7 +43,7 @@ class VDivExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     private val mask = iss.bits.vm
 
     iss.ready := vdiv.io.in.ready
-    vdiv.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType
+    vdiv.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === cfg.fuConfigs.head.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     vdiv.io.in.bits.uop := vuop
     vdiv.io.in.bits.vs1 := src0
     vdiv.io.in.bits.vs2 := src1
