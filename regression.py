@@ -23,7 +23,9 @@ def parse_sim_result(file_name):
 
 def run_case(name, fail_list):
 	print('Run Case: %s' % name)
-	shell = "make simv-run RUN_BIN=" + name
+	vcs = 'make simv-run'
+	emu = 'make emu_rtl-run'
+	shell = vcs + " RUN_BIN=" + name
 	os.system(shell)
 
 def result_record(file_name, case_list):
@@ -34,7 +36,7 @@ def result_record(file_name, case_list):
 		result = case[1]
 		if 'PASS' in result:
 			pass_list.append(case)
-		elif 'different at pc' in result:
+		elif 'difftest Failed! Please debug it!' in result:
 			fail_list.append(case)
 		else:
 			unknown_list.append(case)
@@ -51,7 +53,7 @@ def result_record(file_name, case_list):
 		for case in unknown_list:
 			f.write(case[0] + "\t\t\t\t" + case[1] + '\n')
 
-		f.write('\n\n\nThis regression runs a total of %d cases' % len(case_list))
+		f.write('\n\n\nThis regression runs a total of %d cases\n' % len(case_list))
 		f.write('passing rate: %.2f' % (len(pass_list) / len(case_list)))
 		
 		f.close()
