@@ -101,12 +101,14 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
   val beu_int_source = IntIdentityNode()
   val core_reset_sink = BundleBridgeSink(Some(() => Reset()))
 
-  core.clint_int_sink :*= IntBuffer() :*= clint_int_sink
-  core.plic_int_sink :*= IntBuffer() :*= plic_int_sink
-  core.debug_int_sink :*= IntBuffer() :*= debug_int_sink
-  beu_int_source :*= IntBuffer() :*= misc.beu.intNode
-
-
+  val cltIntBuf = LazyModule(new IntBuffer)
+  val plicIntBuf = LazyModule(new IntBuffer)
+  val dbgIntBuf = LazyModule(new IntBuffer)
+  val beuIntBuf = LazyModule(new IntBuffer)
+  core.clint_int_sink :*= cltIntBuf.node :*= clint_int_sink
+  core.plic_int_sink :*= plicIntBuf.node :*= plic_int_sink
+  core.debug_int_sink :*= dbgIntBuf.node :*= debug_int_sink
+  beu_int_source :*= beuIntBuf.node :*= misc.beu.intNode
 
   val l1d_to_l2_bufferOpt = coreParams.dcacheParametersOpt.map { _ =>
     val buffer = LazyModule(new TLBuffer)
@@ -176,6 +178,7 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
   outer.core.module.io.hartId := io.hartId
   outer.core.module.io.reset_vector := io.reset_vector
   outer.core.module.io.dfx_reset := io.dfx_reset
+  outer.l2cache.foreach(_.module.io.dfx_reset := io.dfx_reset)
   io.cpu_halt := outer.core.module.io.cpu_halt
   
   if(outer.l2cache.isDefined){
@@ -235,11 +238,17 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
   //             v
   // reset ----> OR_SYNC --> {Misc, L2 Cache, Cores}
   val resetChain = Seq(
-    Seq(outer.misc.module, outer.core.module) ++
-      outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
+    Seq(
+      outer.misc.module,
+      outer.core.module,
+      outer.cltIntBuf.module,
+      outer.plicIntBuf.module,
+      outer.dbgIntBuf.module,
+      outer.beuIntBuf.module
+    ) ++ outer.l2cache.map(_.module),
+    outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
       outer.ptw_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
-      outer.l1d_to_l2_bufferOpt.map(_.module) ++
-      outer.l2cache.map(_.module)
+      outer.l1d_to_l2_bufferOpt.map(_.module)
   )
   ResetGen(resetChain, reset, Some(io.dfx_reset), !outer.debugOpts.FPGAPlatform)
 }

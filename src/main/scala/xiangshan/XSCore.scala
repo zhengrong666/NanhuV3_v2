@@ -240,12 +240,15 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   // Modules are reset one by one
   private val resetTree = ResetGenNode(
     Seq(
-      ModuleNode(exuBlock), ModuleNode(dtlbRepeater1),
+      ModuleNode(exuBlock),
       ResetGenNode(Seq(
-        ModuleNode(itlbRepeater2),
-        ModuleNode(ptw),
-        ModuleNode(dtlbRepeater2),
-        ModuleNode(ptw_to_l2_buffer),
+        ResetGenNode(Seq(
+          ModuleNode(itlbRepeater2),
+          ModuleNode(ptw),
+          ModuleNode(dtlbRepeater2),
+          ModuleNode(dtlbRepeater1),
+          ModuleNode(ptw_to_l2_buffer)
+        ))
       )),
       ResetGenNode(Seq(
         ResetGenNode(Seq(

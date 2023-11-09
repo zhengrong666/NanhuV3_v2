@@ -269,20 +269,31 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
 
   private val resetTree = ResetGenNode(
     Seq(
-      ModuleNode(intRs),
-      ModuleNode(fpRs),
-      ModuleNode(memRs),
-      ModuleNode(vRs),
-      //ModuleNode(vpRs),
-      ModuleNode(rf),
-      ModuleNode(vrf),
-      ModuleNode(writeback),
-      ModuleNode(intBlk),
-      ModuleNode(fpBlk),
-      ModuleNode(vpBlk),
-      ModuleNode(vecBlk),
-      ModuleNode(memBlk),
-      ModuleNode(pcMem)
+      ResetGenNode(Seq(
+        ModuleNode(intRs),
+        ModuleNode(fpRs),
+        ModuleNode(memRs),
+        ModuleNode(vRs),
+        ModuleNode(vpBlk)
+      )),
+      ResetGenNode(Seq(
+        ModuleNode(intBlk)
+      )),
+      ResetGenNode(Seq(
+        ModuleNode(fpBlk)
+      )),
+      ResetGenNode(Seq(
+        ModuleNode(memBlk)
+      )),
+      ResetGenNode(Seq(
+        ModuleNode(vrf),
+        ModuleNode(vecBlk)
+      )),
+      ResetGenNode(Seq(
+        ModuleNode(rf),
+        ModuleNode(pcMem),
+        ModuleNode(writeback)
+      ))
     )
   )
   ResetGen(resetTree, reset, Some(io.dfx_reset), !debugOpts.FPGAPlatform)
