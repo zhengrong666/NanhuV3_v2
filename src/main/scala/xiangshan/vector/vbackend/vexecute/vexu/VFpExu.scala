@@ -55,7 +55,7 @@ class VFpExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicEx
     vfp.io.redirect := redirectIn
 
     private val outDelay = Wire(Valid(new VFpuOutput))
-    outDelay.valid := RegNext(vfp.io.out.valid, false.B)
+    outDelay.valid := RegNext(vfp.io.out.valid & !vfp.io.out.bits.uop.sysUop.robIdx.needFlush(redirectIn), false.B)
     outDelay.bits := RegEnable(vfp.io.out.bits, vfp.io.out.valid)
     
     wb.valid := outDelay.valid
