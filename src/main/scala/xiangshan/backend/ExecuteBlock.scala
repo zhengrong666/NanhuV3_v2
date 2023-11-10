@@ -27,7 +27,7 @@ import regfile.{PcMem, PcWritePort, RegFileTop}
 import system.HasSoCParameter
 import utils.{HPerfMonitor, HasPerfEvents, PerfEvent}
 import xiangshan.backend.execute.exu.FenceIO
-import xiangshan.{CommitType, ExuInput, HasXSParameter, L1CacheErrorInfo, MemPredUpdateReq, MicroOp, Redirect, XSCoreParamsKey}
+import xiangshan.{CommitType, DistributedCSRUpdateReq, ExuInput, ExuOutput, HasXSParameter, L1CacheErrorInfo, MemPredUpdateReq, MicroOp, Redirect, XSCoreParamsKey}
 import xiangshan.backend.execute.exublock.{FloatingBlock, IntegerBlock, MemBlock}
 import xiangshan.backend.execute.fu.csr.CSRConst.ModeM
 import xiangshan.backend.execute.fu.csr.CSRFileIO
@@ -44,7 +44,6 @@ import xiangshan.vector.vbackend.vissue.vrs.VectorReservationStation
 import xiangshan.vector.vbackend.vregfile.VRegfileTop
 import xs.utils.{DFTResetSignals, ModuleNode, ResetGen, ResetGenNode}
 import xiangshan.mem._
-import xiangshan.ExuOutput
 class ExecuteBlock(val parentName:String = "Unknown")(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters {
   val integerReservationStation: IntegerReservationStation = LazyModule(new IntegerReservationStation)
   val floatingReservationStation: FloatingReservationStation = LazyModule(new FloatingReservationStation)
@@ -125,6 +124,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
     val redirectOut = Output(Valid(new Redirect))
     val fenceio = new FenceIO
     val csrio = new CSRFileIO
+    val memBlk_csrUpdate = Output(new DistributedCSRUpdateReq)  //connect to ExuBlock.io.csrio
     val prefetchI = Output(Valid(UInt(p(XSCoreParamsKey).XLEN.W)))
     val dfx_reset = Input(new DFTResetSignals())
 
@@ -210,7 +210,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   vecBlk.io.vstart := intBlk.io.csrio.vcsr.vstart
   vecBlk.io.vcsr := io.csrio.vcsr.vcsr
 
-  intBlk.io.csrio.distributedUpdate(0) := memBlk.io.csrUpdate
+  io.memBlk_csrUpdate := memBlk.io.csrUpdate
   memBlk.io.csrCtrl <> intBlk.io.csrio.customCtrl
   memBlk.io.fenceToSbuffer <> intBlk.io.fenceio.sbuffer
   memBlk.io.sfence := intBlk.io.fenceio.sfence

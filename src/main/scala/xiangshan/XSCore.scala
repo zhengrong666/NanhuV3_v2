@@ -102,7 +102,6 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   //TODO:
   fenceio.sbuffer.sbIsEmpty := DontCare
   csrioIn.memExceptionVAddr := DontCare
-  csrioIn.distributedUpdate := DontCare
 
   frontend.io.hartId  := io.hartId
   ctrlBlock.io.hartId := io.hartId
@@ -188,6 +187,7 @@ class XSCoreImp(outer: XSCoreBase) extends LazyModuleImp(outer)
   csrioIn.externalInterrupt.seip := outer.plic_int_sink.in.last._1(0)
   csrioIn.externalInterrupt.debug := outer.debug_int_sink.in.head._1(0)
 
+  csrioIn.distributedUpdate(0) := exuBlock.io.memBlk_csrUpdate
   csrioIn.distributedUpdate(1).w.valid := frontend.io.csrUpdate.w.valid
   csrioIn.distributedUpdate(1).w.bits := frontend.io.csrUpdate.w.bits
 
