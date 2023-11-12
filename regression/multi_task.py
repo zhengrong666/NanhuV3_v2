@@ -25,7 +25,7 @@ def multi_task_run(task_num, cfg, case_file_list):
   test_case_list = rcfg.get_case_list('./regression', case_file_list)
   print(test_case_list)
 
-  pool = Pool(5)
+  pool = Pool(task_num)
 
   for list_name in test_case_list.keys():
     case_list = test_case_list[list_name]

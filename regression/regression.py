@@ -22,7 +22,8 @@ def main():
 	elif cfg['config']['sim_mode'] == 'all':
 		test_list = cfg['case']['list']
 	print(test_list)
-	multi_task.multi_task_run(5, cfg, test_list)
+	sim_num = cfg['config']['sim_num']
+	multi_task.multi_task_run(sim_num, cfg, test_list)
 	record.sim_result_statistic(cfg, test_list)
 	
 
