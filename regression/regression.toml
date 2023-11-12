@@ -12,9 +12,9 @@ part_list = [
   "vpermutation"
 ]
 
-case_prefix = "vcase"
-case_abs_path = "/nfs/home/guanmingxing/work/Nanhu-V3-Vector/regression"
-sim_path = "/nfs/home/guanmingxing/work/Nanhu-V3-Vector/sim"
+case_prefix = "vcase" #modified point
+case_abs_path = "/nfs/home/USERNAME/work/Nanhu-V3-Vector/regression" #modified point
+sim_path = "/nfs/home/USERNAME/work/Nanhu-V3-Vector/sim" #modified point
 
 [case]
   list = [
