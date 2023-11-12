@@ -1,0 +1,31 @@
+[config]
+simulator = "verilator"
+
+# all or part
+# all: all test
+# part: part_list test
+sim_mode = "part"
+sim_num = 5
+
+part_list = [
+  "vmask",
+  "vpermutation"
+]
+
+case_prefix = "vcase"
+case_abs_path = "/nfs/home/guanmingxing/work/Nanhu-V3-Vector/regression"
+sim_path = "/nfs/home/guanmingxing/work/Nanhu-V3-Vector/sim"
+
+[case]
+  list = [
+    "valu",
+    "vcompare",
+    "vfix",
+    "vfp",
+    "vmac",
+    "vmask",
+    "vnarrow",
+    "vpermutation",
+    "vreduction",
+    "vwiden"
+  ]
