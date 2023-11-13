@@ -208,8 +208,6 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   when(vmUpdateValid) {
     miscNext.bits.vmState := vmNewState
   }
-
-  private val miscUpdateEnWakeUp = src0UpdateValid | src1UpdateValid | src2UpdateValid | vmUpdateValid
   //End of wake up
 
   //Start of issue and cancel
@@ -229,12 +227,8 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   private val stdState = io.entry.bits.stdState
   private val staLoadStateNext = miscNext.bits.staLoadState
   private val stdStateNext = miscNext.bits.stdState
-  private val miscUpdateEnCancelOrIssue = WireInit(false.B)
   private val shouldBeCanceled = srcShouldBeCancelled.reduce(_ | _)
   private val shouldTurnToReady = staLoadState === s_wait_st && (stIssueHit || io.stLastCompelet >= io.entry.bits.sqIdx)
-  miscUpdateEnCancelOrIssue := needReplay || counter.orR || shouldTurnToReady || staLoadIssued || stdIssued || shouldBeCanceled
-  private val miscStateUpdateEn = Wire(Bool())
-  miscStateUpdateEn := staLoadState === s_wait_cancel || stdState === s_wait_cancel
   private val addrShouldBeCancelled = srcShouldBeCancelled(0) | srcShouldBeCancelled(1)
   switch(staLoadState) {
     is(s_wait_st) {
@@ -321,7 +315,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnCancelOrIssue | miscUpdateEnDequeueOrRedirect | miscStateUpdateEn, enqUpdateEn)
+  io.updateEnable := io.entry.valid | enqUpdateEn
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 class Replay(entryNum:Int) extends Bundle {

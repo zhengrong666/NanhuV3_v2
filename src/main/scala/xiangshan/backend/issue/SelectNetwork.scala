@@ -139,13 +139,9 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
   override val desiredName:String = name.getOrElse("SelectNetwork")
 
   private val selectInputPerBank = io.selectInfo.zipWithIndex.map({case(si, bidx) =>
-    val validSeqNoLpv = WireInit(Cat(si.map(in => {
-      in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _) && in.bits.lpv.map(_.orR).reduce(_ | _) === false.B
+    val validSeq = WireInit(Cat(si.map(in => {
+      in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _)
     }).reverse))
-    val validSeqLpv = WireInit(Cat(si.map(in =>{
-      in.valid && cfg.fuConfigs.map(_.fuType === in.bits.fuType).reduce(_ | _) && in.bits.lpv.map(_.orR).reduce(_ | _) === true.B
-    }).reverse))
-    val validSeq = Mux(validSeqNoLpv.orR, validSeqNoLpv, validSeqLpv)
     si.zipWithIndex.map({ case (in, eidx) =>
       val selInfo = Wire(Valid(new SelectResp(bankNum, entryNum)))
       if(regOut){

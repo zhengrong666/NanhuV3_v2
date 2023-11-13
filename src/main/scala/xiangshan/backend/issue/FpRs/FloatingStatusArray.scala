@@ -95,7 +95,7 @@ class FloatingStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(imp
   when(io.entry.valid){
     assert(PopCount(hv) <= 1.U)
   })
-  private val miscUpdateEnWakeUp = pregMatch.map(_.reduce(_|_)).reduce(_|_)
+  private val miscUpdateEnWakeUp = (io.wakeup ++ io.loadEarlyWakeup).map(_.valid).reduce(_ | _)
   //End of wake up
 
   //Start of issue and cancel
@@ -105,7 +105,6 @@ class FloatingStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(imp
   private val mayNeedReplay = io.entryNext.bits.lpv.map(_.map(_.orR).reduce(_|_)).reduce(_|_)
   private val state = io.entry.bits.state
   private val stateNext = miscNext.bits.state
-  private val miscUpdateEnCancelOrIssue = WireInit(false.B)
 
   switch(state) {
     is(s_ready) {
@@ -125,12 +124,12 @@ class FloatingStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(imp
     assert(io.entry.valid && state === s_ready)
   }
   srcShouldBeCancelled.zip(miscNext.bits.srcState).foreach{case(en, state) => when(en){state := SrcState.busy}}
+  private val mayBeIssued = io.entry.bits.srcState.map(_ === SrcState.rdy).reduce(_ & _) && state === s_ready
   //End of issue and cancel
 
   //Start of dequeue and redirect
   private val shouldBeFlushed = io.entry.valid & io.entry.bits.robIdx.needFlush(io.redirect)
-  private val miscUpdateEnDequeueOrRedirect = (stateNext === EntryState.s_issued && !mayNeedReplay) || shouldBeFlushed
-  when(miscUpdateEnDequeueOrRedirect) {
+  when(stateNext === EntryState.s_issued || shouldBeFlushed) {
     miscNext.valid := false.B
   }
   //End of dequeue and redirect
@@ -163,7 +162,7 @@ class FloatingStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(imp
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnCancelOrIssue | miscUpdateEnDequeueOrRedirect | miscUpdateEnLpvUpdate, enqUpdateEn)
+  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | mayBeIssued | shouldBeFlushed | miscUpdateEnLpvUpdate, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 

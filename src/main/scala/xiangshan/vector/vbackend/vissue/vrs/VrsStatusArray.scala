@@ -65,15 +65,13 @@ class VrsStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit
 
   //Start of issue
   private val shouldBeIssued = Cat(io.issue).orR
-  private val miscUpdateEnIssue = shouldBeIssued
-  private val srcAllReady = io.entry.bits.srcState.map(_ === SrcState.rdy).reduce(_|_)
+  private val srcAllReady = io.entry.bits.srcState.map(_ === SrcState.rdy).reduce(_&_)
   when(shouldBeIssued){assert(io.entry.valid && srcAllReady)}
   //End of issue and cancel
 
   //Start of dequeue and redirect
   private val shouldBeFlushed = io.entry.valid & io.entry.bits.robIdx.needFlush(io.redirect)
-  private val miscUpdateEnDequeueOrRedirect = shouldBeIssued || shouldBeFlushed
-  when(miscUpdateEnDequeueOrRedirect) {
+  when(shouldBeIssued || shouldBeFlushed) {
     miscNext.valid := false.B
   }
   //End of dequeue and redirect
@@ -84,7 +82,7 @@ class VrsStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnIssue | miscUpdateEnDequeueOrRedirect, enqUpdateEn)
+  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | srcAllReady | shouldBeFlushed, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 

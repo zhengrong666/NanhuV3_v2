@@ -32,44 +32,35 @@ class VprsDecoupledPipeline(implicit p: Parameters) extends XSModule{
     val enq = Flipped(DecoupledIO(new VprsIssueBundle))
     val deq = DecoupledIO(new VprsIssueBundle)
   })
-    val mem = Reg(Vec(2, new VprsIssueBundle))
-    val enqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
-    val deqPtr = RegInit(0.U.asTypeOf(new TwoEntryQueuePtr))
-    val full = enqPtr.value === deqPtr.value && enqPtr.flag =/= deqPtr.flag
-    val empty = enqPtr.value === deqPtr.value && enqPtr.flag === deqPtr.flag
-    val enqFire = io.enq.fire
+  private val s1Valid = RegInit(false.B)
+  private val s1Bits = Reg(new VprsIssueBundle)
 
-  private val kills = Wire(Vec(2, Bool()))
-  kills.zip(mem).foreach({case(k,u) => k := u.uop.robIdx.needFlush(io.redirect)})
+  private val s2Valid = RegInit(false.B)
+  private val s2Bits = Reg(new VprsIssueBundle)
+  private val s2Ready = Wire(Bool())
 
-  io.enq.ready := !full
-  private val s1_valid = !empty && !kills(deqPtr.value)
-  private val s1_data = mem(deqPtr.value)
-  private val s1_ready = Wire(Bool())
-  private val deqFire = s1_valid && s1_ready
+  s2Ready := !s2Valid | io.deq.ready | (s2Valid & s2Bits.uop.robIdx.needFlush(io.redirect))
+  io.enq.ready := !s1Valid
 
-  when(full && kills((enqPtr - 1.U).value)) {
-    enqPtr := enqPtr - 1.U
-  }.elsewhen(enqFire) {
-    mem(enqPtr.value) := io.enq.bits
-    enqPtr := enqPtr + 1.U
+  when(s1Valid) {
+    s1Valid := Mux(s1Bits.uop.robIdx.needFlush(io.redirect), false.B, !s2Ready)
+  }.otherwise {
+    s1Valid := io.enq.valid && !io.enq.bits.uop.robIdx.needFlush(io.redirect)
   }
-  when(deqFire || (!empty && kills(deqPtr.value))) {
-    deqPtr := deqPtr + 1.U
+  when(io.enq.fire) {
+    s1Bits := io.enq.bits
   }
 
-  private val deqValidReg = RegInit(false.B)
-  private val deqBitsReg = Reg(new VprsIssueBundle)
-  s1_ready := !deqValidReg || io.deq.ready || (deqValidReg && deqBitsReg.uop.robIdx.needFlush(io.redirect))
-  when(s1_ready) {
-    deqValidReg := s1_valid && !s1_data.uop.robIdx.needFlush(io.redirect)
+  when(s2Ready) {
+    s2Valid := s1Valid && !s1Bits.uop.robIdx.needFlush(io.redirect)
   }
-  when(deqFire) {
-    deqBitsReg := s1_data
+  when(s1Valid & s2Ready) {
+    s2Bits := s1Bits
   }
-  io.deq.valid := deqValidReg
-  io.deq.bits := deqBitsReg
-  io.deq.bits.prs := s1_data.prs
-  io.deq.bits.prsType := s1_data.prsType
-  io.deq.bits.rsRen := s1_valid
+
+  io.deq.valid := s2Valid
+  io.deq.bits := s2Bits
+  io.deq.bits.prs := s1Bits.prs
+  io.deq.bits.prsType := s1Bits.prsType
+  io.deq.bits.rsRen := s1Valid
 }

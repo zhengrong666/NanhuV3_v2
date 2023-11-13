@@ -17,13 +17,9 @@ class PrioritySelectPolicy(inputNum:Int)(implicit p: Parameters) extends XSModul
     val in = Input(Vec(inputNum, Valid(new HybridSelectInfo)))
     val out = Output(Valid(UInt(inputNum.W)))
   })
-  private val lpvMask = Cat(io.in.map(in => Cat(in.bits.lpv).orR).reverse)
-  private val noLpvMask = Cat(io.in.map(in => Cat(in.bits.lpv).orR).map(!_).reverse)
   private val validMask = Cat(io.in.map(_.valid).reverse)
-
-  private val selMask = Mux((validMask & noLpvMask).orR, validMask & noLpvMask, validMask & lpvMask)
   io.out.valid := validMask.orR
-  io.out.bits := PriorityEncoderOH(selMask)
+  io.out.bits := PriorityEncoderOH(validMask)
 }
 
 class OldestSelectPolicy(inputNum:Int, haveEqual:Boolean)(implicit p: Parameters) extends XSModule {
@@ -44,7 +40,7 @@ class OldestSelectPolicy(inputNum:Int, haveEqual:Boolean)(implicit p: Parameters
     (interRes, idx)
   }
 
-  private val res = ParallelOperationN(io.in.zipWithIndex.map(in => (in._1, (1L << in._2).U(inputNum.W))), 6, ReductionFunc)
+  private val res = ParallelOperationN(io.in.zipWithIndex.map(in => (in._1, (1L << in._2).U(inputNum.W))), 8, ReductionFunc)
   io.out.valid := res._1.valid
   io.out.bits := res._2
 }
@@ -78,23 +74,24 @@ class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuCo
     val iss = finalSelectResult(i)
     val pSelector = Module(new PrioritySelectPolicy(inSeq.length))
     val oSelector = Module(new OldestSelectPolicy(inSeq.length, haveEqual))
+    val pSel = pSelector.io.out
+    val oSel = Wire(Valid(UInt(inSeq.length.W)))
+    val oSelV = RegNext(oSelector.io.out.valid, false.B)
+    val oSelB = RegEnable(oSelector.io.out.bits, oSelector.io.out.valid)
+    oSel.valid := oSelV & (oSelB & Cat(inSeq.map(_.valid).reverse)).orR
+    oSel.bits := oSelB
+    val selOH = Mux(oSel.valid, oSel.bits, pSel.bits)
+
     pSelector.io.in.zip(inSeq).foreach({case(a, b) =>
       a.valid := b.valid
       a.bits.robPtr := b.bits.info.robPtr
       a.bits.lpv := b.bits.info.lpv
     })
-    oSelector.io.in.zip(inSeq).foreach({ case (a, b) =>
-      a.valid := b.valid & !(iss.valid & iss.bits.entryIdxOH === b.bits.entryIdxOH & iss.bits.bankIdxOH === b.bits.bankIdxOH)
+    oSelector.io.in.zip(inSeq).zip(selOH.asBools).foreach({ case ((a, b), s) =>
+      a.valid := b.valid && !s
       a.bits.robPtr := b.bits.info.robPtr
       a.bits.lpv := b.bits.info.lpv
     })
-    val pSel = pSelector.io.out
-    val oSelV = RegNext(oSelector.io.out.valid, false.B)
-    val oSelB = RegEnable(oSelector.io.out.bits, oSelector.io.out.valid)
-    val oSel = Wire(Valid(UInt(inSeq.length.W)))
-    oSel.valid := oSelV & (oSelB & Cat(inSeq.map(_.valid).reverse)).orR
-    oSel.bits := oSelB
-    val selOH = Mux(oSel.valid, oSel.bits, pSel.bits)
 
     finalSelectResult(i).valid := pSel.valid | oSel.valid
     finalSelectResult(i).bits := Mux1H(selOH, inSeq.map(_.bits))
