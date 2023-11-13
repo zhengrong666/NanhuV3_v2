@@ -113,15 +113,13 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
   when(shouldBeIssued){assert(io.entry.valid && state === s_ready)}
 
   srcShouldBeCancelled.zip(miscNext.bits.srcState).foreach{case(en, state) => when(en){state := SrcState.busy}}
-
-  private val miscUpdateEnCancelOrIssue = shouldBeIssued || shouldBeCancelled || mayNeedReplay
+  private val mayBeIssued = io.entry.bits.srcState.map(_ === SrcState.rdy).reduce(_ & _) && state === s_ready
 
   //End of issue and cancel
 
   //Start of dequeue and redirect
   private val shouldBeFlushed = io.entry.valid & io.entry.bits.robIdx.needFlush(io.redirect)
-  private val miscUpdateEnDequeueOrRedirect = stateNext === s_issued || shouldBeFlushed
-  when(miscUpdateEnDequeueOrRedirect) {
+  when(stateNext === s_issued || shouldBeFlushed) {
     miscNext.valid := false.B
   }
   //End of dequeue and redirect
@@ -152,7 +150,7 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | miscUpdateEnCancelOrIssue | miscUpdateEnDequeueOrRedirect | miscUpdateEnLpvUpdate, enqUpdateEn)
+  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | mayBeIssued | shouldBeFlushed | miscUpdateEnLpvUpdate, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 }
 

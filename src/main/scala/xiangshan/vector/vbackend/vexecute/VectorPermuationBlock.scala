@@ -61,7 +61,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     private val issueValidReg = RegInit(false.B)
     private val allowPipe = !issueValidReg || !permutation.io.out.perm_busy || (issueValidReg && issueDataReg.uop.robIdx.needFlush(io.redirect))
     when(allowPipe){
-      issueValidReg := vprs.module.io.issue.valid
+      issueValidReg := vprs.module.io.issue.valid && !vprs.module.io.issue.bits.uop.robIdx.needFlush(io.redirect)
     }
     when(allowPipe && vprs.module.io.issue.valid){
       issueDataReg := vprs.module.io.issue.bits
