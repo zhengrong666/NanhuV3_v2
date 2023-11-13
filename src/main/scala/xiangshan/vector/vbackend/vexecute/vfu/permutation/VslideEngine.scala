@@ -2,9 +2,8 @@ package darecreek.exu.vfu.perm
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.vfu._
-// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
+import darecreek.exu.vfu._
 
 class VslideEngine(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
@@ -193,10 +192,3 @@ class VslideEngine(implicit p: Parameters) extends VFuModule {
   io.vslide1up_vd := Cat(vslide1up_vd.reverse)
   io.vslide1dn_vd := Cat(vslide1dn_vd.reverse)
 }
-
-// object VerilogVslide extends App {
-//   println("Generating the VPU Vslide hardware")
-//   emitVerilog(new VslideEngine(), Array("--target-dir", "build/vifu"))
-// }
-
-

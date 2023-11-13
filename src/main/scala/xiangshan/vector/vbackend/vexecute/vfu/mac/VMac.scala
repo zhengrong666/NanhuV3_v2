@@ -39,7 +39,7 @@ class VMac(implicit p: Parameters) extends VFuModule {
   val overWriteMultiplicand = funct6(4,2) === "b010".U
   val vs2_is_signed = !(funct6(4,0) === "b11111".U || funct6(1,0) === 0.U)
   val vs1_is_signed = funct6(4,2) === "b001".U && funct6(0) || funct6(4,3) === "b01".U ||
-                               funct6(4,3) === "b11".U && funct6(0)
+                      funct6(4,3) === "b11".U && funct6(0)
 
   val vIMac64bs = Seq.fill(2)(Module(new VMac64b))
   for (i <- 0 until 2) {
@@ -56,12 +56,12 @@ class VMac(implicit p: Parameters) extends VFuModule {
     vIMac64bs(i).io.widen := widen
     vIMac64bs(i).io.isFixP := isFixP
     vIMac64bs(i).io.vs1 := Mux(widen, Cat(UIntSplit(vs1, 32)(i+2), UIntSplit(vs1, 32)(i)),
-                               UIntSplit(vs1, 64)(i))
+                                      UIntSplit(vs1, 64)(i))
     vIMac64bs(i).io.vs2 := Mux(overWriteMultiplicand, UIntSplit(oldVd, 64)(i),
-                           Mux(widen, Cat(UIntSplit(vs2, 32)(i+2), UIntSplit(vs2, 32)(i)),
-                               UIntSplit(vs2, 64)(i)))
+                                                      Mux(widen, Cat(UIntSplit(vs2, 32)(i+2), UIntSplit(vs2, 32)(i)),
+                                                                                              UIntSplit(vs2, 64)(i)))
     vIMac64bs(i).io.oldVd := Mux(overWriteMultiplicand, UIntSplit(vs2, 64)(i),
-                                 UIntSplit(oldVd, 64)(i))
+                                                        UIntSplit(oldVd, 64)(i))
   }
 
   /**
@@ -117,7 +117,7 @@ class VMac(implicit p: Parameters) extends VFuModule {
   val vdResult = Cat(vIMac64bs(1).io.vd, vIMac64bs(0).io.vd)
   io.out.bits.vd := vdResult & bitsKeep | bitsReplace
   io.out.bits.vxsat := (Cat(vIMac64bs.map(_.io.vxsat).reverse) &
-                   Cat(updateType.map(_(1) === false.B).reverse)).orR
+                        Cat(updateType.map(_(1) === false.B).reverse)).orR
 }
 
 import xiangshan._

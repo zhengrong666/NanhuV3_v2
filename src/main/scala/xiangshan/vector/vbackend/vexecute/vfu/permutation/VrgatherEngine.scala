@@ -2,9 +2,8 @@ package darecreek.exu.vfu.perm
 
 import chisel3._
 import chisel3.util._
-import darecreek.exu.vfu._
-// import darecreek.exu.vfu.VFUParam._
 import org.chipsalliance.cde.config.Parameters
+import darecreek.exu.vfu._
 
 class VrgatherEngine(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
@@ -236,11 +235,3 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
 
   io.vrgather_vd := Cat(vrgather_vd.reverse)
 }
-
-// object VerilogVrgather extends App {
-//   println("Generating the VPU Vrgather hardware")
-//   emitVerilog(new VrgatherEngine(), Array("--target-dir", "build/vifu"))
-
-// }
-
-

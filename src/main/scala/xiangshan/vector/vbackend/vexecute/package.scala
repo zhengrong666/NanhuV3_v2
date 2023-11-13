@@ -1,10 +1,14 @@
 package xiangshan.vector.vbackend.vexecute
-import org.chipsalliance.cde.config.Parameters
+
 import chisel3._
 import chisel3.util._
+import org.chipsalliance.cde.config.Parameters
+
 import darecreek.exu.vfu.VUop
-import xiangshan.vector.{EewType, EewVal}
+
 import xiangshan.MicroOp
+import xiangshan.vector.{EewType, EewVal}
+
 package object vfu {
   def uopToVuop(src:MicroOp, valid:Bool, vstart:UInt, vxrm:UInt, frm:UInt, p:Parameters):VUop = {
     val res = Wire(new VUop()(p))

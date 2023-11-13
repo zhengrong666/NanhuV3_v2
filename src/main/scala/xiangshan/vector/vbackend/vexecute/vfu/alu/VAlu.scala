@@ -86,8 +86,8 @@ class VIntFixpAlu64b(implicit p: Parameters) extends VFuModule {
   vIntAdder64b.io.narrow_to_1 := io.narrow_to_1
 
   val vIntMisc64b = Module(new VIntMisc64b)
-  vIntMisc64b.io.funct6 := io.funct6
-  vIntMisc64b.io.funct3 := io.funct3
+  vIntMisc64b.io.funct6 := io.funct6 
+  vIntMisc64b.io.funct3 := io.funct3 
   vIntMisc64b.io.vi := io.vi
   vIntMisc64b.io.vm := io.vm
   vIntMisc64b.io.vs1_imm := io.vs1_imm
@@ -263,10 +263,7 @@ class VAlu(implicit p: Parameters) extends VFuModule {
    */
   val old_cmpOutResult = Reg(UInt(128.W))
   val cmpOutResult = old_cmpOutResult & cmpOutOff | cmpOutKeep // Compare and carry-out instrns
-  val uopEndS1 = RegEnable(uopEnd, valid)
-  when (RegNext(valid)) {
-    old_cmpOutResult := Mux(uopEndS1, 0.U, cmpOutResult)
-  }
+  when (RegNext(valid)) { old_cmpOutResult := cmpOutResult }
   io.out.valid := RegNext(Mux(narrow_to_1, uopEnd && valid, valid), init = false.B)
 
   /**
