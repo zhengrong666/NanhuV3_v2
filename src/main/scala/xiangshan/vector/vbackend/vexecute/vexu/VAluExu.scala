@@ -3,7 +3,6 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import darecreek.exu.vfu.alu.VAlu
-import darecreek.exu.vfu.reduction.Reduction
 import darecreek.exu.vfu.vmask.VMask
 import xiangshan.HasXSParameter
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
@@ -16,7 +15,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     name = "VAluExu",
     id = id,
     complexName = complexName,
-    fuConfigs = Seq(FuConfigs.valuCfg, FuConfigs.vmaskCfg, FuConfigs.vredCfg, FuConfigs.s2vCfg),
+    fuConfigs = Seq(FuConfigs.valuCfg, FuConfigs.vmaskCfg, FuConfigs.s2vCfg),
     exuType = ExuType.valu,
     writebackToRob = false,
     writebackToVms = true
@@ -41,7 +40,7 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
 
     private val valu = Module(new VAlu)
     private val vmask = Module(new VMask)
-    private val vred = Module(new Reduction)
+    //private val vred = Module(new Reduction)
     private val s2v = Module(new Scalar2Vector)
     private val uopShiftQueue = Module(new MicroOpShiftQueue(latency))
 
@@ -71,14 +70,6 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vmask.io.in.bits.oldVd := src2
     vmask.io.in.bits.mask := mask
 
-    vred.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.vredCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
-    vred.io.in.bits.uop := vuop
-    vred.io.in.bits.vs1 := src0
-    vred.io.in.bits.vs2 := src1
-    vred.io.in.bits.rs1 := src0(XLEN - 1, 0)
-    vred.io.in.bits.oldVd := src2
-    vred.io.in.bits.mask := mask
-
     s2v.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.s2vCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     s2v.io.in.bits.uop := vuop
     s2v.io.in.bits.vs1 := src0
@@ -106,17 +97,17 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
       (isNarrow && highHalf) -> highHalfMask,
     ))
 
-    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, vred.io.out.valid, s2v.io.out.valid)
+    private val validSeq = Seq(valu.io.out.valid, vmask.io.out.valid, s2v.io.out.valid)
     assert(PopCount(validSeq) <= 1.U)
-    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, vred.io.out.bits, s2v.io.out.bits)
+    private val dataSeq = Seq(valu.io.out.bits, vmask.io.out.bits, s2v.io.out.bits)
     private val wbData = Mux1H(validSeq, dataSeq)
 
-    wb.valid := validSeq.reduce(_|_) && Mux(isVcpop, uopIdx === (uopNum - 1.U), true.B)
+    wb.valid := uopShiftQueue.io.out.valid && Mux(isVcpop, uopIdx === (uopNum - 1.U), true.B) && validSeq.reduce(_||_)
     wb.bits := DontCare
     wb.bits.uop := uopShiftQueue.io.out.bits
     wb.bits.data := wbData.vd
     wb.bits.vxsat := wbData.vxsat
     wb.bits.wakeupMask := Mux(uopNum === 1.U, fullMask, finalMask)
     wb.bits.writeDataMask := Mux(uopNum === 1.U, fullMask, finalMask)
-    }
+  }
 }
