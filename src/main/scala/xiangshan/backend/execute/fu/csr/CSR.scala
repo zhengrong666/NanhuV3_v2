@@ -1141,7 +1141,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
         RegNext(RegNext(Mux(
           csrio.exception.bits.uop.cf.crossPageIPFFix,
           exceptionNextAddr,
-          iexceptionPC
+          SignExt(csrio.exception.bits.uop.cf.pc, XLEN)
         ))),
         memExceptionAddr
     )
