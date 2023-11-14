@@ -83,6 +83,7 @@ class RobLsqIO(implicit p: Parameters) extends XSBundle {
 
 class RobEnqIO(implicit p: Parameters) extends XSBundle {
   val canAccept = Output(Bool())
+  val canAccept_dup = Vec(RenameWidth - 1, Output(Bool()))
   val isEmpty = Output(Bool())
   // valid vector, for robIdx gen and walk
   val needAlloc = Vec(RenameWidth, Input(Bool()))

@@ -168,6 +168,9 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val isEmpty = (enqPtr === deqPtr)
 
   val lqSafeDeqPtr = RegInit(0.U.asTypeOf(new RobPtr))
+
+  private val allowEnqueuedupRegs = Seq.fill(RenameWidth-1)(RegInit(true.B))
+  private val hasBlockBackwarddupRegs = Seq.fill(RenameWidth-1)(RegInit(false.B))
   /**
    * states of Rob
    */
@@ -186,6 +189,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   // To reduce registers usage, for hasBlockBackward cases, we allow enqueue after ROB is empty.
   when(isEmpty) {
     hasBlockBackward := false.B
+    hasBlockBackwarddupRegs.foreach(_ := false.B)
   }
   // When any instruction commits, hasNoSpecExec should be set to false.B
   when((io.commits.hasWalkInstr && state =/= s_extrawalk) || io.commits.hasCommitInstr) {
@@ -223,6 +227,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     i => enqPtrVec(PopCount(io.enq.needAlloc.take(i)))
   ))
   io.enq.canAccept := allowEnqueue && !hasBlockBackward
+  io.enq.canAccept_dup.zip(allowEnqueuedupRegs).zip(hasBlockBackwarddupRegs).foreach({case ((c,a),b) => c:= a && !b})
   io.enq.resp := allocatePtrVec
   val canEnqueue = VecInit(io.enq.req.map(_.valid && io.enq.canAccept))
   val timer = GTimer()
@@ -243,6 +248,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       // for func
       when(enqUop.ctrl.blockBackward) {
         hasBlockBackward := true.B
+        hasBlockBackwarddupRegs.foreach(_ := true.B)
       }
       when(enqUop.ctrl.noSpecExec) {
         hasNoSpecExec := true.B
@@ -651,6 +657,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val commitCnt = PopCount(io.commits.commitValid)
 
   allowEnqueue := (numValidEntries + enqNum) <= (RobSize - RenameWidth).U
+  allowEnqueuedupRegs.foreach(_ := (numValidEntries + enqNum) <= (RobSize - RenameWidth).U)
 
   val currentWalkPtr = Mux(state === s_walk || state === s_extrawalk, walkPtr, enqPtr - 1.U)
   val redirectWalkDistance = distanceBetween(currentWalkPtr, io.redirect.bits.robIdx)

@@ -76,16 +76,16 @@ class VIRollBackList(implicit p: Parameters) extends VectorBaseModule with HasCi
       }
     })
     private val entryWidth = (new RollBackListEntry).getWidth
-    private val ram = Mem(size, UInt(entryWidth.W))
+    private val ram = Reg(Vec(size, UInt(entryWidth.W)))
     io.enq.foreach(e => {
       when(e.valid) {
-        ram.write(e.bits.addr, e.bits.data.asUInt)
+        ram(e.bits.addr) := e.bits.data.asUInt
       }
     })
     io.read.data.zipWithIndex.foreach({ case (d, i) =>
       val readPtr = io.read.addr
       val addr = Mux(io.read.commit, (readPtr + i.U).value, (readPtr - (i + 1).U).value)
-      val entry = ram.read(addr).asTypeOf(new RollBackListEntry)
+      val entry = ram(addr).asTypeOf(new RollBackListEntry)
       d.hit := entry.robIdx === io.read.robPtr
       d.logicRegIdx := entry.logicRegIdx
       d.oldPhyRegIdx := entry.oldPhyRegIdx
