@@ -643,7 +643,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // check if load already in lq needs to be rolledback
     dataModule.io.violation(i).paddr := io.storeIn(i).bits.paddr
     dataModule.io.violation(i).mask := io.storeIn(i).bits.mask
-    val addrMaskMatch = RegEnable(dataModule.io.violation(i).violationMask,io.storeIn(i).valid)
+    val addrMaskMatch = RegEnable(dataModule.io.violation(i).violationMask.asUInt,io.storeIn(i).valid)
     val entryNeedCheck = RegNext(VecInit((0 until LoadQueueSize).map(j => {
       allocated(j) && stToEnqPtrMask(j) && (datavalid(j) || miss(j))
     })))
@@ -870,12 +870,15 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // io.loadViolationQuery.map(i => i.req.ready := false.B) // For better timing
   }
 
-  (0 until LoadQueueSize).map(i => {
-    when(RegNext(dataModule.io.release_violation.takeRight(1)(0).match_mask(i) &&
+  private val release_flag = WireInit(VecInit((0 until LoadQueueSize).map(i =>{
+    RegNext(dataModule.io.release_violation.takeRight(1)(0).match_mask(i) &&
       allocated(i) &&
       datavalid(i) &&
-      release1cycle.valid
-    )){
+      release1cycle.valid)
+  })).asUInt)
+  dontTouch(release_flag)
+  (0 until LoadQueueSize).map(i => {
+    when(release_flag(i)){
       // Note: if a load has missed in dcache and is waiting for refill in load queue,
       // its released flag still needs to be set as true if addr matches.
       released(i) := true.B
