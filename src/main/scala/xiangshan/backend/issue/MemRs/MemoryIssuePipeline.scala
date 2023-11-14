@@ -65,6 +65,8 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   io.deq.bits.uop.lpv.zip(deqDataDriverReg.info.lpv).foreach({case(a,b) => a := LogicShiftRight(b, 1)})
   io.deq.bits.entryIdxOH := deqDataDriverReg.entryIdxOH
   io.deq.bits.bankIdxOH := deqDataDriverReg.bankIdxOH
+  io.deq.bits.uop.cf.ftqPtr := deqDataDriverReg.info.ftqPtr
+  io.deq.bits.uop.cf.ftqOffset := deqDataDriverReg.info.ftqOffset
 
   private val isVec = deqDataDriverReg.info.isVector
   private val isStd = deqDataDriverReg.info.fuType === FuType.std

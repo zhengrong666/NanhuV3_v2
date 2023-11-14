@@ -23,6 +23,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.backend.execute.exu.ExuConfig
 import xiangshan.backend.rob.RobPtr
+import xiangshan.frontend.FtqPtr
 import xiangshan.{FuType, Redirect, XSBundle, XSModule}
 import xs.utils.{LogicShiftRight, ParallelOperation}
 
@@ -38,6 +39,8 @@ class SelectInfo(implicit p: Parameters) extends XSBundle{
   val vm = UInt(PhyRegIdxWidth.W)
   val isFma = Bool()
   val isSgOrStride = Bool()
+  val ftqPtr = new FtqPtr
+  val ftqOffset = UInt(log2Up(PredictWidth).W)
 }
 
 class SelectResp(val bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends XSBundle {

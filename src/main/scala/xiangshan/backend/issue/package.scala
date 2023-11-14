@@ -23,6 +23,7 @@ import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
 import xiangshan.backend.rob.RobPtr
+import xiangshan.frontend.FtqPtr
 import xiangshan.{ExuInput, FuType, SrcState, SrcType, XSBundle}
 
 package object issue {
@@ -35,7 +36,9 @@ package object issue {
     val fuType: UInt = FuType()
     val rfWen: Bool = Bool()
     val fpWen: Bool = Bool()
-    val robIdx = new RobPtr
+    val robIdx: RobPtr = new RobPtr
+    val ftqPtr: FtqPtr = new FtqPtr
+    val ftqOffset: UInt = UInt(log2Up(PredictWidth).W)
   }
 
   class BasicWakeupInfo(implicit p: Parameters) extends XSBundle {

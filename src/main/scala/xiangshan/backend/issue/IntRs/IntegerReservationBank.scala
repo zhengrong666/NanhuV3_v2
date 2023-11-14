@@ -63,6 +63,8 @@ class IntegerReservationBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, load
     enqEntry.fpWen := in.ctrl.fpWen
     enqEntry.robIdx := in.robIdx
     enqEntry.state := s_ready
+    enqEntry.ftqPtr := in.cf.ftqPtr
+    enqEntry.ftqOffset := in.cf.ftqOffset
     enqEntry
   }
 

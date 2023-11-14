@@ -96,6 +96,8 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
     enqEntry.isCboZero := isCboZero
     enqEntry.isVector := isVector
     enqEntry.replayPenalty := 0.U
+    enqEntry.ftqPtr := in.cf.ftqPtr
+    enqEntry.ftqOffset := in.cf.ftqOffset
     when(!isVector){
       enqEntry.psrc(1) := DontCare
       enqEntry.psrc(2) := in.psrc(1)

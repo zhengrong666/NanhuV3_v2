@@ -56,6 +56,8 @@ class DecoupledPipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Paramet
   io.deq.bits.uop.robIdx := deqDataDriverReg.info.robPtr
   io.deq.bits.uop.psrc := deqDataDriverReg.info.psrc
   io.deq.bits.uop.lpv.zip(deqDataDriverReg.info.lpv).foreach({case(a,b) => a := LogicShiftRight(b, 1)})
+  io.deq.bits.uop.cf.ftqPtr := deqDataDriverReg.info.ftqPtr
+  io.deq.bits.uop.cf.ftqOffset := deqDataDriverReg.info.ftqOffset
   when(io.deq.valid){assert(io.deq.ready)}
   private val mySelf = this
   chisel3.experimental.annotate(new ChiselAnnotation {

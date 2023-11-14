@@ -62,6 +62,8 @@ class FloatingReservationBank(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loa
     enqEntry.robIdx := in.robIdx
     enqEntry.state := EntryState.s_ready
     enqEntry.isFma := in.ctrl.fpu.ren3
+    enqEntry.ftqPtr := in.cf.ftqPtr
+    enqEntry.ftqOffset := in.cf.ftqOffset
     enqEntry
   }
 
