@@ -65,7 +65,7 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
       }
       val outPort = io.issueInfo(bidx * issueNum / bankNum)
       val addrHit = outPort.valid && outPort.bits.bankIdxOH(bidx) && outPort.bits.entryIdxOH(eidx)
-      selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond && !addrHit && !io.redirect.valid
+      selInfo.valid := in.valid && fuTypeList.map(_ === in.bits.fuType).reduce(_ | _) && orderCond && !addrHit
       selInfo.bits.info := in.bits
       selInfo.bits.bankIdxOH := (1 << bidx).U(bankNum.W)
       selInfo.bits.entryIdxOH := (1 << eidx).U(entryNum.W)
@@ -78,11 +78,8 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
   finalSelectResult.zipWithIndex.foreach({ case (res, i) =>
     val selBanks = selectInputPerBank.slice(i * bankNumPerIss, i * bankNumPerIss + bankNumPerIss).reduce(_ ++ _)
     val selRes = VecSelectPolicy(selBanks, bankNum, entryNum, p)
-    val validReg = RegNext(selRes.valid)
-    val bitsReg = RegEnable(selRes.bits, selRes.valid)
-    val shouldBeFlushed = res.bits.info.robPtr.needFlush(io.redirect)
-    res.valid := validReg && !shouldBeFlushed
-    res.bits := bitsReg
+    res.valid := RegNext(selRes.valid && !io.redirect.valid)
+    res.bits := RegEnable(selRes.bits, selRes.valid)
   })
 
   if (needToken) {
@@ -93,16 +90,14 @@ class VrsSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, isOrdered:Boolea
       ta.io.alloc.bits.uopIdx := driver.bits.info.uopIdx
       ta.io.alloc.bits.robPtr := driver.bits.info.robPtr
       ta.io.release := tr
-      val shouldBeFlushed = driver.bits.info.robPtr.needFlush(io.redirect)
-      outPort.valid := driver.valid && ta.io.allow && !shouldBeFlushed
+      outPort.valid := driver.valid && ta.io.allow && !io.redirect.valid
       outPort.bits.bankIdxOH := driver.bits.bankIdxOH
       outPort.bits.entryIdxOH := driver.bits.entryIdxOH
       outPort.bits.info := driver.bits.info
     }
   } else {
     for ((outPort, driver) <- io.issueInfo.zip(finalSelectResult)) {
-      val shouldBeFlushed = driver.bits.info.robPtr.needFlush(io.redirect)
-      outPort.valid := driver.valid && !shouldBeFlushed
+      outPort.valid := driver.valid && !io.redirect.valid
       outPort.bits.bankIdxOH := driver.bits.bankIdxOH
       outPort.bits.entryIdxOH := driver.bits.entryIdxOH
       outPort.bits.info := driver.bits.info

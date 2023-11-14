@@ -74,6 +74,6 @@ class VprsSelectNetwork(entryNum:Int, name:Option[String] = None)(implicit p: Pa
     inPort.bits.info := driver.bits
     inPort.bits.entryIdxOH := (1 << idx).U
   }
-  io.issueInfo.valid := selector.io.out.valid
+  io.issueInfo.valid := selector.io.out.valid && !io.redirect.valid
   io.issueInfo.bits := selector.io.out.bits
 }
