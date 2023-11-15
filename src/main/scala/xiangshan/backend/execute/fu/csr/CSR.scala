@@ -127,9 +127,6 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   cfOut := cfIn
   val flushPipe = Wire(Bool())
 
-  val specialCSRInstr = uopIn.ctrl.fuOpType === CSROpType.set || uopIn.ctrl.fuOpType === CSROpType.clr || uopIn.ctrl.fuOpType === CSROpType.seti || uopIn.ctrl.fuOpType === CSROpType.clri
-  val needNotWrite = specialCSRInstr && uopIn.uopIdx === 1.U
-
   val (valid, src1, src2, func) = (
     io.in.valid,
     io.in.bits.src(0),
@@ -589,8 +586,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     CSROpType.set  -> (rdata | src1),
     CSROpType.clr  -> (rdata & (~src1).asUInt),
     CSROpType.wrti -> csri,
-    CSROpType.seti -> (rdata | csri),
-    CSROpType.clri -> (rdata & (~csri).asUInt)
+    CSROpType.seti -> Mux(csri.orR, (rdata | csri), rdata),
+    CSROpType.clri -> Mux(csri.orR, (rdata & (~csri).asUInt), rdata)
   ))
 
     // vcsr
@@ -805,7 +802,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.priviledgeMode := priviledgeMode
 
   // general CSR wen check
-  val wen = valid && func =/= CSROpType.jmp && (addr=/=Satp.U || satpLegalMode) && !isVset && !needNotWrite
+  val wen = valid && func =/= CSROpType.jmp && (addr=/=Satp.U || satpLegalMode) && !isVset
   val dcsrPermitted = dcsrPermissionCheck(addr, false.B, debugMode)
   val triggerPermitted = triggerPermissionCheck(addr, true.B, debugMode) // todo dmode
   val modePermitted = csrAccessPermissionCheck(addr, false.B, priviledgeMode) && dcsrPermitted && triggerPermitted
@@ -834,8 +831,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     CSROpType.set  -> (rdataFix | src1),
     CSROpType.clr  -> (rdataFix & (~src1).asUInt),
     CSROpType.wrti -> csri,
-    CSROpType.seti -> (rdataFix | csri),
-    CSROpType.clri -> (rdataFix & (~csri).asUInt)
+    CSROpType.seti -> Mux(csri.orR, (rdataFix | csri), rdataFix),
+    CSROpType.clri -> Mux(csri.orR, (rdataFix & (~csri).asUInt), rdataFix)
   ))
   MaskedRegMap.generate(fixMapping, addr, rdataFix, wen && permitted, wdataFix)
 
@@ -843,8 +840,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     fcsr := fflags_wfn(update = true)(RegNext(csrio.fpu.fflags.bits))
   }
   // set fs and sd in mstatus
-  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs) && (!needNotWrite)
-  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid) && (!needNotWrite)
+  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs)
+  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid)
   when (vsUpdate || fsUpdate) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when(fsUpdate){

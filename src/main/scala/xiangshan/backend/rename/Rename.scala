@@ -201,20 +201,6 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     //out
     io.out(i).valid := io.in(i).valid && intFreeList.io.canAllocate && fpFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept && io.allowIn
     io.out(i).bits  := uops(i)
-
-    // csrrs/csrrc -> csr should not be writed when rs1=x0
-    val csrSpecialInstr = uops(i).ctrl.fuOpType === CSROpType.set || uops(i).ctrl.fuOpType === CSROpType.clr || uops(i).ctrl.fuOpType === CSROpType.seti || uops(i).ctrl.fuOpType === CSROpType.clri
-    val csrrIgnore = uops(i).ctrl.lsrc(0) === 0.U && (uops(i).ctrl.fuOpType === CSROpType.set || uops(i).ctrl.fuOpType === CSROpType.clr)
-    val csriIgnore = uops(i).ctrl.imm === 0.U && (uops(i).ctrl.fuOpType === CSROpType.seti || uops(i).ctrl.fuOpType === CSROpType.clri)
-    val csrNeedIgnore = csrrIgnore || csriIgnore
-    when(csrNeedIgnore) {
-      io.out(i).bits.uopIdx := 1.U
-    }.elsewhen(csrSpecialInstr) {
-      io.out(i).bits.uopIdx := 0.U
-    }.otherwise {
-      io.out(i).bits.uopIdx := uops(i).uopIdx
-    }
-
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
       io.out(i).bits.ctrl.imm := Cat(io.in(i).bits.ctrl.lsrc(1), io.in(i).bits.ctrl.lsrc(0))
