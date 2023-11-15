@@ -586,8 +586,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     CSROpType.set  -> (rdata | src1),
     CSROpType.clr  -> (rdata & (~src1).asUInt),
     CSROpType.wrti -> csri,
-    CSROpType.seti -> (rdata | csri),
-    CSROpType.clri -> (rdata & (~csri).asUInt)
+    CSROpType.seti -> Mux(csri.orR, (rdata | csri), rdata),
+    CSROpType.clri -> Mux(csri.orR, (rdata & (~csri).asUInt), rdata)
   ))
 
     // vcsr
@@ -831,8 +831,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     CSROpType.set  -> (rdataFix | src1),
     CSROpType.clr  -> (rdataFix & (~src1).asUInt),
     CSROpType.wrti -> csri,
-    CSROpType.seti -> (rdataFix | csri),
-    CSROpType.clri -> (rdataFix & (~csri).asUInt)
+    CSROpType.seti -> Mux(csri.orR, (rdataFix | csri), rdataFix),
+    CSROpType.clri -> Mux(csri.orR, (rdataFix & (~csri).asUInt), rdataFix)
   ))
   MaskedRegMap.generate(fixMapping, addr, rdataFix, wen && permitted, wdataFix)
 
