@@ -134,6 +134,10 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     io.in.bits.uop.ctrl.fuOpType
   )
 
+  val csrr_sc_ignoreW = (uopIn.ctrl.fuOpType === CSROpType.set || uopIn.ctrl.fuOpType === CSROpType.clr) && (uopIn.psrc(0) === 0.U)
+  val csrr_sci_ignoreW = (uopIn.ctrl.fuOpType === CSROpType.seti || uopIn.ctrl.fuOpType === CSROpType.clri) && (src2(16, 12) === 0.U)
+  val ignoreWrite = csrr_sc_ignoreW || csrr_sci_ignoreW
+
   // CSR define
   class Priv extends Bundle {
     val m = Output(Bool())
@@ -802,7 +806,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.priviledgeMode := priviledgeMode
 
   // general CSR wen check
-  val wen = valid && func =/= CSROpType.jmp && (addr=/=Satp.U || satpLegalMode) && !isVset
+  val wen = valid && func =/= CSROpType.jmp && (addr=/=Satp.U || satpLegalMode) && !isVset && !ignoreWrite
   val dcsrPermitted = dcsrPermissionCheck(addr, false.B, debugMode)
   val triggerPermitted = triggerPermissionCheck(addr, true.B, debugMode) // todo dmode
   val modePermitted = csrAccessPermissionCheck(addr, false.B, priviledgeMode) && dcsrPermitted && triggerPermitted
@@ -840,8 +844,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     fcsr := fflags_wfn(update = true)(RegNext(csrio.fpu.fflags.bits))
   }
   // set fs and sd in mstatus
-  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs)
-  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid)
+  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs) && !ignoreWrite
+  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid) && !ignoreWrite
   when (vsUpdate || fsUpdate) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when(fsUpdate){
