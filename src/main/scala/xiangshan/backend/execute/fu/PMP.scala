@@ -26,7 +26,7 @@ import xiangshan._
 import xiangshan.backend.execute.fu.csr.HasCSRConst
 import xiangshan.cache.mmu.TlbCmd
 import xs.utils.MaskedRegMap.WritableMask
-import xs.utils.{MaskedRegMap, OneHot, ParallelPriorityMux}
+import xs.utils.{MaskedRegMap, OneHot, ParallelPriorityMux, MaskData}
 
 trait PMPConst extends HasPMParameters {
   val PMPOffBits = 2 // minimal 4bytes
@@ -308,6 +308,8 @@ trait PMPMethod extends PMPConst {
     /** to fit MaskedRegMap's write, declare cfgs as Merged CSRs and split them into each pmp */
     val cfgMerged = RegInit(init_value._1) //(Vec(num / pmpCfgPerCSR, UInt(PMXLEN.W))) // RegInit(VecInit(Seq.fill(num / pmpCfgPerCSR)(0.U(PMXLEN.W))))
     val cfgs = WireInit(cfgMerged).asTypeOf(Vec(num, new PMPConfig()))
+    val cfgMask = Cat(cfgs.map(cfg => WireInit(Fill(8, !cfg.locked))).reverse).asTypeOf(Vec(2, UInt(64.W)))
+    dontTouch(cfgMask)
     val addr = RegInit(init_value._2) // (Vec(num, UInt((PMPAddrBits-PMPOffBits).W)))
     val mask = RegInit(init_value._3) // (Vec(num, UInt(PMPAddrBits.W)))
 
@@ -320,7 +322,10 @@ trait PMPMethod extends PMPConst {
         addr = cfgBase + pmpCfgIndex(i),
         reg = cfgMerged(i/pmpCfgPerCSR),
         wmask = WritableMask,
-        wfn = new PMPBase().write_cfg_vec(mask, addr, i)
+        wfn = w => MaskData(cfgMerged(i/pmpCfgPerCSR),
+          new PMPBase().write_cfg_vec(mask, addr, i)(w),
+          cfgMask(i/pmpCfgPerCSR)
+        )
       ))
     }).fold(Map())((a, b) => a ++ b) // ugly code, hit me if u have better codes
 
