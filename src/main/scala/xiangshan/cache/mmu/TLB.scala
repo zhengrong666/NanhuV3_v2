@@ -420,8 +420,7 @@ object TLB {
         // NOTE: the resp.valid seems to be useless, it must be true when need
         //       But don't know what happens when true but not need, so keep it correct value, not just true.B
         if (q.missSameCycle && !q.sameCycle) {
-//          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegNext(tlb.io.requestor(i).resp.bits.miss)
-          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegEnable(tlb.io.requestor(i).resp.bits.miss,tlb.io.requestor(i).req.valid)
+          in(i).resp.valid := tlb.io.requestor(i).resp.valid && !RegNext(tlb.io.requestor(i).resp.bits.miss)
         } else {
           in(i).resp.valid := tlb.io.requestor(i).resp.valid && !tlb.io.requestor(i).resp.bits.miss
         }
