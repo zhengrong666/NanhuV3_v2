@@ -164,7 +164,7 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   vrf.io.vectorReads.take(loadUnitNum * 2).zip(rf.io.vectorReads).foreach({ case (a, b) => a <> b })
   vrf.io.vectorReads.last <> vpBlk.io.rfReadPort.vrf
   for (elem <- vrf.io.moveOldValReqs.zip(rf.io.vectorRfMoveReq)) {
-    elem._1 := Pipe(elem._2, 2)
+    elem._1 := Pipe(elem._2)
   }
   vrf.io.redirect := Pipe(localRedirect)
   vrf.io.vecAllocPregs := io.vectorAllocPregs
