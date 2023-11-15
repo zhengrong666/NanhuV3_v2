@@ -178,7 +178,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := redirectBitsReg
     })
-    vrf.io.moveOldValReqs := io.moveOldValReqs
+    vrf.io.moveOldValReqs.zip(io.moveOldValReqs).foreach({case(a, b) => a := Pipe(b)})
     vrf.io.readPorts.take(extraVectorRfReadPort).zip(io.vectorReads).foreach({case(rr, ir) =>
       rr.addr := ir.addr
       ir.data := rr.data
