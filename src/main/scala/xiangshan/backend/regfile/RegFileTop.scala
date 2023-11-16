@@ -226,7 +226,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val uopIdx = bi.issue.bits.uop.uopIdx
           val sew = bi.issue.bits.uop.vctrl.eew(0)
           val uopDelay = RegEnable(bi.issue.bits.uop, bi.issue.valid)
-
           io.vectorReads(vecReadPortIdx).addr := Mux(isStd, bi.issue.bits.uop.psrc(2), bi.issue.bits.uop.psrc(1))
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
