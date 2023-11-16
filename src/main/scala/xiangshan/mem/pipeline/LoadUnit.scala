@@ -249,7 +249,7 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging{
 
   // if replay is detected in load_s1,
   // load inst will be canceled immediately
-  io.out.valid := io.in.valid && !io.rsFeedback.valid && !io.s1_kill
+  io.out.valid := io.in.valid && (!io.rsFeedback.valid && !io.s1_kill || !EnableMem)
   io.out.bits.paddr := s1_paddr_dup_lsu
   io.out.bits.tlbMiss := s1_tlb_miss
 
@@ -412,11 +412,11 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
     io.out.bits.miss := s2_cache_miss &&
       !s2_exception &&
       !fullForward &&
-      !s2_is_prefetch
+      !s2_is_prefetch && EnableMem
   } else {
     io.out.bits.miss := s2_cache_miss &&
       !s2_exception &&
-      !s2_is_prefetch
+      !s2_is_prefetch && EnableMem
   }
   io.out.bits.uop.ctrl.fpWen := io.in.bits.uop.ctrl.fpWen && !s2_exception
 
@@ -436,7 +436,7 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
   val debug_ldldVioReplay = s2_ldld_violation && !s2_mmio && !s2_is_prefetch && !s2_tlb_miss
   // io.out.bits.uop.ctrl.replayInst := false.B
   io.lpvCancel := io.in.valid && (s2_tlb_miss || s2_mmio || io.lsq.dataInvalid || s2_cache_miss)
-  io.out.bits.mmio := s2_mmio
+  io.out.bits.mmio := s2_mmio && EnableMem
   io.out.bits.uop.ctrl.flushPipe := false.B  ///flushPipe logic is useless
   io.out.bits.uop.cf.exceptionVec := s2_exception_vec // cache error not included
 
@@ -731,15 +731,14 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   val s2_wb_valid = load_s2.io.out.valid &&
     (!load_s2.io.out.bits.miss &&
       !load_s2.io.out.bits.mmio &&
-      !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect) &&
-      !load_s2.io.out.bits.uop.vctrl.ordered ||
-      !load_s2.io.out.bits.uop.loadStoreEnable)
+      !load_s2.io.out.bits.uop.robIdx.needFlush(io.redirect))
 
   // Int load, if hit, will be writebacked at s2
   val hitLoadOut = Wire(Valid(new ExuOutput))
   hitLoadOut := DontCare
   hitLoadOut.valid := s2_wb_valid
   hitLoadOut.bits.uop := load_s2.io.out.bits.uop
+  hitLoadOut.bits.uop.ctrl.vdWen := load_s2.io.out.bits.uop.ctrl.vdWen && load_s2.io.out.bits.uop.loadStoreEnable
   hitLoadOut.bits.data := load_s2.io.out.bits.data
   hitLoadOut.bits.redirectValid := false.B
   hitLoadOut.bits.redirect := DontCare

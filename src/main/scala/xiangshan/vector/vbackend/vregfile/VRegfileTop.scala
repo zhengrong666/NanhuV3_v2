@@ -76,7 +76,7 @@ object VRegfileTopUtil{
       (sew === 2.U) -> (("h0f".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
       (sew === 3.U) -> (("hff".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
     ))
-    mask(width - 1, 0).asUInt
+    Mux(in.ctrl.vdWen, mask(width - 1, 0).asUInt, 0.U(width.W))
   }
 }
 
@@ -138,14 +138,13 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
           (sew === 2.U) -> Cat(Seq.fill(VLEN / 32)(wbin.bits.data(31, 0))),
           (sew === 3.U) -> Cat(Seq.fill(VLEN / 64)(wbin.bits.data(63, 0)))
         ))
-        val validCond = wbin.valid && wbin.bits.uop.ctrl.vdWen
-        val validReg = RegNext(validCond && !bitsWire.uop.robIdx.needFlush(io.redirect), false.B)
-        val bitsReg = RegEnable(bitsWire, validCond)
-
+        val validReg = RegNext(wbin.valid && !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
+        val bitsReg = RegEnable(bitsWire, wbin.valid)
+        val lmask = GenLoadVrfMask(bitsReg.uop, VLEN)
         rfwb.valid := validReg
         rfwb.bits := bitsReg
-        rfwb.bits.wakeupMask := GenLoadVrfMask(bitsReg.uop, VLEN)
-        rfwb.bits.writeDataMask := Mux(bitsReg.uop.loadStoreEnable, GenLoadVrfMask(bitsReg.uop, VLEN), 0.U)
+        rfwb.bits.wakeupMask := lmask
+        rfwb.bits.writeDataMask := lmask
         rfwb.bits.redirectValid := false.B
         rfwb.bits.redirect := DontCare
       } else {
