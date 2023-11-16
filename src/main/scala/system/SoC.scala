@@ -121,6 +121,8 @@ trait HaveSlaveAXI4Port {
     TLBuffer() :=
     AXI2TL(16, 16, soc.hasMbist, soc.hasShareBus) :=
     AXI4Buffer() :=
+    AXI4Fragmenter() :=
+    AXI4Buffer() :=
     l3FrontendAXI4Node
   errorDevice.node := l3_xbar
 
