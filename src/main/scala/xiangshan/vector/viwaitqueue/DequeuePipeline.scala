@@ -16,7 +16,7 @@ class DequeuePipeline(PipelineWidth: Int)(implicit p: Parameters) extends XSModu
     val validReg = RegInit(false.B)
     val bitsReg = Reg(new MicroOp)
     val allowPipe = out.ready || !validReg
-    in.ready := allowPipe && !io.redirect.valid
+    in.ready := allowPipe
     when(validReg && io.redirect.valid && bitsReg.robIdx.needFlush(io.redirect)){
       validReg := false.B
     }.elsewhen(allowPipe){
