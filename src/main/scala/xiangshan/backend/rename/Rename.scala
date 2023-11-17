@@ -204,9 +204,12 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     // dirty code for fence. The lsrc is passed by imm.
     when (io.out(i).bits.ctrl.fuType === FuType.fence) {
       io.out(i).bits.ctrl.imm := Cat(io.in(i).bits.ctrl.lsrc(1), io.in(i).bits.ctrl.lsrc(0))
+    }.elsewhen(io.out(i).bits.ctrl.fuOpType === CSROpType.vsetvl || io.out(i).bits.ctrl.fuOpType === CSROpType.vsetvli || io.out(i).bits.ctrl.fuOpType === CSROpType.vsetivli) {
+      io.out(i).bits.ctrl.imm := vtyperename.io.out(i).bits.ctrl.imm
     }
-    // dirty code for SoftPrefetch (prefetch.r/prefetch.w)
+    
     when (io.in(i).bits.ctrl.isSoftPrefetch) {
+      // dirty code for SoftPrefetch (prefetch.r/prefetch.w)
       io.out(i).bits.ctrl.fuType    := Mux(io.in(i).bits.ctrl.lsrc(0) === 1.U, FuType.ldu, FuType.jmp)
       io.out(i).bits.ctrl.fuOpType  := Mux(io.in(i).bits.ctrl.lsrc(0) === 1.U,
         Mux(io.in(i).bits.ctrl.lsrc(1) === 1.U, LSUOpType.prefetch_r, LSUOpType.prefetch_w),
