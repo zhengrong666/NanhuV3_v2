@@ -101,8 +101,10 @@ endif
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
 	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
-	@sed -i -e '/^ *DummyDPICWrapper/i\`ifndef SYNTHESIS' \
-	-e '/^ *DummyDPICWrapper/{:a N; /;/!ba s/;/;\n`endif/ };' $@
+	@sed -i -e '/^ *.*DummyDPICWrapper/i\`ifndef SYNTHESIS' \
+	-e '/^ *.*DummyDPICWrapper/{:a N; /;/!ba s/;/;\n`endif/ };' $@
+	@sed -i -e '/^ *.*Delayer/i\`ifndef SYNTHESIS'
+	-e '/^ *.*Delayer/{:a N; /;/!ba s/;/;\n`endif/ };' $@
 
 verilog: $(TOP_V)
 
@@ -127,8 +129,10 @@ endif
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_bits_/s_\1_\2_/g' $@
 	@sed -i -e 's/\(peripheral\|memory\)_0_\(aw\|ar\|w\|r\|b\)_/m_\1_\2_/g' \
 	-e 's/\(dma\)_0_\(aw\|ar\|w\|r\|b\)_\(ready\|valid\)/s_\1_\2_\3/g' $@
-	@sed -i -e '/^ *DummyDPICWrapper/i\`ifndef SYNTHESIS' \
-	-e '/^ *DummyDPICWrapper/{:a N; /;/!ba s/;/;\n`endif/ };' $@
+	@sed -i -e '/^ *.*DummyDPICWrapper/i\`ifndef SYNTHESIS' \
+	-e '/^ *.*DummyDPICWrapper/{:a N; /;/!ba s/;/;\n`endif/ };' $@
+	@sed -i -e '/^ *.*Delayer/i\`ifndef SYNTHESIS'
+	-e '/^ *.*Delayer/{:a N; /;/!ba s/;/;\n`endif/ };' $@
 
 FILELIST := $(ABS_WORK_DIR)/build/cpu_flist.f
 
