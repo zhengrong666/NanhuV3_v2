@@ -28,6 +28,7 @@ import xiangshan.backend.issue._
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan._
 import xiangshan.backend.rename.BusyTable
+import xs.utils.GTimer
 import xs.utils.perf.HasPerfLogging
 
 class FloatingReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter {
@@ -156,12 +157,14 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
     }
   })
 
+  private val timer = GTimer()
   for(((fromAllocate, toAllocate), rsBank) <- allocateNetwork.io.enqToRs
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
     rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
+    rsBank.io.enq.bits.data.debugInfo.enqRsTime := timer + 1.U
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
 

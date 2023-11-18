@@ -253,12 +253,14 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     }
   })
 
+  private val timer = GTimer()
   for(((fromAllocate, toAllocate), rsBank) <- allocateNetwork.io.enqToRs
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
     rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
+    rsBank.io.enq.bits.data.debugInfo.enqRsTime := timer + 1.U
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
 

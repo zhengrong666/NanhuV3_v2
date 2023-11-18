@@ -28,6 +28,7 @@ import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
 import xiangshan.backend.issue._
 import xiangshan.backend.rename.BusyTable
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
+import xs.utils.GTimer
 import xs.utils.perf.HasPerfLogging
 
 class IntegerReservationStation(implicit p: Parameters) extends LazyModule with HasXSParameter{
@@ -180,12 +181,14 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
     when(source.valid){assert(FuType.integerTypes.map(_ === source.bits.ctrl.fuType).reduce(_||_))}
   })
 
+  private val timer = GTimer()
   for(((fromAllocate, toAllocate), rsBank) <- allocateNetwork.io.enqToRs
     .zip(allocateNetwork.io.entriesValidBitVecList)
     .zip(rsBankSeq)){
     toAllocate := rsBank.io.allocateInfo
     rsBank.io.enq.valid := fromAllocate.valid && !io.redirect.valid
     rsBank.io.enq.bits.data := fromAllocate.bits.uop
+    rsBank.io.enq.bits.data.debugInfo.enqRsTime := timer + 1.U
     rsBank.io.enq.bits.addrOH := fromAllocate.bits.addrOH
   }
 

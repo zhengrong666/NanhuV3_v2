@@ -26,7 +26,7 @@ import chisel3.util._
 import firrtl.annotations.Annotation
 import firrtl.transforms.NoDedupAnnotation
 import xiangshan.{MicroOp, Redirect, XSModule}
-import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, LogicShiftRight}
+import xs.utils.{CircularQueuePtr, GTimer, HasCircularQueuePtrHelper, LogicShiftRight}
 sealed class TwoEntryQueuePtr extends CircularQueuePtr[TwoEntryQueuePtr](entries = 2) with HasCircularQueuePtrHelper
 sealed class PipelineEnqBundle(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends Bundle{
   val uop: MicroOp = new MicroOp
@@ -45,12 +45,14 @@ class DecoupledPipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Paramet
   })
   //ready should be true all the time
   io.enq.ready := io.deq.ready
-
+  private val timer = GTimer()
   private val deqValidDriverReg = RegNext(io.enq.valid, false.B)
   private val deqDataDriverReg = RegEnable(io.enq.bits.selectResp, io.enq.valid)
   private val shouldBeCanceled = deqDataDriverReg.info.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) && c}).reduce(_||_)
   io.deq.valid := deqValidDriverReg && !shouldBeCanceled
   io.deq.bits.uop := io.enq.bits.uop
+  io.deq.bits.uop.debugInfo.selectTime := timer
+  io.deq.bits.uop.debugInfo.issueTime := timer + 1.U
   io.deq.bits.bankIdxOH := deqDataDriverReg.bankIdxOH
   io.deq.bits.entryIdxOH := deqDataDriverReg.entryIdxOH
   io.deq.bits.uop.robIdx := deqDataDriverReg.info.robPtr

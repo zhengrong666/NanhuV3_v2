@@ -268,6 +268,8 @@ class LoadUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging{
   XSPerfAccumulate("in_valid", io.in.valid)
   XSPerfAccumulate("in_fire", io.in.fire)
   XSPerfAccumulate("in_fire_first_issue", io.in.fire && io.in.bits.isFirstIssue)
+  XSPerfAccumulate("replay",  io.rsFeedback.valid)
+  XSPerfAccumulate("replay_bankconflict",  io.rsFeedback.valid && s1_bank_conflict)
   XSPerfAccumulate("tlb_miss", io.in.fire && s1_tlb_miss)
   XSPerfAccumulate("tlb_miss_first_issue", io.in.fire && s1_tlb_miss && io.in.bits.isFirstIssue)
   XSPerfAccumulate("stall_out", io.out.valid && !io.out.ready)

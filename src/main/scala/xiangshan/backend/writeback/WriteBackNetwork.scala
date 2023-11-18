@@ -27,6 +27,7 @@ import freechips.rocketchip.diplomacy._
 import xiangshan.{ExuOutput, HasXSParameter, MemPredUpdateReq, Redirect, XSCoreParamsKey}
 import xiangshan.frontend.Ftq_RF_Components
 import difftest._
+import xs.utils.GTimer
 
 class WriteBackNetwork(implicit p:Parameters) extends LazyModule {
   val node = new WriteBackNetworkNode
@@ -95,7 +96,7 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
   redirectGen.io.redirectIn := localRedirectReg
   io.redirectOut := redirectGen.io.redirectOut
   io.memPredUpdate := redirectGen.io.memPredUpdate
-
+  private val timer = GTimer()
   for ((s, i) <- wbSink.zipWithIndex) {
     val sinkParam = s._2._2
     val source = sinkParam.map(elm => wbSourcesMap(elm))
@@ -109,6 +110,7 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
         realSrc.bits.uop := RegEnable(src.bits.uop, realValid)
         realSrc.valid := RegNext(realValid, false.B)
       }
+      realSrc.bits.uop.debugInfo.writebackTime := timer
       if (s._2._1.isRob || s._2._1.isVrs || s._2._1.isVprs || s._2._1.isVms || s._2._1.isMemRs && cfg.throughVectorRf) {
         dst := PipeWithRedirect(realSrc, 2, p)
       } else if (s._2._1.isIntRs) {

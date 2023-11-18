@@ -5,7 +5,7 @@ import chisel3._
 import chisel3.util._
 import xiangshan.backend.issue.SelectResp
 import xiangshan.{FuType, MicroOp, Redirect, SrcType, XSModule}
-import xs.utils.LogicShiftRight
+import xs.utils.{GTimer, LogicShiftRight}
 
 sealed class MemPipelineEnqBundle(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Parameters) extends Bundle{
   val selectResp = new SelectResp(bankIdxWidth, entryIdxWidth)
@@ -52,9 +52,11 @@ class MemoryIssuePipeline(bankIdxWidth:Int, entryIdxWidth:Int)(implicit p: Param
   }.elsewhen(io.enq.fire){
     deqDataDriverReg := io.enq.bits.selectResp
   }
-
+  private val timer = GTimer()
   io.deq.valid := deqValidDriverReg && !shouldBeCanceled
   io.deq.bits.uop := io.enq.bits.uop
+  io.deq.bits.uop.debugInfo.selectTime := timer
+  io.deq.bits.uop.debugInfo.issueTime := timer + 1.U
   io.deq.bits.uop.robIdx := deqDataDriverReg.info.robPtr
   io.deq.bits.uop.ctrl.rfWen := deqDataDriverReg.info.rfWen
   io.deq.bits.uop.ctrl.fpWen := deqDataDriverReg.info.fpWen
