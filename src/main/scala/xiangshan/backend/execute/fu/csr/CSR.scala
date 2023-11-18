@@ -615,7 +615,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.vcsr.vstart := vstart
 
   val isVset = uopIn.ctrl.isVset
-  val needReadVtype = valid && !isVset && ((addr===Vtype.asUInt) || (addr===Vl.asUInt))
+  val needReadVtype = valid && !isVset && (addr===Vtype.asUInt)
+  val needReadVl = valid && !isVset && (addr===Vl.asUInt)
   csrio.vcsr.vtype.vtypeRead.readEn := valid && !isVset && (addr===Vtype.asUInt)
   csrio.vcsr.vtype.vlRead.readEn    := valid && !isVset && (addr===Vl.asUInt)
 
@@ -814,7 +815,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
-  io.out.bits.data := Mux(isVset, vsetFu.io.vlNew, Mux(needReadVtype, csrio.vcsr.vtype.vtypeRead.data.bits, rdata))
+  val vtypeReadValid = csrio.vcsr.vtype.vtypeRead.data.valid || csrio.vcsr.vtype.vlRead.data.valid
+  val vtypeReadData = Mux(csrio.vcsr.vtype.vtypeRead.data.valid, csrio.vcsr.vtype.vtypeRead.data.bits, csrio.vcsr.vtype.vlRead.data.bits)
+  io.out.bits.data := Mux(isVset, vsetFu.io.vlNew, Mux(vtypeReadValid, vtypeReadData, rdata))
   io.out.bits.uop := io.in.bits.uop
   io.out.bits.uop.cf := Mux(isVset, cfIn, cfOut)
   io.out.bits.uop.ctrl.flushPipe := flushPipe && !isVset
@@ -997,7 +1000,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   }
 
   io.in.ready := true.B
-  io.out.valid := (valid && !needReadVtype) || csrio.vcsr.vtype.vtypeRead.data.valid || csrio.vcsr.vtype.vlRead.data.valid
+  io.out.valid := (valid && !needReadVtype && !needReadVl) || csrio.vcsr.vtype.vtypeRead.data.valid || csrio.vcsr.vtype.vlRead.data.valid
 
   // In this situation, hart will enter debug mode instead of handling a breakpoint exception simply.
   // Ebreak block instructions backwards, so it's ok to not keep extra info to distinguish between breakpoint
