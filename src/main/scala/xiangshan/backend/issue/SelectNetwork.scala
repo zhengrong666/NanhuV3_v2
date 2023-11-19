@@ -67,6 +67,16 @@ class SelectPolicy(width:Int, oldest:Boolean, haveEqual:Boolean)(implicit p: Par
     val defaultValue = Cat(io.in.map(_.valid).reverse)
     io.out.valid := io.in.map(_.valid).reduce(_ | _)
     io.out.bits := Mux(onlyOne, defaultValue, oldestOH)
+
+    val selRobPtr = Mux1H(io.out.bits, io.in.map(_.bits))
+    for(i <- io.in.indices) {
+      if(haveEqual) {
+        when(io.out.valid && !io.out.bits(i) && io.in(i).valid) {assert(selRobPtr <= io.in(i).bits)}
+      } else {
+        when(io.out.valid && !io.out.bits(i) && io.in(i).valid) {assert(selRobPtr < io.in(i).bits)}
+      }
+    }
+
   } else {
     io.out.valid := io.in.map(_.valid).reduce(_ | _)
     io.out.bits := PriorityEncoderOH(Cat(io.in.map(_.valid).reverse))
