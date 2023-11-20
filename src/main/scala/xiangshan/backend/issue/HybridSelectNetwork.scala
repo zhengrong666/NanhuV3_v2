@@ -18,9 +18,13 @@ class PrioritySelectPolicy(inputNum:Int)(implicit p: Parameters) extends XSModul
     val in = Input(Vec(inputNum, Valid(new HybridSelectInfo)))
     val out = Output(Valid(UInt(inputNum.W)))
   })
+  private val lpvMask = Cat(io.in.map(in => Cat(in.bits.lpv).orR).reverse)
+  private val noLpvMask = Cat(io.in.map(in => Cat(in.bits.lpv).orR).map(!_).reverse)
   private val validMask = Cat(io.in.map(_.valid).reverse)
+
+  private val selMask = Mux((validMask & noLpvMask).orR, validMask & noLpvMask, validMask & lpvMask)
   io.out.valid := validMask.orR
-  io.out.bits := PriorityEncoderOH(validMask)
+  io.out.bits := PriorityEncoderOH(selMask)
 }
 
 class OldestSelectPolicy(inputNum:Int, haveEqual:Boolean)(implicit p: Parameters) extends XSModule {
@@ -90,7 +94,7 @@ class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuCo
       a.bits.lpv := b.bits.info.lpv
     })
     oSelector.io.in.zip(inSeq).zip(selOH.asBools).foreach({ case ((a, b), s) =>
-      a.valid := b.valid && !s
+      a.valid := b.valid
       a.bits.robPtr := b.bits.info.robPtr
       a.bits.lpv := b.bits.info.lpv
     })
