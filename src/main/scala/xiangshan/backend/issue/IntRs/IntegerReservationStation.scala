@@ -206,6 +206,8 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
       issueDriver.io.earlyWakeUpCancel := io.earlyWakeUpCancel
       val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
       selectRespArbiter.io.in(1) <> aluSelectNetwork.io.issueInfo(aluPortIdx)
+      XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_conflict", Cat(selectRespArbiter.io.in.map(_.valid)).andR)
+      XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_issue", selectRespArbiter.io.out.fire)
       internalAluJmpWakeupSignals(aluJmpWkpPortIdx) := WakeupQueue(aluSelectNetwork.io.issueInfo(aluPortIdx), aluSelectNetwork.cfg.latency, io.redirect, io.earlyWakeUpCancel, p)
       aluPortIdx = aluPortIdx + 1
       aluJmpWkpPortIdx = aluJmpWkpPortIdx + 1
@@ -255,6 +257,6 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   wakeup.zipWithIndex.foreach({case((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
   })
-  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 0, issue.length, 1)
+  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 1, issue.length, 1)
   XSPerfHistogram("valid_entries_num", PopCount(Cat(allocateNetwork.io.entriesValidBitVecList)), true.B, 0, param.entriesNum, 4)
 }

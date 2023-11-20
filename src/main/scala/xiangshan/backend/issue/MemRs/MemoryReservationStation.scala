@@ -283,7 +283,6 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     specialLoadIssueDriver.io.enq.bits.selectResp := slRes.bits
     specialLoadIssueDriver.io.enq.bits.uop := loadUops(i)
     slRes.ready := specialLoadIssueDriver.io.enq.ready
-
     val regularIss = issue(i)._1.issue
     val loadHasIssued = regularIss.valid && regularIss.bits.uop.ctrl.fuType === FuType.ldu
     sldu_iss._1.issue.valid := specialLoadIssueDriver.io.deq.valid && !loadHasIssued
@@ -294,6 +293,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
     sldu_iss._1.rsFeedback.isFirstIssue := false.B
     sldu_iss._1.auxValid := specialLoadIssueDriver.io.deq.valid && !loadHasIssued
     specialLoadIssueDriver.io.deq.ready := sldu_iss._1.issue.ready
+    XSPerfAccumulate(s"sldu_${i}_issue", specialLoadIssueDriver.io.enq.fire)
   }
 
 
@@ -309,6 +309,8 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       respArbiter.io.in(0) <> stdSelectNetwork.io.issueInfo(issuePortIdx)
       respArbiter.io.in(1) <> staSelectNetwork.io.issueInfo(issuePortIdx)
       respArbiter.io.in(2) <> lduSelectNetwork.io.issueInfo(issuePortIdx)
+      XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_conflict", Cat(respArbiter.io.in.take(2).map(_.valid)).andR)
+      XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_issue", respArbiter.io.out.fire)
 
       val scalarLoadSel = lduSelectNetwork.io.issueInfo(issuePortIdx).valid && !lduSelectNetwork.io.issueInfo(issuePortIdx).bits.info.isVector
       loadIssResps(issuePortIdx).valid := scalarLoadSel && !(issueDriver.io.hold && issueDriver.io.isLoad)
@@ -402,7 +404,7 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
   wakeup.zipWithIndex.foreach({ case ((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
   })
-  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 0, issue.length, 1)
+  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 1, issue.length, 1)
   XSPerfHistogram("valid_entries_num", PopCount(Cat(allocateNetwork.io.entriesValidBitVecList)), true.B, 0, param.entriesNum, 4)
 }
 

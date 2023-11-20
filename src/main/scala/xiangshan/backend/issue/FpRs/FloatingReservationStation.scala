@@ -184,6 +184,7 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
 
       val finalSelectInfo = if (iss._2.isFmac) {
         fmaPortIdx = fmaPortIdx + 1
+        XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_issue", fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1).fire)
         fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
       } else if (iss._2.isFmaDiv) {
         fmaPortIdx = fmaPortIdx + 1
@@ -191,6 +192,8 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
         val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
         selectRespArbiter.io.in(1) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
         selectRespArbiter.io.in(0) <> fdivSelectNetwork.io.issueInfo(fdivPortIdx - 1)
+        XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_conflict", Cat(selectRespArbiter.io.in.map(_.valid)).andR)
+        XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_issue", selectRespArbiter.io.out.fire)
         selectRespArbiter.io.out
       } else {
         fmaPortIdx = fmaPortIdx + 1
@@ -198,6 +201,8 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
         val selectRespArbiter = Module(new SelectRespArbiter(param.bankNum, entriesNumPerBank, 2, false))
         selectRespArbiter.io.in(1) <> fmacSelectNetwork.io.issueInfo(fmaPortIdx - 1)
         selectRespArbiter.io.in(0) <> fmiscSelectNetwork.io.issueInfo(fmiscPortIdx - 1)
+        XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_conflict", Cat(selectRespArbiter.io.in.map(_.valid)).andR)
+        XSPerfAccumulate(s"iss_${issuePortIdx}_${iss._2.name}_issue", selectRespArbiter.io.out.fire)
         selectRespArbiter.io.out
       }
 
@@ -234,6 +239,6 @@ class FloatingReservationStationImpl(outer:FloatingReservationStation, param:RsP
   wakeup.zipWithIndex.foreach({ case ((_, cfg), idx) =>
     println(s"Wake Port $idx ${cfg.name} of ${cfg.complexName} #${cfg.id}")
   })
-  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 0, issue.length, 1)
+  XSPerfHistogram("issue_num", PopCount(issue.map(_._1.issue.fire)), true.B, 1, issue.length, 1)
   XSPerfHistogram("valid_entries_num", PopCount(Cat(allocateNetwork.io.entriesValidBitVecList)), true.B, 0, param.entriesNum, 4)
 }

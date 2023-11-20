@@ -5,6 +5,7 @@ import chisel3.util._
 import xiangshan.backend.execute.exu.ExuConfig
 import xiangshan.backend.rob.RobPtr
 import xiangshan.{Redirect, XSBundle, XSModule}
+import xs.utils.perf.HasPerfLogging
 import xs.utils.{LogicShiftRight, ParallelOperationN}
 
 class HybridSelectInfo(implicit p: Parameters) extends XSBundle {
@@ -45,7 +46,8 @@ class OldestSelectPolicy(inputNum:Int, haveEqual:Boolean)(implicit p: Parameters
   io.out.bits := res._2
 }
 
-class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, haveEqual:Boolean, name:Option[String] = None)(implicit p: Parameters) extends XSModule {
+class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, haveEqual:Boolean, name:Option[String] = None)(implicit p: Parameters)
+  extends XSModule with HasPerfLogging {
   require(issueNum <= bankNum && 0 < issueNum && bankNum % issueNum == 0, "Illegal number of issue ports are supported now!")
   private val fuTypeList = cfg.fuConfigs.map(_.fuType)
   val io = IO(new Bundle {
@@ -92,17 +94,19 @@ class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuCo
       a.bits.robPtr := b.bits.info.robPtr
       a.bits.lpv := b.bits.info.lpv
     })
-
     finalSelectResult(i).valid := pSel.valid | oSel.valid
     finalSelectResult(i).bits := Mux1H(selOH, inSeq.map(_.bits))
+    XSPerfAccumulate(s"sel_${i}_oldest", oSel.valid)
+    XSPerfAccumulate(s"sel_${i}_regular", pSel.valid)
   }
 
-  for ((outPort, driver) <- io.issueInfo.zip(finalSelectResult)) {
+  for (((outPort, driver), idx) <- io.issueInfo.zip(finalSelectResult).zipWithIndex) {
     val cancelCond = driver.bits.info.lpv.zip(io.earlyWakeUpCancel).map({case(l, c) => l(0) & c}).reduce(_|_)
     outPort.valid := driver.valid & !cancelCond & !io.redirect.valid
     outPort.bits.bankIdxOH := driver.bits.bankIdxOH
     outPort.bits.entryIdxOH := driver.bits.entryIdxOH
     outPort.bits.info := driver.bits.info
     outPort.bits.info.lpv.zip(driver.bits.info.lpv).foreach({ case (o, i) => o := LogicShiftRight(i, 1)})
+    XSPerfAccumulate(s"sel_${idx}_cancelled", driver.valid & cancelCond)
   }
 }
