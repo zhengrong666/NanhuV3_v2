@@ -26,7 +26,7 @@ import xiangshan.cache._
 import xiangshan.cache.MemoryOpConstants
 import xiangshan.backend.rob.{RobLsqIO, RobPtr}
 import difftest._
-import device.RAMHelper
+import difftest.common.DifftestMem
 import freechips.rocketchip.util.SeqBoolBitwiseOps
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.backend.issue.SelectPolicy
@@ -737,14 +737,14 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   if (coreParams.dcacheParametersOpt.isEmpty) {
     for (i <- 0 until StorePipelineWidth) {
       val ptr = deqPtrExt(i).value
-      val fakeRAM = Module(new RAMHelper(64L * 1024 * 1024 * 1024))
-      fakeRAM.clk   := clock
-      fakeRAM.en    := allocated(ptr) && committed(ptr) && !mmio(ptr)
-      fakeRAM.rIdx  := 0.U
-      fakeRAM.wIdx  := (v_pAddrModule.io.rdata_p(i) - "h80000000".U) >> 3
-      fakeRAM.wdata := dataModule.io.rdata(i).data
-      fakeRAM.wmask := MaskExpand(dataModule.io.rdata(i).mask)
-      fakeRAM.wen   := allocated(ptr) && committed(ptr) && !mmio(ptr)
+      // val ram = DifftestMem(64L * 1024 * 1024 * 1024, 8)
+      // val wen = allocated(ptr) && committed(ptr) && !mmio(ptr)
+      // val waddr = ((paddrModule.io.rdata(i) - "h80000000".U) >> 3).asUInt
+      // val wdata = Mux(paddrModule.io.rdata(i)(3), dataModule.io.rdata(i).data(127, 64), dataModule.io.rdata(i).data(63, 0))
+      // val wmask = Mux(paddrModule.io.rdata(i)(3), dataModule.io.rdata(i).mask(15, 8), dataModule.io.rdata(i).mask(7, 0))
+      // when (wen) {
+      //   ram.write(waddr, wdata.asTypeOf(Vec(8, UInt(8.W))), wmask.asBools)
+      // }
     }
   }
 

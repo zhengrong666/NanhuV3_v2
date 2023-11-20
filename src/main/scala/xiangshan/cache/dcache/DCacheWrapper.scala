@@ -25,7 +25,7 @@ import utils._
 import freechips.rocketchip.diplomacy.{IdRange, LazyModule, LazyModuleImp, TransferSizes}
 import freechips.rocketchip.tilelink._
 import freechips.rocketchip.util.{BundleFieldBase, UIntToOH1}
-import device.RAMHelper
+import difftest.common.DifftestMem
 import xs.utils._
 import coupledL2.{AliasField, AliasKey, DirtyField, PrefetchField}
 import xs.utils.FastArbiter
