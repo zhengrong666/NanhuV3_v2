@@ -24,7 +24,7 @@ import chisel3.util._
 import xiangshan.backend.execute.exu.ExuConfig
 import xiangshan.backend.rob.RobPtr
 import xiangshan.frontend.FtqPtr
-import xiangshan.{FuType, Redirect, XSBundle, XSModule}
+import xiangshan.{ExuOutput, FuType, Redirect, XSBundle, XSModule}
 import xs.utils.{LogicShiftRight, ParallelOperation}
 
 class SelectInfo(implicit p: Parameters) extends XSBundle{
@@ -147,7 +147,7 @@ class SelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuConfig, 
     val selectInfo = Input(Vec(bankNum,Vec(entryNum, Valid(new SelectInfo))))
     val issueInfo = Vec(issueNum, Decoupled(new SelectResp(bankNum, entryNum)))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
-    val tokenRelease = if(cfg.needToken)Some(Input(Vec(issueNum,Valid(UInt(PhyRegIdxWidth.W))))) else None
+    val tokenRelease = if(cfg.needToken)Some(Input(Vec(issueNum,Valid(new ExuOutput())))) else None
   })
   override val desiredName:String = name.getOrElse("SelectNetwork")
 

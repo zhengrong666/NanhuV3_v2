@@ -147,11 +147,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
   private val mulSelectNetwork = Module(new HybridSelectNetwork(param.bankNum, entriesNumPerBank, mulIssuePortNum, mulExuCfg, false, Some(s"IntegerMulSelectNetwork")))
   private val divSelectNetwork = Module(new SelectNetwork(param.bankNum, entriesNumPerBank, divIssuePortNum, divExuCfg, false, false, false, Some(s"IntegerDivSelectNetwork")))
   private val jmpSelectNetwork = Module(new HybridSelectNetwork(param.bankNum, entriesNumPerBank, jmpIssuePortNum, jmpExuCfg, false, Some(s"IntegerJmpSelectNetwork")))
-  divSelectNetwork.io.tokenRelease.get.zip(wakeup.filter(_._2.exuType == ExuType.div).map(_._1)).foreach({
-    case(sink, source) =>
-      sink.valid := source.valid && source.bits.uop.ctrl.rfWen
-      sink.bits := source.bits.uop.pdest
-  })
+  divSelectNetwork.io.tokenRelease.get.zip(wakeup.filter(_._2.exuType == ExuType.div).map(_._1)).foreach({ case(sink, source) => sink := source})
   private val selectNetworkSeq = Seq(aluSelectNetwork, mulSelectNetwork, jmpSelectNetwork)
   selectNetworkSeq.foreach(sn => {
     sn.io.selectInfo.zip(rsBankSeq).foreach({ case (sink, source) =>

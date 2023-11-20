@@ -21,7 +21,7 @@ package xiangshan.backend.issue
 import org.chipsalliance.cde.config.Parameters
 import chisel3._
 import chisel3.util._
-import xiangshan.{Redirect, XSBundle, XSModule}
+import xiangshan.{ExuOutput, Redirect, XSBundle, XSModule}
 import xiangshan.backend.rob.RobPtr
 import xs.utils.{LogicShiftRight, PickOneLow}
 class TokenAllocatorEntry(pdestWidth:Int)(implicit p: Parameters) extends XSBundle{
@@ -33,7 +33,7 @@ class TokenAllocator(pdestWidth:Int, tokenNum:Int)(implicit p: Parameters) exten
   val io = IO(new Bundle{
     val alloc = Input(Valid(new TokenAllocatorEntry(pdestWidth)))
     val allow = Output(Bool())
-    val release = Input(Valid(UInt(pdestWidth.W)))
+    val release = Input(Valid(new ExuOutput))
     val earlyWakeUpCancel = Input(Vec(loadUnitNum, Bool()))
     val redirect = Input(Valid(new Redirect))
   })
@@ -47,7 +47,7 @@ class TokenAllocator(pdestWidth:Int, tokenNum:Int)(implicit p: Parameters) exten
   valids.zip(payload).zip(allocEnables.asBools).foreach({
     case((v, d), en) =>
       val releaseCond0 = d.robPtr.needFlush(io.redirect)
-      val releaseCond1 = io.release.valid && d.pdest === io.release.bits
+      val releaseCond1 = io.release.valid && d.pdest === io.release.bits.uop.pdest && d.robPtr === io.release.bits.uop.robIdx
       val releaseCond2 = d.lpv.zip(io.earlyWakeUpCancel).map({case(l,c) => l(0) & c}).reduce(_|_)
       val shouldBeReleased = v && (releaseCond0 || releaseCond1 || releaseCond2)
       when(shouldBeReleased){
