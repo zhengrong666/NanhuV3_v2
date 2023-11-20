@@ -55,7 +55,7 @@ class DivExuImpl(outer:DivExu, exuCfg:ExuConfig) extends BasicExuImpl(outer) wit
   private val finalIssueSignals = bypassSigGen(io.bypassIn, issuePort, outer.bypassInNum > 0)
 
   private val divSel = PickOneHigh(Cat(divs.map(_.io.in.ready).reverse))
-  when(finalIssueSignals.valid) {
+  when(finalIssueSignals.valid && finalIssueSignals.bits.uop.ctrl.fuType === exuCfg.fuConfigs.head.fuType) {
     assert(divSel.valid)
   }
   issuePort.issue.ready := true.B
