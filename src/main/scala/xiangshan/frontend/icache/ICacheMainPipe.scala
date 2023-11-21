@@ -489,7 +489,7 @@ class ICacheMainPipe(implicit p: Parameters) extends ICacheModule with HasPerfLo
   //PMP Result
   val pmpExcpAF = Wire(Vec(PortNumber, Bool()))
   pmpExcpAF(0)  := RegEnable(fromPMP(0).instr,s1_fire)
-  pmpExcpAF(1)  := RegEnable(fromPMP(1).instr && s2_double_line, s1_fire)
+  pmpExcpAF(1)  := RegEnable(fromPMP(1).instr && s1_double_line, s1_fire)
   //exception information
   //short delay exception signal
   val s2_except_pf        = RegEnable(tlbExcpPF, s1_fire)
