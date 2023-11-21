@@ -447,8 +447,8 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val deqPtrForMask = Mux(state === s_idle, deqPtrVec, walkPtrVec)
   val commits_vec = deqPtrForMask.map(ptr => vectorMarkVec(ptr.value))
   for (((v, canWalk), i) <- canWalkVec.zip(walk_v).zipWithIndex) {
-    val vecNum = PopCount(commits_vec.take(i + 1))
-    v := (vecNum <= 1.U) && canWalk && (i.U < walkCounter)
+    //val vecNum = PopCount(commits_vec.take(i + 1))
+    v := canWalk && (i.U < walkCounter)
   }
 
   val deqPtrGenModule = Module(new RobCommitHelper)
