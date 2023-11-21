@@ -50,12 +50,14 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
 
   val freeList        = Module(new VIFreeList)
   val renameTable     = Module(new VIRenameTable)
-  val rollBackList    = Module(new VIRollBackList)
+  //val rollBackList    = Module(new VIRollBackList)
+  val vrob = Module(new VRob)
+  vrob.io.redirect := io.redirect
 
   io.debug := renameTable.io.debug
 
   //-------------------------------------------- Rename --------------------------------------------
-  private val stopRename = io.redirect.valid || io.commit.isWalk || RegNext(io.commit.isWalk, false.B)
+  private val stopRename = io.redirect.valid || io.commit.isWalk || RegNext(io.commit.isWalk, false.B) || vrob.io.blockRename
   io.rename.map(_.in).zip(io.rename.map(_.out)).foreach {
     case (rin, ro) =>
       rin.ready := ro.ready && freeList.io.canAccept && !stopRename
@@ -115,19 +117,19 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
   }
 
   // write rollbacklist
-  io.rename.map(_.in).zip(rollBackList.io.rename).zipWithIndex.foreach {
+  io.rename.map(_.in).zip(vrob.io.enq).zipWithIndex.foreach {
     case ((req, rlb), i) => {
       rlb.valid := req.fire && req.bits.canRename && req.bits.ctrl.vdWen
       rlb.bits.robIdx := req.bits.robIdx
-      rlb.bits.lrIdx := req.bits.ctrl.ldest
-      rlb.bits.oldPrIdx := renameTable.io.rename(i).pvs(2)
-      rlb.bits.newPrIdx := freeList.io.allocatePhyReg(i)
+      rlb.bits.logicRegIdx := req.bits.ctrl.ldest
+      rlb.bits.oldPhyRegIdx := renameTable.io.rename(i).pvs(2)
+      rlb.bits.newPhyRegIdx := freeList.io.allocatePhyReg(i)
     }
   }
 
   //-------------------------------------------- TODO: commit & walk --------------------------------------------
-  private val rollbackDelay = rollBackList.io.commit.rat.Pipe
-  rollBackList.io.commit.rob <> io.commit
+  private val rollbackDelay = vrob.io.commit.rat.Pipe
+  vrob.io.commit.rob <> io.commit
   renameTable.io.commit := rollbackDelay
 
   for((rls, i) <- freeList.io.releasePhyReg.zipWithIndex) {
