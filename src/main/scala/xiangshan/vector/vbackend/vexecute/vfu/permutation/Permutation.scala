@@ -460,7 +460,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     rvalid_reg := rvalid
   }
 
-  val vperm_fifo = Module(new perm_RegFifo(UInt(8.W), 4))
+  val vperm_fifo = Module(new perm_RegFifo(UInt(8.W), 8))
   val vslide_fifo_wdata = Wire(UInt(8.W))
   val cmprs_fifo_wdata = Wire(UInt(8.W))
   val vrgather_fifo_wdata = Wire(UInt(8.W))
