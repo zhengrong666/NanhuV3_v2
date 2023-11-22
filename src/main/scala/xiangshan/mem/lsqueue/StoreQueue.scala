@@ -447,7 +447,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     io.forward(i).dataInvalidFast := dataInvalidMask.orR && (sqForwardMaskFast & loadMask).orR
     val dataInvalidMaskReg = RegEnable(dataInvalidMask, io.forward(i).valid)
     // load_s2
-    io.forward(i).dataInvalid := RegEnable(io.forward(i).dataInvalidFast, io.forward(i).valid)
+    io.forward(i).dataInvalid := RegEnable(io.forward(i).dataInvalidFast, false.B, io.forward(i).valid)
     // check if vaddr forward mismatched
     io.forward(i).matchInvalid := vaddrMatchFailed
     val dataInvalidMaskRegWire = Wire(UInt(StoreQueueSize.W))
