@@ -17,7 +17,7 @@ object CSROpType {
 
   def clri = "b0111".U
 
-  def vsetivli = "b1000".U
+  def vsetivli = "b1011".U
 
   def vsetvli = "b1001".U
 
