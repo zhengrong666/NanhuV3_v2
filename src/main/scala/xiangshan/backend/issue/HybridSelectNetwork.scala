@@ -111,6 +111,7 @@ class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuCo
     outPort.bits.entryIdxOH := driver.bits.entryIdxOH
     outPort.bits.info := driver.bits.info
     outPort.bits.info.lpv.zip(driver.bits.info.lpv).foreach({ case (o, i) => o := LogicShiftRight(i, 1)})
+    XSPerfAccumulate(s"sel_${idx}_lpv_sel", driver.valid & Cat(driver.bits.info.lpv).orR)
     XSPerfAccumulate(s"sel_${idx}_cancelled", driver.valid & cancelCond)
   }
 }
