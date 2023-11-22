@@ -56,7 +56,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIWaitQueueWidth.U - validEntriesNum
-  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U(log2Ceil(VIWaitQueueWidth + 1).W))
+  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U((log2Ceil(VIWaitQueueWidth) + 1).W))
+  assert(emptyEntriesNumNext <= VIWaitQueueWidth.U)
 
   private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
   private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
@@ -160,7 +161,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitNetwork.io.vstart := RegNextN(io.vstart, 3)
 
   private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || directlyWb)
-  when(deqValid){
+  when(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)){
     deqPtr := deqPtr + 1.U
     emptyEntriesNumNext := emptyEntriesNum +& 1.U
   }
