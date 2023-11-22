@@ -42,7 +42,7 @@ class VRobEntry(implicit p: Parameters) extends VectorBaseBundle {
 class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
   
   val size = VIPhyRegsNum
-
+  
   class VRobPtr extends CircularQueuePtr[VRobPtr](VIPhyRegsNum)
   
   val io = IO(new Bundle {
@@ -68,7 +68,12 @@ class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueu
   val enqPtrVec = Wire(Vec(VIRenameWidth, UInt(log2Up(size).W)))
   enqPtrVec.zipWithIndex.foreach {
     case (ptr, i) => {
-      ptr := (enqPtr + i.U).value
+      if(i == 0) {
+        ptr := enqPtr.value
+      } else {
+        val frontValidNum = PopCount(io.enq.take(i).map(_.valid))
+        ptr := (enqPtr + frontValidNum).value
+      }
     }
   }
 
@@ -90,7 +95,13 @@ class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueu
   }
 
   val walkNum = RegInit(0.U(log2Up(size + 1).W))
-  
+  when(io.redirect.valid && !io.commit.rat.doWalk) {
+    walkNum := PopCount(flushVec)
+  }.elsewhen(io.redirect.valid && io.commit.rat.doWalk) {
+    walkNum := PopCount(flushVec) - PopCount(io.commit.rat.mask)
+  }.elsewhen(io.commit.rat.doWalk) {
+    walkNum := walkNum - PopCount(io.commit.rat.mask)
+  }
 
   // commit
   val commitPtrVec = Wire(Vec(8, UInt(log2Up(size).W)))
@@ -98,25 +109,23 @@ class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueu
   commitPtrVec.zip(walkPtrVec).zipWithIndex.foreach {
     case ((cptr, wptr), i) => {
       cptr := (deqPtr + i.U).value
-      wptr := (enqPtr - i.U).value
+      wptr := (enqPtr - (i+1).U).value
     }
   }
 
   val commitValid = io.commit.rob.isCommit && io.commit.rob.commitValid.asUInt.orR
   val commitRobIdx = Mux1H(io.commit.rob.commitValid, io.commit.rob.robIdx)
-  assert(PopCount(io.commit.rob.commitValid) <= 1.U, "Only one v inst should be walked or committed")
-  
-  when(io.redirect.valid) {
-    walkNum := PopCount(flushVec)
-  }.elsewhen(!commitValid) {
-    walkNum := walkNum - PopCount(io.commit.rat.mask)
+  when(commitValid) {
+    assert(PopCount(io.commit.rob.commitValid) <= 1.U, "Only one v inst should be walked or committed")
   }
 
-  val deqPtrVec = Mux(io.commit.rob.isCommit, commitPtrVec, walkPtrVec)
+  val deqPtrVec = Mux(commitValid, commitPtrVec, walkPtrVec)
   val deqEntryVec = Wire(Vec(8, new VRobEntry))
+  val deqValidVec = Wire(Vec(8, Bool()))
   val deqRobHitVec = Wire(Vec(8, Bool()))
   deqPtrVec.zipWithIndex.foreach {
     case (ptr, i) => {
+      deqValidVec(i) := array_v(ptr)
       val entry = array(ptr)
       deqEntryVec(i) := entry
       deqRobHitVec(i) := entry.robIdx === commitRobIdx
@@ -126,9 +135,11 @@ class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueu
   io.commit.rat.doCommit := commitValid
   io.commit.rat.doWalk := walkNum =/= 0.U && !commitValid
 
-  (deqEntryVec).zip(deqRobHitVec).zipWithIndex.foreach {
-    case ((e, hit), i) => {
-      val actDeq = Mux(commitValid, hit && entryNum > i.U, entryNum > i.U && walkNum.orR)
+  assert(!(io.commit.rat.doCommit && io.commit.rat.doWalk))
+
+  (deqEntryVec).zip(deqRobHitVec).zip(deqValidVec).zipWithIndex.foreach {
+    case (((e, hit), v), i) => {
+      val actDeq = Mux(commitValid, hit && v, walkNum.orR > i.U)
       io.commit.rat.mask(i) := actDeq
       io.commit.rat.lrIdx(i) := e.logicRegIdx
       io.commit.rat.prIdxNew(i) := e.newPhyRegIdx
@@ -142,6 +153,7 @@ class VRob(implicit p: Parameters) extends VectorBaseModule with HasCircularQueu
   when(commitValid) {
     deqPtr := deqPtr + PopCount(io.commit.rat.mask)
   }
+
   when(walkNum.orR) {
     enqPtr := enqPtr - PopCount(io.commit.rat.mask)
   }.otherwise {
