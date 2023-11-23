@@ -186,9 +186,6 @@ class StoreUnit_S3(implicit p: Parameters) extends XSModule {
     val in = Flipped(Decoupled(new LsPipelineBundle))
     val stout = DecoupledIO(new ExuOutput) // writeback store
   })
-
-  val wbIsOrder = io.in.bits.uop.vctrl.ordered
-  val wbIsEnable = io.in.bits.uop.loadStoreEnable
   io.in.ready := true.B
 
   io.stout := DontCare
