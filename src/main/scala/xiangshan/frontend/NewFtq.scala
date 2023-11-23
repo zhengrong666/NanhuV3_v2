@@ -612,7 +612,7 @@ class Ftq(parentName:String = "Unknown")(implicit p: Parameters) extends XSModul
   }
 
   // num cycle is fixed
-  io.toBackend.safeTargetPtr := RegNext(ifuWbPtr)
+  io.toBackend.safeTargetPtr := ifuWbPtr
 
   bpuPtr := bpuPtr + enq_fire
   copied_bpu_ptr.foreach(_ := bpuPtr + enq_fire)
