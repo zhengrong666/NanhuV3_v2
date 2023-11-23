@@ -562,6 +562,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     when(selSldu){assert(lduIssues(i).issue.valid === false.B)}
     // dcache access
     loadUnits(i).io.dcache <> dcache.io.lsu.load(i)
+    dcache.io.lsu.load(i).req.valid := loadUnits(i).io.dcache.req.valid && !loadUnits(i).io.dcache.req.bits.robIdx.needFlush(Pipe(redirectIn))
     // forward
     loadUnits(i).io.lsq.forward <> lsq.io.forward(i)
     loadUnits(i).io.sbuffer <> sbuffer.io.forward(i)
@@ -570,6 +571,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     loadUnits(i).io.csrCtrl       <> csrCtrl
     // dtlb
     loadUnits(i).io.tlb <> dtlb_reqs.take(exuParameters.LduCnt)(i)
+    dtlb_reqs.take(exuParameters.LduCnt)(i).req.valid := loadUnits(i).io.tlb.req.valid && !loadUnits(i).io.tlb.req.bits.robIdx.needFlush(Pipe(redirectIn))
     // pmp
     loadUnits(i).io.pmp <> pmp_check(i).resp
     //cancel
