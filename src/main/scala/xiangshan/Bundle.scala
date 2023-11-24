@@ -518,6 +518,7 @@ class CustomCSRCtrlIO(implicit p: Parameters) extends XSBundle {
   val singlestep = Output(Bool())
   val frontend_trigger = new FrontendTdataDistributeIO()
   val mem_trigger = new MemTdataDistributeIO()
+  val frm = Output(UInt(3.W))
 }
 
 class DistributedCSRIO(implicit p: Parameters) extends XSBundle {

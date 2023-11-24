@@ -861,6 +861,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     mstatus := mstatusNew.asUInt
   }
   csrio.fpu.frm := fcsr.asTypeOf(new FcsrStruct).frm
+  csrio.customCtrl.frm := fcsr.asTypeOf(new FcsrStruct).frm
 
   // Trigger Ctrl
   val triggerEnableVec = tdata1RegVec.map { tdata1 =>

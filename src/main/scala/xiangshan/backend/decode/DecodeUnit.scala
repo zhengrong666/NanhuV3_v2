@@ -1074,6 +1074,10 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   val isMove = BitPat("b000000000000_?????_000_?????_0010011") === ctrl_flow.instr
   cs.isMove := isMove && ctrl_flow.instr(RD_MSB, RD_LSB) =/= 0.U && !io.csrCtrl.singlestep && io.csrCtrl.move_elim_enable
 
+  val isFp = FuType.floatingTypes.map(_ === cs.fuType).reduce(_ | _)
+  val illegalFrm = io.csrCtrl.frm > 4.U
+  val illegalFp = isFp && illegalFrm && cs.fpu.rm === 7.U
+
   // read src1~3 location
   cs.lsrc(0) := ctrl_flow.instr(RS1_MSB, RS1_LSB)
   cs.lsrc(1) := ctrl_flow.instr(RS2_MSB, RS2_LSB)
@@ -1083,17 +1087,7 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
 
   // fill in exception vector
   cf_ctrl.cf.exceptionVec := io.enq.ctrl_flow.exceptionVec
-  cf_ctrl.cf.exceptionVec(illegalInstr) := illegalInst
-
-  when (!io.csrCtrl.svinval_enable) {
-    val base_ii = illegalInst
-    val sinval = BitPat("b0001011_?????_?????_000_00000_1110011") === ctrl_flow.instr
-    val w_inval = BitPat("b0001100_00000_00000_000_00000_1110011") === ctrl_flow.instr
-    val inval_ir = BitPat("b0001100_00001_00000_000_00000_1110011") === ctrl_flow.instr
-    val svinval_ii = sinval || w_inval || inval_ir
-    cf_ctrl.cf.exceptionVec(illegalInstr) := base_ii || svinval_ii
-    cs.flushPipe := false.B
-  }
+  cf_ctrl.cf.exceptionVec(illegalInstr) := illegalInst || illegalFp
 
   // fix frflags
   //                           fflags    zero csrrs rd    csr
