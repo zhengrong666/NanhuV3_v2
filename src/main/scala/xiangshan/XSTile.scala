@@ -140,9 +140,10 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
     buffers
   } else Seq()
 
+  val l2InputBuffers = if(l2cache.isDefined) Some(Seq.fill(2)(LazyModule(new TLBuffer()))) else None
   l2cache match {
     case Some(l2) =>
-      misc.l2_binder.get :*= l2.node :*= TLBuffer() :*= TLBuffer() :*= misc.l1_xbar
+      misc.l2_binder.get :*= l2.node :*= l2InputBuffers.get(1).node :*= l2InputBuffers.get(0).node :*= misc.l1_xbar
       l2.pf_recv_node.map {l2_node =>
           println("Connecting L1 prefetcher to L2!")
           core.exuBlock.memoryBlock.pf_sender_opt.map(sender => l2_node := sender)
@@ -232,6 +233,7 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
   //             |
   //             v
   // reset ----> OR_SYNC --> {Misc, L2 Cache, Cores}
+  private val l2bufs = outer.l2InputBuffers.getOrElse(Seq())
   val resetChain = Seq(
     Seq(
       outer.misc.module,
@@ -243,6 +245,7 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
     ) ++ outer.l2cache.map(_.module),
     outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
       outer.ptw_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
+      l2bufs.map(_.module.asInstanceOf[Module]) ++
       outer.l1d_to_l2_bufferOpt.map(_.module)
   )
   ResetGen(resetChain, reset, Some(io.dfx_reset), !outer.debugOpts.FPGAPlatform)
