@@ -25,10 +25,10 @@ class VprsSelectMux(entryIdxWidth:Int)(implicit p: Parameters) extends Module{
   private val validVec = Cat(valid1, valid0)
   private val sel = WireInit(true.B)
   when(validVec === "b01".U) {
-      sel := true.B
-    }.elsewhen(validVec === "b10".U) {
-      sel := false.B
-    }.elsewhen(validVec === "b11".U) {
+    sel := true.B
+  }.elsewhen(validVec === "b10".U) {
+    sel := false.B
+  }.elsewhen(validVec === "b11".U) {
     when(ptr0 <= ptr1) {
       sel := true.B
     }.otherwise {
