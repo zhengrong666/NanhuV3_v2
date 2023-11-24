@@ -97,8 +97,8 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
     val trigger = Vec(LoadPipelineWidth, new LqTriggerIO)
-    val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
     val lqDeq = Output(UInt(log2Up(CommitWidth + 1).W))
+    val storeAddrIn = Vec(StorePipelineWidth, Flipped(Decoupled(new ExuOutput)))  // store addr
   })
 
   val loadQueue = Module(new LoadQueue)
@@ -165,6 +165,7 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.storeIn <> io.storeIn
   storeQueue.io.storeInRe <> io.storeInRe
   storeQueue.io.storeDataIn <> io.storeDataIn
+  storeQueue.io.storeAddrIn <> io.storeAddrIn
   storeQueue.io.storeMaskIn <> io.storeMaskIn
   storeQueue.io.sbuffer <> io.sbuffer
   storeQueue.io.mmioStout <> io.mmioStout
@@ -173,7 +174,6 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   storeQueue.io.issuePtrExt <> io.issuePtrExt
   storeQueue.io.sqCancelCnt <> io.sqCancelCnt
   storeQueue.io.sqDeq <> io.sqDeq
-  storeQueue.io.stout <> io.stout
 
   loadQueue.io.load_s1 <> io.forward
   storeQueue.io.forward <> io.forward // overlap forwardMask & forwardData, DO NOT CHANGE SEQUENCE

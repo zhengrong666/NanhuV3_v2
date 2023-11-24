@@ -75,6 +75,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val storeIn = Vec(StorePipelineWidth, Flipped(Valid(new LsPipelineBundle))) // store addr, data is not included
     val storeInRe = Vec(StorePipelineWidth, Input(new LsPipelineBundle())) // store more mmio and exception
     val storeDataIn = Vec(StorePipelineWidth, Flipped(Valid(new ExuOutput))) // store data, send to sq from rs
+    val storeAddrIn = Vec(StorePipelineWidth, Flipped(Decoupled(new ExuOutput)))  // store addr
     val storeMaskIn = Vec(StorePipelineWidth, Flipped(Valid(new StoreMaskBundle))) // store mask, send to sq from rs
     val sbuffer = Vec(StorePipelineWidth, Decoupled(new DCacheWordReqWithVaddr)) // write committed store to sbuffer
     val mmioStout = DecoupledIO(new ExuOutput) // writeback uncached store
@@ -88,9 +89,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val sqFull = Output(Bool())
     val sqCancelCnt = Output(UInt(log2Up(StoreQueueSize + 1).W))
     val sqDeq = Output(UInt(2.W))
-    val stout = Vec(StorePipelineWidth,Decoupled(new ExuOutput))
   })
-
   println("StoreQueue: size:" + StoreQueueSize)
 
   // data modules
@@ -135,7 +134,10 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   val committed = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // inst has been committed by rob
   val order = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // inst is an order store
   val mmio = RegInit(VecInit(List.fill(StoreQueueSize)(false.B))) // inst is an mmio store
-  val writebacked = RegInit(VecInit(List.fill(StoreQueueSize)(false.B)))  //inst has writebacked
+//  val writebacked = RegInit(VecInit(List.fill(StoreQueueSize)(false.B)))  //inst has writebacked
+  val writebacked_sta = RegInit(VecInit(List.fill(StoreQueueSize)(false.B)))  //inst has writebacked
+  val writebacked_std = datavalid
+
 
   // ptr
   val enqPtrExt = RegInit(VecInit((0 until io.enq.req.length).map(_.U.asTypeOf(new SqPtr))))
@@ -222,7 +224,9 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       committed(index) := false.B
       mmio(index) := false.B
       order(index) := false.B
-      writebacked(index) := false.B
+//      writebacked(index) := false.B
+      writebacked_sta(index) := false.B
+      writebacked_std(index) := false.B
       readyToLeave(index) := false.B
 
       XSError(!io.enq.canAccept || !io.enq.lqCanAccept, s"must accept $i\n")
@@ -559,7 +563,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     */
   private val readyToDeq = Reg(Vec(StoreQueueSize, Bool()))
   for (i <- 0 until StoreQueueSize) {
-    readyToDeq(i) := readyToLeave(i) & writebacked(i) & allocated(i) &
+    readyToDeq(i) := readyToLeave(i) & writebacked_sta(i) & writebacked_std(i) & allocated(i) &
       !(uop(i).robIdx === exceptionInfo.bits.robIdx && exceptionInfo.valid)
   }
   private val cmtVec = Seq.tabulate(CommitWidth)({idx =>
@@ -636,73 +640,12 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     VecInit(a.asBools)
   }
 
-  val storeWbSelV = Wire(Vec(StorePipelineWidth, Bool()))
-  val storeWbSel = Wire(Vec(LoadPipelineWidth,UInt(log2Up(StoreQueueSize).W)))
-
-  //s0 sel writeback index
-  val storeWbSelVec = VecInit((0 until StoreQueueSize).map(i => {
-    allocated(i) && !writebacked(i) && !mmio(i) && datavalid(i) && RegNext(addrvalid(i),init = false.B)
-  })).asUInt
-
-  val evenDeqMask = getEvenBits(deqMask)
-  val oddDeqMask = getOddBits(deqMask)
-
-  val evenFireMask = getEvenBits(UIntToOH(storeWbSel(0)))
-  val oddFireMask = getOddBits(UIntToOH(storeWbSel(1)))
-
-  val storeEvenSelVecFire = getEvenBits(storeWbSelVec) & ~evenFireMask
-  val storeOddSelVecFire = getOddBits(storeWbSelVec) & ~oddFireMask
-
-  val storeEvenSelVecNotFire = getEvenBits(storeWbSelVec)
-  val storeOddSelVecNotFire = getOddBits(storeWbSelVec)
-
-  val storeEvenSel = Mux(
-    io.stout(0).fire,
-    getFirstOne(toVec(storeEvenSelVecFire), evenDeqMask),
-    getFirstOne(toVec(storeEvenSelVecNotFire), evenDeqMask)
-  )
-
-  val storeOddSel = Mux(
-    io.stout(1).fire,
-    getFirstOne(toVec(storeOddSelVecFire), oddDeqMask),
-    getFirstOne(toVec(storeOddSelVecNotFire), oddDeqMask)
-  )
-
-  val storeWbSelGen = Wire(Vec(StorePipelineWidth,UInt(log2Up(StoreQueueSize).W)))
-  val storeWbSelVGen = Wire(Vec(StorePipelineWidth,Bool()))
-  storeWbSelGen(0) := Cat(storeEvenSel,0.U(1.W))
-  storeWbSelVGen(0) := Mux(io.stout(0).fire,storeEvenSelVecFire.asUInt.orR,storeEvenSelVecNotFire.asUInt.orR)
-  storeWbSelGen(1) := Cat(storeOddSel,1.U(1.W))
-  storeWbSelVGen(1) := Mux(io.stout(1).fire,storeOddSelVecFire.asUInt.orR,storeOddSelVecNotFire.asUInt.orR)
-
-  (0 until StorePipelineWidth).foreach({ case i => {
-    storeWbSel(i) := RegNext(storeWbSelGen(i))
-    storeWbSelV(i) := RegNext(storeWbSelVGen(i), false.B)
-    when(io.stout(i).fire){
-      writebacked(storeWbSel(i)) := true.B
-    }
-  }})
-
-
-  //s1 start writedback
-  (0 until StorePipelineWidth).foreach(i => {
-    dataModule.io.wbRead.raddr(i) := storeWbSelGen(i)
-    v_pAddrModule.io.wbRead.raddr(i) := storeWbSelGen(i)
-
-    val rdata = dataModule.io.wbRead.rdata(i).data
-    val seluop = uop(storeWbSel(i))
-    val raddr = v_pAddrModule.io.wbRead.paddr(i)
-
-
-    io.stout(i) := DontCare
-    io.stout(i).valid := storeWbSelV(i) && !io.stout(i).bits.uop.robIdx.needFlush((io.brqRedirect))
-    io.stout(i).bits.uop := seluop
-    io.stout(i).bits.data := rdata
-    io.stout(i).bits.redirectValid := false.B
-    io.stout(i).bits.redirect := DontCare
-    io.stout(i).bits.uop.cf.exceptionVec := Mux(exceptionInfo.valid && (seluop.robIdx === exceptionInfo.bits.robIdx),exceptionInfo.bits.eVec,0.U.asTypeOf(ExceptionVec()))
-  })
-
+    (0 until StorePipelineWidth).foreach({ case i => {
+      io.storeAddrIn(i).ready := true.B
+      when(io.storeAddrIn(i).fire){
+        writebacked_sta(io.storeAddrIn(i).bits.uop.sqIdx.value) := true.B
+      }
+    }})
 
 
   // Send data stored in sbufferReqBitsReg to sbuffer

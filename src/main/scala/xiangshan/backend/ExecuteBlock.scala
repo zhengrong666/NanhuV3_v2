@@ -222,9 +222,6 @@ class ExecuteBlockImp(outer:ExecuteBlock) extends LazyModuleImp(outer)
   memBlk.io.hartId := io.hartId
   io.lqDeq := RegNext(memBlk.io.lqDeq)
 
-  memBlk.io.sqWbout(0).ready := true.B
-  memBlk.io.sqWbout(1).ready := true.B
-
   io.lsqVecDeqCnt <> memBlk.io.lsqVecDeqCnt
 
   memBlk.io.perfEventsPTW := io.perfEventsPTW
