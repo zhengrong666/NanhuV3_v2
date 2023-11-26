@@ -345,6 +345,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
     case (((cv, wv), info), i) => {
       cv := info.vecWen && rob.io.commits.commitValid(i)
       wv := info.vecWen && rob.io.commits.walkValid(i)
+      wv := DontCare
     }
   }
   commitVector.isExtraWalk := rob.io.commits.isExtraWalk

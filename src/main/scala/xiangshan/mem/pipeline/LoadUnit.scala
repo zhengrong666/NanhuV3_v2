@@ -639,9 +639,8 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
       cancelPointerChasing && !isCancelled && !notFastMatch && !fuOpTypeIsNotLd && !addressNotAligned && addressMisMatch)
   }
 
-  val load_s1_isOrder = load_s1.io.out.bits.uop.vctrl.ordered
   PipelineConnect(load_s1.io.out, load_s2.io.in, true.B,
-    load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect) || cancelPointerChasing || load_s1_isOrder)
+    load_s1.io.out.bits.uop.robIdx.needFlush(io.redirect) || cancelPointerChasing)
 
   // load s2
   io.s2IsPointerChasing := RegEnable(s1_tryPointerChasing && !cancelPointerChasing, load_s1.io.out.fire)

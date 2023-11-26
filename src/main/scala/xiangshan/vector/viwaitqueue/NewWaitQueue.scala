@@ -56,7 +56,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIWaitQueueWidth.U - validEntriesNum
-  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U(log2Ceil(VIWaitQueueWidth + 1).W))
+  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U((log2Ceil(VIWaitQueueWidth) + 1).W))
+  assert(emptyEntriesNumNext <= VIWaitQueueWidth.U)
 
   private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
   private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
@@ -151,7 +152,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val splitDriver = Module(new DequeuePipeline(1))
   splitDriver.io.redirect := io.redirect
   splitDriver.io.in(0).bits := deqUop.uop
-  splitDriver.io.in(0).valid := hasValid && uopRdy && !directlyWb
+  splitDriver.io.in(0).valid := hasValid && uopRdy && !directlyWb && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)
 
   splitNetwork.io.redirect := io.redirect
   splitNetwork.io.in.valid := splitDriver.io.out(0).valid
@@ -160,7 +161,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitNetwork.io.vstart := RegNextN(io.vstart, 3)
 
   private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || directlyWb)
-  when(deqValid){
+  when(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)){
     deqPtr := deqPtr + 1.U
     emptyEntriesNumNext := emptyEntriesNum +& 1.U
   }
@@ -198,7 +199,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   io.out <> splitPipe.io.out
 
   private val vmbInit = Wire(Valid(new MicroOp))
-  vmbInit.valid := deqValid
+  vmbInit.valid := deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)
   vmbInit.bits := deqUop.uop
   vmbInit.bits.uopIdx := 0.U
   private val writebackOnce = deqUop.uop.vctrl.eewType(2) === EewType.const & !deqUop.uop.vctrl.isLs

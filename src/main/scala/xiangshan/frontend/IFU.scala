@@ -63,12 +63,14 @@ class NewIFUIO(implicit p: Parameters) extends XSBundle {
   val icacheStop      = Output(Bool())
   val icachePerfInfo  = Input(new ICachePerfInfo)
   val toIbuffer       = Decoupled(new FetchToIBuffer)
+  val toIbufferPd     = Output(Bool())
   val uncacheInter   =  new UncacheInterface
   val frontendTrigger = Flipped(new FrontendTdataDistributeIO)
   val rob_commits = Flipped(Vec(CommitWidth, Valid(new RobCommitInfo)))
   val iTLBInter       = new BlockTlbRequestIO
   val pmp             =   new ICachePMPBundle
   val mmioCommitRead  = new mmioCommitRead
+  val mmioFetchPending = Output(Bool())
 }
 
 // record the situation in which fallThruAddr falls into
@@ -621,7 +623,7 @@ class NewIFU(implicit p: Parameters) extends XSModule
   val f3_mmio_missOffset = Wire(ValidUndirectioned(UInt(log2Ceil(PredictWidth).W)))
   f3_mmio_missOffset.valid := f3_req_is_mmio
   f3_mmio_missOffset.bits  := 0.U
-
+  io.mmioFetchPending := RegNext(f3_req_is_mmio && mmio_state === m_waitCommit, false.B)
   mmioFlushWb.valid           := (f3_req_is_mmio && mmio_state === m_waitCommit && RegNext(fromUncache.fire)  && f3_mmio_use_seq_pc)
   mmioFlushWb.bits.pc         := f3_pc
   mmioFlushWb.bits.pd         := f3_pd
@@ -738,6 +740,7 @@ class NewIFU(implicit p: Parameters) extends XSModule
   checkFlushWb.bits.instrRange        := wb_instr_range.asTypeOf(Vec(PredictWidth, Bool()))
 
   toFtq.pdWb := Mux(wb_valid, checkFlushWb,  mmioFlushWb)
+  io.toIbufferPd := Mux(wb_valid, checkFlushWb.valid,  mmioFlushWb.valid)
 
   wb_redirect := checkFlushWb.bits.misOffset.valid && wb_valid
 

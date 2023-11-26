@@ -101,7 +101,7 @@ class HybridSelectNetwork(bankNum:Int, entryNum:Int, issueNum:Int, val cfg:ExuCo
     finalSelectResult(i).valid := pSel.valid | oSel.valid
     finalSelectResult(i).bits := Mux1H(selOH, inSeq.map(_.bits))
     XSPerfAccumulate(s"sel_${i}_oldest", oSel.valid)
-    XSPerfAccumulate(s"sel_${i}_regular", pSel.valid)
+    XSPerfAccumulate(s"sel_${i}_regular", pSel.valid & !oSel.valid)
   }
 
   for (((outPort, driver), idx) <- io.issueInfo.zip(finalSelectResult).zipWithIndex) {
