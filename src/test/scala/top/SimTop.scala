@@ -54,16 +54,16 @@ class SimTop(implicit p: Parameters) extends Module {
   soc.dft_lgc_rst_n := true.B.asAsyncReset
   soc.dft_mode := false.B
   soc.io.riscv_rst_vec.foreach(_ := 0x10000000L.U)
-  if(soc.dft.isDefined){
-    soc.dft.get.cgen := false.B
-    soc.dft.get.l3dataram_clk := false.B
-    soc.dft.get.l3dataramclk_bypass := false.B
-    soc.dft.get.ram_hold := false.B
-    soc.dft.get.ram_bypass := false.B
-    soc.dft.get.ram_bp_clken := false.B
-    soc.dft.get.rf2p_ctrl := 0x5832C.U
-    soc.dft.get.rmsp_hd_ctrl := 0xB2C.U
-    soc.dft.get.rmsp_hs_ctrl := 0x1616.U
+  if(soc.sram.isDefined){
+    soc.sram.get.cgen := false.B
+    soc.sram.get.l3dataram_clk := false.B
+    soc.sram.get.l3dataramclk_bypass := false.B
+    soc.sram.get.ram_hold := false.B
+    soc.sram.get.ram_bypass := false.B
+    soc.sram.get.ram_bp_clken := false.B
+    soc.sram.get.rf2p_ctrl := 0x5832C.U
+    soc.sram.get.rmsp_hd_ctrl := 0xB2C.U
+    soc.sram.get.rmsp_hs_ctrl := 0x1616.U
   }
 
   val success = Wire(Bool())

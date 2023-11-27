@@ -242,22 +242,22 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
     } else {
       None
     }
-    val dft = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
+    val sram = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
       Some(IO(new BroadCastBundle))
     } else {
       None
     }
-    if (dft.isDefined) {
+    if (sram.isDefined) {
       if (mbistBroadCastToTile.isDefined) {
-        mbistBroadCastToTile.get := dft.get
+        mbistBroadCastToTile.get := sram.get
       }
       if (mbistBroadCastToL3.isDefined) {
-        mbistBroadCastToL3.get := dft.get
+        mbistBroadCastToL3.get := sram.get
       }
       if (mbistBroadCastToMisc.isDefined) {
-        mbistBroadCastToMisc.get := dft.get
+        mbistBroadCastToMisc.get := sram.get
       }
-      dontTouch(dft.get)
+      dontTouch(sram.get)
     }
 
     /** ***************************************l3 & misc Mbist Share Bus************************************** */
