@@ -77,7 +77,7 @@ class RedirectGen(jmpRedirectNum:Int, aluRedirectNum:Int, memRedirectNum:Int)(im
     s.valid := RegNext(wb.valid, false.B)
     s.bits.redirectValid := RegNext(redirectValidCond, false.B)
     s.bits.uop := RegEnable(wb.bits.uop, wb.valid)
-    s.bits.redirect := RegEnable(wb.bits.redirect, redirectValidCond)
+    s.bits.redirect := RegEnable(wb.bits.redirect, wb.bits.redirectValid)
   })
   private val s1_allRedirect = s1_allWb.map(getRedirect(_, p))
   private val (s1_redirectSel, s1_redirectIdxOH) = selectOldest(s1_allRedirect, p)

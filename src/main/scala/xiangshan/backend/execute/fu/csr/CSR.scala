@@ -1178,10 +1178,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     ((hasDebugTrap && !debugMode) || ebreakEnterParkLoop) -> debugTrapTarget
   ))
   private val exceptionValid = csrio.exception.valid
-  private val flushPipeValid = io.in.valid && flushPipe
   private val exceptionValidReg = RegNext(exceptionValid, false.B)
   private val illegalXret = illegalMret || illegalSret || illegalSModeSret
-  redirectOutValid := exceptionValidReg || flushPipeValid
+  redirectOutValid := exceptionValidReg || io.in.valid
   redirectOut := DontCare
   redirectOut.level := Mux(exceptionValidReg, RedirectLevel.flush, RedirectLevel.flushAfter)
   redirectOut.robIdx := Mux(exceptionValidReg, RegEnable(csrio.exception.bits.uop.robIdx, exceptionValid), io.in.bits.uop.robIdx)
@@ -1195,7 +1194,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   redirectOut.isLoadLoad := false.B
   redirectOut.isLoadStore := false.B
   redirectOut.isXRet := (isXRet && !illegalXret)
-  redirectOut.isFlushPipe := flushPipe
+  redirectOut.isFlushPipe := flushPipe & !isVset
   redirectOut.isPreWalk := false.B
 
   when (hasExceptionIntr) {

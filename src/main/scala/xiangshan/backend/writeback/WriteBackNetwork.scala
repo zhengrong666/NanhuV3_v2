@@ -64,7 +64,7 @@ class WriteBackNetworkImp(outer:WriteBackNetwork)(implicit p:Parameters) extends
     val realIn = if (latency == 1) in else PipeWithRedirect(in, latency - 1, p)
     val validCond = realIn.valid && !realIn.bits.uop.robIdx.needFlush(localRedirectReg)
     res.valid := RegNext(validCond, false.B)
-    res.bits := RegEnable(realIn.bits, validCond)
+    res.bits := RegEnable(realIn.bits, realIn.valid)
     res.bits.redirectValid := RegNext(realIn.bits.redirectValid && !realIn.bits.redirect.robIdx.needFlush(localRedirectReg), false.B)
     res.bits.redirect := RegEnable(realIn.bits.redirect, realIn.bits.redirectValid)
     res
