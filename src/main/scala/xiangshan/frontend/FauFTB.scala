@@ -25,10 +25,10 @@ import xiangshan._
 import scala.{Tuple2 => &}
 
 trait FauFTBParams extends HasXSParameter with HasBPUConst {
-  val numWays = 32
+  val numWays = 64
   val tagSize = 16
 
-  val numDup_local = 2
+  val numDup_local = 1
 
   def special_idx_for_dup = dupForTageSC
 
@@ -138,11 +138,11 @@ class FauFTB(implicit p: Parameters) extends BasePredictor with FauFTBParams {
 
   val s1_fire_dup = Wire(Vec(numDup_local, Bool()))
   s1_fire_dup(0) := io.s1_fire(dupForUbtb)
-  s1_fire_dup(1) := io.s1_fire(special_idx_for_dup)
+  //s1_fire_dup(1) := io.s1_fire(special_idx_for_dup)
   
   // pred req
   banks(0).io.req_tag := getTag(s1_pc_dup(dupForUbtb))
-  banks(1).io.req_tag := getTag(s1_pc_dup(special_idx_for_dup))
+  //banks(1).io.req_tag := getTag(s1_pc_dup(special_idx_for_dup))
 
   // pred resp
   val s1_hit_oh_dup = VecInit(banks.map(_.io.resp_hit_oh.asUInt))
@@ -176,8 +176,8 @@ class FauFTB(implicit p: Parameters) extends BasePredictor with FauFTBParams {
 
   io.out.s1.full_pred.map(_ := s1_hit_full_pred_dup(0))
   io.out.s1.full_pred.zip(fauftb_enable_dup).map {case (fp, en) => fp.hit := s1_hit_dup(0) && en}
-  io.out.s1.full_pred(special_idx_for_dup) := s1_hit_full_pred_dup(1)
-  io.out.s1.full_pred(special_idx_for_dup).hit := s1_hit_dup(1) && fauftb_enable_dup(special_idx_for_dup)
+  io.out.s1.full_pred(special_idx_for_dup) := s1_hit_full_pred_dup(0)
+  io.out.s1.full_pred(special_idx_for_dup).hit := s1_hit_dup(0) && fauftb_enable_dup(special_idx_for_dup)
 
   for (i <- 1 until numDup) {
     XSError(io.out.s1.full_pred(i).asUInt =/= io.out.s1.full_pred(0).asUInt,
@@ -204,9 +204,9 @@ class FauFTB(implicit p: Parameters) extends BasePredictor with FauFTBParams {
   val us = Wire(Vec(numDup_local, io.update(0).cloneType))
   val u_valids = Wire(Vec(numDup_local, Bool()))
   u_valids(0) := io.update(dupForUbtb).valid
-  u_valids(1) := io.update(dupForTageSC).valid
+  //u_valids(1) := io.update(dupForTageSC).valid
   us(0) := io.update(dupForUbtb)
-  us(1) := io.update(dupForTageSC)
+  //us(1) := io.update(dupForTageSC)
   val u_meta_dup = us.map(_.bits.meta.asTypeOf(new FauFTBMeta))
   val u_s0_tag_dup = us.map(u => getTag(u.bits.pc))
   for (b <- 0 until numDup_local) {
