@@ -159,6 +159,7 @@ class Ibuffer(implicit p: Parameters) extends XSModule with HasCircularQueuePtrH
   for (i <- 0 until DecodeWidth) {
     deqData(i) := ParallelPriorityMux(deqEnable_n, nextStepData.drop(i).take(DecodeWidth + 1))
   }
+
   ibuf.io.raddr := VecInit(deqPtrVecNext.map(_.value))
 
   // Flush
