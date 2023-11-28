@@ -242,23 +242,44 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
     } else {
       None
     }
-    val sram = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
-      Some(IO(new BroadCastBundle))
+
+    class DftBundle extends Bundle {
+      val ram_hold = Input(Bool())
+      val ram_bypass = Input(Bool())
+      val ram_bp_clken = Input(Bool())
+      val l3dataram_clk = Input(Bool())
+      val l3dataramclk_bypass = Input(Bool())
+      val cgen = Input(Bool())
+    }
+    class SramBundle extends Bundle {
+      val rf2p_ctrl = Input(UInt(20.W))
+      val rmsp_hd_ctrl = Input(UInt(13.W))
+      val rmsp_hs_ctrl = Input(UInt(17.W))
+    }
+
+    val dft = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
+      Some(IO(new DftBundle))
     } else {
       None
     }
-    if (sram.isDefined) {
-      if (mbistBroadCastToTile.isDefined) {
-        mbistBroadCastToTile.get := sram.get
-      }
-      if (mbistBroadCastToL3.isDefined) {
-        mbistBroadCastToL3.get := sram.get
-      }
-      if (mbistBroadCastToMisc.isDefined) {
-        mbistBroadCastToMisc.get := sram.get
-      }
-      dontTouch(sram.get)
+    val sram = if (mbistBroadCastToTile.isDefined || mbistBroadCastToL3.isDefined || mbistBroadCastToMisc.isDefined) {
+      Some(IO(new SramBundle))
+    } else {
+      None
     }
+    dft.foreach(dontTouch(_))
+    sram.foreach(dontTouch(_))
+    (mbistBroadCastToTile ++ mbistBroadCastToL3 ++ mbistBroadCastToMisc).foreach(b => {
+      b.ram_hold            := dft.get.ram_hold
+      b.ram_bypass          := dft.get.ram_bypass
+      b.ram_bp_clken        := dft.get.ram_bp_clken
+      b.l3dataram_clk       := dft.get.l3dataram_clk
+      b.l3dataramclk_bypass := dft.get.l3dataramclk_bypass
+      b.cgen                := dft.get.cgen
+      b.rf2p_ctrl           := sram.get.rf2p_ctrl
+      b.rmsp_hd_ctrl        := sram.get.rmsp_hd_ctrl
+      b.rmsp_hs_ctrl        := sram.get.rmsp_hs_ctrl
+    })
 
     /** ***************************************l3 & misc Mbist Share Bus************************************** */
     withClockAndReset(io.clock.asClock, reset_sync) {
