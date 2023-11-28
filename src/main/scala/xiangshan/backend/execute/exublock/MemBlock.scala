@@ -27,6 +27,7 @@ import utils._
 import xiangshan._
 import xiangshan.backend.execute.exu.{ExuConfig, ExuInputNode, ExuOutputMultiSinkNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.exucx.ExuComplexIssueNode
+import xiangshan.backend.execute.fu.csr.CSRConst.ModeS
 import xiangshan.backend.execute.fu.{FuConfigs, FunctionUnit, PMP, PMPChecker, PMPCheckerv2}
 import xiangshan.backend.execute.fu.csr.{PFEvent, SdtrigExt}
 import xiangshan.backend.execute.fu.fence.{FenceToSbuffer, SfenceBundle}
@@ -509,7 +510,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
   }
   val pmp_check_ptw = Module(new PMPCheckerv2(lgMaxSize = 3, sameCycle = false, leaveHitMux = true))
   pmp_check_ptw.io.apply(
-    tlbcsr_pmp.last.priv.dmode,
+    ModeS,
     pmp.io.pmp, pmp.io.pma, io.ptw.resp.valid,
     Cat(io.ptw.resp.bits.data.entry.ppn, 0.U(12.W)).asUInt
   )
