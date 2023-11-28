@@ -320,7 +320,7 @@ object VADecode extends VDecodeConstants {
     VRGATHER_VI -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VRGATHER_VV -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VRGATHER_VX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
-    VRGATHEREI16_VV -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
+    VRGATHEREI16_VV -> List(EewVal.hword, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     
     VMV_S_X -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.const,  EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VMV_X_S -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc,  EewType.sew,    EmulVal.r1, EmulType.const, N, N, N, N, N, N),

@@ -5,7 +5,7 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.backend.rob.RobPtr
-import xiangshan.{MicroOp, Redirect, XSBundle, XSModule}
+import xiangshan.{FuType, MicroOp, Redirect, XSBundle, XSModule}
 import xiangshan.vector._
 import xiangshan.vector.writeback.VmbPtr
 import xiangshan.backend.execute.fu.csr.vcsr._
@@ -79,8 +79,9 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val vctrl = io.entry.uop.vctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val vlenBytes  = VLEN / 8
-  private val isWiden = vctrl.isWidden
+  private val isWiden = WireInit(vctrl.isWidden)
   private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
+  private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
       vn := MuxCase(v, Seq(
@@ -90,6 +91,18 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (et === EewType.sewd4) -> (vcsr.vsew - 2.U),
         (et === EewType.sewd8) -> (vcsr.vsew - 3.U),
       ))
+    }
+    when(isVgei16) {
+      vctrlNext.eewType(0) := MuxCase(EewType.sew, Seq(
+        (vcsr.vsew === 0.U) -> EewType.sewm2,
+        (vcsr.vsew === 1.U) -> EewType.sew,
+        (vcsr.vsew === 2.U) -> EewType.sewd2,
+        (vcsr.vsew === 3.U) -> EewType.sewd4,
+      ))
+      when(vcsr.vsew === 0.U) {
+        isWiden := true.B
+        vctrlNext.isWidden := true.B
+      }
     }
     vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, vcsr.vlmul, vctrl.emul)
     when(vctrl.isLs) {
