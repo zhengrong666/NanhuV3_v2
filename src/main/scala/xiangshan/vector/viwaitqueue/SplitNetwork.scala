@@ -5,6 +5,7 @@ import org.chipsalliance.cde.config.Parameters
 import xiangshan.vector.{EewType, EewVal}
 import xiangshan.{FuOpType, FuType, LSUOpType, MicroOp, Redirect, SrcType, XSModule}
 import xs.utils.LogicShiftRight
+import xiangshan.FuOpType
 
 class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   val io = IO(new Bundle{
@@ -118,7 +119,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       val vdAddend  = GenAddend(vctrl.eewType(2), narrowOrWiden, currentnum)
       when(onlyOneDest) {
         o.bits.canRename := currentnum === 0.U
-      }.elsewhen(narrow) {
+      }.elsewhen(narrow || (vctrl.isWidden && io.in.bits.ctrl.fuType === FuType.vpermu)) {
         o.bits.canRename := currentnum(0) === 0.U
       }.otherwise {
         o.bits.canRename := true.B
