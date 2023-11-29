@@ -9,6 +9,7 @@ import xiangshan.{FuType, MicroOp, Redirect, XSBundle, XSModule}
 import xiangshan.vector._
 import xiangshan.vector.writeback.VmbPtr
 import xiangshan.backend.execute.fu.csr.vcsr._
+import xiangshan.vector.EewVal
 object WqState {
   def s_updating:UInt = "b0".U
   def s_waiting:UInt = "b1".U
@@ -81,7 +82,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val vlenBytes  = VLEN / 8
   private val isWiden = WireInit(vctrl.isWidden)
   private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
-  private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const
+  private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
       vn := MuxCase(v, Seq(
