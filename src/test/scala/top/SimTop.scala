@@ -47,6 +47,12 @@ class SimTop(implicit p: Parameters) extends Module {
   val simAXIMem = Module(l_simAXIMem.module)
   l_simAXIMem.io_axi4 <> soc.memory
 
+  val freq = 100
+  val cnt = RegInit((freq - 1).U)
+  val tick = cnt < (freq / 2).U
+  cnt := Mux(cnt === 0.U, (freq - 1).U, cnt - 1.U)
+
+  soc.rtc_clock := tick
   soc.io.clock := clock.asBool
   soc.io.reset := (reset.asBool || soc.io.debug_reset).asAsyncReset
   soc.io.extIntrs := simMMIO.io.interrupt.intrVec
