@@ -31,8 +31,10 @@ import utils._
 import xs.utils.CircularShift
 
 import xiangshan.vector._
+import xiangshan.backend.rob.RobPtr
 
-class RatUpdateEntry(implicit p: Parameters) extends VectorBaseBundle{
+class RatUpdateEntry(implicit p: Parameters) extends VectorBaseBundle {
+  val robIdx = new RobPtr
   val lvd = UInt(5.W)
   val pvd = UInt(VIPhyRegIdxWidth.W)
 }
@@ -74,6 +76,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
     })))
     val doUpdate = Input(Bool())
     val commit      = Input(new VIRatCommitPort)
+    val redirect = Flipped(ValidIO(new Redirect))
     val debug  = Output(Vec(32, UInt(VIPhyRegIdxWidth.W))) //for difftest
   })
   //RAT
@@ -108,6 +111,7 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
     for (((vn, bn), idx) <- validVec.zip(bitsVec).zipWithIndex) {
       val wSel = io.update.map(u => u.valid && u.bits.addr === idx.U)
       val wData = Mux1H(wSel, io.update.map(_.bits.data))
+      assert(PopCount(wSel) < 2.U, "There should be no two hits in the same period")
       val wHit = wSel.reduce(_ | _)
       when(wHit){
         vn := true.B
@@ -118,8 +122,12 @@ class VIRenameTable(implicit p: Parameters) extends VectorBaseModule {
   UpdateWrite(updateEntryValid, updateEntryBits)
   UpdateWrite(updateEntryValidNext, updateEntryBitsNext)
 
-  when(io.doUpdate){
-    updateEntryValid.foreach(_ := false.B)
+  updateEntryBits.zip(updateEntryValid).zipWithIndex.foreach {
+    case ((e, v), i) => {
+      when(io.redirect.valid && e.robIdx.needFlush(io.redirect) || io.doUpdate) {
+        v := false.B
+      }
+    }
   }
 
   //Update and walk

@@ -89,6 +89,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
     updateEntryAllocator := updateEntryAllocator + PopCount(allocateNew)
   }
   renameTable.io.doUpdate := last
+  renameTable.io.redirect := io.redirect
   io.rename.map(_.out).zip(io.rename.map(_.in)).zipWithIndex.foreach {
     case ((resp, req), i) => {
       val renameEn = req.fire && req.bits.canRename && req.bits.ctrl.vdWen
@@ -105,6 +106,7 @@ class VIRename(implicit p: Parameters) extends VectorBaseModule {
       renameTable.io.update(i).bits.addr := updateAddrs(i)
       renameTable.io.update(i).bits.data.lvd := req.bits.ctrl.ldest
       renameTable.io.update(i).bits.data.pvd := allocPhyIdx
+      renameTable.io.update(i).bits.data.robIdx := req.bits.robIdx
 
       resp.bits := req.bits
       resp.bits.pdest := Mux(req.bits.canRename && req.bits.ctrl.vdWen, allocPhyIdx, Mux(req.bits.ctrl.vdWen, renameTable.io.rename(i).pvd, req.bits.pdest))
