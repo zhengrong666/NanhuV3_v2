@@ -155,6 +155,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
     val scan_mode = IO(Input(Bool()))
     val dft_lgc_rst_n = IO(Input(AsyncReset()))
     val dft_mode = IO(Input(Bool()))
+    val rtc_clock = IO(Input(Bool()))
     val dfx_reset = Wire(new DFTResetSignals())
     dfx_reset.lgc_rst_n := dft_lgc_rst_n
     dfx_reset.mode := dft_mode
@@ -185,6 +186,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
     dontTouch(dfx_reset)
     misc.module.ext_intrs := io.extIntrs
     misc.module.dfx_reset := dfx_reset
+    misc.module.rtc_clock := rtc_clock
 
     for ((core, i) <- core_with_l2.zipWithIndex) {
       core.module.io.hartId := i.U

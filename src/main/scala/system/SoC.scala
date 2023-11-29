@@ -267,6 +267,7 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   val debug_module_io = IO(new DebugModuleIO(outer.NumCores))
   val ext_intrs = IO(Input(UInt(outer.NrExtIntr.W)))
   val dfx_reset = IO(Input(new DFTResetSignals()))
+  val rtc_clock = IO(Input(Bool()))
 
   val sigFromSrams = if (p(SoCParamsKey).hasMbist) Some(SRAMTemplate.genBroadCastBundleTop()) else None
   val dft = if (p(SoCParamsKey).hasMbist) Some(IO(sigFromSrams.get.cloneType)) else None
@@ -299,6 +300,7 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   }
   outer.periCx.module.reset := ResetGen(3, Some(dfx_reset))
   outer.periCx.module.dfx_reset := dfx_reset
+  outer.periCx.module.rtc_clock := rtc_clock
 }
 
 class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCParameter {
@@ -329,6 +331,7 @@ class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCPara
     val debug_module_io: DebugModuleIO = IO(new DebugModuleIO(NumCores))
     val ext_intrs: UInt = IO(Input(UInt(NrExtIntr.W)))
     val dfx_reset = IO(Input(new DFTResetSignals()))
+    val rtc_clock = IO(Input(Bool()))
     private val rst_sync = ResetGen(2, Some(dfx_reset))
     debugModule.module.io <> debug_module_io
     debugModule.module.io.clock := clock.asBool
@@ -348,11 +351,9 @@ class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCPara
         plic_in := ext_intr_sync(2)
       }
 
-      val freq = 50
-      val cnt = RegInit((freq - 1).U)
-      val tick = cnt === 0.U
-      cnt := Mux(tick, (freq - 1).U, cnt - 1.U)
-      clint.module.io.rtcTick := tick
+      val rtcTick = RegInit(0.U(3.W))
+      rtcTick := Cat(rtcTick(1, 0), rtc_clock)
+      clint.module.io.rtcTick := rtcTick(1) && !rtcTick(2)
     }
   }
 }
