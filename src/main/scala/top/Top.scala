@@ -87,6 +87,7 @@ class XSTop()(implicit p: Parameters) extends BaseXSSoc() with HasSoCParameter {
     core_with_l2(i).plic_int_sink :*= misc.periCx.plic.intnode
     core_with_l2(i).debug_int_sink := misc.periCx.debugModule.debug.dmOuter.dmOuter.intnode
     misc.periCx.plic.intnode := IntBuffer() := core_with_l2(i).beu_int_source
+    misc.periCx.plic.intnode := IntBuffer() := core_with_l2(i).l2_int_source
     misc.peripheral_ports(i) := core_with_l2(i).uncache
     misc.core_to_l3_ports(i) :=* core_with_l2(i).memory_port
   }

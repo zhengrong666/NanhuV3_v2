@@ -99,16 +99,19 @@ class XSTile(val parentName:String = "Unknown")(implicit p: Parameters) extends 
   val plic_int_sink = IntIdentityNode()
   val debug_int_sink = IntIdentityNode()
   val beu_int_source = IntIdentityNode()
+  val l2_int_source = IntIdentityNode()
   val core_reset_sink = BundleBridgeSink(Some(() => Reset()))
 
   val cltIntBuf = LazyModule(new IntBuffer)
   val plicIntBuf = LazyModule(new IntBuffer)
   val dbgIntBuf = LazyModule(new IntBuffer)
   val beuIntBuf = LazyModule(new IntBuffer)
+  val l2IntBuf = LazyModule(new IntBuffer)
   core.clint_int_sink :*= cltIntBuf.node :*= clint_int_sink
   core.plic_int_sink :*= plicIntBuf.node :*= plic_int_sink
   core.debug_int_sink :*= dbgIntBuf.node :*= debug_int_sink
   beu_int_source :*= beuIntBuf.node :*= misc.beu.intNode
+  l2cache.foreach(l2 => l2_int_source :*= l2IntBuf.node :*= l2.intNode)
 
   val l1d_to_l2_bufferOpt = coreParams.dcacheParametersOpt.map { _ =>
     val buffer = LazyModule(new TLBuffer)
@@ -241,7 +244,8 @@ class XSTileImp(outer: XSTile)(implicit p: Parameters) extends LazyModuleImp(out
       outer.cltIntBuf.module,
       outer.plicIntBuf.module,
       outer.dbgIntBuf.module,
-      outer.beuIntBuf.module
+      outer.beuIntBuf.module,
+      outer.l2IntBuf.module
     ) ++ outer.l2cache.map(_.module),
     outer.l1i_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
       outer.ptw_to_l2_buffers.map(_.module.asInstanceOf[Module]) ++
