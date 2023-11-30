@@ -92,7 +92,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
   }).reduce(_|_)
   when(rsWakeupValid){
     assert(io.entry.bits.prsState === SrcState.busy)
-    wkpEntryNext.bits.prs := SrcState.rdy
+    wkpEntryNext.bits.prsState := SrcState.rdy
   }
 
   private val pvsSeq = io.entry.bits.pvs1 ++ io.entry.bits.pvs2 ++ io.entry.bits.pov :+ io.entry.bits.pvm
