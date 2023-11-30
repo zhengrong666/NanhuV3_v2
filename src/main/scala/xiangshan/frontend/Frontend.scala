@@ -168,7 +168,6 @@ class FrontendImp (outer: Frontend) extends LazyModuleImp(outer)
   ibuffer.io.in <> ifu.io.toIbuffer
 
   ftq.io.fromBackend <> io.backend.toFtq
-  //assert(ftq.ifuWbPtr.value === ibuffer.ifuWbPtr.value)
   io.backend.fromFtq <> ftq.io.toBackend
   io.frontendInfo.bpuInfo <> ftq.io.bpuInfo
 
@@ -184,7 +183,7 @@ class FrontendImp (outer: Frontend) extends LazyModuleImp(outer)
 
   icache.io.hartId := io.hartId
   icache.io.fencei <> io.fencei
-  
+
   val frontendBubble = PopCount((0 until DecodeWidth).map(i => io.backend.cfVec(i).ready && !ibuffer.io.out(i).valid))
   XSPerfAccumulate("FrontendBubble", frontendBubble)
   io.frontendInfo.ibufFull := RegNext(ibuffer.io.full)

@@ -52,8 +52,7 @@ class SCMeta(val ntables: Int)(implicit p: Parameters) extends XSBundle with Has
 
 
 class SCResp(val ctrBits: Int = 6)(implicit p: Parameters) extends SCBundle {
-  // val ctrs = Vec(numBr, Vec(2, SInt(ctrBits.W)))
-    val ctrs =  Vec(numBr, Vec(1, SInt(ctrBits.W)))
+  val ctrs = Vec(numBr, Vec(2, SInt(ctrBits.W)))
 }
 
 class SCUpdate(val ctrBits: Int = 6)(implicit p: Parameters) extends SCBundle {
@@ -77,9 +76,7 @@ class SCTable(val nRows: Int, val ctrBits: Int, val histLen: Int, parentName:Str
   val io = IO(new SCTableIO(ctrBits))
 
   // val table = Module(new SRAMTemplate(SInt(ctrBits.W), set=nRows, way=2*TageBanks, shouldReset=true, holdRead=true, singlePort=false))
-  //val table = Module(new SRAMTemplate(SInt(ctrBits.W), set=nRows, way=2*TageBanks, shouldReset=true, holdRead=true, singlePort=false, bypassWrite=true,
-  val table = Module(new SRAMTemplate(SInt(ctrBits.W), set=nRows, way=TageBanks, shouldReset=true, holdRead=true, singlePort=false, bypassWrite=true,
-
+  val table = Module(new SRAMTemplate(SInt(ctrBits.W), set=nRows, way=2*TageBanks, shouldReset=true, holdRead=true, singlePort=false, bypassWrite=true,
     hasMbist = coreParams.hasMbist,
     hasShareBus = coreParams.hasShareBus,
     parentName = parentName + "table_"
@@ -122,34 +119,26 @@ class SCTable(val nRows: Int, val ctrBits: Int, val histLen: Int, parentName:Str
   table.io.r.req.valid := io.req.valid
   table.io.r.req.bits.setIdx := s0_idx
 
-  // val per_br_ctrs_unshuffled = table.io.r.resp.data.sliding(2,2).toSeq.map(VecInit(_)) 2->1
-  val per_br_ctrs_unshuffled = table.io.r.resp.data
+  val per_br_ctrs_unshuffled = table.io.r.resp.data.sliding(2,2).toSeq.map(VecInit(_))
+  val per_br_ctrs = VecInit((0 until numBr).map(i => Mux1H(
+    UIntToOH(get_phy_br_idx(s1_unhashed_idx, i), numBr),
+    per_br_ctrs_unshuffled
+  )))
 
-  // val per_br_ctrs = VecInit((0 until numBr).map(i => Mux1H(
-  //   UIntToOH(get_phy_br_idx(s1_unhashed_idx, i), numBr),
-  //   per_br_ctrs_unshuffled
-  // )))
- 
-  // io.resp.ctrs := per_br_ctrs
-  io.resp.ctrs(0) := per_br_ctrs_unshuffled
+  io.resp.ctrs := per_br_ctrs
 
-  // val update_wdata = Wire(Vec(numBr, SInt(ctrBits.W))) // correspond to physical bridx
   val update_wdata = Wire(Vec(numBr, SInt(ctrBits.W))) // correspond to physical bridx
-
-  // val update_wdata_packed = VecInit(update_wdata.map(Seq.fill(2)(_)).reduce(_++_))
-  val update_wdata_packed = update_wdata
-
-  // val updateWayMask = Wire(Vec(2*numBr, Bool())) // correspond to physical bridx
-  val updateWayMask = Wire(Vec(numBr, Bool())) // correspond to physical bridx
+  val update_wdata_packed = VecInit(update_wdata.map(Seq.fill(2)(_)).reduce(_++_))
+  val updateWayMask = Wire(Vec(2*numBr, Bool())) // correspond to physical bridx
 
   val update_unhashed_idx = io.update.pc >> instOffsetBits
   for (pi <- 0 until numBr) {
     updateWayMask(2*pi)   := Seq.tabulate(numBr)(li =>
       io.update.mask(li) && get_phy_br_idx(update_unhashed_idx, li) === pi.U && !io.update.tagePreds(li)
     ).reduce(_||_)
-    // updateWayMask(2*pi+1) := Seq.tabulate(numBr)(li =>
-    //   io.update.mask(li) && get_phy_br_idx(update_unhashed_idx, li) === pi.U &&  io.update.tagePreds(li)
-    // ).reduce(_||_) 
+    updateWayMask(2*pi+1) := Seq.tabulate(numBr)(li =>
+      io.update.mask(li) && get_phy_br_idx(update_unhashed_idx, li) === pi.U &&  io.update.tagePreds(li)
+    ).reduce(_||_)
   }
 
   val update_idx = getIdx(io.update.pc, io.update.folded_hist)
@@ -164,8 +153,7 @@ class SCTable(val nRows: Int, val ctrBits: Int, val histLen: Int, parentName:Str
   val wrBypassEntries = 16
 
   // let it corresponds to logical brIdx
-  // val wrbypasses = Seq.fill(numBr)(Module(new WrBypass(SInt(ctrBits.W), wrBypassEntries, log2Ceil(nRows), numWays=2)))
-  val wrbypasses = Seq.fill(numBr)(Module(new WrBypass(SInt(ctrBits.W), wrBypassEntries, log2Ceil(nRows), numWays=numBr)))
+  val wrbypasses = Seq.fill(numBr)(Module(new WrBypass(SInt(ctrBits.W), wrBypassEntries, log2Ceil(nRows), numWays=2)))
 
   for (pi <- 0 until numBr) {
     // val br_lidx = get_lgc_br_idx(update_unhashed_idx, pi.U(log2Ceil(numBr).W))
@@ -182,23 +170,18 @@ class SCTable(val nRows: Int, val ctrBits: Int, val histLen: Int, parentName:Str
     update_wdata(pi) := ctrUpdate(oldCtr, taken)
   }
 
-  // val per_br_update_wdata_packed = update_wdata_packed.sliding(2,2).map(VecInit(_)).toSeq
-  // val per_br_update_way_mask = updateWayMask.sliding(2,2).map(VecInit(_)).toSeq
-
-  val per_br_update_wdata_packed = update_wdata_packed
-  val per_br_update_way_mask = updateWayMask
-
+  val per_br_update_wdata_packed = update_wdata_packed.sliding(2,2).map(VecInit(_)).toSeq
+  val per_br_update_way_mask = updateWayMask.sliding(2,2).map(VecInit(_)).toSeq
   for (li <- 0 until numBr) {
     val wrbypass = wrbypasses(li)
     val br_pidx = get_phy_br_idx(update_unhashed_idx, li)
     wrbypass.io.wen := io.update.mask(li)
     wrbypass.io.write_idx := update_idx
-    // wrbypass.io.write_data := Mux1H(UIntToOH(br_pidx, numBr), per_br_update_wdata_packed)
-    wrbypass.io.write_data := per_br_update_wdata_packed
+    wrbypass.io.write_data := Mux1H(UIntToOH(br_pidx, numBr), per_br_update_wdata_packed)
     wrbypass.io.write_way_mask.map(_ := Mux1H(UIntToOH(br_pidx, numBr), per_br_update_way_mask))
   }
 
-//for debug
+
   val u = io.update
   XSDebug(io.req.valid,
     p"scTableReq: pc=0x${Hexadecimal(io.req.bits.pc)}, " +
@@ -255,7 +238,7 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
         val t = Module(new SCTable(nRows/TageBanks, ctrBits, histLen, parentName = this.parentName + s"scTable${idx}_"))
         val req = t.io.req
         req.valid := io.s0_fire(dupForTageSC)
-        req.bits.pc := s0_pc_dup(4)
+        req.bits.pc := s0_pc_dup(dupForTageSC)
         req.bits.folded_hist := io.in.bits.folded_hist(dupForTageSC)
         req.bits.ghist := DontCare
         if (!EnableSC) {t.io.update := DontCare}
@@ -279,7 +262,7 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
     }
     val updateThresholds = VecInit(useThresholds map (t => (t << 3) +& 21.U))
 
-    val s1_scResps = VecInit(scTables.map(t => t.io.resp))//t1 - t4 matchwith resp
+    val s1_scResps = VecInit(scTables.map(t => t.io.resp))
 
     val scUpdateMask = WireInit(0.U.asTypeOf(Vec(numBr, Vec(SCNTables, Bool()))))
     val scUpdateTagePreds = Wire(Vec(TageBanks, Bool()))
@@ -299,7 +282,7 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
       WireInit(0.U.asTypeOf(Vec(TageBanks, Bool())))
 
     // for sc ctrs
-    def getCentered(ctr: SInt): SInt = Cat(ctr, 1.U(1.W)).asSInt//add an additional bit
+    def getCentered(ctr: SInt): SInt = Cat(ctr, 1.U(1.W)).asSInt
     // for tage ctrs, (2*(ctr-4)+1)*8
     def getPvdrCentered(ctr: UInt): SInt = Cat(ctr ^ (1 << (TageCtrBits-1)).U, 1.U(1.W), 0.U(3.W)).asSInt
 
@@ -307,20 +290,15 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
     scMeta := DontCare
     for (w <- 0 until TageBanks) {
       // do summation in s2
-      // val s1_scTableSums = VecInit(
-      //   (0 to 1) map { i =>
-      //     ParallelSingedExpandingAdd(s1_scResps map (r => getCentered(r.ctrs(w)(i)))) // TODO: rewrite with wallace tree
-      //   }
-      // )
-     val s1_scTableSums = VecInit(
-          ParallelSingedExpandingAdd(s1_scResps map (r => getCentered(r.ctrs(w)(0)))) // TODO: rewrite with wallace tree
+      val s1_scTableSums = VecInit(
+        (0 to 1) map { i =>
+          ParallelSingedExpandingAdd(s1_scResps map (r => getCentered(r.ctrs(w)(i)))) // TODO: rewrite with wallace tree
+        }
       )
-
       val s2_scTableSums = RegEnable(s1_scTableSums, io.s1_fire(dupForTageSC))
       val s2_tagePrvdCtrCentered = getPvdrCentered(RegEnable(s1_providerResps(w).ctr, io.s1_fire(dupForTageSC)))
       val s2_totalSums = s2_scTableSums.map(_ +& s2_tagePrvdCtrCentered)
-      // val s2_sumAboveThresholds = VecInit((0 to 1).map(i => aboveThreshold(s2_scTableSums(i), s2_tagePrvdCtrCentered, useThresholds(w))))
-      val s2_sumAboveThresholds = aboveThreshold(s2_scTableSums(0), s2_tagePrvdCtrCentered, useThresholds(w))
+      val s2_sumAboveThresholds = VecInit((0 to 1).map(i => aboveThreshold(s2_scTableSums(i), s2_tagePrvdCtrCentered, useThresholds(w))))
       val s2_scPreds = VecInit(s2_totalSums.map(_ >= 0.S))
 
       val s2_scResps = VecInit(RegEnable(s1_scResps, io.s1_fire(dupForTageSC)).map(_.ctrs(w)))
@@ -336,7 +314,6 @@ trait HasSC extends HasSCParameter with HasPerfEvents { this: Tage =>
       scMeta.tageTakens(w) := RegEnable(s2_tageTakens_dup(dupForTageSC)(w), io.s2_fire(dupForTageSC))
       scMeta.scUsed(w)     := RegEnable(s2_provideds(w), io.s2_fire(dupForTageSC))
       scMeta.scPreds(w)    := RegEnable(s2_scPreds(s2_chooseBit), io.s2_fire(dupForTageSC))
-      // scMeta.ctrs(w)       := RegEnable(s2_scCtrs, io.s2_fire(dupForTageSC))
       scMeta.ctrs(w)       := RegEnable(s2_scCtrs, io.s2_fire(dupForTageSC))
 
       when (s2_provideds(w)) {

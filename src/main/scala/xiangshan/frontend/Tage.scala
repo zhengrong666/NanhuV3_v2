@@ -560,14 +560,11 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
 
   val resp_meta = Wire(new TageMeta)
   override val meta_size = resp_meta.getWidth
-
-  val s0PCdup = WireDefault(VecInit(Seq.fill(5) {s0_pc_dup(4)} ))
-
   val tables = TageTableInfos.zipWithIndex.map {
     case ((nRows, histLen, tagLen), i) => {
       val t = Module(new TageTable(nRows, histLen, tagLen, i, parentName = parentName + s"tagtable${i}_"))
       t.io.req.valid := io.s0_fire(1)
-      t.io.req.bits.pc := s0PCdup(i) //s0_pc_dup(4)
+      t.io.req.bits.pc := s0_pc_dup(1)
       t.io.req.bits.folded_hist := io.in.bits.folded_hist(1)
       t.io.req.bits.ghist := io.in.bits.ghist
       t
@@ -575,7 +572,7 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   }
   val bt = Module (new TageBTable(parentName = parentName + "bttable_"))
   bt.io.s0_fire := io.s0_fire(1)
-  bt.io.s0_pc   := s0PCdup(4) //s0_pc_dup(4)
+  bt.io.s0_pc   := s0_pc_dup(1)
 
   val bankTickCtrDistanceToTops = Seq.fill(numBr)(RegInit((1 << (TickWidth-1)).U(TickWidth.W)))
   val bankTickCtrs = Seq.fill(numBr)(RegInit(0.U(TickWidth.W)))
@@ -593,8 +590,8 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   //val s1_bim = io.in.bits.resp_in(0).s1.full_pred
   // val s2_bim = RegEnable(s1_bim, io.s1_fire)
 
-  val debug_pc_s0 = s0_pc_dup(4)
-  val debug_pc_s1 = RegEnable(s0_pc_dup(4), io.s0_fire(1))
+  val debug_pc_s0 = s0_pc_dup(1)
+  val debug_pc_s1 = RegEnable(s0_pc_dup(1), io.s0_fire(1))
   val debug_pc_s2 = RegEnable(debug_pc_s1, io.s1_fire(1))
 
   val s1_provideds        = Wire(Vec(numBr, Bool()))
@@ -663,7 +660,7 @@ class Tage(val parentName:String = "Unknown")(implicit p: Parameters) extends Ba
   // access tag tables and output meta info
 
   for (i <- 0 until numBr) {
-    val useAltCtr = Mux1H(UIntToOH(use_alt_idx(s1_pc_dup(4)), NUM_USE_ALT_ON_NA), useAltOnNaCtrs(i))
+    val useAltCtr = Mux1H(UIntToOH(use_alt_idx(s1_pc_dup(1)), NUM_USE_ALT_ON_NA), useAltOnNaCtrs(i))
     val useAltOnNa = useAltCtr(USE_ALT_ON_NA_WIDTH-1) // highest bit
 
     val s1_per_br_resp = VecInit(s1_resps.map(_(i)))
