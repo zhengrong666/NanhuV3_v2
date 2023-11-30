@@ -91,7 +91,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       !(SrcType.isReg(io.entry.bits.prsType) && io.entry.bits.prs === 0.U)
   }).reduce(_|_)
   when(rsWakeupValid){
-    assert(wkpEntryNext.bits.prs === SrcState.busy)
+    assert(io.entry.bits.prsState === SrcState.busy)
     wkpEntryNext.bits.prs := SrcState.rdy
   }
 
