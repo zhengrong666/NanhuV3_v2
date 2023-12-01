@@ -788,7 +788,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.ldest := req.ctrl.ldest
       wdata.rfWen := req.ctrl.rfWen
       wdata.fpWen := req.ctrl.fpWen
-      wdata.wflags := req.ctrl.fpu.wflags
+      wdata.wflags := req.ctrl.fpu.wflags || (req.ctrl.isVector && req.ctrl.fuType === FuType.vfp)
       wdata.commitType := req.ctrl.commitType
       wdata.pdest := req.pdest
       wdata.old_pdest := req.old_pdest
@@ -841,7 +841,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   for (i <- 0 until VectorMergeWbWidth) {
     csrDataModule.io.wen(fflagsWbNums + i) := io.wbFromMergeBuffer(i).valid
     csrDataModule.io.waddr(fflagsWbNums + i) := io.wbFromMergeBuffer(i).bits.uop.robIdx.value
-    csrDataModule.io.wdata(fflagsWbNums + i).fflags := 0.U
+    csrDataModule.io.wdata(fflagsWbNums + i).fflags := io.wbFromMergeBuffer(i).bits.fflags
     csrDataModule.io.wdata(fflagsWbNums + i).vxsat := io.wbFromMergeBuffer(i).bits.vxsat
   }
   csrDataModule.io.raddr := VecInit(deqPtrVec_next.map(_.value))

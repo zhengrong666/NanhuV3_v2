@@ -83,6 +83,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
       table(ptr.value).uop.robIdx := req.bits
       table(ptr.value).uop.uopNum := VLEN.U
       table(ptr.value).vxsat := false.B
+      table(ptr.value).fflags := false.B
       wbCnts(ptr.value) := 0.U
     }
     when(resp.valid){
@@ -171,6 +172,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     table(vmbInitDelay.bits.mergeIdx.value) := DontCare
     table(vmbInitDelay.bits.mergeIdx.value).uop := vmbInitDelay.bits
     table(vmbInitDelay.bits.mergeIdx.value).vxsat := false.B
+    table(vmbInitDelay.bits.mergeIdx.value).fflags := 0.U
   }
 
   private def checkWbHit(wb:Valid[ExuOutput], idx:Int):Bool = {
@@ -187,6 +189,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     val hitVec = allWritebacks.map(checkWbHit(_, idx))
     when(hitVec.reduce(_|_)) {
       t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat)) || t.vxsat
+      t.fflags := Mux1H(hitVec, allWritebacks.map(_.bits.fflags)) | t.fflags
     }
     when(hitVec.reduce(_|_)){
       assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
