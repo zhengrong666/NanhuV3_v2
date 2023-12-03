@@ -73,7 +73,6 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
     val safeTargetPtr = Input(new FtqPtr)
     val redirect = Input(Valid(new Redirect))
   })
-
   private val miscNext = WireInit(io.entry)
   private val enqNext = Wire(Valid(new IntegerStatusArrayEntry))
   private val enqUpdateEn = WireInit(false.B)
@@ -159,6 +158,14 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
 
   io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | mayBeIssued | shouldBeFlushed | miscUpdateEnLpvUpdate, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
+
+  private val debugTimeoutCnt = RegInit(0.U(16.W))
+  when(io.enq.valid) {
+    debugTimeoutCnt := 0.U
+  }.elsewhen(io.entry.valid) {
+    debugTimeoutCnt := debugTimeoutCnt + 1.U
+  }
+  assert(debugTimeoutCnt < 15000.U, "Inst is not dequeued for 15000 cycles!")
 }
 
 class IntegerStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends XSModule{

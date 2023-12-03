@@ -319,6 +319,14 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
 
   io.updateEnable := io.entry.valid | enqUpdateEn
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
+
+  private val debugTimeoutCnt = RegInit(0.U(16.W))
+  when(io.enq.valid) {
+    debugTimeoutCnt := 0.U
+  }.elsewhen(io.entry.valid) {
+    debugTimeoutCnt := debugTimeoutCnt + 1.U
+  }
+  assert(debugTimeoutCnt < 15000.U, "Inst is not dequeued for 15000 cycles!")
 }
 class Replay(entryNum:Int) extends Bundle {
   val entryIdxOH = UInt(entryNum.W)

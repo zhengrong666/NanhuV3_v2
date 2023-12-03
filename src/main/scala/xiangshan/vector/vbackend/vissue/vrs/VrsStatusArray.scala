@@ -84,6 +84,14 @@ class VrsStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(implicit
 
   io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | srcAllReady | shouldBeFlushed, enqUpdateEn)
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
+
+  private val debugTimeoutCnt = RegInit(0.U(16.W))
+  when(io.enq.valid) {
+    debugTimeoutCnt := 0.U
+  }.elsewhen(io.entry.valid) {
+    debugTimeoutCnt := debugTimeoutCnt + 1.U
+  }
+  assert(debugTimeoutCnt < 15000.U, "Uop is not dequeued for 15000 cycles!")
 }
 
 class VrsStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends XSModule{
