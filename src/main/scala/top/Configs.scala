@@ -307,7 +307,11 @@ class WithNKBL3(n: Int, ways: Int = 8, inclusive: Boolean = true, banks: Int = 1
         enablePerf = false,
         prefetch = None,
         // prefetchRecv = Some(huancun.prefetch.PrefetchReceiverParams()),
-        ctrl = None,
+        ctrl = Some(huancun.CacheCtrl(
+          address = 0x39000000,
+          beatBytes = 8,
+          numCores = up(XSTileKey).length
+        )),
         reqField = Seq(xs.utils.tl.ReqSourceField()),
         sramClkDivBy2 = true,
         sramDepthDiv = 8,
