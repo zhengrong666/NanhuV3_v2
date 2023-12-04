@@ -105,9 +105,27 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         vctrlNext.isWidden := true.B
       }
     }
-    vctrlNext.emul := Mux(vctrl.emulType === EmulType.lmul, vcsr.vlmul, vctrl.emul)
+
+    when(vctrl.emulType === EmulType.const) {
+      vctrlNext.emul := vctrl.emul
+    }.otherwise{
+      when(vctrl.isLs && vctrlNext.eewType(0) === EewType.const){
+        vctrlNext.emul := (vcsr.vlmul + vctrlNext.eew(0)) - vcsr.vsew
+      }.otherwise {
+        vctrlNext.emul := vcsr.vlmul
+      }
+    }
+
     when(vctrl.isLs) {
-      entryNext.uop.uopNum := vcsr.vl
+      entryNext.uop.uopNum := MuxCase(0.U, Seq(
+        (vctrlNext.emul === 0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
+        (vctrlNext.emul === 7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
+      ))
     }.elsewhen(isNarrow || isWiden) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
         (vctrlNext.emul === 0.U(3.W)) -> 2.U,
