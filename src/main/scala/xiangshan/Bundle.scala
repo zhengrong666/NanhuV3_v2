@@ -222,7 +222,6 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val uopIdx = UInt(8.W)
   val uopNum = UInt(9.W)
   val isTail = Bool()
-  val partialTail = Bool()
   val isPrestart = Bool()
   val canRename = Bool()
   val mergeIdx = new VmbPtr

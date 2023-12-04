@@ -69,12 +69,11 @@ object VRegfileTopUtil{
       (nf === 7.U) -> in.uopIdx / 7.U,
       (nf === 8.U) -> in.uopIdx / 8.U,
     ))
-    val partialMask = Mux(in.partialTail, UIntToMask(in.vctrl.tailOffset, 8), ~(0.U(8.W)))
     val mask = MuxCase(0.U, Seq(
-      (sew === 0.U) -> (("h01".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
-      (sew === 1.U) -> (("h03".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
-      (sew === 2.U) -> (("h0f".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
-      (sew === 3.U) -> (("hff".U & partialMask.asUInt) << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
+      (sew === 0.U) -> ("h01".U << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
+      (sew === 1.U) -> ("h03".U << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
+      (sew === 2.U) -> ("h0f".U << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
+      (sew === 3.U) -> ("hff".U << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
     ))
     Mux(in.ctrl.vdWen, mask(width - 1, 0).asUInt, 0.U(width.W))
   }

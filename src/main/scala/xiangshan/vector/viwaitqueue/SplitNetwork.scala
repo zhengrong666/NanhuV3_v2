@@ -99,8 +99,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits := io.in.bits
     o.bits.uopNum := io.in.bits.uopNum
     o.bits.uopIdx := currentnum
-    o.bits.isTail := currentnum >= vctrl.evl || currentnum === (vctrl.evl - 1.U) && io.in.bits.vctrl.tailOffset === 0.U //Only VLS need this
-    o.bits.partialTail := currentnum === (vctrl.evl - 1.U) && io.in.bits.vctrl.tailOffset =/= 0.U
+    o.bits.isTail := currentnum >= io.in.bits.vCsrInfo.vl//Only VLS need this
     o.bits.isPrestart := currentnum < io.vstart //Only VLS need this
 
     when(io.in.bits.vctrl.isLs) {
