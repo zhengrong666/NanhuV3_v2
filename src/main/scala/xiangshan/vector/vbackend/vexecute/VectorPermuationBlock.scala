@@ -56,14 +56,15 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     private val fdata = RegEnable(io.rfReadPort.srf.fdata, vprs.module.io.issue.bits.rsRen)
     private val rsData = Mux(RegNext(vprs.module.io.issue.bits.prsType === SrcType.fp), fdata, idata)
 
+    private val fuReady = !permutation.io.out.perm_busy
     private val issueDataReg = Reg(new VprsIssueBundle)
     private val issueScalarDataReg = Reg(UInt(XLEN.W))
     private val issueValidReg = RegInit(false.B)
-    private val allowPipe = !issueValidReg || !permutation.io.out.perm_busy || (issueValidReg && issueDataReg.uop.robIdx.needFlush(io.redirect))
-    when(allowPipe && !permutation.io.out.perm_busy){
+    private val allowPipe = !issueValidReg || fuReady || (issueValidReg && issueDataReg.uop.robIdx.needFlush(io.redirect))
+    when(allowPipe){
       issueValidReg := vprs.module.io.issue.valid && !vprs.module.io.issue.bits.uop.robIdx.needFlush(io.redirect)
     }
-    when(allowPipe && vprs.module.io.issue.valid && !permutation.io.out.perm_busy){
+    when(vprs.module.io.issue.fire){
       issueDataReg := vprs.module.io.issue.bits
       val actual_pvs2 = WireInit(vprs.module.io.issue.bits.pvs2)
       when(vprs.module.io.issue.bits.uop.vctrl.isWidden && vprs.module.io.issue.bits.uop.uopNum > 1.U) {
@@ -75,7 +76,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
       issueDataReg.pvs2 := actual_pvs2
       issueScalarDataReg := rsData
     }
-    vprs.module.io.issue.ready := allowPipe && !permutation.io.out.perm_busy
+    vprs.module.io.issue.ready := allowPipe
 
     private val rfReqValid = RegNext(permutation.io.out.rd_en, false.B)
     private val rfReqAddr = RegEnable(permutation.io.out.rd_preg_idx, permutation.io.out.rd_en)
@@ -96,9 +97,9 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.rdata := rfRespData
     permutation.io.in.rvalid := rfRespValid
     permutation.io.redirect := io.redirect
-    private val pdestReg = RegEnable(issueDataReg.pdest, issueValidReg && !permutation.io.out.perm_busy)
+    private val pdestReg = RegEnable(issueDataReg.pdest, issueValidReg && fuReady)
     //TODO: This is ugly, only for vrgatherei16.vv
-    private val cntm2 = RegEnable(issueDataReg.uop.vctrl.isWidden && issueDataReg.uop.uopNum > 1.U, issueValidReg && !permutation.io.out.perm_busy)
+    private val cntm2 = RegEnable(issueDataReg.uop.vctrl.isWidden && issueDataReg.uop.uopNum > 1.U, issueValidReg && fuReady)
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
     wb.valid := DelayN(permutation.io.out.wb_vld, 4)
