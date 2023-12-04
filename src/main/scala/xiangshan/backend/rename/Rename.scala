@@ -93,8 +93,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
   }
   // walk has higher priority than allocation and thus we don't use isWalk here
   // only when both fp and int free list and dispatch1 has enough space can we do allocation
-  intFreeList.io.doAllocate := fpFreeList.io.canAllocate && io.out(0).ready
-  fpFreeList.io.doAllocate := intFreeList.io.canAllocate && io.out(0).ready
+  intFreeList.io.doAllocate := fpFreeList.io.canAllocate && vtyperename.io.canAccept && io.out(0).ready
+  fpFreeList.io.doAllocate := intFreeList.io.canAllocate && vtyperename.io.canAccept && io.out(0).ready
 
   // dispatch1 ready ++ float point free list ready ++ int free list ready ++ not walk
   val canOut = io.out(0).ready && fpFreeList.io.canAllocate && intFreeList.io.canAllocate && !io.robCommits.isWalk && vtyperename.io.canAccept
