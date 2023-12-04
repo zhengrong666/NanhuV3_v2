@@ -418,14 +418,10 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   val vstart = Wire(ValidIO(UInt(7.W)))
 
   fflags.valid := io.commits.isCommit && VecInit(wflags).asUInt.orR
-  fflags.bits := wflags.zip(csrDataRead).map({
-    case (w, f) => Mux(w, f.fflags, 0.U)
-  }).reduce(_ | _)
+  fflags.bits := PriorityMux(wflags.reverse, csrDataRead.map(_.fflags).reverse)
 
   vxsat.valid := io.commits.isCommit && VecInit(wvcsr).asUInt.orR
-  vxsat.bits := wvcsr.zip(csrDataRead).map({
-    case (w, c) => Mux(w, c.vxsat, 0.U)
-  }).reduce(_ | _)
+  vxsat.bits := PriorityMux(wvcsr.reverse, csrDataRead.map(_.vxsat).reverse)
   val dirty_vs = io.commits.isCommit && VecInit(vecWen).asUInt.orR
   val dirty_fs = io.commits.isCommit && VecInit(fpWen).asUInt.orR
   val blockCommit = hasWFI || exceptionWaitingRedirect
@@ -788,7 +784,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       wdata.ldest := req.ctrl.ldest
       wdata.rfWen := req.ctrl.rfWen
       wdata.fpWen := req.ctrl.fpWen
-      wdata.wflags := req.ctrl.fpu.wflags || (req.ctrl.isVector && req.ctrl.fuType === FuType.vfp)
+      wdata.wflags := req.ctrl.fpu.wflags
       wdata.commitType := req.ctrl.commitType
       wdata.pdest := req.pdest
       wdata.old_pdest := req.old_pdest
