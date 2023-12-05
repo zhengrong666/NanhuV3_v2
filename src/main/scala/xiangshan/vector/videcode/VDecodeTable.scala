@@ -95,15 +95,15 @@ object VSDecode extends VDecodeConstants {
     VSSE32_V -> List(EewVal.word, EewVal.dc, EewVal.word, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VSSE64_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
 
-    VSUXEI8_V -> List(EewVal.dc, EewVal.byte, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSUXEI16_V -> List(EewVal.dc, EewVal.hword, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSUXEI32_V -> List(EewVal.dc, EewVal.word, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSUXEI64_V -> List(EewVal.dc, EewVal.dword, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSUXEI8_V -> List(EewVal.dc, EewVal.byte, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSUXEI16_V -> List(EewVal.dc, EewVal.hword, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSUXEI32_V -> List(EewVal.dc, EewVal.word, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSUXEI64_V -> List(EewVal.dc, EewVal.dword, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
 
-    VSOXEI8_V -> List(EewVal.dc, EewVal.byte, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
-    VSOXEI16_V -> List(EewVal.dc, EewVal.hword, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
-    VSOXEI32_V -> List(EewVal.dc, EewVal.word, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
-    VSOXEI64_V -> List(EewVal.dc, EewVal.dword, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
+    VSOXEI8_V -> List(EewVal.dc, EewVal.byte, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
+    VSOXEI16_V -> List(EewVal.dc, EewVal.hword, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
+    VSOXEI32_V -> List(EewVal.dc, EewVal.word, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
+    VSOXEI64_V -> List(EewVal.dc, EewVal.dword, EewVal.dc, EewType.sew, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, Y, N, N, N, N),
   )
 }
 
