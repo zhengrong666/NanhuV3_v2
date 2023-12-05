@@ -75,7 +75,7 @@ object VRegfileTopUtil{
       (sew === 2.U) -> ("h0f".U << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
       (sew === 3.U) -> ("hff".U << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
     ))
-    Mux(in.ctrl.vdWen, mask(width - 1, 0).asUInt, 0.U(width.W))
+    Mux(in.loadStoreEnable, mask(width - 1, 0).asUInt, 0.U(width.W))
   }
 }
 
@@ -155,7 +155,11 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       val wbBitsReg = RegEnable(rfwb.bits, rfwb.valid)
       wbout.valid := RegNext(rfwb.valid && !rfwb.bits.uop.robIdx.needFlush(io.redirect), false.B)
       wbout.bits := wbBitsReg
-      wbout.bits.wakeupValid := rfwkp.andR || wbBitsReg.uop.ctrl.fpWen || wbBitsReg.uop.ctrl.rfWen
+      if(cfg.exuType == ExuType.ldu){
+        wbout.bits.wakeupValid := rfwkp.andR
+      } else {
+        wbout.bits.wakeupValid := rfwkp.andR || wbBitsReg.uop.ctrl.fpWen || wbBitsReg.uop.ctrl.rfWen
+      }
     })
     vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen

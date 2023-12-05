@@ -739,7 +739,6 @@ class LoadUnit(implicit p: Parameters) extends XSModule with HasLoadHelper with 
   hitLoadOut := DontCare
   hitLoadOut.valid := s2_wb_valid
   hitLoadOut.bits.uop := load_s2.io.out.bits.uop
-  hitLoadOut.bits.uop.ctrl.vdWen := load_s2.io.out.bits.uop.ctrl.vdWen && load_s2.io.out.bits.uop.loadStoreEnable
   hitLoadOut.bits.data := load_s2.io.out.bits.data
   hitLoadOut.bits.redirectValid := false.B
   hitLoadOut.bits.redirect := DontCare
