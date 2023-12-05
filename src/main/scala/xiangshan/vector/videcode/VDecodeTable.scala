@@ -57,7 +57,7 @@ object VLDecode extends VDecodeConstants {
     VLE32FF_V -> List(EewVal.word, EewVal.dc, EewVal.dc, EewType.const, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, Y, N, N, N),
     VLE64FF_V -> List(EewVal.dword, EewVal.dc, EewVal.dc, EewType.const, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, Y, N, N, N),
 
-    VLM_V -> List(EewVal.byte, EewVal.dc, EewVal.mask, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, Y, N, N),
+    VLM_V -> List(EewVal.byte, EewVal.dc, EewVal.mask, EewType.const, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, Y, N, N),
 
     VLSE8_V -> List(EewVal.byte, EewVal.dc, EewVal.dc, EewType.const, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VLSE16_V -> List(EewVal.hword, EewVal.dc, EewVal.dc, EewType.const, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
@@ -83,17 +83,17 @@ object VSDecode extends VDecodeConstants {
     VS4R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r4, EmulType.const, N, Y, N, N, N, N),
     VS8R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r8, EmulType.const, N, Y, N, N, N, N),
 
-    VSE8_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSE16_V -> List(EewVal.dc, EewVal.dc, EewVal.hword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSE32_V -> List(EewVal.dc, EewVal.dc, EewVal.word, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSE64_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSE8_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSE16_V -> List(EewVal.hword, EewVal.dc, EewVal.hword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSE32_V -> List(EewVal.word, EewVal.dc, EewVal.word, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSE64_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
 
-    VSM_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSM_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, N, N, N),
 
-    VSSE8_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSSE16_V -> List(EewVal.dc, EewVal.dc, EewVal.hword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSSE32_V -> List(EewVal.dc, EewVal.dc, EewVal.word, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
-    VSSE64_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSSE8_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSSE16_V -> List(EewVal.hword, EewVal.dc, EewVal.hword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSSE32_V -> List(EewVal.word, EewVal.dc, EewVal.word, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
+    VSSE64_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
 
     VSUXEI8_V -> List(EewVal.dc, EewVal.byte, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VSUXEI16_V -> List(EewVal.dc, EewVal.hword, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
