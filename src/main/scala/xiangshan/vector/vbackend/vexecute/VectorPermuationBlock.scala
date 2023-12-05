@@ -102,7 +102,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     private val cntm2 = RegEnable(issueDataReg.uop.vctrl.isWidden && issueDataReg.uop.uopNum > 1.U, issueValidReg && fuReady)
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
-    wb.valid := DelayN(permutation.io.out.wb_vld, 4)
+    wb.valid := permutation.io.out.wb_vld
     wb.bits.data := permutation.io.out.wb_data
     wb.bits.uop := permutation.io.out.uop.sysUop
     wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
