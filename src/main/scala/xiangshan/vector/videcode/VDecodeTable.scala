@@ -78,10 +78,10 @@ object VLDecode extends VDecodeConstants {
 
 object VSDecode extends VDecodeConstants {
   val table: Array[(BitPat, List[BitPat])] = Array(
-    VS1R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, N, N, N),
-    VS2R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r2, EmulType.const, N, Y, N, N, N, N),
-    VS4R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r4, EmulType.const, N, Y, N, N, N, N),
-    VS8R_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.r8, EmulType.const, N, Y, N, N, N, N),
+    VS1R_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, N, N, N),
+    VS2R_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.r2, EmulType.const, N, Y, N, N, N, N),
+    VS4R_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.r4, EmulType.const, N, Y, N, N, N, N),
+    VS8R_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.r8, EmulType.const, N, Y, N, N, N, N),
 
     VSE8_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VSE16_V -> List(EewVal.hword, EewVal.dc, EewVal.hword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
