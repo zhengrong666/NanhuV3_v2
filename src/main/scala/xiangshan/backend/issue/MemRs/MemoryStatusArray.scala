@@ -229,7 +229,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   private val stdState = io.entry.bits.stdState
   private val staLoadStateNext = miscNext.bits.staLoadState
   private val stdStateNext = miscNext.bits.stdState
-  private val shouldBeCanceled = srcShouldBeCancelled.reduce(_ | _)
+  private val isSgOrStrd = io.entry.bits.isVector && (io.entry.bits.srcType(1) === SrcType.reg || io.entry.bits.srcType(1) === SrcType.vec)
   private val shouldTurnToReady = staLoadState === s_wait_st && (stIssueHit || io.stLastCompelet >= io.entry.bits.sqIdx)
   private val addrShouldBeCancelled = srcShouldBeCancelled(0) | srcShouldBeCancelled(1)
   switch(staLoadState) {
@@ -277,7 +277,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   when(io.replay.valid){
     counterNext := io.replay.bits +& Cat(io.entry.bits.replayPenalty, 0.U(1.W))
   }.elsewhen(staLoadStateNext =/= s_ready && staLoadState === s_ready) {
-    counterNext := 5.U
+    counterNext := Mux(isSgOrStrd, 6.U, 5.U)
   }.elsewhen(counter.orR) {
     counterNext := counter - 1.U
   }
