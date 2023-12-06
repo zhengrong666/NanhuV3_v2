@@ -162,6 +162,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       wbout.bits := wbBitsReg
       if(cfg.exuType == ExuType.ldu){
         wbout.bits.wakeupValid := rfwkp.andR
+        wbout.bits.uop.uopIdx := wbout.bits.uop.segIdx
       } else {
         wbout.bits.wakeupValid := rfwkp.andR || wbBitsReg.uop.ctrl.fpWen || wbBitsReg.uop.ctrl.rfWen
       }
@@ -171,6 +172,9 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       rfwb.bits := wbin.bits
       wbout.valid := RegNext(wbin.valid & !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
       wbout.bits := RegEnable(wbin.bits, wbin.valid)
+      if(cfg.exuType == ExuType.sta || cfg.exuType == ExuType.std) {
+        wbout.bits.uop.uopIdx := wbout.bits.uop.segIdx
+      }
       wbout.bits.wakeupValid := true.B
       wbout.bits.redirectValid := false.B
       wbout.bits.redirect := DontCare

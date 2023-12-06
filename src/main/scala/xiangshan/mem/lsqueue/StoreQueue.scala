@@ -269,7 +269,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val validCond = io.storeIn(i).valid && !io.storeIn(i).bits.miss && !io.storeIn(i).bits.uop.robIdx.needFlush(io.brqRedirect)
     d.bits.robIdx := RegEnable(io.storeIn(i).bits.uop.robIdx, validCond)
     d.bits.vaddr := RegEnable(io.storeIn(i).bits.vaddr, validCond)
-    d.bits.uopIdx := RegEnable(io.storeIn(i).bits.uop.uopIdx, validCond)
+    d.bits.uopIdx := RegEnable(io.storeIn(i).bits.uop.segIdx, validCond)
     d.bits.eVec := io.storeInRe(i).uop.cf.exceptionVec
     d.valid := RegNext(validCond, false.B)
   })

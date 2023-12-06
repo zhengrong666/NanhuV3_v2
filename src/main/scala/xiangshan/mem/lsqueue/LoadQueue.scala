@@ -977,7 +977,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     d.bits.robIdx := RegEnable(io.loadIn(i).bits.uop.robIdx, validCond)
     d.bits.vaddr := RegEnable(io.loadIn(i).bits.vaddr, validCond)
     d.bits.eVec := RegEnable(io.loadIn(i).bits.uop.cf.exceptionVec, validCond)
-    d.bits.uopIdx := RegEnable(io.loadIn(i).bits.uop.uopIdx, validCond)
+    d.bits.uopIdx := RegEnable(io.loadIn(i).bits.uop.segIdx, validCond)
     d.valid := RegNext(validCond, false.B)
   })
   val mmioEvec = Wire(ExceptionVec())
