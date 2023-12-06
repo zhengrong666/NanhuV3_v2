@@ -56,8 +56,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIWaitQueueWidth.U - validEntriesNum
-  private val emptyEntriesNumNext = RegInit(VIWaitQueueWidth.U((log2Ceil(VIWaitQueueWidth) + 1).W))
-  assert(emptyEntriesNumNext <= VIWaitQueueWidth.U)
+  private val emptyEntriesNumReg = RegInit(VIWaitQueueWidth.U((log2Ceil(VIWaitQueueWidth) + 1).W))
+  assert(emptyEntriesNumReg === emptyEntriesNum)
 
   private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
   private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
@@ -67,7 +67,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val flushNum = PopCount(redirectMask)
 
   //Enqueue Logics
-  io.enq.canAccept := emptyEntriesNumNext >= VIDecodeWidth.U
+  io.enq.canAccept := emptyEntriesNumReg >= VIDecodeWidth.U
   io.enq.isEmpty := deqPtr === enqPtr
   private val enqAddrDelta = Wire(Vec(VIDecodeWidth, UInt(VIWaitQueueWidth.W)))
   enqAddrDelta.zipWithIndex.foreach({case(d, i) =>
@@ -89,15 +89,11 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val enqValids = io.enq.req.map(_.valid && io.enq.canAccept)
   private val enqNum = PopCount(enqValids)
-  private val enqPtrNext = WireInit(enqPtr)
+  private val doEnq = enqValids.reduce(_|_)
   when(io.redirect.valid){
-    enqPtrNext := enqPtr - flushNum
-    enqPtr := enqPtrNext
-    emptyEntriesNumNext := emptyEntriesNum +& flushNum
-  }.elsewhen(enqValids.reduce(_|_)){
-    enqPtrNext := enqPtr + enqNum
-    enqPtr := enqPtrNext
-    emptyEntriesNumNext := emptyEntriesNum -& enqNum
+    enqPtr := enqPtr - flushNum
+  }.elsewhen(doEnq){
+    enqPtr := enqPtr + enqNum
   }
 
   //MergeId Allocation Logics
@@ -163,8 +159,13 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || directlyWb)
   when(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)){
     deqPtr := deqPtr + 1.U
-    emptyEntriesNumNext := emptyEntriesNum +& 1.U
   }
+
+  private val actualDeqNum = Mux(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect), 1.U, 0.U)
+  private val actualEnqNum = Mux(doEnq && !io.redirect.valid, enqNum, 0.U)
+  private val actulaFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
+  emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actulaFlushNum +& actualDeqNum)
+
 
   private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, deqValid)
   when(io.splitCtrl.allDone) {
