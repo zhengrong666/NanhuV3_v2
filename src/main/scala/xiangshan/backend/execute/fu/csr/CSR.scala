@@ -1337,7 +1337,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     difftestDebugCSR.dscratch1 := dscratch1
   }
 
-  if(env.AlwaysBasicDiff || env.EnableDifftest) {
+  if(env.EnableDifftest) {
     val difftestVCSR = DifftestModule(new DiffVecCSRState, delay = 1)
     difftestVCSR.coreid := csrio.hartId
     difftestVCSR.vlenb := vlenb

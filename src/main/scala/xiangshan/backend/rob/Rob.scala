@@ -1002,7 +1002,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     wpc(i) := SignExt(commitDebugUop(i).cf.pc, XLEN)
   }
 
-  if (env.EnableDifftest) {
+  if (env.EnableDifftest || env.AlwaysBasicDiff) {
     for (i <- 0 until CommitWidth) {
       val ptr = deqPtrVec(i).value
       val uop = commitDebugUop(i)
@@ -1033,15 +1033,16 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       // when committing an eliminated move instruction,
       // we must make sure that skip is properly set to false (output from EXU is random value)
 
-
-      // runahead commit hint
-      val runahead_commit = DifftestModule(new DiffRunaheadCommitEvent)
-      runahead_commit.coreid := io.hartId
-      runahead_commit.index := i.U
-      runahead_commit.valid := difftestInstCmt.valid &&
-        (commitBranchValid(i) || commitIsStore(i))
-      // TODO: is branch or store
-      runahead_commit.pc := difftestInstCmt.pc
+      if (env.EnableDifftest) {
+        // runahead commit hint
+        val runahead_commit = DifftestModule(new DiffRunaheadCommitEvent)
+        runahead_commit.coreid := io.hartId
+        runahead_commit.index := i.U
+        runahead_commit.valid := difftestInstCmt.valid &&
+          (commitBranchValid(i) || commitIsStore(i))
+        // TODO: is branch or store
+        runahead_commit.pc := difftestInstCmt.pc
+      }
     }
   }
 
@@ -1062,7 +1063,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   // Always instantiate basic difftest modules.
-  if (env.EnableDifftest) {
+  if (env.EnableDifftest || env.AlwaysBasicDiff) {
     val dt_isXSTrap = Mem(RobSize, Bool())
     for (i <- 0 until RenameWidth) {
       when(canEnqueue(i)) {
