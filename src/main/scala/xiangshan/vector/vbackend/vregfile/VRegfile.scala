@@ -17,6 +17,7 @@ class MoveReq(implicit p: Parameters) extends XSBundle{
   val segIdx = UInt(log2Ceil(VLEN).W)
   val elmIdx = UInt(3.W)
   val emul = UInt(3.W)
+  val uopIdx = UInt(log2Ceil(VLEN).W)
 }
 
 class VrfReadPort(implicit p: Parameters) extends XSBundle{
@@ -86,21 +87,7 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     val width = VLEN / 8
     val vlenBytes = log2Ceil(VLEN / 8)
     val sew = in.sew
-    val emul = in.emul
-    val segIdx = in.segIdx
-    val elmIdx = in.elmIdx
-    val defaultMovIdx = MuxCase(0.U, Seq(
-      (sew === 0.U) -> segIdx(vlenBytes - 1, 0),
-      (sew === 1.U) -> segIdx(vlenBytes - 2, 0),
-      (sew === 2.U) -> segIdx(vlenBytes - 3, 0),
-      (sew === 3.U) -> segIdx(vlenBytes - 4, 0),
-    ))
-    val movIdx = MuxCase(defaultMovIdx, Seq(
-      (emul === 5.U) -> ((elmIdx(2, 0) * (vlenBytes / 8).U) +& segIdx),
-      (emul === 6.U) -> ((elmIdx(1, 0) * (vlenBytes / 4).U) +& segIdx),
-      (emul === 7.U) -> ((elmIdx(0) * (vlenBytes / 2).U) +& segIdx)
-    ))
-
+    val movIdx = VrfHelper.getElementIdx(in.segIdx, in.elmIdx, in.emul, in.sew, in.uopIdx, VLEN)
     val mask = MuxCase(0.U, Seq(
       (sew === 0.U) -> ("h01".U << Cat(movIdx(vlenBytes - 1, 0), 0.U(0.W))),
       (sew === 1.U) -> ("h03".U << Cat(movIdx(vlenBytes - 2, 0), 0.U(1.W))),

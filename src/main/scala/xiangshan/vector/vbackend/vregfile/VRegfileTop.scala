@@ -13,6 +13,54 @@ import xiangshan.vector.HasVectorParameters
 import xs.utils.{SignExt, UIntToMask, ZeroExt}
 import VRegfileTopUtil._
 
+object VrfHelper {
+  def getElementIdx(segIdx: UInt, elmIdx:UInt, emul:UInt, sew:UInt, uopIdx:UInt, VLEN: Int): UInt = {
+    val vlenBytes = VLEN / 8
+    val d8Bytes = vlenBytes / 8
+    val d4Bytes = vlenBytes / 4
+    val d2Bytes = vlenBytes / 2
+
+    val segNum = MuxCase(0.U, Seq(
+      (emul === 5.U) -> (d8Bytes.U >> sew),
+      (emul === 6.U) -> (d4Bytes.U >> sew),
+      (emul === 7.U) -> (d2Bytes.U >> sew),
+    )).asUInt
+
+    val touched = segIdx < segNum.asUInt
+    val globalIdx = Wire(UInt(log2Ceil(VLEN + 1).W))
+    when(emul <= 3.U) {
+      globalIdx := segIdx
+    }.otherwise {
+      globalIdx := Mux(touched, (elmIdx * segNum) + segIdx, uopIdx)
+    }
+
+    val res = MuxCase(0.U, Seq(
+      (sew === 0.U) -> globalIdx(log2Ceil(vlenBytes) - 1, 0),
+      (sew === 1.U) -> globalIdx(log2Ceil(vlenBytes) - 2, 0),
+      (sew === 2.U) -> globalIdx(log2Ceil(vlenBytes) - 3, 0),
+      (sew === 3.U) -> globalIdx(log2Ceil(vlenBytes) - 4, 0)
+    ))
+    res
+  }
+
+  def extractElement(uop:MicroOp, vsrc:UInt, sew:UInt, VLEN: Int, XLEN: Int): UInt = {
+    require(vsrc.getWidth == VLEN)
+    val elemsIdx = getElementIdx(uop.segIdx, uop.elmIdx, uop.vctrl.emul, sew, uop.uopIdx, VLEN)
+    val res = WireInit(0.U(XLEN.W))
+    val vsrcSplit8 = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7, idx * 8)))
+    val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15, idx * 16)))
+    val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 31, idx * 32)))
+    val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 63, idx * 64)))
+    res := MuxCase(0.U, Seq(
+      (sew === 0.U) -> ZeroExt(vsrcSplit8(elemsIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
+      (sew === 1.U) -> ZeroExt(vsrcSplit16(elemsIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
+      (sew === 2.U) -> ZeroExt(vsrcSplit32(elemsIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
+      (sew === 3.U) -> ZeroExt(vsrcSplit64(elemsIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
+    ))
+    res
+  }
+}
+
 class VectorWritebackMergeNode(implicit valName: ValName) extends AdapterNode(ExuOutwardImpl)({p => p.copy(throughVectorRf = true)}, {p => p})
 
 class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
@@ -21,59 +69,11 @@ class VectorRfReadPort(implicit p:Parameters) extends XSBundle{
 }
 
 object VRegfileTopUtil{
-  def GenWbMask(in:MicroOp, width:Int, elementWise:Boolean, VLEN:Int): UInt = {
-    val res = VecInit(Seq.fill(width)(false.B))
-    val sew = if(elementWise) in.vctrl.eew(0) else in.vctrl.eew(2)
-    val w = in.uopIdx.getWidth - 1
-    val ui = if(elementWise) {
-      MuxCase(0.U(3.W), Seq(
-        (sew === 0.U) -> in.uopIdx(w, log2Ceil(VLEN / 8))(2, 0),
-        (sew === 1.U) -> in.uopIdx(w, log2Ceil(VLEN / 16))(2, 0),
-        (sew === 2.U) -> in.uopIdx(w, log2Ceil(VLEN / 32))(2, 0),
-        (sew === 3.U) -> in.uopIdx(w, log2Ceil(VLEN / 64))(2, 0),
-      ))
-    } else {
-      in.uopIdx(2, 0)
-    }
-    val maxUopIdx = (in.uopNum - 1.U)(w, 0)
-    val un = if (elementWise) {
-      MuxCase(0.U(3.W), Seq(
-        (sew === 0.U) -> maxUopIdx(w, log2Ceil(VLEN / 8))(2, 0),
-        (sew === 1.U) -> maxUopIdx(w, log2Ceil(VLEN / 16))(2, 0),
-        (sew === 2.U) -> maxUopIdx(w, log2Ceil(VLEN / 32))(2, 0),
-        (sew === 3.U) -> maxUopIdx(w, log2Ceil(VLEN / 64))(2, 0)
-      ))
-    } else {
-      maxUopIdx(2, 0)
-    }
-
-    for ((r, i) <- res.zipWithIndex){
-      when((un === ui && un < i.U) || ui === i.U){
-        r := true.B
-      }
-    }
-    res.asUInt
-  }
-
   def GenLoadVrfMask(in:MicroOp, VLEN:Int):UInt = {
     val width = VLEN / 8
     val vlenBytes = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
-    val emul = in.vctrl.emul
-    val segIdx = in.segIdx
-    val elmIdx = in.elmIdx
-    val defaultIdx = MuxCase(0.U, Seq(
-      (sew === 0.U) -> segIdx(vlenBytes - 1, 0),
-      (sew === 1.U) -> segIdx(vlenBytes - 2, 0),
-      (sew === 2.U) -> segIdx(vlenBytes - 3, 0),
-      (sew === 3.U) -> segIdx(vlenBytes - 4, 0),
-    ))
-    val movIdx = MuxCase(defaultIdx, Seq(
-      (emul === 5.U) -> ((elmIdx(2, 0) * (vlenBytes / 8).U) +& segIdx),
-      (emul === 6.U) -> ((elmIdx(1, 0) * (vlenBytes / 4).U) +& segIdx),
-      (emul === 7.U) -> ((elmIdx(0) * (vlenBytes / 2).U) +& segIdx)
-    ))
-
+    val movIdx = VrfHelper.getElementIdx(in.segIdx, in.elmIdx, in.vctrl.emul, sew, in.uopIdx, VLEN)
     val mask = MuxCase(0.U, Seq(
       (sew === 0.U) -> ("h01".U << Cat(movIdx(vlenBytes - 1, 0), 0.U(0.W))),
       (sew === 1.U) -> ("h03".U << Cat(movIdx(vlenBytes - 2, 0), 0.U(1.W))),

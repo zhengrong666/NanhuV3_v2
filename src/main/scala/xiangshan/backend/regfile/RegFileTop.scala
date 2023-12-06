@@ -31,7 +31,7 @@ import xiangshan.frontend.Ftq_RF_Components
 import xiangshan.vector.HasVectorParameters
 import xiangshan._
 import xiangshan.backend.execute.exu.ExuType
-import xiangshan.vector.vbackend.vregfile.{MoveReq, VectorRfReadPort}
+import xiangshan.vector.vbackend.vregfile.{MoveReq, VectorRfReadPort, VrfHelper}
 import xs.utils.{DelayN, SignExt, ZeroExt}
 
 class ScalarRfReadPort(implicit p:Parameters) extends XSBundle{
@@ -40,63 +40,36 @@ class ScalarRfReadPort(implicit p:Parameters) extends XSBundle{
   val idata = Output(UInt(XLEN.W))
 }
 
-object RegFileTop{
-  def extractElement(vsrc:UInt, sew:UInt, uopIdx:UInt, nf:UInt, VLEN:Int, XLEN:Int): UInt = {
-    require(vsrc.getWidth == VLEN)
-    val elemsIdx = MuxCase(uopIdx, Seq(
-      (nf === 2.U) -> uopIdx / 2.U,
-      (nf === 3.U) -> uopIdx / 3.U,
-      (nf === 4.U) -> uopIdx / 4.U,
-      (nf === 5.U) -> uopIdx / 5.U,
-      (nf === 6.U) -> uopIdx / 6.U,
-      (nf === 7.U) -> uopIdx / 7.U,
-      (nf === 8.U) -> uopIdx / 8.U,
-    ))
-    val res = WireInit(0.U(XLEN.W))
-    val vsrcSplit8  = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7,  idx * 8)))
-    val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15,  idx * 16)))
-    val vsrcSplit32 = VecInit(Seq.tabulate(VLEN / 32)(idx => vsrc(idx * 32 + 31,  idx * 32)))
-    val vsrcSplit64 = VecInit(Seq.tabulate(VLEN / 64)(idx => vsrc(idx * 64 + 63,  idx * 64)))
-    res := MuxCase(0.U, Seq(
-      (sew === 0.U) -> ZeroExt(vsrcSplit8(elemsIdx(log2Ceil(VLEN / 8) - 1, 0)), XLEN),
-      (sew === 1.U) -> ZeroExt(vsrcSplit16(elemsIdx(log2Ceil(VLEN / 16) - 1, 0)), XLEN),
-      (sew === 2.U) -> ZeroExt(vsrcSplit32(elemsIdx(log2Ceil(VLEN / 32) - 1, 0)), XLEN),
-      (sew === 3.U) -> ZeroExt(vsrcSplit64(elemsIdx(log2Ceil(VLEN / 64) - 1, 0)), XLEN),
-    ))
-    res
-  }
-}
-
 class AddrGen(implicit p:Parameters) extends XSModule{
   val io = IO(new Bundle{
+    val uop = Input(new MicroOp)
     val base = Input(UInt(XLEN.W))
     val stride = Input(UInt(XLEN.W))
     val offset = Input(UInt(VLEN.W))
-    val sew = Input(UInt(2.W))
-    val isStride = Input(Bool())
-    val uopIdx = Input(UInt(7.W))
     val target = Output(UInt(XLEN.W))
   })
-  private val rawOffset = RegFileTop.extractElement(io.offset, io.sew, io.uopIdx, 1.U, VLEN, XLEN)
+  private val isStride = io.uop.ctrl.srcType(1) === SrcType.reg
+  private val sew = io.uop.vctrl.eew(1)
+  private val rawOffset = VrfHelper.extractElement(io.uop, io.offset, sew, VLEN, XLEN)
   private val offset = MuxCase(0.U(VAddrBits.W), Seq(
-    (io.sew === 0.U) -> SignExt(rawOffset(7, 0), VAddrBits),
-    (io.sew === 1.U) -> SignExt(rawOffset(15, 0), VAddrBits),
-    (io.sew === 2.U) -> SignExt(rawOffset(31, 0), VAddrBits),
-    (io.sew === 3.U) -> rawOffset(VAddrBits - 1, 0),
+    (sew === 0.U) -> SignExt(rawOffset(7, 0), VAddrBits),
+    (sew === 1.U) -> SignExt(rawOffset(15, 0), VAddrBits),
+    (sew === 2.U) -> SignExt(rawOffset(31, 0), VAddrBits),
+    (sew === 3.U) -> rawOffset(VAddrBits - 1, 0),
   ))
   private val offsetTarget = io.base(VAddrBits - 1, 0) + offset
 
   private val stride = Wire(UInt((VAddrBits + 1).W))
   stride := MuxCase(0.U((VAddrBits + 1).W), Seq(
-    (io.sew === 0.U) -> SignExt(io.stride(7, 0), VAddrBits + 1),
-    (io.sew === 1.U) -> SignExt(io.stride(15, 0), VAddrBits + 1),
-    (io.sew === 2.U) -> SignExt(io.stride(31, 0), VAddrBits + 1),
-    (io.sew === 3.U) -> Cat(io.stride(XLEN - 1), io.stride(VAddrBits - 1, 0)),
+    (sew === 0.U) -> SignExt(io.stride(7, 0), VAddrBits + 1),
+    (sew === 1.U) -> SignExt(io.stride(15, 0), VAddrBits + 1),
+    (sew === 2.U) -> SignExt(io.stride(31, 0), VAddrBits + 1),
+    (sew === 3.U) -> Cat(io.stride(XLEN - 1), io.stride(VAddrBits - 1, 0)),
   ))
-  private val strideOffset = (stride.asSInt * io.uopIdx)(VAddrBits - 1, 0).asUInt
+  private val strideOffset = (stride.asSInt * io.uop.uopIdx)(VAddrBits - 1, 0).asUInt
   private val strideTarget = strideOffset + io.base(VAddrBits - 1, 0)
 
-  io.target := Mux(io.isStride, strideTarget, offsetTarget)
+  io.target := Mux(isStride, strideTarget, offsetTarget)
 }
 
 class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends LazyModule with HasXSParameter with HasVectorParameters{
@@ -263,6 +236,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.segIdx := uopDelay.segIdx
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.elmIdx := uopDelay.elmIdx
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.emul := uopDelay.vctrl.emul
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := uopDelay.uopIdx
 
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isUnitStride){
@@ -277,9 +251,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
               addrGen.io.base := baseAddrReg
               addrGen.io.stride := strideReg
               addrGen.io.offset := offsetReg
-              addrGen.io.sew := uopReg.vCsrInfo.vsew
-              addrGen.io.isStride := uopReg.ctrl.srcType(1) === SrcType.reg
-              addrGen.io.uopIdx := uopReg.uopIdx
+              addrGen.io.uop := uopReg
               exuInBundle.src(0) := addrGen.io.target
               exuInBundle.uop.ctrl.imm := 0.U
             }
@@ -290,7 +262,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val iDataReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.fire && isStd)
           val fDataReg = RegEnable(fpRf.io.readNoBypass(noBypassFpReadIdx).data, bi.issue.fire && isStd)
           val vDataReg = RegEnable(
-            RegFileTop.extractElement(io.vectorReads(vecReadPortIdx).data, sew, uopIdx, bi.issue.bits.uop.vctrl.nf, VLEN, XLEN),
+            VrfHelper.extractElement(bi.issue.bits.uop, io.vectorReads(vecReadPortIdx).data, sew, VLEN, XLEN),
             bi.issue.fire && isStd
           )
           when(RegNext(bi.issue.bits.uop.ctrl.isVector)){
