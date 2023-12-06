@@ -57,23 +57,28 @@ object VRegfileTopUtil{
 
   def GenLoadVrfMask(in:MicroOp, VLEN:Int):UInt = {
     val width = VLEN / 8
-    val vlenShiftBits = log2Ceil(VLEN / 8)
+    val vlenBytes = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
-    val nf = in.vctrl.nf
-    val uopIdx = MuxCase(in.uopIdx, Seq(
-      (nf === 2.U) -> in.uopIdx / 2.U,
-      (nf === 3.U) -> in.uopIdx / 3.U,
-      (nf === 4.U) -> in.uopIdx / 4.U,
-      (nf === 5.U) -> in.uopIdx / 5.U,
-      (nf === 6.U) -> in.uopIdx / 6.U,
-      (nf === 7.U) -> in.uopIdx / 7.U,
-      (nf === 8.U) -> in.uopIdx / 8.U,
+    val emul = in.vctrl.emul
+    val segIdx = in.segIdx
+    val elmIdx = in.elmIdx
+    val defaultIdx = MuxCase(0.U, Seq(
+      (sew === 0.U) -> segIdx(vlenBytes - 1, 0),
+      (sew === 1.U) -> segIdx(vlenBytes - 2, 0),
+      (sew === 2.U) -> segIdx(vlenBytes - 3, 0),
+      (sew === 3.U) -> segIdx(vlenBytes - 4, 0),
     ))
+    val movIdx = MuxCase(defaultIdx, Seq(
+      (emul === 5.U) -> ((elmIdx(2, 0) * (vlenBytes / 8).U) +& segIdx),
+      (emul === 6.U) -> ((elmIdx(1, 0) * (vlenBytes / 4).U) +& segIdx),
+      (emul === 7.U) -> ((elmIdx(0) * (vlenBytes / 2).U) +& segIdx)
+    ))
+
     val mask = MuxCase(0.U, Seq(
-      (sew === 0.U) -> ("h01".U << Cat(uopIdx(vlenShiftBits - 1, 0), 0.U(0.W))),
-      (sew === 1.U) -> ("h03".U << Cat(uopIdx(vlenShiftBits - 2, 0), 0.U(1.W))),
-      (sew === 2.U) -> ("h0f".U << Cat(uopIdx(vlenShiftBits - 3, 0), 0.U(2.W))),
-      (sew === 3.U) -> ("hff".U << Cat(uopIdx(vlenShiftBits - 4, 0), 0.U(3.W))),
+      (sew === 0.U) -> ("h01".U << Cat(movIdx(vlenBytes - 1, 0), 0.U(0.W))),
+      (sew === 1.U) -> ("h03".U << Cat(movIdx(vlenBytes - 2, 0), 0.U(1.W))),
+      (sew === 2.U) -> ("h0f".U << Cat(movIdx(vlenBytes - 3, 0), 0.U(2.W))),
+      (sew === 3.U) -> ("hff".U << Cat(movIdx(vlenBytes - 4, 0), 0.U(3.W))),
     ))
     Mux(in.loadStoreEnable, mask(width - 1, 0).asUInt, 0.U(width.W))
   }

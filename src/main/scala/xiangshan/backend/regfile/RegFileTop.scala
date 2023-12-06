@@ -232,7 +232,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Mask read
           io.vectorReads(vecReadPortIdx + 1).addr := bi.issue.bits.uop.vm
           val vmVal = RegEnable(io.vectorReads(vecReadPortIdx + 1).data, bi.issue.valid && bi.issue.bits.uop.ctrl.isVector)
-          val isMaskDisabled = uopDelay.vctrl.vm && !(vmVal(uopDelay.uopIdx).asBool)
+          val isMaskDisabled = uopDelay.vctrl.vm && !(vmVal(uopDelay.segIdx).asBool)
           val isTailDisabled = uopDelay.isTail
           val isPrestartDisabled = uopDelay.isPrestart
           //Base address read
@@ -260,8 +260,9 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := uopDelay.psrc(2)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.dstAddr := uopDelay.pdest
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := uopDelay.vctrl.eew(0)
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := uopDelay.uopIdx
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.nf := uopDelay.vctrl.nf
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.segIdx := uopDelay.segIdx
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.elmIdx := uopDelay.elmIdx
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.emul := uopDelay.vctrl.emul
 
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isUnitStride){

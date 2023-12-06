@@ -79,7 +79,6 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val vctrlNext = entryNext.uop.vctrl
   private val vctrl = io.entry.uop.vctrl
   private val vcsr = io.entry.uop.vCsrInfo
-  private val vlenBytes  = VLEN / 8
   private val isWiden = WireInit(vctrl.isWidden)
   private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
@@ -117,14 +116,22 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
 
     when(vctrl.isLs) {
+      val vregTouchRaw = Wire(UInt(7.W))
+      vregTouchRaw := MuxCase(1.U, Seq(
+        (vctrlNext.emul === 0.U(3.W)) -> vctrl.nf,
+        (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf << 1.U),
+        (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf << 2.U),
+        (vctrlNext.emul === 3.U(3.W)) -> 8.U,
+        (vctrlNext.emul === 5.U(3.W)) -> 1.U,
+        (vctrlNext.emul === 6.U(3.W)) -> ((vctrl.nf +& 3.U) >> 2.U),
+        (vctrlNext.emul === 7.U(3.W)) -> ((vctrl.nf +& 1.U) >> 1.U),
+      ))
+      val vregTouch = vregTouchRaw(3, 0)
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (vctrlNext.emul === 0.U(3.W)) -> ((vlenBytes * 1).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 1.U(3.W)) -> ((vlenBytes * 2).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 2.U(3.W)) -> ((vlenBytes * 4).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 3.U(3.W)) -> ((vlenBytes * 8).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 5.U(3.W)) -> ((vlenBytes / 8).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 6.U(3.W)) -> ((vlenBytes / 4).U >> vctrlNext.eew(0)),
-        (vctrlNext.emul === 7.U(3.W)) -> ((vlenBytes / 2).U >> vctrlNext.eew(0)),
+        (vctrlNext.eew(0) === 0.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 8)),
+        (vctrlNext.eew(0) === 1.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 16)),
+        (vctrlNext.eew(0) === 2.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 32)),
+        (vctrlNext.eew(0) === 3.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 64)),
       ))
     }.elsewhen(isNarrow || isWiden) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(

@@ -227,6 +227,8 @@ class MicroOp(implicit p: Parameters) extends CfCtrl {
   val mergeIdx = new VmbPtr
   val loadStoreEnable = Bool()
   val vtypeRegIdx = UInt(log2Ceil(VIVtypeRegsNum).W)
+  val segIdx = UInt(log2Ceil(VLEN).W)
+  val elmIdx = UInt(3.W)
 
   def clearExceptions(
     exceptionBits: Seq[Int] = Seq(),
