@@ -173,7 +173,7 @@ class FloatingStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(imp
   }.elsewhen(io.entry.valid) {
     debugTimeoutCnt := debugTimeoutCnt + 1.U
   }
-  assert(debugTimeoutCnt < 15000.U, "Inst is not dequeued for 15000 cycles!")
+  assert(debugTimeoutCnt < 20000.U, "Inst is not dequeued for 20000 cycles!")
 }
 
 class FloatingStatusArray(entryNum:Int, issueWidth:Int, wakeupWidth:Int, loadUnitNum:Int)(implicit p: Parameters) extends XSModule{

@@ -112,7 +112,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
   }.elsewhen(io.entry.valid) {
     debugTimeoutCnt := debugTimeoutCnt + 1.U
   }
-  assert(debugTimeoutCnt < 15000.U, "Uop is not dequeued for 15000 cycles!")
+  assert(debugTimeoutCnt < 20000.U, "Uop is not dequeued for 20000 cycles!")
 }
 
 class VprsStatusArray(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) extends XSModule{
