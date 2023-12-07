@@ -50,7 +50,7 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   })
   private val isStride = io.uop.ctrl.srcType(1) === SrcType.reg
   private val sew = io.uop.vctrl.eew(1)
-  private val rawOffset = VrfHelper.extractElement(io.uop, io.offset, sew, VLEN, XLEN)
+  private val rawOffset = VrfHelper.extractElement(io.uop.uopIdx, io.offset, sew, VLEN, XLEN)
   private val offset = MuxCase(0.U(VAddrBits.W), Seq(
     (sew === 0.U) -> SignExt(rawOffset(7, 0), VAddrBits),
     (sew === 1.U) -> SignExt(rawOffset(15, 0), VAddrBits),
@@ -259,7 +259,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val iDataReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.fire && isStd)
           val fDataReg = RegEnable(fpRf.io.readNoBypass(noBypassFpReadIdx).data, bi.issue.fire && isStd)
           val vDataReg = RegEnable(
-            VrfHelper.extractElement(bi.issue.bits.uop, io.vectorReads(vecReadPortIdx).data, sew, VLEN, XLEN),
+            VrfHelper.extractElement(bi.issue.bits.uop.segIdx, io.vectorReads(vecReadPortIdx).data, sew, VLEN, XLEN),
             bi.issue.fire && isStd
           )
           when(RegNext(bi.issue.bits.uop.ctrl.isVector)){

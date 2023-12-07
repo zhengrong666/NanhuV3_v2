@@ -25,9 +25,9 @@ object VrfHelper {
     regElmIdx
   }
 
-  def extractElement(uop:MicroOp, vsrc:UInt, sew:UInt, VLEN: Int, XLEN: Int): UInt = {
+  def extractElement(segIdx:UInt, vsrc:UInt, sew:UInt, VLEN: Int, XLEN: Int): UInt = {
     require(vsrc.getWidth == VLEN)
-    val elemsIdx = getElementIdx(uop.segIdx, sew, VLEN)
+    val elemsIdx = getElementIdx(segIdx, sew, VLEN)
     val res = WireInit(0.U(XLEN.W))
     val vsrcSplit8 = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7, idx * 8)))
     val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15, idx * 16)))
