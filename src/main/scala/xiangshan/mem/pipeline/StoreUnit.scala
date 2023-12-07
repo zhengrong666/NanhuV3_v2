@@ -170,8 +170,8 @@ class StoreUnit_S2(implicit p: Parameters) extends XSModule {
     pmp.mmio := io.static_pm.bits
   }
 
-  val s2_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR, false.B)
-  val is_mmio = io.in.bits.mmio || pmp.mmio
+  val s2_exception = ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR && EnableMem
+  val is_mmio = (io.in.bits.mmio || pmp.mmio) && EnableMem
 
   io.in.ready := true.B
   io.out.bits := io.in.bits
