@@ -149,25 +149,25 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
         wbout.bits.wakeupValid := rfwkp.andR || wbBitsReg.uop.ctrl.fpWen || wbBitsReg.uop.ctrl.rfWen
       }
     })
-    vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, cfg)) =>
+    vrf.io.wbNoWakeup.zip(wbPairDontNeedMerge).foreach({case(rfwb, (wbin, wbout, _)) =>
       rfwb.valid := wbin.valid && wbin.bits.uop.ctrl.vdWen
       rfwb.bits := wbin.bits
       wbout.valid := RegNext(wbin.valid & !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
       wbout.bits := RegEnable(wbin.bits, wbin.valid)
-      if(cfg.exuType == ExuType.sta || cfg.exuType == ExuType.std) {
-        wbout.bits.uop.uopIdx := wbout.bits.uop.segIdx
-      }
       wbout.bits.wakeupValid := true.B
       wbout.bits.redirectValid := false.B
       wbout.bits.redirect := DontCare
     })
-    wbPairStu.foreach({case(wbin, wbout, _) =>
+    wbPairStu.foreach({case(wbin, wbout, cfg) =>
       val validReg = RegNext(wbin.valid & !wbin.bits.uop.robIdx.needFlush(io.redirect), false.B)
       val bitsReg = RegEnable(wbin.bits, wbin.valid)
       val redirectValidReg = RegNext(wbin.bits.redirectValid & !wbin.bits.redirect.robIdx.needFlush(io.redirect), false.B)
       val redirectBitsReg = RegEnable(wbin.bits.redirect, wbin.bits.redirectValid)
       wbout.valid := validReg && !bitsReg.uop.robIdx.needFlush(io.redirect)
       wbout.bits := bitsReg
+      if (cfg.exuType == ExuType.sta || cfg.exuType == ExuType.std) {
+        wbout.bits.uop.uopIdx := wbout.bits.uop.segIdx
+      }
       wbout.bits.redirectValid := redirectValidReg && !redirectBitsReg.robIdx.needFlush(io.redirect)
       wbout.bits.redirect := redirectBitsReg
     })
