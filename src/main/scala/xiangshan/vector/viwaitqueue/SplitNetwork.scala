@@ -52,12 +52,13 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
   ))
 
   private val vlenBytesLen = log2Ceil(VLEN / 8)
-  io.out.shouldRename := MuxCase(false.B, Seq(
+  private val canbeRenamed = MuxCase(false.B, Seq(
     (memSew === 0.U) -> (segIdx(vlenBytesLen - 1, 0) === 0.U),
     (memSew === 1.U) -> (segIdx(vlenBytesLen - 2, 0) === 0.U),
     (memSew === 2.U) -> (segIdx(vlenBytesLen - 3, 0) === 0.U),
     (memSew === 3.U) -> (segIdx(vlenBytesLen - 4, 0) === 0.U),
   ))
+  io.out.shouldRename := canbeRenamed && !store
 
   private val regBaseIdx = MuxCase(0.U(segIdx.getWidth.W), Seq(
     (memSew === 0.U) -> LogicShiftRight(segIdx, vlenBytesLen - 0),
