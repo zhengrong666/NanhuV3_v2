@@ -167,7 +167,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actulaFlushNum +& actualDeqNum)
 
 
-  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, deqValid)
+  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, false.B, deqValid)
   when(io.splitCtrl.allDone) {
     orderLsOnGoing := false.B
   }
