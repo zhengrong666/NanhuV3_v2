@@ -11,6 +11,7 @@ class DequeuePipeline(PipelineWidth: Int)(implicit p: Parameters) extends XSModu
     val redirect = Input(new Valid(new Redirect))
   })
   assert(PopCount(io.out.map(_.ready)) === PipelineWidth.U || PopCount(io.out.map(_.ready)) === 0.U)
+  assert(PopCount(io.in.map(_.ready)) === PipelineWidth.U || PopCount(io.in.map(_.ready)) === 0.U)
 
   private val pipes = Seq.fill(PipelineWidth)(Reg(Valid(new MicroOp)))
   private val globalValid = RegInit(false.B)
