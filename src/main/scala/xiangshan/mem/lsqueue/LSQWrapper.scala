@@ -142,7 +142,10 @@ class LsqWrappper(implicit p: Parameters) extends XSModule with HasDCacheParamet
   loadQueue.io.brqRedirect <> io.brqRedirect
   loadQueue.io.loadPaddrIn <> io.loadPaddrIn
   loadQueue.io.loadIn <> io.loadIn
-  loadQueue.io.storeIn <> io.storeIn
+  loadQueue.io.storeIn.zip(io.storeIn).foreach({case(a, b) =>
+    a.valid := b.valid & b.bits.uop.loadStoreEnable
+    a.bits := b.bits
+  })
   loadQueue.io.s2_load_data_forwarded <> io.s2_load_data_forwarded
   loadQueue.io.s3_delayed_load_error <> io.s3_delayed_load_error
   loadQueue.io.s2_dcache_require_replay <> io.s2_dcache_require_replay

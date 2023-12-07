@@ -309,6 +309,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     when (io.storeIn(i).valid) {
       val addr_valid = !io.storeIn(i).bits.miss
       addrvalid(stWbIndex) := addr_valid //!io.storeIn(i).bits.mmio
+      active(stWbIndex) := io.storeIn(i).bits.uop.loadStoreEnable
       v_pAddrModule.io.waddr(i) := stWbIndex
       v_pAddrModule.io.wdata_p (i) := io.storeIn(i).bits.paddr
       v_pAddrModule.io.wdata_v (i) := io.storeIn(i).bits.vaddr
@@ -410,7 +411,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val differentFlag = deqPtrExt(0).flag =/= io.forward(i).sqIdx.flag
     val forwardMask = io.forward(i).sqIdxMask
     // all addrvalid terms need to be checked
-    val addrValidVec = addrvalid.asUInt & allocated.asUInt
+    val addrValidVec = addrvalid.asUInt & allocated.asUInt & active.asUInt
     val dataValidVec = datavalid.asUInt
     val canForward1 = Mux(differentFlag, ~deqMask, deqMask ^ forwardMask).asUInt & addrValidVec
     val canForward2 = Mux(differentFlag, forwardMask, 0.U(StoreQueueSize.W)).asUInt & addrValidVec
@@ -656,7 +657,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       io.storeAddrIn(i).ready := true.B
       when(io.storeAddrIn(i).fire){
         writebacked_sta(io.storeAddrIn(i).bits.uop.sqIdx.value) := true.B
-        active(io.storeAddrIn(i).bits.uop.sqIdx.value) := io.storeAddrIn(i).bits.uop.loadStoreEnable
       }
     }})
 
