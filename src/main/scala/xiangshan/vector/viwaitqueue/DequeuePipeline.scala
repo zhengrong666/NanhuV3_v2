@@ -12,21 +12,24 @@ class DequeuePipeline(PipelineWidth: Int)(implicit p: Parameters) extends XSModu
   })
   assert(PopCount(io.out.map(_.ready)) === PipelineWidth.U || PopCount(io.out.map(_.ready)) === 0.U)
 
-  for((out, in) <- io.out.zip(io.in)){
-    val validReg = RegInit(false.B)
-    val bitsReg = Reg(new MicroOp)
-    val allowPipe = out.ready || !validReg
-    in.ready := allowPipe
-    when(validReg && io.redirect.valid && bitsReg.robIdx.needFlush(io.redirect)){
-      validReg := false.B
-    }.elsewhen(allowPipe){
-      validReg := in.valid
-    }
-    when(in.fire){
-      bitsReg := in.bits
-    }
+  private val pipes = Seq.fill(PipelineWidth)(Reg(Valid(new MicroOp)))
+  private val globalValid = RegInit(false.B)
 
-    out.valid := validReg && !io.redirect.valid
-    out.bits := bitsReg
+  private val flushed = pipes.head.bits.robIdx.needFlush(io.redirect)
+  private val allowPipe = io.out.head.ready || !globalValid || flushed
+  io.in.foreach(_.ready := allowPipe)
+
+  private val enqValid = io.in.map(_.valid).reduce(_ | _)
+  when(allowPipe) {
+    globalValid := enqValid
   }
+
+  io.in.zip(io.out).zip(pipes).foreach({case((in, out), pip) =>
+    when(enqValid && allowPipe) {
+      pip.valid := in.valid && !in.bits.robIdx.needFlush(io.redirect)
+      pip.bits := in.bits
+    }
+    out.valid := pip.valid && globalValid
+    out.bits := pip.bits
+  })
 }
