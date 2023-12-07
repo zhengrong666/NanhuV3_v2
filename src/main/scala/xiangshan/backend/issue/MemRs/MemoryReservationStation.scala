@@ -325,27 +325,27 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val bankPayloads = Wire(Vec(3, new MicroOp))
       for ((b, en)<- selectedBanks.zip(bankEns)) {
         b.io.loadIssue.valid := en && respArbiter.io.in(2).fire
-        b.io.auxLoadIssValid := respArbiter.io.in(2).valid
+        b.io.auxLoadIssValid := respArbiter.io.in(2).valid & !issueDriver.io.hold
         b.io.loadIssue.bits := lduSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
         b.io.staIssue.valid := en && respArbiter.io.in(1).fire
-        b.io.auxStaIssValid := respArbiter.io.in(1).valid
+        b.io.auxStaIssValid := respArbiter.io.in(1).valid & !issueDriver.io.hold
         b.io.staIssue.bits := staSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
         b.io.stdIssue.valid := en && respArbiter.io.in(0).fire
-        b.io.auxStdIssValid := respArbiter.io.in(0).valid
+        b.io.auxStdIssValid := respArbiter.io.in(0).valid & !issueDriver.io.hold
         b.io.stdIssue.bits := stdSelectNetwork.io.issueInfo(issuePortIdx).bits.entryIdxOH
       }
       val stdSel = getSlice(stdSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
       val staSel = getSlice(staSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
       val loadSel = getSlice(lduSelectNetwork.io.issueInfo(issuePortIdx).bits.bankIdxOH.asBools)
-      val stdSelDelay = stdSel.map(s => RegEnable(s, selResp.valid))
-      val staSelDelay = staSel.map(s => RegEnable(s, selResp.valid))
-      val loadSelDelay = loadSel.map(s => RegEnable(s, selResp.valid))
+      val stdSelDelay = stdSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
+      val staSelDelay = staSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
+      val loadSelDelay = loadSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
       bankPayloads(0) := Mux1H(stdSelDelay, selectedBanks.map(_.io.stdUop))
       bankPayloads(1) := Mux1H(staSelDelay, selectedBanks.map(_.io.staUop))
       bankPayloads(2) := Mux1H(loadSelDelay, selectedBanks.map(_.io.loadUop))
       loadUops(issuePortIdx) := bankPayloads(2)
 
-      val chosenDelay = RegEnable(respArbiter.io.chosen, selResp.valid)
+      val chosenDelay = RegEnable(respArbiter.io.chosen, selResp.valid & !issueDriver.io.hold)
       val selPayload = Mux1H(chosenDelay, bankPayloads)
       stIssuedWires(issuePortIdx).valid := issueDriver.io.deq.fire && issueDriver.io.deq.bits.uop.ctrl.fuType === FuType.stu
       stIssuedWires(issuePortIdx).bits := issueDriver.io.deq.bits.uop.robIdx
