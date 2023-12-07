@@ -313,6 +313,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     mstatusNew
   }
 
+  csrio.customCtrl.extEn.fp := mstatusStruct.fs =/= 0.U
+  csrio.customCtrl.extEn.vec := mstatusStruct.vs =/= 0.U
+
   val mstatusWMask = (~ZeroExt((
     GenMask(XLEN - 2, 36) | // WPRI
     GenMask(35, 32)       | // SXL and UXL cannot be changed
@@ -938,7 +941,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val w_frm_change_rm = wen && addr === Frm.U && wdata(2, 0) =/= fcsr(7, 5)
   val frm_change = w_fcsr_change_rm || w_frm_change_rm
   val isXRet = valid && func === CSROpType.jmp && !isEcall && !isEbreak
-  flushPipe := resetSatp || frm_change || isXRet || frontendTriggerUpdate
+  flushPipe := resetSatp || frm_change || isXRet || frontendTriggerUpdate || vsUpdate || fsUpdate
 
   private val illegalRetTarget = WireInit(false.B)
 
