@@ -234,9 +234,6 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.dstAddr := uopDelay.pdest
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := uopDelay.vctrl.eew(0)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.segIdx := uopDelay.segIdx
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.elmIdx := uopDelay.elmIdx
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.emul := uopDelay.vctrl.emul
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.uopIdx := uopDelay.uopIdx
 
           when(bi.issue.bits.uop.ctrl.isVector){
             when(isUnitStride){

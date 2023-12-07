@@ -14,38 +14,20 @@ import xs.utils.{SignExt, UIntToMask, ZeroExt}
 import VRegfileTopUtil._
 
 object VrfHelper {
-  def getElementIdx(segIdx: UInt, elmIdx:UInt, emul:UInt, sew:UInt, uopIdx:UInt, VLEN: Int): UInt = {
-    val vlenBytes = VLEN / 8
-    val d8Bytes = vlenBytes / 8
-    val d4Bytes = vlenBytes / 4
-    val d2Bytes = vlenBytes / 2
-
-    val segNum = MuxCase(0.U, Seq(
-      (emul === 5.U) -> (d8Bytes.U >> sew),
-      (emul === 6.U) -> (d4Bytes.U >> sew),
-      (emul === 7.U) -> (d2Bytes.U >> sew),
-    )).asUInt
-
-    val touched = segIdx < segNum.asUInt
-    val globalIdx = Wire(UInt(log2Ceil(VLEN + 1).W))
-    when(emul <= 3.U) {
-      globalIdx := segIdx
-    }.otherwise {
-      globalIdx := Mux(touched, (elmIdx * segNum) + segIdx, uopIdx)
-    }
-
-    val res = MuxCase(0.U, Seq(
-      (sew === 0.U) -> globalIdx(log2Ceil(vlenBytes) - 1, 0),
-      (sew === 1.U) -> globalIdx(log2Ceil(vlenBytes) - 2, 0),
-      (sew === 2.U) -> globalIdx(log2Ceil(vlenBytes) - 3, 0),
-      (sew === 3.U) -> globalIdx(log2Ceil(vlenBytes) - 4, 0)
+  def getElementIdx(segIdx: UInt, sew:UInt, VLEN: Int): UInt = {
+    val vlenBytesLen = log2Ceil(VLEN / 8)
+    val regElmIdx = MuxCase(0.U, Seq(
+      (sew === 0.U) -> segIdx(vlenBytesLen - 1, 0),
+      (sew === 1.U) -> segIdx(vlenBytesLen - 2, 0),
+      (sew === 2.U) -> segIdx(vlenBytesLen - 3, 0),
+      (sew === 3.U) -> segIdx(vlenBytesLen - 4, 0),
     ))
-    res
+    regElmIdx
   }
 
   def extractElement(uop:MicroOp, vsrc:UInt, sew:UInt, VLEN: Int, XLEN: Int): UInt = {
     require(vsrc.getWidth == VLEN)
-    val elemsIdx = getElementIdx(uop.segIdx, uop.elmIdx, uop.vctrl.emul, sew, uop.uopIdx, VLEN)
+    val elemsIdx = getElementIdx(uop.segIdx, sew, VLEN)
     val res = WireInit(0.U(XLEN.W))
     val vsrcSplit8 = VecInit(Seq.tabulate(VLEN / 8)(idx => vsrc(idx * 8 + 7, idx * 8)))
     val vsrcSplit16 = VecInit(Seq.tabulate(VLEN / 16)(idx => vsrc(idx * 16 + 15, idx * 16)))
@@ -73,7 +55,7 @@ object VRegfileTopUtil{
     val width = VLEN / 8
     val vlenBytes = log2Ceil(VLEN / 8)
     val sew = in.vctrl.eew(0)
-    val movIdx = VrfHelper.getElementIdx(in.segIdx, in.elmIdx, in.vctrl.emul, sew, in.uopIdx, VLEN)
+    val movIdx = VrfHelper.getElementIdx(in.segIdx, sew, VLEN)
     val mask = MuxCase(0.U, Seq(
       (sew === 0.U) -> ("h01".U << Cat(movIdx(vlenBytes - 1, 0), 0.U(0.W))),
       (sew === 1.U) -> ("h03".U << Cat(movIdx(vlenBytes - 2, 0), 0.U(1.W))),

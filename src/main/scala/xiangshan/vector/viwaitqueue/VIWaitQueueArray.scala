@@ -117,14 +117,10 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
 
     when(vctrl.isLs) {
       val vregTouchRaw = Wire(UInt(7.W))
-      vregTouchRaw := MuxCase(1.U, Seq(
-        (vctrlNext.emul === 0.U(3.W)) -> vctrl.nf,
+      vregTouchRaw := MuxCase(vctrl.nf, Seq(
         (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf << 1.U),
         (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf << 2.U),
         (vctrlNext.emul === 3.U(3.W)) -> 8.U,
-        (vctrlNext.emul === 5.U(3.W)) -> 1.U,
-        (vctrlNext.emul === 6.U(3.W)) -> ((vctrl.nf +& 3.U) >> 2.U),
-        (vctrlNext.emul === 7.U(3.W)) -> ((vctrl.nf +& 1.U) >> 1.U),
       ))
       val vregTouch = vregTouchRaw(3, 0)
       entryNext.uop.uopNum := MuxCase(0.U, Seq(

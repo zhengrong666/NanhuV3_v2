@@ -20,7 +20,6 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
       val prestart = Bool()
       val tail = Bool()
       val segIdx = UInt(log2Ceil(VLEN).W)
-      val elmIdx = UInt(3.W)
     })
   })
   private val store = io.uop.ctrl.fuType === FuType.stu
@@ -30,13 +29,7 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
   private val memSew = vctrl.eew(0)
   private val nf = io.uop.vctrl.nf
   private val segIdx = io.out.segIdx
-  private val elmIdx = io.out.elmIdx
-
-  private val elmPerReg = MuxCase((VLEN / 64).U, Seq(
-    (memSew === 0.U) -> (VLEN / 8).U,
-    (memSew === 1.U) -> (VLEN / 16).U,
-    (memSew === 2.U) -> (VLEN / 32).U,
-  ))
+  private val elmIdx = Wire(UInt(3.W))
 
   segIdx := MuxCase(idx, Seq(
     (nf === 2.U) -> idx / 2.U,
@@ -58,21 +51,24 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
     (nf === 8.U) -> idx % 8.U,
   ))
 
-  private val defaultRnSig = (segIdx % elmPerReg) === 0.U
-  io.out.shouldRename := MuxCase(defaultRnSig, Seq(
-    (vctrl.emul === 5.U) -> (segIdx === 0.U && elmIdx(2, 0) === 0.U),
-    (vctrl.emul === 6.U) -> (segIdx === 0.U && elmIdx(1, 0) === 0.U),
-    (vctrl.emul === 7.U) -> (segIdx === 0.U && elmIdx(0) === 0.U),
+  private val vlenBytesLen = log2Ceil(VLEN / 8)
+  io.out.shouldRename := MuxCase(false.B, Seq(
+    (memSew === 0.U) -> (segIdx(vlenBytesLen - 1, 0) === 0.U),
+    (memSew === 1.U) -> (segIdx(vlenBytesLen - 2, 0) === 0.U),
+    (memSew === 2.U) -> (segIdx(vlenBytesLen - 3, 0) === 0.U),
+    (memSew === 3.U) -> (segIdx(vlenBytesLen - 4, 0) === 0.U),
   ))
 
-  io.out.vdAddend := MuxCase(0.U, Seq(
-    (vctrl.emul === 0.U) -> ((segIdx / elmPerReg) +& (elmIdx * 1.U)),
-    (vctrl.emul === 1.U) -> ((segIdx / elmPerReg) +& (elmIdx * 2.U)),
-    (vctrl.emul === 2.U) -> ((segIdx / elmPerReg) +& (elmIdx * 4.U)),
-    (vctrl.emul === 3.U) -> ((segIdx / elmPerReg) +& (elmIdx * 8.U)),
-    (vctrl.emul === 5.U) -> 0.U,
-    (vctrl.emul === 6.U) -> (elmIdx >> 2.U),
-    (vctrl.emul === 7.U) -> (elmIdx >> 1.U),
+  private val regBaseIdx = MuxCase(0.U(segIdx.getWidth.W), Seq(
+    (memSew === 0.U) -> LogicShiftRight(segIdx, vlenBytesLen - 0),
+    (memSew === 1.U) -> LogicShiftRight(segIdx, vlenBytesLen - 1),
+    (memSew === 2.U) -> LogicShiftRight(segIdx, vlenBytesLen - 2),
+    (memSew === 3.U) -> LogicShiftRight(segIdx, vlenBytesLen - 3),
+  ))
+  io.out.vdAddend := MuxCase(elmIdx, Seq(
+    (vctrl.emul === 1.U) -> (regBaseIdx + (elmIdx * 2.U)),
+    (vctrl.emul === 2.U) -> (regBaseIdx + (elmIdx * 4.U)),
+    (vctrl.emul === 3.U) -> (regBaseIdx + (elmIdx * 8.U)),
   ))
 
   io.out.vs2Addend := MuxCase(0.U, Seq(
@@ -142,7 +138,6 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits.isTail := lsSu.io.out.tail//Only VLS need this
     o.bits.isPrestart := lsSu.io.out.prestart //Only VLS need this
     o.bits.segIdx := lsSu.io.out.segIdx //Only VLS need this
-    o.bits.elmIdx := lsSu.io.out.elmIdx //Only VLS need this
 
     when(io.in.bits.vctrl.isLs) {
       o.bits.canRename := lsSu.io.out.shouldRename
