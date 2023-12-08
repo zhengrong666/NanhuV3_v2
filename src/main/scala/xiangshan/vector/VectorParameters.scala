@@ -34,7 +34,7 @@ case class VectorParameters (
     vCommitWidth: Int       = 4,
     vPhyRegsNum: Int        = 64,
     vWaitQueueNum: Int      = 24,
-    vVtypeRegsNum: Int      = 8,
+    vVtypeRegsNum: Int      = 12,
     //dispatch
     vDispatchQueueMem: Int      = 12,
     vDispatchQueuePermu: Int    = 12,
