@@ -116,12 +116,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val flushHeadPtr = RegInit(enqPtrInit)
   assert((deqPtr + 1.U) === flushHeadPtr)
   assert(enqPtr >= flushHeadPtr)
+  dontTouch(enqPtr)
 
   class VtypePtr extends CircularQueuePtr[VtypePtr](VIVtypeRegsNum)
 
   private val validEntriesNum = distanceBetween(enqPtr, deqPtr)
   private val emptyEntriesNum = VIVtypeRegsNum.U - validEntriesNum
-  private val emptyEntriesNumNext = RegInit(VIVtypeRegsNum.U(log2Ceil(VIWaitQueueWidth + 1).W))
+  private val emptyEntriesNumReg = RegInit((VIVtypeRegsNum - 1).U(log2Ceil(VIVtypeRegsNum + 1).W))
+  assert(emptyEntriesNumReg === emptyEntriesNum)
 
   private val enqMask = UIntToMask(enqPtr.value, VIVtypeRegsNum)
   private val flushHeadMask = UIntToMask(flushHeadPtr.value, VIVtypeRegsNum)
@@ -131,7 +133,7 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val flushNum = PopCount(redirectMask)
 
   private val allocNum = PopCount(io.needAlloc)
-  io.canAccept := allocNum <= emptyEntriesNumNext && !io.redirect.valid
+  io.canAccept := allocNum <= emptyEntriesNumReg && !io.redirect.valid
 
   private val setVlSeq = io.in.map(i => i.valid)
   private val realValids = setVlSeq.map(_ && io.canAccept)
@@ -296,10 +298,8 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val actualEnqNum = PopCount(realValids)
   when(io.redirect.valid) {
     enqPtr := enqPtr - flushNum
-    emptyEntriesNumNext := emptyEntriesNum +& flushNum
   }.elsewhen(actualEnqNum =/= 0.U) {
     enqPtr := enqPtr + actualEnqNum
-    emptyEntriesNumNext := emptyEntriesNum -& actualEnqNum
   }
 
   private val setVlCommSeq = io.robCommits.commitValid.zip(io.robCommits.info).map({case(a, b) => a && b.vtypeWb})
@@ -310,9 +310,11 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   when(comValidReg){
     deqPtr := deqPtr + comNumReg
     flushHeadPtr := flushHeadPtr + comNumReg
-    emptyEntriesNumNext := emptyEntriesNum +& comNumReg
   }
 
+  private val actualFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
+  private val actualComNum = Mux(comValidReg, comNumReg, 0.U)
+  emptyEntriesNumReg := (emptyEntriesNumReg +& actualFlushNum +& actualComNum) - actualEnqNum
 
   for (i <- 0 until RenameWidth) {
     io.toVCtl(i).psrc := DontCare
