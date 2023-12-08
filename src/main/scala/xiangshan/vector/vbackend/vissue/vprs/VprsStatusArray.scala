@@ -93,7 +93,9 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
   private val pvsStateSeq = io.entry.bits.pvs1States ++ io.entry.bits.pvs2States ++ io.entry.bits.povStates :+ io.entry.bits.pvmState
   private val pvsStateNextSeq = entryNext.bits.pvs1States ++ entryNext.bits.pvs2States ++ entryNext.bits.povStates :+ entryNext.bits.pvmState
   private val pvsWkpHitsSeq = pvsSeq.zip(pvsStateSeq).map({case(pv, st) =>
-    io.vectorWakeUps.map(wkp => {io.entry.valid && wkp.valid && pv === wkp.bits.pdest && st === SrcState.busy}).reduce(_|_)
+    io.vectorWakeUps.map(wkp => {
+      io.entry.valid && wkp.valid && pv === wkp.bits.pdest && st === SrcState.busy && wkp.bits.destType === SrcType.vec
+    }).reduce(_|_)
   })
   pvsStateNextSeq.zip(pvsWkpHitsSeq).foreach({case(s, w) => when(w){s := SrcState.rdy}})
   private val wkpUpdateEn = pvsWkpHitsSeq.reduce(_|_) || rsWakeupValid
