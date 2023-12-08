@@ -398,11 +398,12 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // spfctl Bit [9:6]: L1D prefetch active page threshold
   // spfctl Bit [15:10]: L1D prefetch active page stride
   // spfctl Bit 17: L2 pf store only [17] init: false
-  // spfctl Bit [19:18]: L2 Cache hybrid Prefetch Config
-    // 0.[19:18] == 00 -> smsPf - bopPf - extensivePf
-    // 1.[19:18] == 01 -> smsPf - bopPf
-    // 2.[19:18] == 02 -> smsPf 
-    // 3.[19:18] == 03 -> resevered
+  // spfctl Bit [33:18]: L2 Cache hybrid Prefetch Config
+    // 0.spfctl[33:18] == 00 -> smsPf - bopPf - extensivePf
+    // 1.spfctl[33:18] == 01 -> smsPf - bopPf
+    // 2.spfctl[33:18] == 02 -> smsPf - extensivePf
+    // 3.spfctl[33:18] == 03 -> bopPf - extensivePf
+    // 4.spfctl[33:18] == [0x0004-0x1111] -> resevered
   // turn off L2 BOP, turn on L1 SMS by default
   val spfctl = RegInit(UInt(XLEN.W), Seq(
     0 << 18,    // L2 hybridPf default config init: 0
@@ -427,7 +428,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.customCtrl.l1D_pf_active_stride := spfctl(15, 10)
   csrio.customCtrl.l1D_pf_enable_stride := spfctl(16)
   csrio.customCtrl.l2_pf_store_only := spfctl(17)
-  csrio.customCtrl.l2_pf_ctrl := spfctl(19,18)
+  csrio.customCtrl.l2_pf_ctrl := spfctl(33,18)
 
   // sfetchctl Bit 0: L1I Cache Parity check enable
   val sfetchctl = RegInit(UInt(XLEN.W), "b0".U)

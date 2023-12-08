@@ -146,6 +146,7 @@ case class XSCoreParameters
   // TODO: replace Coupled L2
   // prefetcher: Option[PrefetcherParams] = Some(SMSParams()),
   prefetcher: Option[PrefetcherParams] = None,
+  Csr_PfCtrlBits: Int = 16,
   LoadPipelineWidth: Int = 2,
   StorePipelineWidth: Int = 2,
   StoreBufferSize: Int = 16,
@@ -381,6 +382,7 @@ trait HasXSParameter {
   val NumPerfCounters = coreParams.NumPerfCounters
   val UseOneDtlb = coreParams.UseOneDtlb
   val OnedtlbParams = coreParams.OnedtlbParams
+  val Csr_PfCtrlBits = coreParams.Csr_PfCtrlBits
 
   val instBytes = if (HasCExtension) 2 else 4
   val instOffsetBits = log2Ceil(instBytes)
