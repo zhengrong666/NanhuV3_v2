@@ -40,7 +40,7 @@ class VDecodeUnit(implicit p: Parameters) extends XSModule with VDecodeUnitConst
   uop.ctrl.srcType(2) := Mux(io.in.ctrl.vdWen, SrcType.vec, SrcType.DC)
   uop.vctrl.funct6 := io.in.cf.instr(F6_MSB, F6_LSB)
   uop.vctrl.funct3 := io.in.cf.instr(F3_MSB, F3_LSB)
-  uop.vctrl.nf := io.in.cf.instr(NF_MSB, NF_LSB) +& 1.U(1.W)
+  uop.vctrl.nf := Mux(uop.vctrl.emulType === EmulType.lmul, io.in.cf.instr(NF_MSB, NF_LSB) +& 1.U(1.W), 1.U)
   uop.vctrl.vm := !io.in.cf.instr(VM_LSB)
   uop.cf.exceptionVec(illegalInstr) := uop.vctrl.eewType(2) === EewType.dc
 
