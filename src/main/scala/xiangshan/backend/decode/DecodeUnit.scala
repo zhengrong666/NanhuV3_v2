@@ -1082,7 +1082,7 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   val illegalFrm = io.csrCtrl.frm > 4.U
   val illegalFp = isFp && ((illegalFrm && cs.fpu.rm === 7.U) || !extEn.fp)
 
-  val illegalVec = isVector && !extEn.vec
+  val illegalVec = (isVector || isVtype) && !extEn.vec
 
   // read src1~3 location
   cs.lsrc(0) := ctrl_flow.instr(RS1_MSB, RS1_LSB)
