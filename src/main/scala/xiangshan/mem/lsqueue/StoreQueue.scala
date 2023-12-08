@@ -64,6 +64,7 @@ class DataBufferEntry (implicit p: Parameters)  extends DCacheBundle {
   val mask   = UInt((DataBits/8).W)
   val wline = Bool()
   val sqPtr  = new SqPtr
+  val active = Bool()
 }
 
 // Store Queue
@@ -165,14 +166,13 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
 
   // Read dataModule
   // rdataPtrExtNext and rdataPtrExtNext+1 entry will be read from dataModule
-  val rdataPtrExtNext = WireInit(rdataPtrExt)
-  private val rdataPtr = rdataPtrExt.head.value
-  private val rdataHeadDisabled = allocated(rdataPtr) && committed(rdataPtr) && !active(rdataPtr)
-  when(dataBuffer.io.enq(1).fire) {
-    rdataPtrExtNext.zip(rdataPtrExt).foreach({case(a, b) => a := b + 2.U})
-  }.elsewhen(dataBuffer.io.enq(0).fire || io.mmioStout.fire || rdataHeadDisabled) {
-    rdataPtrExtNext.zip(rdataPtrExt).foreach({case(a, b) => a := b + 1.U})
-  }
+  val rdataPtrExtNext = WireInit(Mux(dataBuffer.io.enq(1).fire,
+    VecInit(rdataPtrExt.map(_ + 2.U)),
+    Mux(dataBuffer.io.enq(0).fire || io.mmioStout.fire,
+      VecInit(rdataPtrExt.map(_ + 1.U)),
+      rdataPtrExt
+    )
+  ))
 
   // deqPtrExtNext traces which inst is about to leave store queue
   //
@@ -182,9 +182,9 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   // is delayed so that load can get the right data from store queue.
   //
   // Modify deqPtrExtNext and io.sqDeq with care!
-  val deqPtrExtNext = Mux(RegNext(io.sbuffer(1).fire),
+  val deqPtrExtNext = Mux(RegNext(dataBuffer.io.deq(1).fire),
     VecInit(deqPtrExt.map(_ + 2.U)),
-    Mux(RegNext(io.sbuffer(0).fire) || io.mmioStout.fire,
+    Mux(RegNext(dataBuffer.io.deq(0).fire) || io.mmioStout.fire,
       VecInit(deqPtrExt.map(_ + 1.U)),
       deqPtrExt
     )
@@ -611,22 +611,19 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   // For now, data read logic width is hardcoded to 2
   require(StorePipelineWidth == 2) // TODO: add EnsbufferWidth parameter
   val mmioStall = mmio(rdataPtrExt(0).value)
-  val activeStore = active(rdataPtrExt(0).value)
   for (i <- 0 until StorePipelineWidth) {
     val ptr = rdataPtrExt(i).value
-    dataBuffer.io.enq(i).valid := active(ptr) && allocated(ptr) && committed(ptr) && !mmioStall && activeStore
+    dataBuffer.io.enq(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
     // Note that store data/addr should both be valid after store's commit
     assert(!dataBuffer.io.enq(i).valid || allvalid(ptr))
-    when(dataBuffer.io.enq(i).valid) {
-      assert(!mmio(rdataPtrExt(i).value), s"$i")
-      assert(active(rdataPtrExt(i).value), s"$i")
-    }
+    assert(!(dataBuffer.io.enq(i).valid && mmio(rdataPtrExt(i).value)))
     dataBuffer.io.enq(i).bits.addr  := v_pAddrModule.io.rdata_p(i)
     dataBuffer.io.enq(i).bits.vaddr := v_pAddrModule.io.rdata_v(i)
     dataBuffer.io.enq(i).bits.data  := dataModule.io.rdata(i).data
     dataBuffer.io.enq(i).bits.mask  := dataModule.io.rdata(i).mask
     dataBuffer.io.enq(i).bits.wline := v_pAddrModule.io.rlineflag_v_p(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
+    dataBuffer.io.enq(i).bits.active := active(ptr)
   }
 
 
@@ -662,9 +659,16 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
 
 
   // Send data stored in sbufferReqBitsReg to sbuffer
+  private val deqHeadActive = dataBuffer.io.deq.head.valid && dataBuffer.io.deq.head.bits.active
   for (i <- 0 until StorePipelineWidth) {
-    io.sbuffer(i).valid := dataBuffer.io.deq(i).valid
-    dataBuffer.io.deq(i).ready := io.sbuffer(i).ready
+    val thisActive = dataBuffer.io.deq(i).bits.active
+    if(i == 0){
+      io.sbuffer(i).valid := dataBuffer.io.deq(i).valid && thisActive
+      dataBuffer.io.deq(i).ready := io.sbuffer(i).ready || !thisActive
+    } else {
+      io.sbuffer(i).valid := dataBuffer.io.deq(i).valid && thisActive && deqHeadActive
+      dataBuffer.io.deq(i).ready := io.sbuffer(i).ready && thisActive && deqHeadActive
+    }
     // Write line request should have all 1 mask
     assert(!(io.sbuffer(i).valid && io.sbuffer(i).bits.wline && !io.sbuffer(i).bits.mask.andR))
     io.sbuffer(i).bits.cmd   := MemoryOpConstants.M_XWR
