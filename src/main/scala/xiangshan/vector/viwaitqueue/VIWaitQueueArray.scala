@@ -149,9 +149,14 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         (vctrlNext.emul === 7.U(3.W)) -> 1.U,
       ))
     }
-    when(vctrl.isLs && vctrl.maskOp){
-      entryNext.uop.vCsrInfo.vta := 1.U
-      entryNext.uop.vCsrInfo.vl := (io.entry.uop.vCsrInfo.vl +& 7.U) >> 3.U
+    when(vctrl.isLs){
+      when(vctrl.maskOp){
+        entryNext.uop.vCsrInfo.vta := 1.U
+        entryNext.uop.vCsrInfo.vl := (io.entry.uop.vCsrInfo.vl +& 7.U) >> 3.U
+      }.elsewhen(vctrl.emulType === EmulType.const) {
+        entryNext.uop.vCsrInfo.vta := 1.U
+        entryNext.uop.vCsrInfo.vl := entryNext.uop.uopNum
+      }
     }
 
     entryNext.state := WqState.s_waiting
