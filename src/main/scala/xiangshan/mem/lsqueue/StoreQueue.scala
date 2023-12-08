@@ -189,10 +189,10 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
       deqPtrExt
     )
   )
-  io.sqDeq := RegNext(Mux(RegNext(io.sbuffer(1).fire), 2.U,
-    Mux(RegNext(io.sbuffer(0).fire) || io.mmioStout.fire, 1.U, 0.U)
+  io.sqDeq := RegNext(Mux(RegNext(dataBuffer.io.deq(1).fire), 2.U,
+    Mux(RegNext(dataBuffer.io.deq(0).fire) || io.mmioStout.fire, 1.U, 0.U)
   ))
-  assert(!RegNext(RegNext(io.sbuffer(0).fire) && io.mmioStout.fire))
+  assert(!RegNext(RegNext(dataBuffer.io.deq(0).fire) && io.mmioStout.fire))
 
   for (i <- 0 until StorePipelineWidth) {
     dataModule.io.raddr(i) := rdataPtrExtNext(i).value
@@ -686,8 +686,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     // forward data. As an workaround, deqPtrExt and allocated flag update 
     // is delayed so that load can get the right data from store queue.
     val ptr = dataBuffer.io.deq(i).bits.sqPtr.value
-    when (RegNext(io.sbuffer(i).fire)) {
-      allocated(RegEnable(ptr, io.sbuffer(i).fire)) := false.B
+    when (RegNext(dataBuffer.io.deq(i).fire)) {
+      allocated(RegEnable(ptr, dataBuffer.io.deq(i).fire)) := false.B
       XSDebug("sbuffer "+i+" fire: ptr %d\n", ptr)
     }
   }
