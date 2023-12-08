@@ -1344,7 +1344,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     val difftestVCSR = DifftestModule(new DiffVecCSRState, delay = 1)
     difftestVCSR.coreid := csrio.hartId
     difftestVCSR.vlenb := vlenb
-    difftestVCSR.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, csrio.vcsr.robWb.vxsat.bits, Cat(0.U((XLEN-1).W), vcsr(0)))
+    difftestVCSR.vxsat := Mux(csrio.vcsr.robWb.vxsat.valid, Cat(0.U((XLEN-1).W), csrio.vcsr.robWb.vxsat.bits(0) || vcsr(0)), Cat(0.U((XLEN-1).W), vcsr(0)))
     difftestVCSR.vxrm := Cat(0.U((XLEN-3).W), vcsr(2, 1))
     difftestVCSR.vcsr := Mux(csrio.vcsr.robWb.vxsat.valid, Cat(vcsr(XLEN - 1, 1), csrio.vcsr.robWb.vxsat.bits(0) || vcsr(0)), vcsr)
     difftestVCSR.vtype := csrio.vcsr.vtype.debug_vtype
