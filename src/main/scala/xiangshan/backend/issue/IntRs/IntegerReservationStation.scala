@@ -104,7 +104,7 @@ class IntegerReservationStationImpl(outer:IntegerReservationStation, param:RsPar
     wkp.bits.pdest := elm.bits.uop.pdest
     wkp.bits.robPtr := elm.bits.uop.robIdx
     wkp.bits.lpv := 0.U.asTypeOf(wkp.bits.lpv)
-    wkp.bits.destType := Mux(elm.bits.uop.ctrl.rfWen, SrcType.reg, SrcType.DC)
+    wkp.bits.destType := Mux(elm.bits.uop.ctrl.rfWen, SrcType.reg, SrcType.default)
     wkp
   }))
   private val rsWakeupWidth = (wakeupSignals ++ internalAluJmpWakeupSignals ++ internalMulWakeupSignals ++ extraAluJmpWakeupSignals).length
