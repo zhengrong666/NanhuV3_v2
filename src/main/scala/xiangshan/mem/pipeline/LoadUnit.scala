@@ -414,10 +414,12 @@ class LoadUnit_S2(implicit p: Parameters) extends XSModule with HasLoadHelper wi
     io.out.bits.miss := s2_cache_miss &&
       !s2_exception &&
       !fullForward &&
+      !s2_ldld_violation &&
       !s2_is_prefetch && EnableMem
   } else {
     io.out.bits.miss := s2_cache_miss &&
       !s2_exception &&
+      !s2_ldld_violation &&
       !s2_is_prefetch && EnableMem
   }
   io.out.bits.uop.ctrl.fpWen := io.in.bits.uop.ctrl.fpWen && !s2_exception
