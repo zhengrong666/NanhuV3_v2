@@ -106,7 +106,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
   val lastCycleMisprediction = RegNext(io.redirect.valid && !io.redirect.bits.flushItself())
   val robIdxHeadNext = Mux(io.redirect.valid, io.redirect.bits.robIdx, // redirect: move ptr to given rob index
          Mux(lastCycleMisprediction, robIdxHead + 1.U, // mis-predict: not flush robIdx itself
-                         Mux(canOut, robIdxHead + validCount, // instructions successfully entered next stage: increase robIdx
+                         Mux(canOut & io.allowIn, robIdxHead + validCount, // instructions successfully entered next stage: increase robIdx
                       /* default */  robIdxHead))) // no instructions passed by this cycle: stick to old value
   robIdxHead := robIdxHeadNext
 
@@ -162,8 +162,8 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     uops(i).cf.loadWaitBit := io.waittable(i)
 
     // alloc a new phy reg
-    needFpDest(i) := io.in(i).valid && needDestReg(fp = true, io.in(i).bits)
-    needIntDest(i) := io.in(i).valid && needDestReg(fp = false, io.in(i).bits)
+    needFpDest(i) := io.in(i).valid && needDestReg(fp = true, io.in(i).bits) && io.allowIn
+    needIntDest(i) := io.in(i).valid && needDestReg(fp = false, io.in(i).bits) && io.allowIn
     fpFreeList.io.allocateReq(i) := needFpDest(i)
     intFreeList.io.allocateReq(i) := needIntDest(i) && !isMove(i)
 
