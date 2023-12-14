@@ -20,6 +20,7 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
       val prestart = Bool()
       val tail = Bool()
       val segIdx = UInt(log2Ceil(VLEN).W)
+      val elmIdx = UInt(3.W)
     })
   })
   private val store = io.uop.ctrl.fuType === FuType.stu
@@ -29,7 +30,7 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
   private val memSew = vctrl.eew(0)
   private val nf = io.uop.vctrl.nf
   private val segIdx = io.out.segIdx
-  private val elmIdx = Wire(UInt(3.W))
+  private val elmIdx = io.out.elmIdx
 
   segIdx := MuxCase(idx, Seq(
     (nf === 2.U) -> idx / 2.U,
@@ -137,6 +138,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits.isTail := lsSu.io.out.tail//Only VLS need this
     o.bits.isPrestart := lsSu.io.out.prestart //Only VLS need this
     o.bits.segIdx := lsSu.io.out.segIdx //Only VLS need this
+    o.bits.elmIdx := lsSu.io.out.elmIdx //Only VLS need this
 
     when(io.in.bits.vctrl.isLs) {
       o.bits.canRename := lsSu.io.out.shouldRename

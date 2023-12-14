@@ -109,7 +109,7 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging 
     io.in.bits.uop.ctrl.fuOpType === LSUOpType.cbo_inval
 
   val s1_paddr = io.dtlbResp.bits.paddr(0)
-  val s1_tlb_miss = io.dtlbResp.bits.miss
+  val s1_tlb_miss = io.dtlbResp.bits.miss && EnableMem
   val s1_mmio = is_mmio_cbo
   val s1_exception = Mux(EnableMem, ExceptionNO.selectByFu(io.out.bits.uop.cf.exceptionVec, staCfg).asUInt.orR, false.B)
 
@@ -119,7 +119,7 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging 
 
   // Send TLB feedback to store issue queue
   // Store feedback is generated in store_s1, sent to RS in store_s2
-  io.rsFeedback.valid := io.in.valid && s1_tlb_miss && EnableMem
+  io.rsFeedback.valid := io.in.valid && s1_tlb_miss
   io.rsFeedback.bits.flushState := io.dtlbResp.bits.ptwBack
   io.rsFeedback.bits.rsIdx := io.in.bits.rsIdx
   io.rsFeedback.bits.sourceType := RSFeedbackType.tlbMiss
@@ -136,9 +136,9 @@ class StoreUnit_S1(implicit p: Parameters) extends XSModule with HasPerfLogging 
   io.out.bits := io.in.bits
   io.out.bits.paddr := s1_paddr
   io.out.bits.miss := false.B
-  io.out.bits.mmio := s1_mmio
-  io.out.bits.uop.cf.exceptionVec(storePageFault) := io.dtlbResp.bits.excp(0).pf.st
-  io.out.bits.uop.cf.exceptionVec(storeAccessFault) := io.dtlbResp.bits.excp(0).af.st
+  io.out.bits.mmio := s1_mmio && EnableMem
+  io.out.bits.uop.cf.exceptionVec(storePageFault) := io.dtlbResp.bits.excp(0).pf.st && EnableMem
+  io.out.bits.uop.cf.exceptionVec(storeAccessFault) := io.dtlbResp.bits.excp(0).af.st && EnableMem
 
   io.lsq.valid := io.in.valid
   io.lsq.bits := io.out.bits
@@ -176,7 +176,7 @@ class StoreUnit_S2(implicit p: Parameters) extends XSModule {
   io.in.ready := true.B
   io.out.bits := io.in.bits
   io.out.bits.mmio := is_mmio && !s2_exception
-  io.out.bits.uop.cf.exceptionVec(storeAccessFault) := io.in.bits.uop.cf.exceptionVec(storeAccessFault) || pmp.st
+  io.out.bits.uop.cf.exceptionVec(storeAccessFault) := (io.in.bits.uop.cf.exceptionVec(storeAccessFault) || pmp.st) && EnableMem
   io.out.valid := io.in.valid && (!is_mmio || s2_exception)
 }
 

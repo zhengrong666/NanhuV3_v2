@@ -799,7 +799,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     (addr >= Mcountinhibit.U) && (addr <= Mhpmevent31.U) ||
     (addr >= Cycle.U) && (addr <= Hpmcounter31.U) ||
     addr === Mip.U
-  csrio.isPerfCnt := addrInPerfCnt && valid && func =/= CSROpType.jmp
+  csrio.isPerfCnt := addrInPerfCnt && valid && func =/= CSROpType.jmp && !isVset
 
   // satp wen check
   val satpLegalMode = (wdata.asTypeOf(new SatpStruct).mode===0.U) || (wdata.asTypeOf(new SatpStruct).mode===8.U)
