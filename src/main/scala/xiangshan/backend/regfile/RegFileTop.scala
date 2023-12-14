@@ -50,6 +50,7 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   })
   private val isStride = io.uop.ctrl.srcType(1) === SrcType.reg
   private val sew = io.uop.vctrl.eew(1)
+  private val elmOff = io.uop.elmIdx << io.uop.vctrl.eew(0)
   private val rawOffset = VrfHelper.extractElement(io.uop.segIdx, io.offset, sew, VLEN, XLEN)
   private val offset = MuxCase(0.U(VAddrBits.W), Seq(
     (sew === 0.U) -> ZeroExt(rawOffset(7, 0), VAddrBits),
@@ -57,7 +58,7 @@ class AddrGen(implicit p:Parameters) extends XSModule{
     (sew === 2.U) -> ZeroExt(rawOffset(31, 0), VAddrBits),
     (sew === 3.U) -> rawOffset(VAddrBits - 1, 0),
   ))
-  private val offsetTarget = io.base(VAddrBits - 1, 0) + offset + (io.uop.elmIdx << io.uop.vctrl.eew(0))
+  private val offsetTarget = io.base(VAddrBits - 1, 0) + offset + elmOff
 
   private val stride = Wire(UInt((VAddrBits + 1).W))
   stride := MuxCase(0.U((VAddrBits + 1).W), Seq(
@@ -66,8 +67,8 @@ class AddrGen(implicit p:Parameters) extends XSModule{
     (sew === 2.U) -> SignExt(io.stride(31, 0), VAddrBits + 1),
     (sew === 3.U) -> Cat(io.stride(XLEN - 1), io.stride(VAddrBits - 1, 0)),
   ))
-  private val strideOffset = (stride.asSInt * io.uop.uopIdx)(VAddrBits - 1, 0).asUInt
-  private val strideTarget = strideOffset + io.base(VAddrBits - 1, 0)
+  private val strideOffset = (stride.asSInt * io.uop.segIdx)(VAddrBits - 1, 0).asUInt
+  private val strideTarget = io.base(VAddrBits - 1, 0) + strideOffset + elmOff
 
   io.target := Mux(isStride, strideTarget, offsetTarget)
 }
