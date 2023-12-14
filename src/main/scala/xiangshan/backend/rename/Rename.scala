@@ -137,6 +137,7 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     uop.mergeIdx := DontCare
     uop.loadStoreEnable := DontCare
     uop.segIdx := 0.U
+    uop.elmIdx := 0.U
   })
 
   val needFpDest  = Wire(Vec(RenameWidth, Bool()))
