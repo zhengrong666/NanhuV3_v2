@@ -313,6 +313,14 @@ class Rename(implicit p: Parameters) extends XSModule with HasPerfEvents with Ha
     io.toVCtl(i).robIdx := io.out(i).bits.robIdx
   }
 
+  val setVlBypass0 = io.out(0).bits.ctrl.fuType === FuType.csr &&
+                    (io.out(0).bits.ctrl.fuOpType === CSROpType.vsetvl || io.out(0).bits.ctrl.fuOpType === CSROpType.vsetvli) &&
+                    io.out(0).bits.ctrl.lsrc(0) === 0.U && io.out(0).bits.ctrl.ldest === 0.U
+  when(setVlBypass0) {
+    io.out(0).bits.psrc(0) := vtyperename.io.out(0).bits.psrc(0)
+  }
+
+
 
   /**
     * Instructions commit: update freelist and rename table

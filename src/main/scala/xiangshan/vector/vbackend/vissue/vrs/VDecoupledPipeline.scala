@@ -74,5 +74,5 @@ class VDecoupledPipeline(implicit p: Parameters) extends XSModule{
   io.deq.bits := deqBitsReg
   io.specialPsrc := s1_data.psrc(0)
   io.specialPsrcType := s1_data.ctrl.srcType(0)
-  io.specialPsrcRen := s1_valid
+  io.specialPsrcRen := deqFire
 }

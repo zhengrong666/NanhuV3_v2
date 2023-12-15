@@ -4,12 +4,13 @@ import chisel3._
 import chisel3.util._
 import darecreek.exu.vfu.alu.VAlu
 import darecreek.exu.vfu.vmask.VMask
-import xiangshan.HasXSParameter
+import xiangshan.{HasXSParameter, SrcType}
 import xiangshan.backend.execute.exu.{BasicExu, BasicExuImpl, ExuConfig, ExuInputNode, ExuOutputNode, ExuType}
 import xiangshan.backend.execute.fu.FuConfigs
 import xiangshan.vector.{EewType, HasVectorParameters}
 import xiangshan.vector.vbackend.vexecute.vfu.s2v.Scalar2Vector
 import xiangshan.vector.vbackend.vexecute.vfu.uopToVuop
+import xiangshan.backend.execute.fu.fpu.FPU
 class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicExu{
   private val cfg = ExuConfig(
     name = "VAluExu",
@@ -70,11 +71,13 @@ class VAluExu(id:Int, complexName:String)(implicit p: Parameters) extends BasicE
     vmask.io.in.bits.oldVd := src2
     vmask.io.in.bits.mask := mask
 
+    private val rs1IsFp = iss.bits.uop.ctrl.srcType(0) === SrcType.fp
+    private val typeTag = Mux(iss.bits.uop.vCsrInfo.vsew === 2.U, FPU.S, FPU.D)
     s2v.io.in.valid := iss.valid && iss.bits.uop.ctrl.fuType === FuConfigs.s2vCfg.fuType && !iss.bits.uop.robIdx.needFlush(redirectIn)
     s2v.io.in.bits.uop := vuop
     s2v.io.in.bits.vs1 := src0
     s2v.io.in.bits.vs2 := src1
-    s2v.io.in.bits.rs1 := src0(XLEN - 1, 0)
+    s2v.io.in.bits.rs1 := Mux(rs1IsFp, FPU.unbox(src0(XLEN - 1, 0), typeTag), src0(XLEN - 1, 0))
     s2v.io.in.bits.oldVd := src2
     s2v.io.in.bits.mask := mask
 

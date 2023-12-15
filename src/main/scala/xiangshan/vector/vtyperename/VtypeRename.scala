@@ -243,8 +243,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
     enqAddrEnqSeq(idx) := enqPtr + enqAddrDeltas(idx)
     if(idx == 0){
       vtypeEnqSeq(idx) := Mux(s, newVType, oldVType)
+      when(s && newVType.pdest === 0.U) {
+        vtypeEnqSeq(idx).pdest := oldVType.pdest
+      }
     } else {
       vtypeEnqSeq(idx) := Mux(s, newVType, vtypeEnqSeq(idx - 1))
+      when(s && newVType.pdest === 0.U) {
+        vtypeEnqSeq(idx).pdest := vtypeEnqSeq(idx - 1).pdest
+      }
     }
   })
 
@@ -271,9 +277,14 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
         u.bits.ctrl.imm := Cat(~(0.U(9.W)), io.in(i).bits.ctrl.imm(10, 0))
       }
     } else {
-      val bypassSel = io.needAlloc.take(i).reverse
+      val bypassSel = Wire(Vec(i, Bool()))
+      io.needAlloc.take(i).zip(uop.take(i)).zipWithIndex.foreach {
+        case ((v, in), i) => {
+          bypassSel(i) := v && !NeedOldVl(in.bits)
+        }
+      }
       val bypassPdest = io.in.take(i).map(_.bits.pdest).reverse
-      val pdest = PriorityMux(bypassSel, bypassPdest)
+      val pdest = PriorityMux(bypassSel.reverse, bypassPdest)
       val bypassHit = bypassSel.reduce(_|_)
       when(needOldVl){
         when(bypassHit){

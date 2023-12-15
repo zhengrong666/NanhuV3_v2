@@ -411,7 +411,7 @@ object VNDecode extends VDecodeConstants{
     VNCLIP_WV -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
     VNCLIP_WX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
     VNCLIPU_WI -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
-    VNCLIPU_WV -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
+    VNCLIPU_WV -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
     VNCLIPU_WX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
     VFNCVT_F_F_W -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),
     VFNCVT_F_X_W -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewm2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, Y),

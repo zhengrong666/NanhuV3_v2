@@ -574,13 +574,13 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val fakeVl = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
 
   val vcsrMapping = Map(
-    MaskedRegMap(Vlenb,   vlenb, 0.U(XLEN.W), MaskedRegMap.Unwritable),
+    MaskedRegMap(Vlenb,   vlenb, MaskedRegMap.UnwritableMask, MaskedRegMap.Unwritable),
     MaskedRegMap(Vstart,  vstart),
     MaskedRegMap(Vxrm,    vcsr, wfn = vxrm_wfn, rfn = vxrm_rfn),
     MaskedRegMap(Vxsat,   vcsr, wfn = vxsat_wfn(update = false), rfn = vxsat_rfn),
     MaskedRegMap(Vcsr,    vcsr, wfn = vcsr_wfn),
-    MaskedRegMap(Vtype,   fakeVtype, MaskedRegMap.WritableMask, MaskedRegMap.Unwritable),
-    MaskedRegMap(Vl,      fakeVl, MaskedRegMap.WritableMask, MaskedRegMap.Unwritable)
+    MaskedRegMap(Vtype,   fakeVtype, MaskedRegMap.UnwritableMask, MaskedRegMap.Unwritable),
+    MaskedRegMap(Vl,      fakeVl, MaskedRegMap.UnwritableMask, MaskedRegMap.Unwritable)
   )
 
   csrio.vcsr.vcsr := vcsr(2, 0)
@@ -619,8 +619,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   csrio.vcsr.vstart := vstart
 
   val isVset = uopIn.ctrl.isVset
-  val needReadVtype = valid && !isVset && (addr===Vtype.asUInt)
-  val needReadVl = valid && !isVset && (addr===Vl.asUInt)
+  val vtypeNoException = Wire(Bool())
+  val needReadVtype = valid && !isVset && (addr===Vtype.asUInt) && vtypeNoException
+  val needReadVl = valid && !isVset && (addr===Vl.asUInt) && vtypeNoException
   csrio.vcsr.vtype.vtypeRead.readEn := valid && !isVset && (addr===Vtype.asUInt)
   csrio.vcsr.vtype.vlRead.readEn    := valid && !isVset && (addr===Vl.asUInt)
 
@@ -816,7 +817,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val triggerPermitted = triggerPermissionCheck(addr, true.B, debugMode) // todo dmode
   val modePermitted = csrAccessPermissionCheck(addr, false.B, priviledgeMode) && dcsrPermitted && triggerPermitted
   val perfcntPermitted = perfcntPermissionCheck(addr, priviledgeMode, mcounteren, scounteren)
-  val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted
+  val vcsrPermitted = vcsrAccessPermissionCheck(addr, wen)
+  val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted && vcsrPermitted
+  vtypeNoException := vcsrPermitted
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
   val vtypeReadValid = csrio.vcsr.vtype.vtypeRead.data.valid || csrio.vcsr.vtype.vlRead.data.valid

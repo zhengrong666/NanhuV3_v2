@@ -340,10 +340,11 @@ class MemoryReservationStationImpl(outer:MemoryReservationStation, param:RsParam
       val stdSelDelay = stdSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
       val staSelDelay = staSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
       val loadSelDelay = loadSel.map(s => RegEnable(s, selResp.valid & !issueDriver.io.hold))
+      val sloadSelDelay = loadSel.map(s => RegEnable(s, selResp.valid && !(issueDriver.io.hold && issueDriver.io.isLoad)))
       bankPayloads(0) := Mux1H(stdSelDelay, selectedBanks.map(_.io.stdUop))
       bankPayloads(1) := Mux1H(staSelDelay, selectedBanks.map(_.io.staUop))
       bankPayloads(2) := Mux1H(loadSelDelay, selectedBanks.map(_.io.loadUop))
-      loadUops(issuePortIdx) := bankPayloads(2)
+      loadUops(issuePortIdx) := Mux1H(sloadSelDelay, selectedBanks.map(_.io.loadUop))
 
       val chosenDelay = RegEnable(respArbiter.io.chosen, selResp.valid & !issueDriver.io.hold)
       val selPayload = Mux1H(chosenDelay, bankPayloads)

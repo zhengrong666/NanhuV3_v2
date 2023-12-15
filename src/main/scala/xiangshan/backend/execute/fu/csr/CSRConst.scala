@@ -77,12 +77,11 @@ trait HasCSRConst {
   val Slvpredctl    = 0x5C2
   val Smblockctl    = 0x5C3
   val Srnctl        = 0x5C4
+  /** 0x5C5-0x5D9 for cache instruction register*/
   val Scachebase    = 0x5C5
-  val Sfetchctl     = 0x5C6
-
-  /** 0x5C5-0x5E5 for cache instruction register*/
 
   val Sdsid         = 0x9C0
+  val Sfetchctl     = 0x9E0
 
   // Machine Information Registers
   val Mvendorid     = 0xF11
@@ -242,6 +241,11 @@ trait HasCSRConst {
     val readOnly = addr(11,10) === "b11".U
     val lowestAccessPrivilegeLevel = addr(9,8)
     mode >= lowestAccessPrivilegeLevel && !(wen && readOnly)
+  }
+
+  def vcsrAccessPermissionCheck(addr: UInt, wen: Bool): Bool = {
+    val readOnly = addr === Vtype.U || addr === Vl.U
+    !(wen && readOnly)
   }
 
   def perfcntPermissionCheck(addr: UInt, mode: UInt, mmask: UInt, smask: UInt): Bool = {
