@@ -244,6 +244,11 @@ trait HasCSRConst {
     mode >= lowestAccessPrivilegeLevel && !(wen && readOnly)
   }
 
+  def vcsrAccessPermissionCheck(addr: UInt, wen: Bool): Bool = {
+    val readOnly = addr === Vtype.U || addr === Vl.U
+    !(wen && readOnly)
+  }
+
   def perfcntPermissionCheck(addr: UInt, mode: UInt, mmask: UInt, smask: UInt): Bool = {
     val index = UIntToOH(addr & 31.U)
     Mux(mode === ModeM, true.B, Mux(mode === ModeS, (index & mmask) =/= 0.U, (index & mmask & smask) =/= 0.U))
