@@ -124,7 +124,9 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   table.io.deq.addr := deqPtr.value
   private val deqUop = table.io.deq.data
   private val deqHasException = deqUop.uop.cf.exceptionVec(illegalInstr)
-  private val raiseII = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
+  private val iiCond0 = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
+  private val iiCond1 = deqUop.uop.vctrl.vm && deqUop.uop.ctrl.ldest === 0.U && deqUop.uop.ctrl.vdWen && !deqUop.uop.vctrl.maskOp
+  private val raiseII = iiCond0 || iiCond1
 
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
