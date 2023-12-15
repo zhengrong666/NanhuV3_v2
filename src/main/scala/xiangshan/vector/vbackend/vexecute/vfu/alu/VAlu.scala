@@ -1,3 +1,15 @@
+/***************************************************************************************
+*Copyright (c) 2023-2024 Intel Corporation
+*Vector Acceleration IP core for RISC-V* is licensed under Mulan PSL v2.
+*You can use this software according to the terms and conditions of the Mulan PSL v2.
+*You may obtain a copy of Mulan PSL v2 at:
+*        http://license.coscl.org.cn/MulanPSL2
+*THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+*EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+*MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+*See the Mulan PSL v2 for more details.
+***************************************************************************************/
+
 /**
   * Integer and fixed-point (except mult and div)
   *   
@@ -263,7 +275,7 @@ class VAlu(implicit p: Parameters) extends VFuModule {
    */
   val old_cmpOutResult = Reg(UInt(128.W))
   val cmpOutResult = old_cmpOutResult & cmpOutOff | cmpOutKeep // Compare and carry-out instrns
-  when (RegNext(valid)) { old_cmpOutResult := cmpOutResult }
+  when (RegNext(valid && narrow_to_1)) { old_cmpOutResult := cmpOutResult }
   io.out.valid := RegNext(Mux(narrow_to_1, uopEnd && valid, valid), init = false.B)
 
   /**
