@@ -64,7 +64,7 @@ class MemDispatchArbiter(arbWidth: Int)(implicit p: Parameters) extends XSModule
 
   for(((v, mIn), i) <- vmemCanDeqVec.zip(io.vmemIn).zipWithIndex) {
     if(i == 0) {
-      v := mIn.valid
+      v := mIn.valid && io.vmemIn(0).bits.uopNum =/= 0.U
     } else {
       val recur_v = VecInit(vmemCanDeqVec.take(i)).asUInt.andR
       v := mIn.valid && recur_v && mIn.bits.robIdx === vRobIdx
