@@ -74,10 +74,10 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
   ))
 
   io.out.vs2Addend := MuxCase(0.U, Seq(
-    (idxSew === 0.U) -> (idx >> 4.U),
-    (idxSew === 1.U) -> (idx >> 3.U),
-    (idxSew === 2.U) -> (idx >> 2.U),
-    (idxSew === 3.U) -> (idx >> 1.U),
+    (idxSew === 0.U) -> (segIdx >> 4.U),
+    (idxSew === 1.U) -> (segIdx >> 3.U),
+    (idxSew === 2.U) -> (segIdx >> 2.U),
+    (idxSew === 3.U) -> (segIdx >> 1.U),
   ))
 
   private val lFuOpType = Wire(FuOpType())
