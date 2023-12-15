@@ -62,5 +62,5 @@ class VprsDecoupledPipeline(implicit p: Parameters) extends XSModule{
   io.deq.bits := s2Bits
   io.deq.bits.prs := s1Bits.prs
   io.deq.bits.prsType := s1Bits.prsType
-  io.deq.bits.rsRen := s1Valid
+  io.deq.bits.rsRen := s1Valid & s2Ready
 }
