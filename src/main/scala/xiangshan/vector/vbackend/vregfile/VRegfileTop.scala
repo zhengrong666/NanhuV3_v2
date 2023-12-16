@@ -232,7 +232,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
       vecReadPortIdx = vecReadPortIdx + 4
     }
 
-    vrf.io.debug.get.zipWithIndex.foreach { case (rp, i) => rp.addr := io.debug_vec_rat(i) }
+    if(vrf.io.debug.isDefined) vrf.io.debug.get.zipWithIndex.foreach { case (rp, i) => rp.addr := io.debug_vec_rat(i) }
 
     if (env.EnableDifftest) {
       val difftestArchVec = DifftestModule(new DiffArchVecRegState)
