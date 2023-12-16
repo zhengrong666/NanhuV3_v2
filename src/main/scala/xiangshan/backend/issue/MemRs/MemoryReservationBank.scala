@@ -51,9 +51,11 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
     val stdIssue = Input(Valid(UInt(entryNum.W)))
     val stdUop = Output(new MicroOp)
     val specialIssue = Input(Valid(UInt(entryNum.W)))
+    val sLoadUop = Output(new MicroOp)
     val auxLoadIssValid = Input(Bool())
     val auxStaIssValid = Input(Bool())
     val auxStdIssValid = Input(Bool())
+    val auxSLoadIssValid = Input(Bool())
 
     val replay = Input(Vec(3, Valid(new Replay(entryNum))))
 
@@ -67,7 +69,7 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
 
 
   private val statusArray = Module(new MemoryStatusArray(entryNum, stuNum, wakeupWidth, regWkpIdx, fpWkpIdx, vecWkpIdx))
-  private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, 3, "MemoryPayloadArray"))
+  private val payloadArray = Module(new PayloadArray(new MicroOp, entryNum, 4, "MemoryPayloadArray"))
 
   private def EnqToEntry(in: MicroOp): MemoryStatusArrayEntry = {
     val stIssueHit = io.stIssued.map(st => st.valid && st.bits === in.cf.waitForRobIdx).reduce(_|_)
@@ -155,12 +157,15 @@ class MemoryReservationBank(entryNum:Int, stuNum:Int, wakeupWidth:Int, regWkpIdx
   payloadArray.io.read(0).addr := RegEnable(io.loadIssue.bits, io.auxLoadIssValid)
   payloadArray.io.read(1).addr := RegEnable(io.staIssue.bits, io.auxStaIssValid)
   payloadArray.io.read(2).addr := RegEnable(io.stdIssue.bits, io.auxStdIssValid)
+  payloadArray.io.read(3).addr := RegEnable(io.specialIssue.bits, io.auxSLoadIssValid)
   io.loadUop := payloadArray.io.read(0).data
   io.staUop := payloadArray.io.read(1).data
   io.stdUop := payloadArray.io.read(2).data
+  io.sLoadUop := payloadArray.io.read(3).data
 
   when(io.loadIssue.valid){assert(PopCount(io.loadIssue.bits) === 1.U)}
   when(io.staIssue.valid){assert(PopCount(io.staIssue.bits) === 1.U)}
   when(io.stdIssue.valid){assert(PopCount(io.stdIssue.bits) === 1.U)}
+  when(io.specialIssue.valid){assert(PopCount(io.specialIssue.bits) === 1.U)}
 }
 
