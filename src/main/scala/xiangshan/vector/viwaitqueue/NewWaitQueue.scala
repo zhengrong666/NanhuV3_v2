@@ -56,7 +56,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val enqMask = UIntToMask(enqPtr.value, VIWaitQueueWidth)
   private val deqMask = UIntToMask(deqPtr.value, VIWaitQueueWidth)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validMask = Mux(deqPtr.value <= enqPtr.value, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validMask = Mux(deqPtr.value < enqPtr.value || deqPtr === enqPtr, enqXorDeq, (~enqXorDeq).asUInt)
   private val redirectMask = validMask & table.io.flushMask
   private val flushNum = PopCount(redirectMask)
 
@@ -159,8 +159,8 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
 
   private val actualDeqNum = Mux(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect), 1.U, 0.U)
   private val actualEnqNum = Mux(doEnq && !io.redirect.valid, enqNum, 0.U)
-  private val actulaFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
-  emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actulaFlushNum +& actualDeqNum)
+  private val actualFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
+  emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actualFlushNum +& actualDeqNum)
 
   when(deqValid && !deqHasException && io.vstart =/= 0.U){
     vstartHold := true.B
