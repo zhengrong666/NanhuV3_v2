@@ -748,3 +748,4 @@ object Main extends App {
   emitVerilog(new Permutation()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
     "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }
+

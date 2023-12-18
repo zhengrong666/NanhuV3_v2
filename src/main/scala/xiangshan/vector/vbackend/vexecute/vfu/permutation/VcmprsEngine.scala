@@ -138,3 +138,4 @@ class VcmprsEngine(implicit p: Parameters) extends VFuModule {
 
   io.cmprs_vd := Cat(cmprs_vd.reverse)
 }
+

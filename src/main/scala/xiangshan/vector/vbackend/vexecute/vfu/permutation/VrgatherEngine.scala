@@ -235,3 +235,11 @@ class VrgatherEngine(implicit p: Parameters) extends VFuModule {
 
   io.vrgather_vd := Cat(vrgather_vd.reverse)
 }
+
+// object VerilogVrgather extends App {
+//   println("Generating the VPU Vrgather hardware")
+//   emitVerilog(new VrgatherEngine(), Array("--target-dir", "build/vifu"))
+
+// }
+
+

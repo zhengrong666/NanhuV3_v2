@@ -73,9 +73,9 @@ class VFPUTop(implicit val p: Parameters)
   outArbiter.io.out.ready := rdyVec(0)
 
 
-//  val fpu_out = Reg(new LaneFUOutput)
-//  outArbiter.io.out.bits.outputToLaneFU(fpu_out)
-//  io.out.bits := fpu_out
+  //  val fpu_out = Reg(new LaneFUOutput)
+  //  outArbiter.io.out.bits.outputToLaneFU(fpu_out)
+  //  io.out.bits := fpu_out
   io.out.bits.uop := RegEnable(fpu_out_w.uop, regEnable(1))
   io.out.bits.vd := RegEnable(outArbiter.io.out.bits.vd, 0.U, regEnable(1))
   io.out.bits.fflags := RegEnable(outArbiter.io.out.bits.fflags, 0.U, regEnable(1))
@@ -259,3 +259,5 @@ class VFInputGenFP(implicit val p: Parameters) extends VFPUBaseModule {
   io.out.bits.uop.maskOff := RegEnable(Mux(narrow_to_1 & !vstart_gte_vl, maskGen.io.maskOff_cmp, maskGen.io.maskOff), regEnable(1))
 
 }
+
+

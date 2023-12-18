@@ -185,3 +185,7 @@ class VFDecoder(implicit val p: Parameters) extends VFPUBaseModule {
   }))
   io.fpCtrl <> decoders.asTypeOf(new VFPUCtrlSigs)
 }
+
+
+
+

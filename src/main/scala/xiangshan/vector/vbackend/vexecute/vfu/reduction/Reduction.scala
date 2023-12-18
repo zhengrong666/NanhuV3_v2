@@ -739,3 +739,4 @@ object Main extends App {
   emitVerilog(new Reduction()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
     "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }
+

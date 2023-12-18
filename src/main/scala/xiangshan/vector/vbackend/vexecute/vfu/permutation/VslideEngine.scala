@@ -192,3 +192,10 @@ class VslideEngine(implicit p: Parameters) extends VFuModule {
   io.vslide1up_vd := Cat(vslide1up_vd.reverse)
   io.vslide1dn_vd := Cat(vslide1dn_vd.reverse)
 }
+
+// object VerilogVslide extends App {
+//   println("Generating the VPU Vslide hardware")
+//   emitVerilog(new VslideEngine(), Array("--target-dir", "build/vifu"))
+// }
+
+

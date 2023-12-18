@@ -1,3 +1,15 @@
+/***************************************************************************************
+*Copyright (c) 2023-2024 Intel Corporation
+*Vector Acceleration IP core for RISC-V* is licensed under Mulan PSL v2.
+*You can use this software according to the terms and conditions of the Mulan PSL v2.
+*You may obtain a copy of Mulan PSL v2 at:
+*        http://license.coscl.org.cn/MulanPSL2
+*THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+*EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+*MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+*See the Mulan PSL v2 for more details.
+***************************************************************************************/
+
 package darecreek.exu.vfu.mac
 
 import chisel3._
@@ -75,8 +87,8 @@ class VMac64b extends Module {
       val elementVs2 = UIntSplit(vs2, sew)(blockIdx)
       val elementVs2L = BitsExtend(elementVs2, 2*sew, vs2_is_signed) // width: 2*sew
       val boothDouble = Wire(UInt((2*sew).W))
-      boothDouble := Mux1H(Seq( vs1Booth(i).one    -> elementVs2L,
-                                vs1Booth(i).double -> (elementVs2L << 1)))
+      boothDouble := Mux1H(Seq(vs1Booth(i).one    -> elementVs2L,
+                               vs1Booth(i).double -> (elementVs2L << 1)))
       val boothResult = Mux1H(Seq(vs1Booth(i).positive -> boothDouble,
                                   vs1Booth(i).negative -> (~boothDouble)))
       val shiftBits = 2 * i - sew * blockIdx
@@ -115,8 +127,8 @@ class VMac64b extends Module {
                             UIntSplit(vs1, 8)(i)(7), !vs1_is_signed, UIntSplit(vs2, 8)(i), io.isSub))).asUInt
   partProd(32) := Mux1H(sew.oneHot, Seq(plus1sew8, plus1sew16, plus1sew32, plus1sew64))
   // Old vd
-  val oldVdReorg = Mux1H(sew.oneHot,  Seq(8,16,32,64).map(sew => 
-                                      VecInit(UIntSplit(oldVd, sew).map(x => BitsExtend(x, 2*sew, false.B))).asUInt))
+  val oldVdReorg = Mux1H(sew.oneHot, Seq(8,16,32,64).map(sew => 
+                   VecInit(UIntSplit(oldVd, sew).map(x => BitsExtend(x, 2*sew, false.B))).asUInt))
   partProd(33) := Mux(io.isMacc, Mux(io.widen, Cat(oldVd, oldVd), Mux(io.isSub, ~oldVdReorg, oldVdReorg)), 0.U)
 
   /**
@@ -138,10 +150,10 @@ class VMac64b extends Module {
     val sum = Seq.fill(n3Group)(Wire(UInt(128.W)))
     for (i <- 0 until n3Group) {
       cout(i) := add3_UInt(data(3*i), data(3*i+1), data(3*i+2))._1 &
-                            Mux1H(Seq(sew.is8  -> "h7fff7fff7fff7fff7fff7fff7fff7fff".U(128.W),
-                            sew.is16 -> "h7fffffff7fffffff7fffffff7fffffff".U(128.W),
-                            sew.is32 -> "h7fffffffffffffff7fffffffffffffff".U(128.W),
-                            sew.is64 -> ~0.U(128.W) ))
+                 Mux1H(Seq(sew.is8  -> "h7fff7fff7fff7fff7fff7fff7fff7fff".U(128.W),
+                           sew.is16 -> "h7fffffff7fffffff7fffffff7fffffff".U(128.W),
+                           sew.is32 -> "h7fffffffffffffff7fffffffffffffff".U(128.W),
+                           sew.is64 -> ~0.U(128.W) ))
       sum(i) := add3_UInt(data(3*i), data(3*i+1), data(3*i+2))._2
     }
     val cin = cout.map(x => Cat(x(126, 0), 0.U(1.W)))
@@ -222,12 +234,13 @@ class VMac64b extends Module {
   val vxrmS2 = RegEnable(vxrmS1, fireS1)
   val isSubS2 = RegEnable(isSubS1, fireS1)
   val isFixPS2 = RegEnable(isFixPS1, fireS1)
-  val vdS2 = PriorityMux(Seq((sewS2.is64 || widenS2) -> Mux(sewS2.is64 && highHalfS2 || widenS2 && uopIdxS2(0), 
-                                                            walOut(127, 64), walOut(63, 0)),
-                              sewS2.is32 -> VecInit(UIntSplit(walOut, 64).map(x => Mux(highHalfS2, x(63, 32), x(31, 0)))).asUInt,
-                              sewS2.is16 -> VecInit(UIntSplit(walOut, 32).map(x => Mux(highHalfS2, x(31, 16), x(15, 0)))).asUInt,
-                              sewS2.is8  -> VecInit(UIntSplit(walOut, 16).map(x => Mux(highHalfS2, x(15, 8), x(7, 0)))).asUInt
-              ))
+  val vdS2 = PriorityMux(Seq(
+           (sewS2.is64 || widenS2) -> Mux(sewS2.is64 && highHalfS2 || widenS2 && uopIdxS2(0), 
+                                          walOut(127, 64), walOut(63, 0)),
+           sewS2.is32 -> VecInit(UIntSplit(walOut, 64).map(x => Mux(highHalfS2, x(63, 32), x(31, 0)))).asUInt,
+           sewS2.is16 -> VecInit(UIntSplit(walOut, 32).map(x => Mux(highHalfS2, x(31, 16), x(15, 0)))).asUInt,
+           sewS2.is8  -> VecInit(UIntSplit(walOut, 16).map(x => Mux(highHalfS2, x(15, 8), x(7, 0)))).asUInt
+         ))
   // 12.3 vsmul
   val sat = UIntSplit(walOut, 16).map(x => x(15, 14) === 1.U) //Saturate
   val vxsat = Mux1H(Seq(
