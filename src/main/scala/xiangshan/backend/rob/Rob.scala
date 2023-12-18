@@ -885,7 +885,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
         0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendHit)))
       exc_wb.bits.trigger.backendCanFire := Mux(wbWithException(i)._1.trigger.B, wb.bits.uop.cf.trigger.backendCanFire,
         0.U.asTypeOf(chiselTypeOf(exc_wb.bits.trigger.backendCanFire)))
-      exc_wb.bits.vstart := 1.U
+      exc_wb.bits.vstart := 0.U
       println(s"  [$i] ${wbWithException(i)._1.name}: exception ${wbWithException(i)._1.exceptionOut}")
     } else {
       exc_wb.valid := wb.valid
@@ -894,7 +894,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       exc_wb.bits.singleStep := false.B
       exc_wb.bits.crossPageIPFFix := false.B
       exc_wb.bits.trigger := wb.bits.uop.cf.trigger
-      exc_wb.bits.vstart := Mux(wb.bits.uop.uopIdx === 0.U, 1.U, wb.bits.uop.uopIdx)
+      exc_wb.bits.vstart := wb.bits.uop.uopIdx
     }
   }
 
