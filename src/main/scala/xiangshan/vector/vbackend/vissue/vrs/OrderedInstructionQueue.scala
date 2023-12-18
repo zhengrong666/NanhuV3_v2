@@ -33,7 +33,7 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
   private val enqMask = UIntToMask(enqPtr.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validsMask = Mux(deqPtr.value <= enqPtr.value, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validsMask = Mux(deqPtr.value < enqPtr.value || deqPtr === enqPtr, enqXorDeq, (~enqXorDeq).asUInt)
   private val flushVec = Cat(array.map(_.robIdx.needFlush(io.redirect)).reverse)
   private val redirectMask = validsMask & flushVec
   private val flushNum = PopCount(redirectMask)
@@ -45,6 +45,7 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
     val needMerge = (memUopHitMask & validsMask).orR || enqUopHitMask.orR
     na := !needMerge
   }
+  dontTouch(enqNeedAllocate)
 
   private val actualEnqs = WireInit(io.enq)
   for((e, i) <- actualEnqs.zipWithIndex) {
@@ -99,9 +100,10 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
   assert(actualEnqNum <= emptyEntriesNum)
 
   assert(flushNum <= validEntriesNum)
+  private val enqPtrNext = enqPtr - flushNum
   private val enqFlushNextMask = UIntToMask((enqPtr - flushNum).value, size)
   private val flushXorPresentMask = enqFlushNextMask ^ enqMask
-  private val enqRollbackMask = Mux(enqPtr.value >= (enqPtr - flushNum).value, flushXorPresentMask, ~flushXorPresentMask)
+  private val enqRollbackMask = Mux(enqPtr.value > enqPtrNext.value || enqPtr === enqPtrNext, flushXorPresentMask, ~flushXorPresentMask)
   when(io.redirect.valid) {
     assert(enqRollbackMask === redirectMask, "Redirect mask should be continuous.")
   }
@@ -127,7 +129,7 @@ class OIQEnqBuffer(enqNum:Int)(implicit p: Parameters) extends Module with HasCi
   private val enqMask = UIntToMask(enqPtr.value, size)
   private val deqMask = UIntToMask(deqPtr.value, size)
   private val enqXorDeq = enqMask ^ deqMask
-  private val validsMask = Mux(deqPtr.value <= enqPtr.value, enqXorDeq, (~enqXorDeq).asUInt)
+  private val validsMask = Mux(deqPtr.value < enqPtr.value || deqPtr === enqPtr, enqXorDeq, (~enqXorDeq).asUInt)
   private val flushVec = Cat(array.map(_.robIdx.needFlush(io.redirect)).reverse)
   private val redirectMask = validsMask & flushVec
   private val flushNum = PopCount(redirectMask)
@@ -175,9 +177,10 @@ class OIQEnqBuffer(enqNum:Int)(implicit p: Parameters) extends Module with HasCi
   assert(actualEnqNum <= emptyEntriesNum)
 
   assert(flushNum <= validEntriesNum)
+  private val enqPtrNext = enqPtr - flushNum
   private val enqFlushNextMask = UIntToMask((enqPtr - flushNum).value, size)
   private val flushXorPresentMask = enqFlushNextMask ^ enqMask
-  private val enqRollbackMask = Mux(enqPtr.value >= (enqPtr - flushNum).value, flushXorPresentMask, ~flushXorPresentMask)
+  private val enqRollbackMask = Mux(enqPtr.value > enqPtrNext.value || enqPtr === enqPtrNext, flushXorPresentMask, ~flushXorPresentMask)
   when(io.redirect.valid) {
     assert(enqRollbackMask === redirectMask, "Redirect mask should be continuous.")
   }
