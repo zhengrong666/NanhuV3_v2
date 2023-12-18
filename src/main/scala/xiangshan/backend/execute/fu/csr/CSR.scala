@@ -659,13 +659,13 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val hpm_hc = HPerfMonitor(csrevents, hpmEvents)
   val mcountinhibit = RegInit(0.U(XLEN.W))
   val mcycle = RegInit(0.U(XLEN.W))
-  mcycle := mcycle + 1.U
+  mcycle := Mux(mcountinhibit(0), mcycle, mcycle + 1.U)
   val minstret = RegInit(0.U(XLEN.W))
   val perf_events = csrio.perf.perfEventsFrontend ++
                     csrio.perf.perfEventsCtrl ++
                     csrio.perf.perfEventsLsu ++
                     hpm_hc.getPerf
-  minstret := minstret + RegNext(csrio.perf.retiredInstr)
+  minstret := Mux(mcountinhibit(2), minstret, minstret + RegNext(csrio.perf.retiredInstr))
   for(i <- 0 until 29){
     perfCnts(i) := Mux(mcountinhibit(i+3) | !perfEventscounten(i), perfCnts(i), perfCnts(i) + perf_events(i).value)
   }
