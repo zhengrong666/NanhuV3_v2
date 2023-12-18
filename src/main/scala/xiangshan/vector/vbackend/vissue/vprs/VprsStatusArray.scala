@@ -21,6 +21,7 @@ class VprsStatusArrayEntry(implicit p: Parameters) extends XSBundle{
   val povStates: Vec[UInt] = Vec(8, SrcState())
   val pvmState: UInt = SrcState()
   val allMerged: Bool = Bool()
+  val uopValids: Vec[Bool] = Vec(8, Bool())
 }
 
 class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p: Parameters) extends Module{
@@ -39,7 +40,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
 
   private val entryNext = WireInit(io.entry)
   when(io.enq.valid){
-    val agnostic = (io.enq.bits.vCsrInfo.vta(0) && io.enq.bits.isTail) || (io.enq.bits.vCsrInfo.vma(0) && io.enq.bits.vctrl.vm)
+    val agnostic = io.enq.bits.vCsrInfo.vta(0) && Mux(io.enq.bits.vctrl.vm, io.enq.bits.vCsrInfo.vma(0), true.B)
     when(io.enqIsMerge){
       assert(io.entry.valid)
       entryNext.bits.pvs1(io.enq.bits.uopIdx) := io.enq.bits.psrc(0)
@@ -48,6 +49,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       entryNext.bits.pvs2States(io.enq.bits.uopIdx) := io.enq.bits.srcState(1)
       entryNext.bits.pov(io.enq.bits.uopIdx) := io.enq.bits.psrc(2)
       entryNext.bits.povStates(io.enq.bits.uopIdx) := Mux(agnostic, SrcState.rdy, io.enq.bits.srcState(2))
+      entryNext.bits.uopValids(io.enq.bits.uopIdx) := true.B
       entryNext.bits.allMerged := (io.enq.bits.uopNum - 1.U) === io.enq.bits.uopIdx
     }.otherwise{
       assert(!io.entry.valid)
@@ -65,6 +67,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       entryNext.bits.pvm := io.enq.bits.vm
       entryNext.bits.pvmState := Mux(io.enq.bits.vctrl.vm, io.enq.bits.vmState, SrcState.rdy)
       entryNext.bits.allMerged := io.enq.bits.uopNum === 1.U
+      entryNext.bits.uopValids(0) := true.B
       entryNext.valid := true.B
 
       entryNext.bits.pvs1States.zipWithIndex.drop(1).foreach({ case (s,i) =>
@@ -76,6 +79,7 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
       entryNext.bits.povStates.zipWithIndex.drop(1).foreach({ case (s, i) =>
         s := Mux(i.U < io.enq.bits.uopNum, Mux(agnostic, SrcState.rdy, SrcState.busy), SrcState.rdy)
       })
+      entryNext.bits.uopValids.drop(1).foreach(_ := false.B)
     }
   }
 
@@ -92,9 +96,9 @@ class VprsStatusArrayEntryUpdateNetwork(sWkpWidth:Int, vWkpWidth:Int)(implicit p
   private val pvsSeq = io.entry.bits.pvs1 ++ io.entry.bits.pvs2 ++ io.entry.bits.pov :+ io.entry.bits.pvm
   private val pvsStateSeq = io.entry.bits.pvs1States ++ io.entry.bits.pvs2States ++ io.entry.bits.povStates :+ io.entry.bits.pvmState
   private val pvsStateNextSeq = entryNext.bits.pvs1States ++ entryNext.bits.pvs2States ++ entryNext.bits.povStates :+ entryNext.bits.pvmState
-  private val pvsWkpHitsSeq = pvsSeq.zip(pvsStateSeq).map({case(pv, st) =>
+  private val pvsWkpHitsSeq = pvsSeq.zip(pvsStateSeq).zip(io.entry.bits.uopValids).map({case((pv, st), uv) =>
     io.vectorWakeUps.map(wkp => {
-      io.entry.valid && wkp.valid && pv === wkp.bits.pdest && st === SrcState.busy && wkp.bits.destType === SrcType.vec
+      io.entry.valid && uv && wkp.valid && pv === wkp.bits.pdest && st === SrcState.busy && wkp.bits.destType === SrcType.vec
     }).reduce(_|_)
   })
   pvsStateNextSeq.zip(pvsWkpHitsSeq).foreach({case(s, w) => when(w){s := SrcState.rdy}})
