@@ -145,7 +145,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
 
   io.rob.zipWithIndex.foreach({case(deq, idx) =>
     val ptr = cmtPtrVec(idx).value
-    deq.valid := ((deqCandidates(idx).uop.uopNum === wbCnts(ptr)) || (deqCandidates(idx).uop.uopNum === 0.U)) && (valids(ptr) && canDeq(idx))
+    deq.valid := (deqCandidates(idx).uop.uopNum === wbCnts(ptr) || deqCandidates(idx).uop.uopNum === 0.U) && valids(ptr) && canDeq(idx) && !io.redirect.valid
     deq.bits := deqCandidates(idx)
     when(deq.valid){
       valids(ptr) := false.B
