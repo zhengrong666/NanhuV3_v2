@@ -61,7 +61,7 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
     if (idx == 0) {
       ptr := enqPtr
     } else {
-      ptr := enqPtr + PopCount(io.enq.take(idx).map(_.valid))
+      ptr := enqPtr + PopCount(actualEnqs.take(idx).map(_.valid))
     }
   })
 
