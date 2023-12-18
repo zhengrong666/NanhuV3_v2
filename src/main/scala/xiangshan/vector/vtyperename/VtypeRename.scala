@@ -133,7 +133,6 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
   private val flushNum = PopCount(redirectMask)
 
   private val allocNum = PopCount(io.needAlloc)
-  io.canAccept := allocNum <= emptyEntriesNumReg && !io.redirect.valid
 
   private val setVlSeq = io.in.map(i => i.valid)
   private val realValids = setVlSeq.map(_ && io.canAccept)
@@ -168,6 +167,9 @@ class VtypeRename(implicit p: Parameters) extends VectorBaseModule with HasCircu
 
   table.io.r(0).addr := (enqPtr - 1.U).value
   private val oldVType = WireInit(table.io.r(0).data)
+
+  val firstVtypeRename = PriorityMux(io.needAlloc.reverse, io.in.reverse)
+  io.canAccept := allocNum <= emptyEntriesNumReg && !io.redirect.valid && ~(!oldVType.writebacked && io.needAlloc.reduce(_||_) && NeedOldVl(firstVtypeRename.bits))
 
   table.io.r(1).addr := deqPtr.value
   private val actualVl = Cat(Seq(
