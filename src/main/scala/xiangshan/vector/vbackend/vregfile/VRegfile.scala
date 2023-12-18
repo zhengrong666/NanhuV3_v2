@@ -72,14 +72,15 @@ class VRegfile(wbWkpNum:Int, wbNoWkpNum:Int, readPortNum:Int)(implicit p: Parame
     // wakeup
     val wbAddrReg = RegEnable(addr, io.wbWakeup(i).valid)
     io.wakeupMask(i) := mrf(wbAddrReg)
-    when(io.wbWakeup(i).valid){assert(io.wbWakeup(i).bits.uop.pdest < size.U)}
+    when(wen){assert(io.wbWakeup(i).bits.uop.pdest < size.U)}
   }
   // not wakeup
   for (i <- 0 until wbNoWkpNum) {
     val addr = io.wbNoWakeup(i).bits.uop.pdest
     val data = io.wbNoWakeup(i).bits.data
-    vrf.write(addr, data, fullMask, io.wbNoWakeup(i).valid)
-    when(io.wbNoWakeup(i).valid){assert(io.wbNoWakeup(i).bits.uop.pdest < size.U)}
+    val wen = io.wbNoWakeup(i).valid && io.wbNoWakeup(i).bits.uop.ctrl.vdWen
+    vrf.write(addr, data, fullMask, wen)
+    when(wen){assert(io.wbNoWakeup(i).bits.uop.pdest < size.U)}
   }
 
   private def GenMoveMask(in:MoveReq):UInt = {
