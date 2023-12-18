@@ -47,23 +47,25 @@ class OIQMergeQueue(size:Int, enqNum:Int)(implicit p: Parameters) extends XSModu
   }
   dontTouch(enqNeedAllocate)
 
-  private val actualEnqs = WireInit(io.enq)
-  for((e, i) <- actualEnqs.zipWithIndex) {
-    e.valid := io.enq(i).valid && enqNeedAllocate(i)
-    e.bits := io.enq(i).bits
-    e.bits.uopIdx := 0.U
-  }
-
-  io.enqCanAccept := PopCount(actualEnqs.map(_.valid)) <= emptyEntriesNum && !io.redirect.valid
+  private val enqTryings = io.enq.zip(enqNeedAllocate).map(e => e._1.valid & e._2)
+  private val enqTryingNum = PopCount(enqTryings)
+  io.enqCanAccept := enqTryingNum <= emptyEntriesNum && !io.redirect.valid
 
   private val enqPtrVec = Wire(Vec(enqNum, new MergeQueuePtr))
   enqPtrVec.zipWithIndex.foreach({ case (ptr, idx) =>
     if (idx == 0) {
       ptr := enqPtr
     } else {
-      ptr := enqPtr + PopCount(actualEnqs.take(idx).map(_.valid))
+      ptr := enqPtr + PopCount(enqTryings.take(idx))
     }
   })
+
+  private val actualEnqs = WireInit(io.enq)
+  for((e, i) <- actualEnqs.zipWithIndex) {
+    e.valid := io.enq(i).valid && enqNeedAllocate(i) && io.enqCanAccept
+    e.bits := io.enq(i).bits
+    e.bits.uopIdx := 0.U
+  }
 
   private val update = Wire(Valid(new OIQEntry))
   update.valid := io.issued
