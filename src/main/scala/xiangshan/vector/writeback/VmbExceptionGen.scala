@@ -30,7 +30,7 @@ class VmbExceptionSelectPolicy(width:Int)(implicit p: Parameters) extends Module
   private val oldestOHMatrix = io.in.zipWithIndex.map({ case (self, idx) =>
     io.in.zipWithIndex.filterNot(_._2 == idx).map(i => (i._1.valid && self.valid && isOlder(self.bits, i._1.bits)) ^ i._1.valid)
   })
-  private val oldestOHSeq = oldestOHMatrix.map(_.reduce(_|_)).map(!_)
+  private val oldestOHSeq = PriorityEncoderOH(oldestOHMatrix.map(_.reduce(_|_)).map(!_))
   private val oldestOH = Cat(oldestOHSeq.reverse)
   private val defaultValue = Cat(io.in.map(_.valid).reverse)
   io.out.valid := io.in.map(_.valid).reduce(_ | _)
