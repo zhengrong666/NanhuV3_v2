@@ -146,7 +146,13 @@ class OIQEnqBuffer(enqNum:Int)(implicit p: Parameters) extends Module with HasCi
     }
   })
 
-  private val enqPairs = io.enq.zip(enqPtrVec)
+  private val actualEnqs = Wire(Vec(enqNum, Valid(new MicroOp)))
+  actualEnqs.zip(io.enq).foreach({case(ae, ie) =>
+    ae.valid := ie.valid & io.enqCanAccept
+    ae.bits := ie.bits
+  })
+
+  private val enqPairs = actualEnqs.zip(enqPtrVec)
 
   for ((mem, addr) <- array.zipWithIndex) {
     val valids = enqPairs.map(wreq => wreq._1.valid && wreq._2.value === addr.U)
@@ -158,7 +164,7 @@ class OIQEnqBuffer(enqNum:Int)(implicit p: Parameters) extends Module with HasCi
       mem.uopNum := data.uopNum
     }
   }
-  private val actualEnqNum = PopCount(io.enq.map(_.valid))
+  private val actualEnqNum = PopCount(actualEnqs.map(_.valid))
   when(io.redirect.valid) {
     enqPtr := enqPtr - flushNum
   }.elsewhen(actualEnqNum =/= 0.U) {
