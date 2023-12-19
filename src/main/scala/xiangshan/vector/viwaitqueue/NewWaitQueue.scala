@@ -126,7 +126,16 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val deqHasException = deqUop.uop.cf.exceptionVec(illegalInstr)
   private val iiCond0 = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
   private val iiCond1 = deqUop.uop.vctrl.vm && deqUop.uop.ctrl.ldest === 0.U && deqUop.uop.ctrl.vdWen && !deqUop.uop.vctrl.maskOp
-  private val raiseII = iiCond0 || iiCond1
+  
+  // widen & narrow (no vfwcvt.i2f) -> sew = 32
+  // vfwcvt.i2f                     -> sew = 16/32
+  // other vfp                      -> sew = 32/64
+  private val isVFWCVT_F_X_U = deqUop.uop.vctrl.funct3 === "b001".U && deqUop.uop.vctrl.funct6 === "b010010".U && (deqUop.uop.ctrl.lsrc(2) === "b01010".U || deqUop.uop.ctrl.lsrc(2) === "b01011".U)
+  private val iiCond2_1 = (deqUop.uop.vctrl.isNarrow || (deqUop.uop.vctrl.isWidden && !isVFWCVT_F_X_U)) && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 2.U)
+  private val iiCond2_2 = (deqUop.uop.vctrl.isWidden && isVFWCVT_F_X_U) && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 1.U || deqUop.uop.vCsrInfo.vsew === 2.U)
+  private val iiCond2_3 = !deqUop.uop.vctrl.isWidden && !deqUop.uop.vctrl.isNarrow && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 2.U || deqUop.uop.vCsrInfo.vsew === 3.U)
+
+  private val raiseII = iiCond0 || iiCond1 || iiCond2_1 || iiCond2_2 || iiCond2_3
 
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
