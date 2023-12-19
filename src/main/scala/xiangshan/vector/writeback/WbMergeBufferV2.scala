@@ -77,17 +77,19 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     val ptr = allocPtrVec(idx)
     resp.valid := req.valid && idx.U < emptyEntriesNum && !io.redirect.valid
     resp.bits := ptr
-    when(req.valid){
-      table(ptr.value).uop.robIdx := req.bits
-      table(ptr.value).uop.uopNum := VLEN.U
-      table(ptr.value).vxsat := false.B
-      table(ptr.value).fflags := false.B
-      wbCnts(ptr.value) := 0.U
-    }
-    when(resp.valid){
-      valids(allocPtrVec(idx).value) := true.B
-    }
   })
+
+  for(i <- table.indices){
+    val allocHits = io.allocate.resp.map(r => r.valid && r.bits.value === i.U)
+    when(allocHits.reduce(_ | _)){
+      table(i).uop.robIdx := Mux1H(allocHits, io.allocate.req.map(_.bits))
+      table(i).uop.uopNum := VLEN.U
+      table(i).vxsat := false.B
+      table(i).fflags := false.B
+      wbCnts(i) := 0.U
+      valids(i) := true.B
+    }
+  }
 
   private val enqNum = PopCount(io.allocate.resp.map(_.valid))
   when(io.redirect.valid){
@@ -184,7 +186,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
       t.fflags := Mux1H(hitVec, allWritebacks.map(_.bits.fflags)) | t.fflags
     }
     when(hitVec.reduce(_|_)){
-      assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)))
+      assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)), s"table ${idx} robIdx not matched!")
     }
   }
 }
