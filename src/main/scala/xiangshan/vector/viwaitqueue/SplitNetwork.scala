@@ -141,7 +141,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
     o.bits.elmIdx := lsSu.io.out.elmIdx //Only VLS need this
 
     when(io.in.bits.vctrl.isLs) {
-      o.bits.canRename := lsSu.io.out.shouldRename && io.in.bits.uopNum.orR
+      o.bits.canRename := Mux(io.in.bits.uopNum === 1.U, false.B, lsSu.io.out.shouldRename && io.in.bits.uopNum.orR)
       o.bits.ctrl.ldest := ctrl.ldest + lsSu.io.out.vdAddend
       o.bits.ctrl.lsrc(0) := ctrl.lsrc(0)
       o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + lsSu.io.out.vs2Addend, ctrl.lsrc(1))
