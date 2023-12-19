@@ -139,12 +139,15 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   
   private val needIgnoreVl = isVMV_X_S || isVFMV_F_S || isVMVXR
 
-  private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U || (io.vstart >= deqUop.uop.vCsrInfo.vl && !needIgnoreVl) || raiseII
+  private val directlyWb = deqHasException || deqUop.uop.uopNum === 0.U && !deqUop.uop.vctrl.isLs || (io.vstart >= deqUop.uop.vCsrInfo.vl && !needIgnoreVl) || raiseII
 
   private val splitDriver = Module(new DequeuePipeline(1))
   splitDriver.io.redirect := io.redirect
   splitDriver.io.in(0).bits := deqUop.uop
-  splitDriver.io.in(0).valid := hasValid && uopRdy && (!directlyWb || deqUop.uop.uopNum === 0.U && deqUop.uop.vctrl.isLs)
+  splitDriver.io.in(0).valid := hasValid && uopRdy && !directlyWb
+  when(deqUop.uop.uopNum === 0.U && deqUop.uop.vctrl.isLs) {
+    splitDriver.io.in(0).bits.uopNum := 1.U
+  }
 
   splitNetwork.io.redirect := io.redirect
   splitNetwork.io.in.valid := splitDriver.io.out(0).valid

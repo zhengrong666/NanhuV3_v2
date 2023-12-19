@@ -131,8 +131,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
   io.out.zipWithIndex.foreach({ case (o, idx) =>
     val currentnum = io.current(idx)
     val lsSu = lsSplitUnit(idx)
-    o.valid := io.in.valid &&
-      ((currentnum < io.in.bits.uopNum) || (currentnum === 0.U && io.in.bits.uopNum === 0.U && io.in.bits.vctrl.isLs))
+    o.valid := io.in.valid && currentnum < io.in.bits.uopNum
     o.bits := io.in.bits
     o.bits.uopNum := io.in.bits.uopNum
     o.bits.uopIdx := currentnum
@@ -147,6 +146,7 @@ class SplitUop(splitNum:Int)(implicit p: Parameters) extends XSModule {
       o.bits.ctrl.lsrc(0) := ctrl.lsrc(0)
       o.bits.ctrl.lsrc(1) := Mux(ctrl.srcType(1) === SrcType.vec, ctrl.lsrc(1) + lsSu.io.out.vs2Addend, ctrl.lsrc(1))
       o.bits.ctrl.fuOpType := lsSu.io.out.fuOpType
+      o.bits.uopNum := Mux(io.in.bits.uopNum === 1.U, 0.U, io.in.bits.uopNum)
     }.otherwise {
       val onlyOneDest = vctrl.eewType(2) === EewType.dc || vctrl.eewType(2) === EewType.const
       val narrow = vctrl.isNarrow && !vctrl.maskOp
