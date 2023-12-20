@@ -124,18 +124,19 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   table.io.deq.addr := deqPtr.value
   private val deqUop = table.io.deq.data
   private val deqHasException = deqUop.uop.cf.exceptionVec(illegalInstr)
+
+  private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
+  private val isSpeicalFp = deqUop.uop.vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === deqUop.uop.ctrl.lsrc(0)).reduce(_ || _)
+  private val isFdiv = deqUop.uop.vctrl.funct6 === "b100000".U || deqUop.uop.vctrl.funct6 === "b100001".U ||
+    deqUop.uop.vctrl.funct6 === "b010011".U && deqUop.uop.ctrl.lsrc(0) === "b00000".U
   private val iiCond0 = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
   private val iiCond1 = deqUop.uop.vctrl.vm && deqUop.uop.ctrl.ldest === 0.U && deqUop.uop.ctrl.vdWen && !deqUop.uop.vctrl.maskOp
-  
-  // widen & narrow (no vfwcvt.i2f) -> sew = 32
-  // vfwcvt.i2f                     -> sew = 16/32
-  // other vfp                      -> sew = 32/64
-  private val isVFWCVT_F_X_U = deqUop.uop.vctrl.funct3 === "b001".U && deqUop.uop.vctrl.funct6 === "b010010".U && (deqUop.uop.ctrl.lsrc(2) === "b01010".U || deqUop.uop.ctrl.lsrc(2) === "b01011".U)
-  private val iiCond2_1 = (deqUop.uop.vctrl.isNarrow || (deqUop.uop.vctrl.isWidden && !isVFWCVT_F_X_U)) && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 2.U)
-  private val iiCond2_2 = (deqUop.uop.vctrl.isWidden && isVFWCVT_F_X_U) && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 1.U || deqUop.uop.vCsrInfo.vsew === 2.U)
-  private val iiCond2_3 = !deqUop.uop.vctrl.isWidden && !deqUop.uop.vctrl.isNarrow && deqUop.uop.ctrl.fuType === FuType.vfp && !(deqUop.uop.vCsrInfo.vsew === 2.U || deqUop.uop.vCsrInfo.vsew === 3.U)
+  private val iiCond2 = deqUop.uop.ctrl.fuType === FuType.vfp && isSpeicalFp && (deqUop.uop.vCsrInfo.vsew === 0.U || deqUop.uop.vCsrInfo.vsew === 3.U)
+  private val iiCond3 = deqUop.uop.ctrl.fuType === FuType.vfp && !isSpeicalFp && (deqUop.uop.vCsrInfo.vsew === 0.U || deqUop.uop.vCsrInfo.vsew === 1.U)
+  private val iiCond4 = deqUop.uop.ctrl.fuType === FuType.vdiv && isFdiv && (deqUop.uop.vCsrInfo.vsew === 0.U || deqUop.uop.vCsrInfo.vsew === 1.U)
+  private val iiCond5 = (deqUop.uop.vctrl.isWidden & deqUop.uop.vctrl.isNarrow) && (deqUop.uop.vCsrInfo.vsew === 3.U || deqUop.uop.vCsrInfo.vlmul === 3.U)
 
-  private val raiseII = iiCond0 || iiCond1 || iiCond2_1 || iiCond2_2 || iiCond2_3
+  private val raiseII = iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5
 
   private val vstartHold = RegInit(false.B)
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
@@ -145,7 +146,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val isVFMV_F_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b001".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.vctrl.vm === false.B)
   private val vMVXR_RS1_MATCH = deqUop.uop.ctrl.lsrc(0) === 0.U || deqUop.uop.ctrl.lsrc(0) === "b00001".U || deqUop.uop.ctrl.lsrc(0) === "b00011".U || deqUop.uop.ctrl.lsrc(0) === "b00111".U
   private val isVMVXR = (deqUop.uop.vctrl.funct6 === "b100111".U) && (deqUop.uop.vctrl.funct3 === "b011".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.vctrl.vm === false.B) && vMVXR_RS1_MATCH
-  
+
   private val needIgnoreVl = isVMV_X_S || isVFMV_F_S || isVMVXR
 
   private val directlyWb = deqHasException || (deqUop.uop.uopNum === 0.U) || (io.vstart >= deqUop.uop.vCsrInfo.vl && !needIgnoreVl) || raiseII
