@@ -169,8 +169,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val iiCond1 = ctrl.fuType === FuType.vfp && isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 3.U)
     val iiCond2 = ctrl.fuType === FuType.vfp && !isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
     val iiCond3 = ctrl.fuType === FuType.vdiv && isFdiv && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
-    val iiCond4 = (vctrl.isWidden & vctrl.isNarrow) && vcsr.vsew === 3.U
-    val iiCond5 = (vctrl.isWidden & vctrl.isNarrow) && !vctrl.maskOp && vcsr.vlmul === 3.U
+    val iiCond4 = (vctrl.isWidden || vctrl.isNarrow) && vcsr.vsew === 3.U
+    val iiCond5 = (vctrl.isWidden || vctrl.isNarrow) && !vctrl.maskOp && vcsr.vlmul === 3.U
 
     entryNext.state := WqState.s_waiting
     entryNext.uop.cf.exceptionVec(illegalInstr) := vcsr.vill || iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5
