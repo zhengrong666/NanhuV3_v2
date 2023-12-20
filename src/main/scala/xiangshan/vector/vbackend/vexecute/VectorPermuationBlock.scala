@@ -97,9 +97,11 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     permutation.io.in.rdata := rfRespData
     permutation.io.in.rvalid := rfRespValid
     permutation.io.redirect := io.redirect
-    private val pdestReg = RegEnable(issueDataReg.pdest, issueValidReg && fuReady)
+
+    private val fuInFire = issueValidReg && fuReady
+    private val pdestReg = RegEnable(issueDataReg.pdest, fuInFire)
     //TODO: This is ugly, only for vrgatherei16.vv
-    private val cntm2 = RegEnable(issueDataReg.uop.vctrl.isWidden && issueDataReg.uop.uopNum > 1.U, issueValidReg && fuReady)
+    private val cntm2 = RegEnable(issueDataReg.uop.vctrl.isWidden && issueDataReg.uop.uopNum > 1.U, fuInFire)
     private val wbCounter = RegInit(0.U(4.W))
     private val wb = writebackNode.out.head._1
     wb.valid := permutation.io.out.wb_vld
@@ -107,12 +109,14 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     wb.bits.uop := permutation.io.out.uop.sysUop
     wb.bits.wakeupMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
     wb.bits.writeDataMask := ((1 << (VLEN / 8)) - 1).U((VLEN / 8).W)
-    when(wb.valid){
+
+    when(fuInFire) {
+      wbCounter := 0.U
+    }.elsewhen(wb.valid) {
       wbCounter := Mux(cntm2, wbCounter + 2.U, wbCounter + 1.U)
       assert(!(cntm2 && wb.bits.uop.uopNum(0)))
-    }.elsewhen(wbCounter === wb.bits.uop.uopNum){
-      wbCounter := 0.U
     }
+
     wb.bits.uop.uopIdx := wbCounter
     wb.bits.uop.pdest := pdestReg(wbCounter)
   }
