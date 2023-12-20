@@ -4,7 +4,7 @@ import chisel3.util.{Cat, _}
 import org.chipsalliance.cde.config.Parameters
 import darecreek.exu.vfu.{VAluOutput, VFuInput}
 import xiangshan.XSModule
-import xs.utils.{LogicShiftLeft, ZeroExt}
+import xs.utils.{LogicShiftLeft, ZeroExt, SignExt}
 
 import scala.collection.immutable.Seq
 import darecreek.exu.vfu.HasVFuParameters
@@ -46,10 +46,10 @@ class Scalar2Vector(implicit p: Parameters) extends VFuModule{
   private val vi16 = WireInit(VecInit(Seq.tabulate(VLEN / 16)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 16)))))
   private val vi32 = WireInit(VecInit(Seq.tabulate(VLEN / 32)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 32)))))
   private val vi64 = WireInit(VecInit(Seq.tabulate(VLEN / 64)(i => i.U | LogicShiftLeft(ZeroExt(uidx, bVL), log2Ceil(VLEN / 64)))))
-  private val nd8 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 8), io.in.bits.rs1(7, 0))
-  private val nd16 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 16), io.in.bits.rs1(15, 0))
-  private val nd32 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 32), io.in.bits.rs1(31, 0))
-  private val nd64 = Mux(fuOpType === S2vOpType.vi, ZeroExt(io.in.bits.uop.ctrl.vs1_imm, 64), io.in.bits.rs1(63, 0))
+  private val nd8 = Mux(fuOpType === S2vOpType.vi, SignExt(io.in.bits.uop.ctrl.vs1_imm, 8), io.in.bits.rs1(7, 0))
+  private val nd16 = Mux(fuOpType === S2vOpType.vi, SignExt(io.in.bits.uop.ctrl.vs1_imm, 16), io.in.bits.rs1(15, 0))
+  private val nd32 = Mux(fuOpType === S2vOpType.vi, SignExt(io.in.bits.uop.ctrl.vs1_imm, 32), io.in.bits.rs1(31, 0))
+  private val nd64 = Mux(fuOpType === S2vOpType.vi, SignExt(io.in.bits.uop.ctrl.vs1_imm, 64), io.in.bits.rs1(63, 0))
 
   private def FillElem(data:Vec[UInt], od:Vec[UInt], eindices:Vec[UInt], nd:UInt) = {
     for(((dst, odst), ei) <- data.zip(od).zip(eindices)){
