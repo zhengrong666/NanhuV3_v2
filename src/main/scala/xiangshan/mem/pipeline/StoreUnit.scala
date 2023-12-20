@@ -80,7 +80,7 @@ class StoreUnit_S0(implicit p: Parameters) extends XSModule with HasPerfLogging 
     "b10".U   -> (io.out.bits.vaddr(1,0) === 0.U), //w
     "b11".U   -> (io.out.bits.vaddr(2,0) === 0.U)  //d
   ))
-  io.out.bits.uop.cf.exceptionVec(storeAddrMisaligned) := !addrAligned
+  io.out.bits.uop.cf.exceptionVec(storeAddrMisaligned) := !addrAligned && io.in.bits.uop.loadStoreEnable
 
   XSPerfAccumulate("in_valid", io.in.valid)
   XSPerfAccumulate("in_fire", io.in.fire)
