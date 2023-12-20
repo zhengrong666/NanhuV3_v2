@@ -78,10 +78,16 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   }
   private val vctrlNext = entryNext.uop.vctrl
   private val vctrl = io.entry.uop.vctrl
+  private val ctrl = io.entry.uop.ctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val isWiden = WireInit(vctrl.isWidden)
   private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
+  private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
+  private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
+  private val isFdiv = vctrl.funct6 === "b100000".U || vctrl.funct6 === "b100001".U ||
+    vctrl.funct6 === "b010011".U && ctrl.lsrc(0) === "b00000".U
+
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
       vn := MuxCase(v, Seq(
@@ -159,8 +165,15 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       }
     }
 
+    val iiCond0 = vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen && !vctrl.maskOp
+    val iiCond1 = ctrl.fuType === FuType.vfp && isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 3.U)
+    val iiCond2 = ctrl.fuType === FuType.vfp && !isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
+    val iiCond3 = ctrl.fuType === FuType.vdiv && isFdiv && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
+    val iiCond4 = (vctrl.isWidden & vctrl.isNarrow) && vcsr.vsew === 3.U
+    val iiCond5 = (vctrl.isWidden & vctrl.isNarrow) && !vctrl.maskOp && vcsr.vlmul === 3.U
+
     entryNext.state := WqState.s_waiting
-    entryNext.uop.cf.exceptionVec(illegalInstr) := (isWiden || isNarrow) && vcsr.vlmul === 3.U || vcsr.vill
+    entryNext.uop.cf.exceptionVec(illegalInstr) := vcsr.vill || iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5
   }
 
   io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
