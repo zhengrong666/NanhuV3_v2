@@ -244,7 +244,7 @@ trait HasCSRConst {
   }
 
   def vcsrAccessPermissionCheck(addr: UInt, wen: Bool): Bool = {
-    val readOnly = addr === Vtype.U || addr === Vl.U
+    val readOnly = addr === Vtype.U || addr === Vl.U || addr === Vlenb.U
     !(wen && readOnly)
   }
 
