@@ -85,8 +85,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
-  private val isFdiv = vctrl.funct6 === "b100000".U || vctrl.funct6 === "b100001".U ||
-    vctrl.funct6 === "b010011".U && ctrl.lsrc(0) === "b00000".U
+  private val isFdiv = vctrl.funct3 === "b101".U || vctrl.funct3 === "b001".U
 
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
