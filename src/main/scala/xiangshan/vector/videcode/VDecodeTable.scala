@@ -153,7 +153,7 @@ object VADecode extends VDecodeConstants {
     VMINU_VX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
 
     VMV_V_I -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
-    VMV_V_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
+    VMV_V_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.sew, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VMV_V_X -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
 
     VSEXT_VF2 -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sewd2, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
@@ -255,8 +255,8 @@ object VADecode extends VDecodeConstants {
     VFCVT_X_F_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VFCVT_XU_F_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
 
-    VFMV_F_S -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
-    VFMV_S_F -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VFMV_F_S -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VFMV_S_F -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VFMV_V_F -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
 
     //reduction-float
@@ -322,7 +322,7 @@ object VADecode extends VDecodeConstants {
     VRGATHER_VX -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     VRGATHEREI16_VV -> List(EewVal.hword, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.sew, EmulVal.dc, EmulType.lmul, N, N, N, N, N, N),
     
-    VMV_S_X -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.const,  EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VMV_S_X -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc, EewType.sew,  EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VMV_X_S -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.dc,  EewType.sew,    EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VMV1R_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew,    EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VMV2R_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sew,    EmulVal.r2, EmulType.const, N, N, N, N, N, N),
