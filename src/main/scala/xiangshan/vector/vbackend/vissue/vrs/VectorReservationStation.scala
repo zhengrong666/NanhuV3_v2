@@ -93,7 +93,7 @@ class VectorReservationStationImpl(outer:VectorReservationStation, param:RsParam
   })
 
 
-  private val fuTypeList = issue.flatMap(_._2.exuConfigs).flatMap(_.fuConfigs).map(_.fuType).filterNot(_ == FuType.vdiv)
+  private val fuTypeList = issue.flatMap(_._2.exuConfigs).filterNot(_.exuType == ExuType.vdiv).flatMap(_.fuConfigs).map(_.fuType)
   private val vdivWb = wakeup.filter(w => w._2.name == "VDivExu").map(_._1)
 
   private val orderedSelectNetwork = Module(new VrsSelectNetwork(param.bankNum, entriesNumPerBank, issue.length, true, false, 0, fuTypeList, Some(s"VectorOrderedSelectNetwork")))
