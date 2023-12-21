@@ -192,7 +192,7 @@ class MemoryStatusArrayEntryUpdateNetwork(stuNum:Int, wakeupWidth:Int, regWkpIdx
   )
   private val (vmUpdateValid, vmNewState, _) = WakeupLogics(
     io.entry.valid, io.entry.bits.vm,
-    SrcType.reg, io.entry.bits.vmState,
+    SrcType.vec, io.entry.bits.vmState,
     VecInit(Seq.fill(loadUnitNum)(0.U(LpvLength.W))), vmWakpUps, false, 3
   )
   when(src0UpdateValid){
