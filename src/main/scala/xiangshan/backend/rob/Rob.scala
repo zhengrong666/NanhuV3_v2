@@ -21,6 +21,7 @@ import org.chipsalliance.cde.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp}
 import difftest._
 import utils._
+import xiangshan.ExceptionNO.selectFrontend
 import xs.utils._
 import xiangshan._
 import xiangshan.frontend.FtqPtr
@@ -530,7 +531,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
   }
 
   when(io.exception.valid && io.exception.bits.uop.ctrl.isVector) {
-    vstart.valid := true.B
+    vstart.valid := !selectFrontend(exceptionGen.io.state.bits.exceptionVec).reduce(_ | _)
     vstart.bits := exceptionGen.io.state.bits.vstart
   }.elsewhen(vstartSet0.asUInt.orR) {
     vstart.valid := true.B
