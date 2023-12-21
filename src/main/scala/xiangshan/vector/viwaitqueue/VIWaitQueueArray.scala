@@ -81,7 +81,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val ctrl = io.entry.uop.ctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val isWiden = WireInit(vctrl.isWidden)
-  private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
+  private val isNarrow = vctrl.isNarrow
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
