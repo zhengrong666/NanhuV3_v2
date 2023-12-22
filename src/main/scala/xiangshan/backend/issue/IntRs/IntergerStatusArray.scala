@@ -156,7 +156,7 @@ class IntegerStatusArrayEntryUpdateNetwork(issueWidth:Int, wakeupWidth:Int)(impl
   enqUpdateEn := enqNext.valid
   //End of Enqueue
 
-  io.updateEnable := Mux(io.entry.valid, miscUpdateEnWakeUp | mayBeIssued | shouldBeFlushed | miscUpdateEnLpvUpdate, enqUpdateEn)
+  io.updateEnable := io.entry.valid | enqUpdateEn
   io.entryNext := Mux(enqUpdateEn, enqNext, miscNext)
 
   private val debugTimeoutCnt = RegInit(0.U(16.W))
