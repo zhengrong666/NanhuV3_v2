@@ -868,7 +868,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     exceptionGen.io.enq(i).bits.trigger.clear() // Don't care frontend timing and chain, backend hit and canFire
     exceptionGen.io.enq(i).bits.trigger.frontendHit := io.enq.req(i).bits.cf.trigger.frontendHit
     exceptionGen.io.enq(i).bits.trigger.frontendCanFire := io.enq.req(i).bits.cf.trigger.frontendCanFire
-    exceptionGen.io.enq(i).bits.vstart := io.enq.req(i).bits.uopIdx
+    exceptionGen.io.enq(i).bits.vstart := 0.U
   }
 
   println(s"ExceptionGen:")
@@ -895,7 +895,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
       exc_wb.bits.singleStep := false.B
       exc_wb.bits.crossPageIPFFix := false.B
       exc_wb.bits.trigger := wb.bits.uop.cf.trigger
-      exc_wb.bits.vstart := wb.bits.uop.uopIdx
+      exc_wb.bits.vstart := 0.U
     }
   }
 
