@@ -88,7 +88,7 @@ object VSDecode extends VDecodeConstants {
     VSE32_V -> List(EewVal.word, EewVal.dc, EewVal.word, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VSE64_V -> List(EewVal.dword, EewVal.dc, EewVal.dword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
 
-    VSM_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, N, N, N),
+    VSM_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, Y, N, N),
 
     VSSE8_V -> List(EewVal.byte, EewVal.dc, EewVal.byte, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VSSE16_V -> List(EewVal.hword, EewVal.dc, EewVal.hword, EewType.const, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
