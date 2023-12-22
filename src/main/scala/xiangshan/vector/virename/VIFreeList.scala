@@ -46,7 +46,7 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
     val releasePhyReg = Vec(8, Flipped(ValidIO(UInt(VIPhyRegIdxWidth.W))))
   })
 
-  class VIFreeListPtr extends CircularQueuePtr[VIFreeListPtr](VIPhyRegsNum)
+  class VIFreeListPtr extends CircularQueuePtr[VIFreeListPtr](VIPhyRegsNum - 32)
   object VIFreeListPtr {
     def apply(f: Boolean, v: Int): VIFreeListPtr = {
       val ptr = Wire(new VIFreeListPtr)
@@ -56,13 +56,15 @@ class VIFreeList(implicit p: Parameters) extends VectorBaseModule with HasCircul
     }
   }
 
-  //free list
-  private val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum - 32)(i => (i + 32).U(PhyRegIdxWidth.W)) ++ (Seq.tabulate(32)(i => (i).U(PhyRegIdxWidth.W))))
+  // free list
+  // FreeList init value is: [32, 33, 34, ..., 61, 62]
+  require(VIPhyRegsNum > 32)
+  private val freeList_ds = VecInit(Seq.tabulate(VIPhyRegsNum - 32)(i => (i + 32).U(PhyRegIdxWidth.W)))
   private val freeList = RegInit(freeList_ds)
 
   //head and tail pointer
   private val allocatePtr = RegInit(VIFreeListPtr(false, 0))
-  private val releasePtr = RegInit(VIFreeListPtr(false, VIPhyRegsNum - 32))
+  private val releasePtr = RegInit(VIFreeListPtr(true, 0))
   assert(releasePtr >= allocatePtr, "Unexpected V phy regs are released!")
 
   //Allocate
