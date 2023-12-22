@@ -1079,8 +1079,8 @@ class DecodeUnit(implicit p: Parameters) extends XSModule with DecodeUnitConstan
   val extEn = io.csrCtrl.extEn
 
   val isFp = FuType.floatingTypes.map(_ === cs.fuType).reduce(_ | _)
-  val illegalFrm = io.csrCtrl.frm > 4.U
-  val illegalFp = isFp && ((illegalFrm && cs.fpu.rm === 7.U) || !extEn.fp)
+  val illegalRm = (io.csrCtrl.frm > 4.U && cs.fpu.rm === 7.U) || (cs.fpu.rm > 4.U && cs.fpu.rm < 7.U)
+  val illegalFp = isFp && (illegalRm || !extEn.fp)
 
   val illegalVec = (isVector || isVtype) && !extEn.vec
 
