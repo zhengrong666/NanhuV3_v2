@@ -391,10 +391,10 @@ object VWDecode extends VDecodeConstants{
     VFWCVT_X_F_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sewm2, EmulVal.dc, EmulType.lmul, N, N, N, N, Y, N),
     VFWCVT_XU_F_V -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.dc, EewType.sew, EewType.sewm2, EmulVal.dc, EmulType.lmul, N, N, N, N, Y, N),
 
-    VWREDSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sewm2, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, Y, N),
-    VWREDSUMU_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sewm2, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, Y, N),
-    VFWREDOSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sewm2, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, Y, N),
-    VFWREDUSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sewm2, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, Y, N),
+    VWREDSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, N, N),
+    VWREDSUMU_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, N, N),
+    VFWREDOSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, N, N),
+    VFWREDUSUM_VS -> List(EewVal.dc, EewVal.dc, EewVal.dc, EewType.const, EewType.sew, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, N, Y, N, N),
   )
 }
 
