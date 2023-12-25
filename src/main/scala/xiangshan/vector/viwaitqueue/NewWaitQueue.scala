@@ -134,8 +134,9 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val isVFMV_F_S = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b001".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.ctrl.lsrc(0) === 0.U) && (deqUop.uop.vctrl.vm === false.B)
   private val vMVXR_RS1_MATCH = deqUop.uop.ctrl.lsrc(0) === 0.U || deqUop.uop.ctrl.lsrc(0) === "b00001".U || deqUop.uop.ctrl.lsrc(0) === "b00011".U || deqUop.uop.ctrl.lsrc(0) === "b00111".U
   private val isVMVXR = (deqUop.uop.vctrl.funct6 === "b100111".U) && (deqUop.uop.vctrl.funct3 === "b011".U) && (!deqUop.uop.vctrl.isLs) && (deqUop.uop.vctrl.vm === false.B) && vMVXR_RS1_MATCH
+  private val isVFIRSTM = (deqUop.uop.vctrl.funct6 === "b010000".U) && (deqUop.uop.vctrl.funct3 === "b010".U) && (deqUop.uop.ctrl.lsrc(0) === "b10001".U) && (deqUop.uop.ctrl.fuType === FuType.vmask)
 
-  private val needIgnoreVl = isVMV_X_S || isVFMV_F_S || isVMVXR
+  private val needIgnoreVl = isVMV_X_S || isVFMV_F_S || isVMVXR || isVFIRSTM
 
   private val directlyWb = deqHasException || (deqUop.uop.uopNum === 0.U) || (io.vstart >= deqUop.uop.vCsrInfo.vl && !needIgnoreVl) || raiseII
 
