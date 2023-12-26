@@ -212,17 +212,11 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           //Move req
           io.vectorRfMoveReq(vecMoveReqPortIdx).valid := uopDelay.ctrl.fuType === FuType.ldu &&
             RegNext(!bi.hold && bi.issue.valid, false.B) && uopDelay.ctrl.isVector
-          when(isPrestartDisabled){
+          when(isPrestartDisabled || isTailDisabled || isMaskDisabled){
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := false.B
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
-          }.elsewhen(isTailDisabled){
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := uopDelay.vCsrInfo.vta(0)
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
-          }.elsewhen(isMaskDisabled){
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := uopDelay.vCsrInfo.vma(0)
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := false.B
           }.otherwise{
-            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := uopDelay.vCsrInfo.vta(0)
+            io.vectorRfMoveReq(vecMoveReqPortIdx).bits.agnostic := false.B
             io.vectorRfMoveReq(vecMoveReqPortIdx).bits.enable := true.B
           }
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := uopDelay.psrc(2)
