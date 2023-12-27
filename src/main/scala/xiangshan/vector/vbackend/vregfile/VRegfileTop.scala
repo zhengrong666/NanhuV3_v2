@@ -62,7 +62,7 @@ object VRegfileTopUtil{
       (sew === 2.U) -> ("h0f".U << Cat(movIdx(vlenBytes - 3, 0), 0.U(2.W))),
       (sew === 3.U) -> ("hff".U << Cat(movIdx(vlenBytes - 4, 0), 0.U(3.W))),
     ))
-    Mux(in.loadStoreEnable, mask(width - 1, 0).asUInt, 0.U(width.W))
+    Mux(in.loadStoreEnable && !in.cf.exceptionVec.reduce(_ | _), mask(width - 1, 0).asUInt, 0.U(width.W))
   }
 }
 
