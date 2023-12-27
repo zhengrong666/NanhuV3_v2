@@ -66,6 +66,8 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val vmbInit = Output(Valid(new MicroOp))
     val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
 
+    val splitCtrl = new SplitCtrlIO
+
     val debug = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   })
 
@@ -103,6 +105,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
   waitqueue.io.vmbAlloc       <> io.vmbAlloc
   waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
   waitqueue.io.redirect       := redirectDelay_dup_1
+  waitqueue.io.splitCtrl      := io.splitCtrl
 
   virename.io.redirect    := redirectDelay_dup_2
   //virename.io.uopIn       <> waitqueue.io.out

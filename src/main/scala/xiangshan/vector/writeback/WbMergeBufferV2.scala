@@ -9,6 +9,7 @@ import xiangshan.{ExceptionVec, ExuOutput, MicroOp, Redirect, RedirectLevel, Tri
 import xiangshan.backend.writeback.{WriteBackSinkNode, WriteBackSinkParam, WriteBackSinkType}
 import xiangshan.vector.HasVectorParameters
 import xs.utils.{CircularQueuePtr, HasCircularQueuePtrHelper, UIntToMask}
+import xiangshan.vector.viwaitqueue.SplitCtrlIO
 
 class VmbPtr(implicit p: Parameters) extends CircularQueuePtr[VmbPtr](
   p => p(XSCoreParamsKey).vectorParameters.vMergeBufferDepth
@@ -53,6 +54,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     val vlUpdate = Output(Valid(UInt(log2Ceil(VLEN + 1).W)))
     val ffOut = Output(Valid(new ExuOutput))
     val redirect = Flipped(Valid(new Redirect))
+    val splitCtrl = Flipped(new SplitCtrlIO)
   })
   private val allWritebacks = writebackIn.map(_._2)
   private val exceptionGen = Module(new VmbExceptionGen(wbHasException.length))
@@ -144,6 +146,12 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
       w := PopCount(io.rob.take(i).map(_.valid)) === i.U && !onlyAllowDeqOne && !blockDeq
     }
   }
+
+  val deqEntry = deqCandidates.head
+  val deqPtr = cmtPtrVec.head
+  val deqEntryIsOrder = (!deqEntry.uop.ctrl.blockBackward) && deqEntry.uop.ctrl.noSpecExec
+  io.splitCtrl.allowNext := deqEntryIsOrder && Cat(allWritebacks.map(wb => wb.valid && wb.bits.uop.mergeIdx === deqPtr)).asUInt.orR
+  io.splitCtrl.allDone := (valids(deqPtr.value) && deqEntry.uop.uopNum === wbCnts(deqPtr.value)) || (valids(deqPtr.value) && deqEntry.uop.uopNum === 0.U)
 
   io.rob.zipWithIndex.foreach({case(deq, idx) =>
     val ptr = cmtPtrVec(idx).value
