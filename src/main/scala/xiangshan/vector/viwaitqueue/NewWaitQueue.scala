@@ -201,6 +201,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
       sink.valid := Mux(orderLsOnGoing, false.B, source.valid)
       source.ready := Mux(orderLsOnGoing, false.B, sink.ready)
     }
+    sink.bits.vctrl.disable := (orderLsOnGoing === false.B || io.splitCtrl.allDone) && source.bits.vctrl.isLs && source.bits.vctrl.ordered
   })
 
   io.out <> splitPipe.io.out

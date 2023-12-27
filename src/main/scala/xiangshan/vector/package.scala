@@ -52,6 +52,7 @@ package object vector {
     val emulType = EmulType()
     val ordered = Bool()
     val isLs = Bool()
+    val disable = Bool()
     val ff = Bool()
     val maskOp = Bool()
     val isWidden = Bool()
