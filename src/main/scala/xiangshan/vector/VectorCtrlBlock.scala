@@ -67,6 +67,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     val vAllocPregs = Vec(VIRenameWidth, ValidIO(UInt(VIPhyRegIdxWidth.W)))
 
     val splitCtrl = new SplitCtrlIO
+    val exception = Input(Valid(new ExceptionInfo))
 
     val debug = Output(Vec(32, UInt(VIPhyRegIdxWidth.W)))
   })
@@ -113,6 +114,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     vrI <> wqO
   }
   virename.io.commit      <> io.commit
+  virename.io.exception := io.exception
 
   for((rp, dp) <- virename.io.rename.map(_.out) zip dispatch.io.req.uop) {
     rp.ready := dispatch.io.req.canDispatch
