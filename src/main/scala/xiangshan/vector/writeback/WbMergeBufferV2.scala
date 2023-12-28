@@ -147,12 +147,27 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     }
   }
 
+  val hasOrderedLS = RegInit(false.B)
+  when(io.vmbInit.valid && !io.vmbInit.bits.ctrl.blockBackward && io.vmbInit.bits.ctrl.noSpecExec) {
+    hasOrderedLS := true.B
+  }.elsewhen(io.splitCtrl.allDone) {
+    hasOrderedLS := false.B
+  }
+
+  when(io.vmbInit.valid && io.vmbInit.bits.ctrl.noSpecExec) {
+    assert(validEntriesNum === 0.U)
+  }
+
   val deqEntry = deqCandidates.head
   val deqPtr = cmtPtrVec.head
   val deqEntryIsOrder = (!deqEntry.uop.ctrl.blockBackward) && deqEntry.uop.ctrl.noSpecExec
-  io.splitCtrl.allowNext := deqEntryIsOrder && Cat(allWritebacks.map(wb => wb.valid && wb.bits.uop.mergeIdx === deqPtr)).asUInt.orR && !(deqEntry.uop.cf.exceptionVec.reduce(_|_))
-  io.splitCtrl.allDone := (valids(deqPtr.value) && deqEntry.uop.uopNum === wbCnts(deqPtr.value)) || (valids(deqPtr.value) && deqEntry.uop.uopNum === 0.U) ||
-                          (deqEntryIsOrder && Cat(allWritebacks.map(wb => wb.valid && wb.bits.uop.mergeIdx === deqPtr && wb.bits.uop.cf.exceptionVec.reduce(_|_))).asUInt.orR)
+
+  val wbVec = allWritebacks.map(_.valid)
+  val wbExceptionVec = allWritebacks.map(_.bits.uop.cf.exceptionVec)
+  val wbException = Mux1H(wbVec, wbExceptionVec)
+
+  io.splitCtrl.allowNext := hasOrderedLS && wbVec.reduce(_||_) && !(wbException.reduce(_||_))
+  io.splitCtrl.allDone := hasOrderedLS && ((wbCnts(deqPtr.value) === deqEntry.uop.uopNum) || deqEntry.uop.uopNum === 0.U || (wbVec.reduce(_||_) && (wbException.reduce(_||_))))
 
   io.rob.zipWithIndex.foreach({case(deq, idx) =>
     val ptr = cmtPtrVec(idx).value
