@@ -86,6 +86,21 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
   private val isFp = vctrl.funct3 === "b101".U || vctrl.funct3 === "b001".U
+  private val regularLs = vctrl.isLs && vctrl.eewType(0) === EewType.const && vctrl.emulType === EmulType.lmul
+  private val indexedLs = vctrl.isLs && vctrl.eewType(1) === EewType.const && vctrl.emulType === EmulType.lmul
+  private val wholeRegLs = vctrl.isLs && vctrl.emulType === EmulType.const
+  private val rlsVlMax = MuxCase(0.U, Seq(
+    (vctrl.eew(0) === 0.U(3.W)) -> VLEN.U,
+    (vctrl.eew(0) === 1.U(3.W)) -> (VLEN / 2).U,
+    (vctrl.eew(0) === 2.U(3.W)) -> (VLEN / 4).U,
+    (vctrl.eew(0) === 3.U(3.W)) -> (VLEN / 8).U,
+  ))
+  private val ilsVlMax = MuxCase(0.U, Seq(
+    (vctrl.eew(1) === 0.U(3.W)) -> VLEN.U,
+    (vctrl.eew(1) === 1.U(3.W)) -> (VLEN / 2).U,
+    (vctrl.eew(1) === 2.U(3.W)) -> (VLEN / 4).U,
+    (vctrl.eew(1) === 3.U(3.W)) -> (VLEN / 8).U,
+  ))
 
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
@@ -175,9 +190,10 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf > 2.U),
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
+    val iiCond7 = regularLs && (rlsVlMax < vcsr.vl) || indexedLs && (ilsVlMax < vcsr.vl)
 
     entryNext.state := WqState.s_waiting
-    entryNext.uop.cf.exceptionVec(illegalInstr) := vcsr.vill || iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5 || iiCond6
+    entryNext.uop.cf.exceptionVec(illegalInstr) := vcsr.vill || iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5 || iiCond6 || iiCond7
   }
 
   io.entryNext := Mux(io.enq.valid, entryEnqNext, entryNext)
