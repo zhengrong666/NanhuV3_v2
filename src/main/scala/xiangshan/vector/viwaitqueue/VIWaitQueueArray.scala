@@ -89,18 +89,18 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val regularLs = vctrl.isLs && vctrl.eewType(0) === EewType.const && vctrl.emulType === EmulType.lmul
   private val indexedLs = vctrl.isLs && vctrl.eewType(1) === EewType.const && vctrl.emulType === EmulType.lmul
   private val wholeRegLs = vctrl.isLs && vctrl.emulType === EmulType.const
-  private val rlsVlMax = MuxCase(0.U, Seq(
-    (vctrl.eew(0) === 0.U(3.W)) -> VLEN.U,
-    (vctrl.eew(0) === 1.U(3.W)) -> (VLEN / 2).U,
-    (vctrl.eew(0) === 2.U(3.W)) -> (VLEN / 4).U,
-    (vctrl.eew(0) === 3.U(3.W)) -> (VLEN / 8).U,
+  private val lmulShift = Wire(UInt(10.W))
+  lmulShift := MuxCase(0.U, Seq(
+    (vcsr.vlmul === 0.U) -> 8.U,
+    (vcsr.vlmul === 1.U) -> 16.U,
+    (vcsr.vlmul === 2.U) -> 32.U,
+    (vcsr.vlmul === 3.U) -> 64.U,
+    (vcsr.vlmul === 5.U) -> 1.U,
+    (vcsr.vlmul === 6.U) -> 2.U,
+    (vcsr.vlmul === 7.U) -> 4.U,
   ))
-  private val ilsVlMax = MuxCase(0.U, Seq(
-    (vctrl.eew(1) === 0.U(3.W)) -> VLEN.U,
-    (vctrl.eew(1) === 1.U(3.W)) -> (VLEN / 2).U,
-    (vctrl.eew(1) === 2.U(3.W)) -> (VLEN / 4).U,
-    (vctrl.eew(1) === 3.U(3.W)) -> (VLEN / 8).U,
-  ))
+  private val rlsEmul = (lmulShift << vctrl.eew(0)(1, 0)) >> vcsr.vsew(1, 0)
+  private val ilsEmul = (lmulShift << vctrl.eew(1)(1, 0)) >> vcsr.vsew(1, 0)
 
   when(io.entry.state === WqState.s_updating) {
     for (((vn, v), et) <- vctrlNext.eew.zip(vctrl.eew).zip(vctrl.eewType)) {
@@ -134,15 +134,14 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         vctrlNext.emul := vcsr.vlmul
       }
     }
-
+    val vregTouchRaw = Wire(UInt(7.W))
+    vregTouchRaw := MuxCase(vctrl.nf, Seq(
+      (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf << 1.U),
+      (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf << 2.U),
+      (vctrlNext.emul === 3.U(3.W)) -> 8.U,
+    ))
+    val vregTouch = vregTouchRaw(3, 0)
     when(vctrl.isLs) {
-      val vregTouchRaw = Wire(UInt(7.W))
-      vregTouchRaw := MuxCase(vctrl.nf, Seq(
-        (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf << 1.U),
-        (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf << 2.U),
-        (vctrlNext.emul === 3.U(3.W)) -> 8.U,
-      ))
-      val vregTouch = vregTouchRaw(3, 0)
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
         (vctrlNext.eew(0) === 0.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 8)),
         (vctrlNext.eew(0) === 1.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 16)),
@@ -185,12 +184,12 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val iiCond3 = (ctrl.fuType === FuType.vdiv || ctrl.fuType === FuType.vpermu) && isFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
     val iiCond4 = (vctrl.isWidden || vctrl.isNarrow) && vcsr.vsew === 3.U
     val iiCond5 = (vctrl.isWidden || vctrl.isNarrow) && !vctrl.maskOp && vcsr.vlmul === 3.U
-    val iiCond6 = vctrl.isLs && MuxCase(false.B, Seq(
+    val iiCond6 = (regularLs || indexedLs) && MuxCase(false.B, Seq(
       (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf > 4.U),
       (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf > 2.U),
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
-    val iiCond7 = regularLs && (rlsVlMax < vcsr.vl) || indexedLs && (ilsVlMax < vcsr.vl)
+    val iiCond7 = regularLs && !rlsEmul(7, 0).orR || indexedLs && !ilsEmul(7, 0).orR
 
     entryNext.state := WqState.s_waiting
     entryNext.uop.cf.exceptionVec(illegalInstr) := vcsr.vill || iiCond0 || iiCond1 || iiCond2 || iiCond3 || iiCond4 || iiCond5 || iiCond6 || iiCond7
