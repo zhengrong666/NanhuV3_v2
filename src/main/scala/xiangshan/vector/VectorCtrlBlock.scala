@@ -88,8 +88,9 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   vdecode.io.canOut := waitqueue.io.enq.canAccept
   for (i <- 0 until VIDecodeWidth) {
-    waitqueue.io.enq.needAlloc(i) := vdecode.io.out(i).valid && vdecode.io.out(i).bits.ctrl.isVector && !redirectDelay_dup_0.valid
-    waitqueue.io.enq.req(i).valid := vdecode.io.out(i).valid && vdecode.io.out(i).bits.ctrl.isVector && io.allowIn && !redirectDelay_dup_0.valid
+    val tryToEnq = vdecode.io.out(i).valid && vdecode.io.out(i).bits.ctrl.isVector && !redirectDelay_dup_0.valid && !ExceptionNO.selectFrontend(vdecode.io.out(i).bits.cf.exceptionVec).reduce(_ | _)
+    waitqueue.io.enq.needAlloc(i) := tryToEnq
+    waitqueue.io.enq.req(i).valid := tryToEnq && io.allowIn
     waitqueue.io.enq.req(i).bits.uop := vdecode.io.out(i).bits
     waitqueue.io.enq.req(i).bits.uop.pdest := io.fromVtpRn(i).pdest
     waitqueue.io.enq.req(i).bits.uop.psrc := io.fromVtpRn(i).psrc
