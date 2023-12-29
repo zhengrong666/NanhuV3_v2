@@ -154,10 +154,6 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     hasOrderedLS := false.B
   }
 
-  when(io.vmbInit.valid && io.vmbInit.bits.ctrl.noSpecExec) {
-    assert(validEntriesNum === 0.U)
-  }
-
   val deqEntry = deqCandidates.head
   val deqPtr = cmtPtrVec.head
   val deqEntryIsOrder = (!deqEntry.uop.ctrl.blockBackward) && deqEntry.uop.ctrl.noSpecExec
