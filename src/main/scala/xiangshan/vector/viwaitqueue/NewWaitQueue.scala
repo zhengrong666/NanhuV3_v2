@@ -167,7 +167,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
     deqPtr := deqPtr + 1.U
   }
 
-  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, deqValid)
+  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, splitDriver.io.in(0).fire)
   when(io.splitCtrl.allDone) {
     orderLsOnGoing := false.B
   }
