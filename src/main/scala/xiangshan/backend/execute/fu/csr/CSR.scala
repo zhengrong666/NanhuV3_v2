@@ -817,8 +817,9 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val triggerPermitted = triggerPermissionCheck(addr, true.B, debugMode) // todo dmode
   val modePermitted = csrAccessPermissionCheck(addr, false.B, priviledgeMode) && dcsrPermitted && triggerPermitted
   val perfcntPermitted = perfcntPermissionCheck(addr, priviledgeMode, mcounteren, scounteren)
-  val vcsrPermitted = vcsrAccessPermissionCheck(addr, wen)
-  val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted && vcsrPermitted
+  val vcsrPermitted = vcsrAccessPermissionCheck(addr, wen, mstatusStruct.vs)
+  val fcsrPermitted = fcsrAccessPermissionCheck(addr, wen, mstatusStruct.fs)
+  val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted && vcsrPermitted && fcsrPermitted
   vtypeNoException := vcsrPermitted
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
@@ -854,8 +855,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     fcsr := fflags_wfn(update = true)(RegNext(csrio.fpu.fflags.bits))
   }
   // set fs and sd in mstatus
-  private val fsUpdate = csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs) && !ignoreWrite
-  private val vsUpdate = csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid) && !ignoreWrite
+  private val fsUpdate = (csrw_dirty_fp_state || RegNext(csrio.fpu.dirty_fs) && !ignoreWrite) && mstatusStruct.fs =/= 0.U
+  private val vsUpdate = (csrw_dirty_vec_state || RegNext(csrio.vcsr.robWb.dirty_vs) || RegNext(csrio.vcsr.robWb.vstart.valid) && !ignoreWrite) && mstatusStruct.vs =/= 0.U
   when (vsUpdate || fsUpdate) {
     val mstatusNew = WireInit(mstatus.asTypeOf(new MstatusStruct))
     when(fsUpdate){
