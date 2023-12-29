@@ -945,8 +945,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val wFcsrChangeRm = wen && addr === Fcsr.U && wdata(7, 5) =/= fcsr(7, 5)
   val wFrmChangeRm = wen && addr === Frm.U && wdata(2, 0) =/= fcsr(7, 5)
   val frmChange = wFcsrChangeRm || wFrmChangeRm
-  val vsChange = wen && addr === Mstatus.U && wdata(10, 9) =/= mstatus(10, 9)
-  val fsChange = wen && addr === Mstatus.U && wdata(14, 13) =/= mstatus(14, 13)
+  val vsChange = wen && wdata(10, 9) =/= mstatus(10, 9) && (addr === Mstatus.U || addr === Sstatus.U)
+  val fsChange = wen && wdata(14, 13) =/= mstatus(14, 13) && (addr === Mstatus.U || addr === Sstatus.U)
   val isXRet = valid && func === CSROpType.jmp && !isEcall && !isEbreak
   flushPipe := resetSatp || frmChange || isXRet || frontendTriggerUpdate || vsChange || fsChange
 
