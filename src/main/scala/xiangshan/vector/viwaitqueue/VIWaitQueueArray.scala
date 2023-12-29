@@ -183,8 +183,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       }
     }
 
-    val vdOverlapSrc2 = ctrl.ldest <= ctrl.lsrc(1) && (ctrl.ldest + entryNext.uop.uopNum(2, 0) >= ctrl.lsrc(1)) && ctrl.vdWen
-    val vdOverlapSrc1 = ctrl.ldest <= ctrl.lsrc(0) && (ctrl.ldest + entryNext.uop.uopNum(2, 0) >= ctrl.lsrc(0)) && ctrl.vdWen
+    val vdOverlapSrc2 = ctrl.ldest <= ctrl.lsrc(1) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(1)) && ctrl.vdWen
+    val vdOverlapSrc1 = ctrl.ldest <= ctrl.lsrc(0) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(0)) && ctrl.vdWen
     val vdOverlapVm = vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen
 
     val iiCond0 = vdOverlapVm && !vctrl.maskOp
