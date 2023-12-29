@@ -198,7 +198,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf > 2.U),
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
-    val iiCond7 = regularLs && !rlsEmul(7, 0).orR || indexedLs && !ilsEmul(7, 0).orR
+    val iiCond7 = regularLs && !rlsEmul(6, 0).orR || indexedLs && !ilsEmul(6, 0).orR
     val iiCond8 = isVmsxfOrViota && (vdOverlapSrc2 || vdOverlapVm)
     val iiCond9 = (isVgatherVV || isVcompress) && (vdOverlapSrc1 || vdOverlapSrc2)
     val iiCond10 = (isVgatherVX || isVslideup) && vdOverlapSrc2
