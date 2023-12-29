@@ -289,11 +289,11 @@ object VADecode extends VDecodeConstants {
     VMOR_MM -> List(EewVal.dc, EewVal.dc, EewVal.mask, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
     VMORN_MM -> List(EewVal.dc, EewVal.dc, EewVal.mask, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
 
-    VFIRST_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
-    VCPOP_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, Y, Y, N, N),
-    VMSBF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
-    VMSIF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
-    VMSOF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, Y, N, N),
+    VFIRST_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VCPOP_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.const, EmulVal.dc, EmulType.lmul, Y, N, Y, N, N, N),
+    VMSBF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VMSIF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
+    VMSOF_M -> List(EewVal.dc, EewVal.mask, EewVal.mask, EewType.dc, EewType.const, EewType.const, EmulVal.r1, EmulType.const, N, N, N, N, N, N),
     VID_V -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, N, N, N, N, N),
     VIOTA_M -> List(EewVal.dc, EewVal.mask, EewVal.dc, EewType.dc, EewType.const, EewType.sew, EmulVal.dc, EmulType.lmul, Y, N, N, N, N, N),
 

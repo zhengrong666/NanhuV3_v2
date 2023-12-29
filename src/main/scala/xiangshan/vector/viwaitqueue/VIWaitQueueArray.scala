@@ -102,7 +102,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val ilsEmul = (lmulShift << vctrl.eew(1)(1, 0)) >> vcsr.vsew(1, 0)
 
   private val isVcompress = vctrl.eew(0) === EewVal.mask && vctrl.eewType(0) === EewType.const
-  private val isVmsxfOrViota = vctrl.eew(1) === EewVal.mask && vctrl.eewType(1) === EewType.const && ctrl.vdWen
+  private val isVmsxfOrViota = vctrl.eew(1) === EewVal.mask && vctrl.eewType(1) === EewType.const && ctrl.vdWen && ctrl.lsrc(0) =/= 17.U
   private val isVslideup = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001110".U && Seq("b011".U, "b100".U).map(_ === vctrl.funct3).reduce(_ || _)
   private val isVgatherVV = isVgei16 || ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 === "b000".U
   private val isVgatherVX = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 =/= "b000".U
@@ -199,12 +199,11 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
     val iiCond7 = regularLs && !rlsEmul(6, 0).orR || indexedLs && !ilsEmul(6, 0).orR
-    val iiCond8 = isVmsxfOrViota && (vdOverlapSrc2 || vdOverlapVm)
-    val iiCond9 = (isVgatherVV || isVcompress) && (vdOverlapSrc1 || vdOverlapSrc2)
-    val iiCond10 = (isVgatherVX || isVslideup) && vdOverlapSrc2
+    val iiCond8 = (isVgatherVV || isVcompress) && (vdOverlapSrc1 || vdOverlapSrc2)
+    val iiCond9 = (isVgatherVX || isVslideup || isVmsxfOrViota) && vdOverlapSrc2
 
     entryNext.state := WqState.s_waiting
-    val iiConds = Seq(vcsr.vill, iiCond0, iiCond1, iiCond2, iiCond3, iiCond4, iiCond5, iiCond6, iiCond7, iiCond8, iiCond9, iiCond10)
+    val iiConds = Seq(vcsr.vill, iiCond0, iiCond1, iiCond2, iiCond3, iiCond4, iiCond5, iiCond6, iiCond7, iiCond8, iiCond9)
     entryNext.uop.cf.exceptionVec(illegalInstr) := iiConds.reduce(_ || _)
   }
 
