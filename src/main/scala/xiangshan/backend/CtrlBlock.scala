@@ -354,6 +354,7 @@ class CtrlBlockImp(outer: CtrlBlock)(implicit p: Parameters) extends LazyModuleI
   vCtrlBlock.io.exception := Pipe(rob.io.exception)
   vCtrlBlock.io.redirect := io.redirectIn
   vCtrlBlock.io.vstart := io.vstart
+  dispatch.io.vstart := RegNext(io.vstart)
 
   io.vAllocPregs := vCtrlBlock.io.vAllocPregs
 

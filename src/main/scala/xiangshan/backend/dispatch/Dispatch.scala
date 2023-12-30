@@ -59,6 +59,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
     val singleStep = Input(Bool())
     // lfst
     val lfst = new DispatchLFSTIO
+    val vstart = Input(UInt(7.W))
   })
 
   /**
@@ -75,7 +76,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
   val isLs     = VecInit(io.fromRename(2).map(req => FuType.isLoadStore(req.bits.ctrl.fuType)))
   val isStore  = VecInit(io.fromRename(2).map(req => FuType.isStore(req.bits.ctrl.fuType)))
   val isAMO    = VecInit(io.fromRename(3).map(req => FuType.isAMO(req.bits.ctrl.fuType)))
-  val isBlockBackward = VecInit(io.fromRename(3).map(_.bits.ctrl.blockBackward))
+  val isBlockBackward = VecInit(io.fromRename(3).map(req => req.bits.ctrl.blockBackward || (req.bits.ctrl.isVtype && io.vstart =/= 0.U)))
   val isNoSpecExec    = VecInit(io.fromRename(3).map(_.bits.ctrl.noSpecExec))
 
   /**
@@ -99,6 +100,9 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
     updatedCommitType(i) := Cat(isLs(i), (isStore(i) && !isAMO(i)) | isBranch(i))
 
     updatedUop(i) := io.fromRename(1)(i).bits
+    when(io.fromRename(1)(i).bits.ctrl.isVtype && io.vstart =/= 0.U) {
+      updatedUop(i).ctrl.blockBackward := true.B
+    }
     updatedUop(i).debugInfo.eliminatedMove := io.fromRename(1)(i).bits.eliminatedMove
     // update commitType
     when (!CommitType.isFused(io.fromRename(1)(i).bits.ctrl.commitType)) {
