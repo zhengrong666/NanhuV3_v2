@@ -101,7 +101,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     waitqueue.io.enq.req(i).bits.uop.vtypeRegIdx := io.fromVtpRn(i).vtypeIdx
   }
 
-  waitqueue.io.vstart         := io.vstart
+  waitqueue.io.vstart         := RegNext(io.vstart)
   waitqueue.io.vtypeWbData    := io.vtypewriteback
   waitqueue.io.robin          := io.robEnq
   waitqueue.io.vmbAlloc       <> io.vmbAlloc
