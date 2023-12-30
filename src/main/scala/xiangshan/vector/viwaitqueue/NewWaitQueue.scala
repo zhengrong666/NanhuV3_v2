@@ -134,6 +134,7 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val raiseII = deqUop.uop.ctrl.wvstartType === VstartType.hold && io.vstart =/= 0.U
 
   private val vstartHold = RegInit(false.B)
+  private val vstartHoldCause = Reg(new RobPtr)
   private val hasValid = deqPtr =/= enqPtr && !vstartHold
   private val uopRdy = deqUop.vtypeRdy && deqUop.robEnqueued && deqUop.mergeIdAlloc && deqUop.state === WqState.s_waiting
 
@@ -163,16 +164,18 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   splitNetwork.io.vstart := io.vstart
 
   private val deqValid = hasValid && uopRdy && (splitDriver.io.in(0).ready || (directlyWb && !deqUop.uop.vctrl.isLs))
-  when(deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)){
+  private val actualDeq = deqValid && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)
+  private val actualStartSplit = splitDriver.io.in(0).fire && !splitDriver.io.in(0).bits.robIdx.needFlush(io.redirect)
+  when(actualDeq){
     deqPtr := deqPtr + 1.U
   }
 
-  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, splitDriver.io.in(0).fire)
+  private val orderLsOnGoing = RegEnable(deqUop.uop.vctrl.isLs && deqUop.uop.vctrl.ordered, actualStartSplit)
   when(io.splitCtrl.allDone) {
     orderLsOnGoing := false.B
   }
   private val allowNext = RegInit(true.B)
-  when(io.splitCtrl.allowNext | io.splitCtrl.allDone | deqValid){
+  when(io.splitCtrl.allowNext | io.splitCtrl.allDone | actualStartSplit){
     allowNext := true.B
   }.elsewhen(splitNetwork.io.out.head.fire) {
     allowNext := false.B
@@ -183,9 +186,10 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val actualFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
   emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actualFlushNum +& actualDeqNum)
 
-  when(deqValid && !deqHasException && io.vstart =/= 0.U){
-    vstartHold := true.B
-  }.elsewhen(io.vstart === 0.U && vstartHold){
+  when(actualStartSplit){
+    vstartHold := deqUop.uop.ctrl.wvstartType === VstartType.write && io.vstart.orR
+    vstartHoldCause := splitDriver.io.in(0).bits.robIdx
+  }.elsewhen((vstartHoldCause.needFlush(io.redirect) || io.vstart === 0.U) && vstartHold){
     vstartHold := false.B
   }
 
