@@ -103,7 +103,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
 
   private val isVcompress = vctrl.eew(0) === EewVal.mask && vctrl.eewType(0) === EewType.const
   private val isVmsxfOrViota = vctrl.eew(1) === EewVal.mask && vctrl.eewType(1) === EewType.const && ctrl.vdWen && ctrl.lsrc(0) =/= 17.U
-  private val isVslideup = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001110".U && Seq("b011".U, "b100".U).map(_ === vctrl.funct3).reduce(_ || _)
+  private val isVslideup = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001110".U && Seq("b011".U, "b100".U, "b110".U).map(_ === vctrl.funct3).reduce(_ || _)
   private val isVgatherVV = isVgei16 || ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 === "b000".U
   private val isVgatherVX = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 =/= "b000".U
 
