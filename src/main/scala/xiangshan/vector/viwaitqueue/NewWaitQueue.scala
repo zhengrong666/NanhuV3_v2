@@ -33,12 +33,25 @@ class SplitCtrlIO extends Bundle {
   val allDone = Input(Bool())
 }
 
+class DispatchInfo(implicit p: Parameters) extends XSBundle {
+  val valid = Bool()
+  val robPtr = new RobPtr
+  val isVtype = Bool()
+  def PipeNext(redirect:Valid[Redirect]):DispatchInfo = {
+    val res = Wire(new DispatchInfo)
+    res.valid := RegNext(this.valid && !this.robPtr.needFlush(redirect), false.B)
+    res.robPtr := RegEnable(this.robPtr, this.valid)
+    res.isVtype := RegEnable(this.isVtype, this.valid)
+    res
+  }
+}
+
 class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCircularQueuePtrHelper {
   val io = IO(new Bundle() {
     //val hartId = Input(UInt(8.W))
     val vstart = Input(UInt(7.W))
     val vtypeWbData = Flipped(ValidIO(new VtypeWbIO))
-    val robin = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr)))
+    val dispatchIn = Vec(VIDecodeWidth, Input(new DispatchInfo))
     val vmbAlloc = Flipped(new VmbAlloc)
     val canRename = Input(Bool())
     val redirect = Input(Valid(new Redirect))
@@ -124,7 +137,10 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   //Misc entry update logics
   table.io.vtypeWb.valid := io.vtypeWbData.valid
   table.io.vtypeWb := io.vtypeWbData
-  table.io.robEnq := io.robin
+  table.io.robEnq.zip(io.dispatchIn).foreach({case(a, b) =>
+    a.valid := b.valid
+    a.bits := b.robPtr
+  })
   table.io.redirect := io.redirect
 
   //Dequeue logics
@@ -186,7 +202,12 @@ class NewWaitQueue(implicit p: Parameters) extends VectorBaseModule with HasCirc
   private val actualFlushNum = Mux(io.redirect.valid, flushNum, 0.U)
   emptyEntriesNumReg := (emptyEntriesNumReg - actualEnqNum) + (actualFlushNum +& actualDeqNum)
 
-  when(actualStartSplit){
+  private val vsetDispatchedValids = io.dispatchIn.map(i => i.valid && i.isVtype && !i.robPtr.needFlush(io.redirect))
+  private val vsetDispatched = vsetDispatchedValids.reduce(_ || _)
+  when(vsetDispatched && !vstartHold) {
+    vstartHold := io.vstart.orR
+    vstartHoldCause := PriorityMux(vsetDispatchedValids, io.dispatchIn.map(_.robPtr))
+  }.elsewhen(actualStartSplit){
     vstartHold := deqUop.uop.ctrl.wvstartType === VstartType.write && io.vstart.orR
     vstartHoldCause := splitDriver.io.in(0).bits.robIdx
   }.elsewhen((vstartHoldCause.needFlush(io.redirect) || io.vstart === 0.U) && vstartHold){

@@ -51,7 +51,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
     //from ctrl rename
     val fromVtpRn = Input(Vec(RenameWidth, new VtpToVCtl))
     //from ctrl rob
-    val robEnq = Vec(VIDecodeWidth, Flipped(ValidIO(new RobPtr))) //to wait queue
+    val dispatchIn = Vec(VIDecodeWidth, Input(new DispatchInfo))
     val vtypewriteback = Flipped(ValidIO(new VtypeWbIO)) //to wait queue
     val vmbAlloc = Flipped(new VmbAlloc)
     val commit = Flipped(new RobCommitIO) // to rename
@@ -103,7 +103,7 @@ class VectorCtrlBlock(vecDpWidth: Int, vpDpWidth: Int, memDpWidth: Int)(implicit
 
   waitqueue.io.vstart         := RegNext(io.vstart)
   waitqueue.io.vtypeWbData    := io.vtypewriteback
-  waitqueue.io.robin          := io.robEnq
+  waitqueue.io.dispatchIn     := io.dispatchIn
   waitqueue.io.vmbAlloc       <> io.vmbAlloc
   waitqueue.io.canRename      := VecInit(virename.io.rename.map(_.in.ready)).asUInt.orR
   waitqueue.io.redirect       := redirectDelay_dup_1
