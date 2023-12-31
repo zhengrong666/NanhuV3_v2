@@ -106,6 +106,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val isVslideup = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001110".U && Seq("b011".U, "b100".U, "b110".U).map(_ === vctrl.funct3).reduce(_ || _)
   private val isVgatherVV = isVgei16 || ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 === "b000".U
   private val isVgatherVX = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 =/= "b000".U
+  private val isVMVnr = vctrl.funct6 === "b1001111".U && vctrl.funct3 === "b011".U
 
   private def VGroupIllegal(emul:UInt, addr:UInt, et:UInt):Bool = {
     val addrBits = addr.getWidth
@@ -208,6 +209,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
         entryNext.uop.vCsrInfo.vta := 1.U
         entryNext.uop.vCsrInfo.vl := entryNext.uop.uopNum
       }
+    }.elsewhen(isVMVnr) {
+      entryNext.uop.vCsrInfo.vl := (1.U << vctrl.emul(1, 0)).asUInt * ((VLEN / 8).U >> vcsr.vsew(1, 0)).asUInt
     }
 
     val vdOverlapSrc2 = ctrl.ldest <= ctrl.lsrc(1) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(1)) && ctrl.vdWen
