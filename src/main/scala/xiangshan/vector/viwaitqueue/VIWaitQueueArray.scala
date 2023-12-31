@@ -81,7 +81,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val ctrl = io.entry.uop.ctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val isWiden = WireInit(vctrl.isWidden)
-  private val isNarrow = vctrl.isNarrow
+  private val isNarrow = vctrl.isNarrow && !vctrl.maskOp
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
@@ -110,27 +110,32 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
 
   private def VGroupIllegal(emul:UInt, addr:UInt, et:UInt):Bool = {
     val addrBits = addr.getWidth
-    val _emul = MuxCase(1.U, Seq(
-      (emul === 1.U) -> 2.U,
-      (emul === 2.U) -> 4.U,
-      (emul === 3.U) -> 8.U,
+    val _emul = MuxCase(0.U, Seq(
+      (emul === 0.U) -> 8.U,
+      (emul === 1.U) -> 16.U,
+      (emul === 2.U) -> 32.U,
+      (emul === 3.U) -> 64.U,
+      (emul === 5.U) -> 1.U,
+      (emul === 6.U) -> 2.U,
+      (emul === 7.U) -> 4.U,
     ))
     def shiftRightAtLeast1(in:UInt, N:Int):UInt = {
       val raw = (in >> N.U).asUInt
       Mux(raw.orR, raw, 1.U)
     }
-    val regEmul = MuxCase(_emul, Seq(
+    val regEmul = Wire(UInt(6.W))
+    regEmul := MuxCase(_emul, Seq(
       (et === EewType.dc || et === EewType.scalar, 1.U),
-      (et === EewType.sewm2, _emul * 2.U),
+      (et === EewType.sewm2, (_emul << 1.U).asUInt),
       (et === EewType.sewd2, shiftRightAtLeast1(_emul, 1)),
       (et === EewType.sewd4, shiftRightAtLeast1(_emul, 2)),
       (et === EewType.sewd8, shiftRightAtLeast1(_emul, 3)),
     ))
 
-    val checkMask = MuxCase(0.U(addrBits.W), Seq(
-      (regEmul === 2.U, "b1".U(addrBits.W)),
-      (regEmul === 4.U, "b11".U(addrBits.W)),
-      (regEmul === 8.U, "b111".U(addrBits.W)),
+    val checkMask = MuxCase(0.U, Seq(
+      (regEmul === 16.U, "b1".U(addrBits.W)),
+      (regEmul === 32.U, "b11".U(addrBits.W)),
+      (regEmul === 64.U, "b111".U(addrBits.W)),
     ))
     (addr & checkMask).orR
   }
