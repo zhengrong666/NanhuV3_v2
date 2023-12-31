@@ -9,18 +9,18 @@ package object vector {
   object EewType {
     def dc:UInt = 0.U
     def const:UInt = 1.U
-    def sew:UInt = 2.U
-    def sewm2:UInt = 3.U
-    def sewd2:UInt = 4.U
-    def sewd4:UInt = 5.U
-    def sewd8:UInt = 6.U
+    def scalar:UInt = 2.U
+    def sew:UInt = 3.U
+    def sewm2:UInt = 4.U
+    def sewd2:UInt = 5.U
+    def sewd4:UInt = 6.U
+    def sewd8:UInt = 7.U
 
     def apply():UInt = UInt(3.W)
   }
 
   object EewVal {
     def dc: BitPat = BitPat("b111")
-    def mask:UInt = "b100".U
     def byte:UInt = "b000".U
     def hword:UInt = "b001".U
     def word:UInt = "b010".U
