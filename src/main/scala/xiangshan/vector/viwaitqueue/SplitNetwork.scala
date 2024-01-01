@@ -27,7 +27,7 @@ class LsSplitUnit(implicit p: Parameters) extends XSModule {
   private val idx = io.idx
   private val vctrl = io.uop.vctrl
   private val idxSew = vctrl.eew(1)
-  private val memSew = vctrl.eew(0)
+  private val memSew = vctrl.eew(2)
   private val nf = io.uop.vctrl.nf
   private val segIdx = io.out.segIdx
   private val elmIdx = io.out.elmIdx

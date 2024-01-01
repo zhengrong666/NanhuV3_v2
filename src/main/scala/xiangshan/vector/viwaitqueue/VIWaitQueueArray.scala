@@ -86,7 +86,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
   private val isFp = vctrl.funct3 === "b101".U || vctrl.funct3 === "b001".U
-  private val regularLs = vctrl.isLs && vctrl.eewType(0) === EewType.const && vctrl.emulType === EmulType.lmul
+  private val regularLs = vctrl.isLs && vctrl.eewType(1) === EewType.dc && vctrl.emulType === EmulType.lmul
   private val indexedLs = vctrl.isLs && vctrl.eewType(1) === EewType.const && vctrl.emulType === EmulType.lmul
   private val lmulShift = Wire(UInt(10.W))
   lmulShift := MuxCase(0.U, Seq(
@@ -98,7 +98,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     (vcsr.vlmul === 6.U) -> 2.U,
     (vcsr.vlmul === 7.U) -> 4.U,
   ))
-  private val rlsEmul = (lmulShift << vctrl.eew(0)(1, 0)) >> vcsr.vsew(1, 0)
+  private val rlsEmul = (lmulShift << vctrl.eew(2)(1, 0)) >> vcsr.vsew(1, 0)
   private val ilsEmul = (lmulShift << vctrl.eew(1)(1, 0)) >> vcsr.vsew(1, 0)
 
   private val isVcompress = ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.scalar
@@ -107,6 +107,15 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val isVgatherVV = isVgei16 || ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 === "b000".U
   private val isVgatherVX = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 =/= "b000".U
   private val isVMVnr = vctrl.funct6 === "b1001111".U && vctrl.funct3 === "b011".U
+
+  private val emuls = Seq.fill(3)(WireInit(vcsr.vlmul))
+  for(i <- emuls.indices) {
+    when(vctrl.emulType === EmulType.const) {
+      emuls(i) := vctrl.emul
+    }.elsewhen(vctrlNext.eewType(i) === EewType.const) {
+      emuls(i) := (vcsr.vlmul + vctrl.eew(i)) - vcsr.vsew
+    }
+  }
 
   private def VGroupIllegal(emul:UInt, addr:UInt, et:UInt):Bool = {
     val addrBits = addr.getWidth
@@ -166,8 +175,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     when(vctrl.emulType === EmulType.const) {
       vctrlNext.emul := vctrl.emul
     }.otherwise{
-      when(vctrl.isLs && vctrlNext.eewType(0) === EewType.const){
-        vctrlNext.emul := (vcsr.vlmul + vctrlNext.eew(0)) - vcsr.vsew
+      when(vctrl.isLs && vctrlNext.eewType(2) === EewType.const){
+        vctrlNext.emul := (vcsr.vlmul + vctrl.eew(2)) - vcsr.vsew
       }.otherwise {
         vctrlNext.emul := vcsr.vlmul
       }
@@ -181,10 +190,10 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val vregTouch = vregTouchRaw(3, 0)
     when(vctrl.isLs) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
-        (vctrlNext.eew(0) === 0.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 8)),
-        (vctrlNext.eew(0) === 1.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 16)),
-        (vctrlNext.eew(0) === 2.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 32)),
-        (vctrlNext.eew(0) === 3.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 64)),
+        (vctrlNext.eew(2) === 0.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 8)),
+        (vctrlNext.eew(2) === 1.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 16)),
+        (vctrlNext.eew(2) === 2.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 32)),
+        (vctrlNext.eew(2) === 3.U(3.W)) -> (vregTouch << log2Ceil(VLEN / 64)),
       ))
     }.elsewhen(isNarrow || isWiden) {
       entryNext.uop.uopNum := MuxCase(0.U, Seq(
@@ -232,12 +241,12 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf > 2.U),
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
-    def VGII(addr:UInt, et:UInt):Bool = VGroupIllegal(vctrlNext.emul, addr, et)
+    def VGII(addr:UInt, idx:Int):Bool = VGroupIllegal(emuls(idx), addr, vctrl.eewType(idx))
 
     val iiCond7 = regularLs && !rlsEmul(6, 0).orR || indexedLs && !ilsEmul(6, 0).orR
     val iiCond8 = (isVgatherVV || isVcompress) && (vdOverlapSrc1 || vdOverlapSrc2)
     val iiCond9 = (isVgatherVX || isVslideup || isVmsxfOrViota) && vdOverlapSrc2
-    val iiCond10 = VGII(ctrl.lsrc(0), vctrl.eewType(0)) || VGII(ctrl.lsrc(1), vctrl.eewType(1)) || VGII(ctrl.ldest, vctrl.eewType(2))
+    val iiCond10 = VGII(ctrl.lsrc(0), 0) || VGII(ctrl.lsrc(1), 1) || VGII(ctrl.ldest, 2)
 
     entryNext.state := WqState.s_waiting
     val iiConds = Seq(vcsr.vill, iiCond0, iiCond1, iiCond2, iiCond3, iiCond4, iiCond5, iiCond6, iiCond7, iiCond8, iiCond9, iiCond10)

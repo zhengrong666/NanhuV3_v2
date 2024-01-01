@@ -50,7 +50,7 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   })
   private val isStride = io.uop.ctrl.srcType(1) === SrcType.reg
   private val sew = io.uop.vctrl.eew(1)
-  private val elmOff = io.uop.elmIdx << io.uop.vctrl.eew(0)
+  private val elmOff = io.uop.elmIdx << io.uop.vctrl.eew(2)
   private val rawOffset = VrfHelper.extractElement(io.uop.segIdx, io.offset, sew, VLEN, XLEN)
   private val offset = MuxCase(0.U(VAddrBits.W), Seq(
     (sew === 0.U) -> ZeroExt(rawOffset(7, 0), VAddrBits),
@@ -194,7 +194,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           val isUnitStride = (bi.issue.bits.uop.ctrl.fuType === FuType.ldu || bi.issue.bits.uop.ctrl.fuType === FuType.stu) && !is2Stage
           val isStd = bi.issue.bits.uop.ctrl.fuType === FuType.std
           val uopIdx = bi.issue.bits.uop.uopIdx
-          val sew = bi.issue.bits.uop.vctrl.eew(0)
+          val sew = bi.issue.bits.uop.vctrl.eew(2)
           val uopDelay = RegEnable(bi.issue.bits.uop, bi.issue.valid)
           io.vectorReads(vecReadPortIdx).addr := Mux(isStd, bi.issue.bits.uop.psrc(2), bi.issue.bits.uop.psrc(1))
           //Mask read
@@ -222,7 +222,7 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
           }
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.srcAddr := uopDelay.psrc(2)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.dstAddr := uopDelay.pdest
-          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := uopDelay.vctrl.eew(0)
+          io.vectorRfMoveReq(vecMoveReqPortIdx).bits.sew := uopDelay.vctrl.eew(2)
           io.vectorRfMoveReq(vecMoveReqPortIdx).bits.segIdx := uopDelay.segIdx
 
           when(bi.issue.bits.uop.ctrl.isVector){
