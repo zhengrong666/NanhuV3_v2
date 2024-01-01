@@ -57,7 +57,7 @@ object VLDecode extends VDecodeConstants {
     VLE32FF_V -> List(EewVal.dc, EewVal.dc, EewVal.word, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, Y, N, N, N),
     VLE64FF_V -> List(EewVal.dc, EewVal.dc, EewVal.dword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, Y, N, N, N),
 
-    VLM_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.scalar, EmulVal.r1, EmulType.const, N, Y, N, Y, N, N),
+    VLM_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.const, EmulVal.r1, EmulType.const, N, Y, N, Y, N, N),
 
     VLSE8_V -> List(EewVal.dc, EewVal.dc, EewVal.byte, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),
     VLSE16_V -> List(EewVal.dc, EewVal.dc, EewVal.hword, EewType.dc, EewType.dc, EewType.const, EmulVal.dc, EmulType.lmul, N, Y, N, N, N, N),

@@ -114,7 +114,10 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val emuls = Seq.fill(3)(Wire(UInt(3.W)))
   for(i <- emuls.indices) {
     when(vctrl.emulType === EmulType.const) {
-      emuls(i) := vctrl.emul
+      emuls(i) := MuxCase(vctrl.emul, Seq(
+        (vctrl.eewType(i) === EewType.dc, 0.U),
+        (vctrl.eewType(i) === EewType.scalar, 0.U)
+      ))
     }.otherwise{
       emuls(i) := MuxCase(vcsr.vlmul, Seq(
         (vctrl.eewType(i) === EewType.dc, 0.U),
@@ -128,36 +131,14 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
   }
 
-  private def VGroupIllegal(emul:UInt, addr:UInt, et:UInt):Bool = {
+  private def VGroupIllegal(emul:UInt, addr:UInt):Bool = {
     val addrBits = addr.getWidth
-    val _emul = MuxCase(0.U, Seq(
-      (emul === 0.U) -> 8.U,
-      (emul === 1.U) -> 16.U,
-      (emul === 2.U) -> 32.U,
-      (emul === 3.U) -> 64.U,
-      (emul === 5.U) -> 1.U,
-      (emul === 6.U) -> 2.U,
-      (emul === 7.U) -> 4.U,
-    ))
-    def shiftRightAtLeast1(in:UInt, N:Int):UInt = {
-      val raw = (in >> N.U).asUInt
-      Mux(raw.orR, raw, 1.U)
-    }
-    val regEmul = Wire(UInt(6.W))
-    regEmul := MuxCase(_emul, Seq(
-      (et === EewType.dc || et === EewType.scalar, 1.U),
-      (et === EewType.sewm2, (_emul << 1.U).asUInt),
-      (et === EewType.sewd2, shiftRightAtLeast1(_emul, 1)),
-      (et === EewType.sewd4, shiftRightAtLeast1(_emul, 2)),
-      (et === EewType.sewd8, shiftRightAtLeast1(_emul, 3)),
-    ))
-
     val checkMask = MuxCase(0.U, Seq(
-      (regEmul === 16.U, "b1".U(addrBits.W)),
-      (regEmul === 32.U, "b11".U(addrBits.W)),
-      (regEmul === 64.U, "b111".U(addrBits.W)),
+      (emul === 1.U, "b1".U(addrBits.W)),
+      (emul === 2.U, "b11".U(addrBits.W)),
+      (emul === 3.U, "b111".U(addrBits.W)),
     ))
-    (addr & checkMask).orR
+    (addr & checkMask).orR || emul === 4.U
   }
 
   when(io.entry.state === WqState.s_updating) {
@@ -240,7 +221,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
 
     val vdOverlapSrc2 = ctrl.ldest <= ctrl.lsrc(1) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(1)) && ctrl.vdWen
     val vdOverlapSrc1 = ctrl.ldest <= ctrl.lsrc(0) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(0)) && ctrl.vdWen
-    def VGII(addr:UInt, idx:Int):Bool = VGroupIllegal(emuls(idx), addr, vctrl.eewType(idx))
+    def VGII(addr:UInt, idx:Int):Bool = VGroupIllegal(emuls(idx), addr)
 
     iiConds(0) := vcsr.vill
     iiConds(1) := vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen && vctrl.eewType(2) =/= EewType.scalar
