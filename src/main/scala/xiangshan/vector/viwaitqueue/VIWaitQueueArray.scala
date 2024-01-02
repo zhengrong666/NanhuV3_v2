@@ -81,7 +81,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val ctrl = io.entry.uop.ctrl
   private val vcsr = io.entry.uop.vCsrInfo
   private val isWiden = WireInit(vctrl.isWidden && vctrl.eewType(2) =/= EewType.scalar)
-  private val isNarrow = vctrl.isNarrow && vctrl.eewType(2) =/= EewType.scalar
+  private val isNarrow = vctrl.isNarrow && vctrl.eewType(2) =/= EewType.scalar && vctrl.eew(2) =/= EewVal.mask
   private val isVgei16 = io.entry.uop.ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.const && vctrl.eew(0) === EewVal.hword
   private val specialLsrc0EncodeSeq = Seq("b01010".U, "b01011".U, "b10000".U, "b10001".U, "b10110".U, "b10111".U)
   private val isSpeicalFp = vctrl.funct6 === "b010010".U && specialLsrc0EncodeSeq.map(_ === ctrl.lsrc(0)).reduce(_ || _)
@@ -117,7 +117,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       emuls(i) := MuxCase(vcsr.vlmul, Seq(
         (vctrl.eewType(i) === EewType.dc, 0.U),
         (vctrl.eewType(i) === EewType.scalar, 0.U),
-        (vctrl.eewType(i) === EewType.const, (vcsr.vlmul + vctrl.eew(i)) - vcsr.vsew),
+        (vctrl.eewType(i) === EewType.const && vctrl.eew(i) === EewVal.mask, 0.U),
+        (vctrl.eewType(i) === EewType.const && vctrl.eew(i) =/= EewVal.mask, (vcsr.vlmul + vctrl.eew(i)) - vcsr.vsew),
         (vctrl.eewType(i) === EewType.sewm2, vcsr.vlmul + 1.U),
         (vctrl.eewType(i) === EewType.sewd2, vcsr.vlmul - 1.U),
         (vctrl.eewType(i) === EewType.sewd4, vcsr.vlmul - 2.U),
@@ -243,7 +244,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     iiConds(3) := ctrl.fuType === FuType.vfp && !isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
     iiConds(4) := (ctrl.fuType === FuType.vdiv || ctrl.fuType === FuType.vpermu) && isFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
     iiConds(5) := (vctrl.isWidden || vctrl.isNarrow) && !vctrl.maskOp && vcsr.vsew === 3.U
-    iiConds(6) := (vctrl.isWidden || vctrl.isNarrow) && !vctrl.eewType(2) === EewType.scalar && vcsr.vlmul === 3.U
+    iiConds(6) := (vctrl.isWidden || vctrl.isNarrow) && vctrl.eewType(2) =/= EewType.scalar && vctrl.eew(2) =/= EewVal.mask && vcsr.vlmul === 3.U
     iiConds(7) := (regularLs || indexedLs) && MuxCase(false.B, Seq(
       (vctrlNext.emul === 1.U(3.W)) -> (vctrl.nf > 4.U),
       (vctrlNext.emul === 2.U(3.W)) -> (vctrl.nf > 2.U),
