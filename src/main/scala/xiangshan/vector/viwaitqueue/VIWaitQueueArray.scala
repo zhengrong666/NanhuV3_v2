@@ -110,7 +110,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     when(vctrl.emulType === EmulType.const) {
       emuls(i) := MuxCase(vctrl.emul, Seq(
         (vctrl.eewType(i) === EewType.dc, 0.U),
-        (vctrl.eewType(i) === EewType.scalar, 0.U)
+        (vctrl.eewType(i) === EewType.scalar, 0.U),
+        (vctrl.eewType(i) === EewType.const && vctrl.eew(i) === EewVal.mask, 0.U)
       ))
     }.otherwise{
       emuls(i) := MuxCase(vcsr.vlmul, Seq(
@@ -141,15 +142,20 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     (vg & _emuls(idx)).orR || _emuls(idx) === 5.U
   }
 
-  private def OverlapSrc(idx:Int):Bool = {
+  private def IllegalOverlapSrc(idx:Int):Bool = {
     require(idx < 2)
     val dst = ctrl.ldest
     val src = ctrl.lsrc(idx)
-    val doCheck = dst =/= src && ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec
     val dstEnd = dst + _emuls(2)
     val srcEnd = src + _emuls(idx)
-    val res = dst <= src && dstEnd >= src || src <= dst && srcEnd >= dst
-    res & doCheck
+    val passCond0 = vctrlNext.eewType(2) === EewType.scalar
+    val passCond1 = vctrlNext.eew(2) === vctrlNext.eew(idx)
+    val passCond2 = (vctrlNext.eew(2).asSInt < vctrlNext.eew(idx).asSInt) && (dst <= src && dstEnd >= src)
+    val passCond3 = (vctrlNext.eew(2).asSInt > vctrlNext.eew(idx).asSInt) && (src <= dst && srcEnd >= dst)
+    val passCond4 = !ctrl.vdWen || ctrl.srcType(idx) =/= SrcType.vec
+    val pass = passCond0 || passCond1 || passCond2 || passCond3 || passCond4
+    val isOverlap = dst <= src && dstEnd >= src || src <= dst && srcEnd >= dst
+    isOverlap & !pass
   }
 
   when(io.entry.state === WqState.s_updating) {
@@ -179,7 +185,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       vctrlNext.emul := vctrl.emul
     }.otherwise{
       when(vctrl.isLs && vctrlNext.eewType(2) === EewType.const){
-        vctrlNext.emul := (vcsr.vlmul + vctrl.eew(2)) - vcsr.vsew
+        vctrlNext.emul := (vcsr.vlmul + vctrl.eew(2)(1, 0)) - vcsr.vsew
       }.otherwise {
         vctrlNext.emul := vcsr.vlmul
       }
@@ -232,7 +238,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
 
 
     iiConds(0) := vcsr.vill
-    iiConds(1) := vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen && vctrl.eewType(2) =/= EewType.scalar
+    iiConds(1) := vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen && !(vctrlNext.eew(2) === EewVal.mask || vctrlNext.eewType(2) === EewType.scalar)
     iiConds(2) := ctrl.fuType === FuType.vfp && isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 3.U)
     iiConds(3) := ctrl.fuType === FuType.vfp && !isSpeicalFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
     iiConds(4) := (ctrl.fuType === FuType.vdiv || ctrl.fuType === FuType.vpermu) && isFp && (vcsr.vsew === 0.U || vcsr.vsew === 1.U)
@@ -244,7 +250,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
     iiConds(8) := regularLs && !rlsEmul(6, 0).orR || indexedLs && !ilsEmul(6, 0).orR
-    iiConds(9) := Seq.tabulate(2)(i => OverlapSrc(i)).reduce(_ || _)
+    iiConds(9) := Seq.tabulate(2)(i => IllegalOverlapSrc(i)).reduce(_ || _)
     iiConds(10) := Seq.tabulate(3)(i => VGroupIllegal(i)).reduce(_ || _)
     iiConds(11) := isVgei16 && !vg16vs1Emul(6, 0).orR
 

@@ -20,7 +20,8 @@ package object vector {
   }
 
   object EewVal {
-    def dc: BitPat = BitPat("b111")
+    def dc:UInt = "b111".U
+    def mask:UInt = "b100".U
     def byte:UInt = "b000".U
     def hword:UInt = "b001".U
     def word:UInt = "b010".U
