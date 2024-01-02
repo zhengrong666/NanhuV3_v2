@@ -5,7 +5,7 @@ import chisel3.util._
 import org.chipsalliance.cde.config.Parameters
 import xiangshan.ExceptionNO.illegalInstr
 import xiangshan.backend.rob.RobPtr
-import xiangshan.{FuType, MicroOp, Redirect, XSBundle, XSModule}
+import xiangshan.{FuType, MicroOp, Redirect, SrcType, XSBundle, XSModule}
 import xiangshan.vector._
 import xiangshan.vector.writeback.VmbPtr
 import xiangshan.backend.execute.fu.csr.vcsr._
@@ -101,14 +101,8 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val rlsEmul = (lmulShift << vctrl.eew(2)(1, 0)) >> vcsr.vsew(1, 0)
   private val ilsEmul = (lmulShift << vctrl.eew(1)(1, 0)) >> vcsr.vsew(1, 0)
   private val vg16vs1Emul = (lmulShift << EewVal.hword) >> vcsr.vsew(1, 0)
-
-  private val isVcompress = ctrl.fuType === FuType.vpermu && vctrl.eewType(0) === EewType.scalar
-  private val isVmsxfOrViota = ctrl.fuType === FuType.vmask && ctrl.vdWen && ctrl.lsrc(0) =/= 17.U && !vctrl.maskOp
-  private val isVslideup = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001110".U && Seq("b011".U, "b100".U, "b110".U).map(_ === vctrl.funct3).reduce(_ || _)
-  private val isVgatherVV = isVgei16 || ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 === "b000".U
-  private val isVgatherVX = ctrl.fuType === FuType.vpermu && vctrl.funct6 === "b001100".U && vctrl.funct3 =/= "b000".U
   private val isVMVnr = vctrl.funct6 === "b1001111".U && vctrl.funct3 === "b011".U
-  private val iiConds = WireInit(VecInit(Seq.fill(13)(false.B)))
+  private val iiConds = WireInit(VecInit(Seq.fill(12)(false.B)))
   dontTouch(iiConds)
 
   private val emuls = Seq.fill(3)(Wire(UInt(3.W)))
@@ -131,14 +125,31 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
   }
 
-  private def VGroupIllegal(emul:UInt, addr:UInt):Bool = {
-    val addrBits = addr.getWidth
-    val checkMask = MuxCase(0.U, Seq(
-      (emul === 1.U, "b1".U(addrBits.W)),
-      (emul === 2.U, "b11".U(addrBits.W)),
-      (emul === 3.U, "b111".U(addrBits.W)),
+  private val _emuls = Seq.fill(3)(Wire(UInt(3.W)))
+  _emuls.zip(emuls).foreach({case(a, b) =>
+    a := MuxCase(0.U, Seq(
+      (b === 1.U, 1.U),
+      (b === 2.U, 3.U),
+      (b === 3.U, 7.U),
+      (b === 4.U, 5.U) //Illegal
     ))
-    (addr & checkMask).orR || emul === 4.U
+  })
+
+  private def VGroupIllegal(idx:Int):Bool = {
+    require(idx <= 2)
+    val vg = if(idx == 2) ctrl.ldest else ctrl.lsrc(idx)
+    (vg & _emuls(idx)).orR || _emuls(idx) === 5.U
+  }
+
+  private def OverlapSrc(idx:Int):Bool = {
+    require(idx < 2)
+    val dst = ctrl.ldest
+    val src = ctrl.lsrc(idx)
+    val doCheck = dst =/= src && ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec
+    val dstEnd = dst + _emuls(2)
+    val srcEnd = src + _emuls(idx)
+    val res = dst <= src && dstEnd >= src || src <= dst && srcEnd >= dst
+    res & doCheck
   }
 
   when(io.entry.state === WqState.s_updating) {
@@ -219,9 +230,6 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       entryNext.uop.vCsrInfo.vl := (1.U << vctrl.emul(1, 0)).asUInt * ((VLEN / 8).U >> vcsr.vsew(1, 0)).asUInt
     }
 
-    val vdOverlapSrc2 = ctrl.ldest <= ctrl.lsrc(1) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(1)) && ctrl.vdWen
-    val vdOverlapSrc1 = ctrl.ldest <= ctrl.lsrc(0) && (ctrl.ldest + (entryNext.uop.uopNum(2, 0) - 1.U) >= ctrl.lsrc(0)) && ctrl.vdWen
-    def VGII(addr:UInt, idx:Int):Bool = VGroupIllegal(emuls(idx), addr)
 
     iiConds(0) := vcsr.vill
     iiConds(1) := vctrl.vm && ctrl.ldest === 0.U && ctrl.vdWen && vctrl.eewType(2) =/= EewType.scalar
@@ -236,10 +244,9 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
       (vctrlNext.emul === 3.U(3.W)) -> (vctrl.nf > 1.U),
     ))
     iiConds(8) := regularLs && !rlsEmul(6, 0).orR || indexedLs && !ilsEmul(6, 0).orR
-    iiConds(9) := (isVgatherVV || isVcompress) && (vdOverlapSrc1 || vdOverlapSrc2)
-    iiConds(10) := (isVgatherVX || isVslideup || isVmsxfOrViota) && vdOverlapSrc2
-    iiConds(11) := VGII(ctrl.lsrc(0), 0) || VGII(ctrl.lsrc(1), 1) || VGII(ctrl.ldest, 2)
-    iiConds(12) := isVgei16 && !vg16vs1Emul(6, 0).orR
+    iiConds(9) := Seq.tabulate(2)(i => OverlapSrc(i)).reduce(_ || _)
+    iiConds(10) := Seq.tabulate(3)(i => VGroupIllegal(i)).reduce(_ || _)
+    iiConds(11) := isVgei16 && !vg16vs1Emul(6, 0).orR
 
     entryNext.state := WqState.s_waiting
     entryNext.uop.cf.exceptionVec(illegalInstr) := iiConds.asUInt.orR
