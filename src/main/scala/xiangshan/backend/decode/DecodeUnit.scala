@@ -593,7 +593,7 @@ object VectorArithDecode extends DecodeConstants {
     VMSBF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VMSIF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
     VMSOF_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
-    VID_V -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VID_V -> List(SrcType.DC, SrcType.DC, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VIOTA_M -> List(SrcType.DC, SrcType.vec, SrcType.DC, FuType.vmask, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.hold, SelImm.IMM_VA),
 
     //reduction
