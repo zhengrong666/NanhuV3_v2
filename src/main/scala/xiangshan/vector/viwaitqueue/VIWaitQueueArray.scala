@@ -149,14 +149,16 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val src = ctrl.lsrc(idx)
     val dstEnd = dst + _emuls(2)
     val srcEnd = src + _emuls(idx)
+    val overlapLow = Mux(src < dst, dst, src)
+    val overlapHigh = Mux(dstEnd < srcEnd, dstEnd, srcEnd)
     val passCond0 = vctrlNext.eewType(2) === EewType.scalar
     val passCond1 = vctrlNext.eew(2) === vctrlNext.eew(idx)
-    val passCond2 = (vctrlNext.eew(2).asSInt < vctrlNext.eew(idx).asSInt) && (dst <= src && dstEnd >= src)
-    val passCond3 = (vctrlNext.eew(2).asSInt > vctrlNext.eew(idx).asSInt) && (src <= dst && srcEnd >= dst)
+    val passCond2 = (vctrlNext.eew(2).asSInt < vctrlNext.eew(idx).asSInt) && (overlapLow === src)
+    val passCond3 = (vctrlNext.eew(2).asSInt > vctrlNext.eew(idx).asSInt) && (overlapHigh === dstEnd)
     val passCond4 = !(ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec)
     val pass = passCond0 || passCond1 || passCond2 || passCond3 || passCond4
     val checkAnyway = vctrl.notOverlay && ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec
-    val isOverlap = dst <= src && dstEnd >= src || src <= dst && srcEnd >= dst
+    val isOverlap = overlapLow <= overlapHigh
     isOverlap & (!pass || checkAnyway)
   }
 
