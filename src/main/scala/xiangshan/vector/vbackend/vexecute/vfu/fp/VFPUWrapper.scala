@@ -368,7 +368,7 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
     red_uop.ctrl.lsrc(1) := 0.U
     red_uop.ctrl.ldest := 0.U
     red_uop.ctrl.vm := true.B
-    red_uop.ctrl.widen := widen
+    red_uop.ctrl.widen := false.B
     red_uop.ctrl.widen2 := widen2
     red_uop.ctrl.narrow := narrow
     red_uop.ctrl.narrow_to_1 := narrow_to_1
@@ -633,13 +633,4 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   io.out.valid := Mux(output_en, output_valid, Mux(io.out.bits.uop.ctrl.narrow_to_1, io.out.bits.uop.uopEnd & fpu(0).io.out.valid & !red_uop_busy, fpu(0).io.out.valid & !red_uop_busy))
   red_in_ready := fpu(0).io.in.ready
   red_out_valid := fpu(0).io.out.valid && output_red
-}
-
-import xiangshan._
-
-object Main extends App {
-  println("Generating hardware")
-  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
-  emitVerilog(new VFPUWrapper()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
-    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
 }
