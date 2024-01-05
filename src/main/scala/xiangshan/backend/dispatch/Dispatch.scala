@@ -26,6 +26,7 @@ import xiangshan._
 import xiangshan.backend.rob.RobEnqIO
 import xiangshan.mem.mdp._
 import xs.utils.perf.HasPerfLogging
+import xiangshan.VstartType
 
 // read rob and enqueue
 class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with HasPerfLogging {
@@ -95,7 +96,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
    */
 
   val singleStepStatus = RegInit(false.B)
-  val inst0actualOut = io.enqRob.req(0).valid
+  val inst0actualOut = io.enqRob.req(0).valid && !vstartHold
   when(io.redirect.valid) {
     singleStepStatus := false.B
   }.elsewhen(io.singleStep && io.fromRename(0)(0).fire && inst0actualOut) {
@@ -122,7 +123,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
       updatedUop(i).psrc(0) := 0.U
     }
 
-    io.lfst.req(i).valid := io.fromRename(1)(i).fire && updatedUop(i).cf.storeSetHit
+    io.lfst.req(i).valid := io.fromRename(1)(i).fire && updatedUop(i).cf.storeSetHit && !vstartHold
     io.lfst.req(i).bits.isstore := isStore(i)
     io.lfst.req(i).bits.ssid := updatedUop(i).cf.ssid
     io.lfst.req(i).bits.robIdx := updatedUop(i).robIdx // speculatively assigned in rename
@@ -190,13 +191,13 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
   // this instruction can actually dequeue: 3 conditions
   // (1) resources are ready
   // (2) previous instructions are ready
-  val thisCanActualOut = (0 until RenameWidth).map(i => !thisIsBlocked(i) && notBlockedByPrevious(i))
+  val thisCanActualOut = (0 until RenameWidth).map(i => !thisIsBlocked(i) && notBlockedByPrevious(i) && !vstartHold)
   val hasValidException = io.fromRename(1).zip(hasException).map(x => x._1.valid && x._2)
 
   // input for ROB, LSQ, Dispatch Queue
   for (i <- 0 until RenameWidth) {
     io.enqRob.needAlloc(i) := io.fromRename(3)(i).valid
-    io.enqRob.req(i).valid := io.fromRename(3)(i).valid && thisCanActualOut(i) && io.toIntDq.canAccept(1) && io.toFpDq.canAccept(1) && io.toLsDq.canAccept(1)
+    io.enqRob.req(i).valid := io.fromRename(3)(i).valid && thisCanActualOut(i) && io.toIntDq.canAccept(1) && io.toFpDq.canAccept(1) && io.toLsDq.canAccept(1) && !vstartHold
     io.enqRob.req(i).bits := updatedUop(i)
     io.enqRob.req(i).bits.ctrl.noSpecExec := updatedUop(i).ctrl.noSpecExec || CheckVstart(updatedUop(i))
     io.enqRob.req(i).bits.ctrl.blockBackward := updatedUop(i).ctrl.blockBackward || CheckVstart(updatedUop(i))
@@ -211,17 +212,17 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
     val doesNotNeedExec = io.fromRename(3)(i).bits.eliminatedMove
     io.toIntDq.needAlloc(i) := io.fromRename(0)(i).valid && isInt(i) && !doesNotNeedExec
     io.toIntDq.req(i).valid := io.fromRename(0)(i).valid && isInt(i) && !doesNotNeedExec &&
-      canEnterDpq && io.toFpDq.canAccept(2) && io.toLsDq.canAccept(2)
+      canEnterDpq && io.toFpDq.canAccept(2) && io.toLsDq.canAccept(2) && !vstartHold
     io.toIntDq.req(i).bits := updatedUop(i)
 
     io.toFpDq.needAlloc(i) := io.fromRename(1)(i).valid && isFp(i)
     io.toFpDq.req(i).valid := io.fromRename(1)(i).valid && isFp(i) &&
-      canEnterDpq && io.toLsDq.canAccept(2) && io.toIntDq.canAccept(2)
+      canEnterDpq && io.toLsDq.canAccept(2) && io.toIntDq.canAccept(2) && !vstartHold
     io.toFpDq.req(i).bits := updatedUop(i)
 
     io.toLsDq.needAlloc(i) := io.fromRename(2)(i).valid && isMem(i)
     io.toLsDq.req(i).valid := io.fromRename(2)(i).valid && isMem(i) &&
-      canEnterDpq && io.toFpDq.canAccept(2) && io.toIntDq.canAccept(2)
+      canEnterDpq && io.toFpDq.canAccept(2) && io.toIntDq.canAccept(2) && !vstartHold
     io.toLsDq.req(i).bits := updatedUop(i)
 
     XSDebug(io.toIntDq.req(i).valid, p"pc 0x${Hexadecimal(io.toIntDq.req(i).bits.cf.pc)} int index $i\n")
@@ -235,11 +236,11 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
   val hasValidInstr = VecInit(io.fromRename(3).map(_.valid)).asUInt.orR
   val hasSpecialInstr = Cat((0 until RenameWidth).map(i => io.fromRename(3)(i).valid && (isBlockBackward(i) || isNoSpecExec(i)))).orR
   for (i <- 0 until RenameWidth) {
-    io.recv(i) := thisCanActualOut(i) && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3)
-    io.fromRename(0)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3)
-    io.fromRename(1)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3)
-    io.fromRename(2)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3)
-    io.fromRename(3)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3)
+    io.recv(i) := thisCanActualOut(i) && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3) && !vstartHold
+    io.fromRename(0)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3) && !vstartHold
+    io.fromRename(1)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3) && !vstartHold
+    io.fromRename(2)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3) && !vstartHold
+    io.fromRename(3)(i).ready := !hasValidInstr || !hasSpecialInstr && io.enqRob.canAccept_dup(2) && io.toIntDq.canAccept(3) && io.toFpDq.canAccept(3) && io.toLsDq.canAccept(3) && !vstartHold
 
     XSInfo(io.recv(i) && io.fromRename(3)(i).valid,
       p"pc 0x${Hexadecimal(io.fromRename(3)(i).bits.cf.pc)}, type(${isInt(i)}, ${isFp(i)}, ${isLs(i)}), " +
