@@ -40,6 +40,7 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
   }
 
   private val wbHasException = writebackIn.filter(wb => wb._1.hasException)
+  private val wbHasNoException = writebackIn.filter(wb => !wb._1.hasException)
   println("=================WbMergeBuffer Exception Gen Port=================")
   for (wb <- wbHasException) {
     val name: String = wb._1.name
@@ -189,24 +190,67 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     table(vmbInitDelay.bits.mergeIdx.value).fflags := 0.U
   }
 
-  private def checkWbHit(wb:Valid[ExuOutput], idx:Int):Bool = {
-    wb.valid && wb.bits.uop.mergeIdx.value === idx.U
+  private def checkWbHit(wb:Valid[ExuOutput], idx:Int, reg:Boolean):Bool = {
+    if(!reg) {
+      wb.valid && wb.bits.uop.mergeIdx.value === idx.U
+    } else {
+      RegNext(wb.valid && wb.bits.uop.mergeIdx.value === idx.U)
+    }
   }
 
   for((c, idx) <- wbCnts.zipWithIndex){
-    val hitVec = allWritebacks.map(checkWbHit(_, idx))
+    val hitVecNoException = wbHasNoException.map(_._2).map(checkWbHit(_, idx, false))
+    val hitVecHasException = wbHasException.map(_._2).map(checkWbHit(_, idx, true))
+    val hitVec = hitVecNoException ++ hitVecHasException
     when(hitVec.reduce(_|_)) {
       c := c + PopCount(hitVec)
     }
   }
   for((t, idx) <- table.zipWithIndex){
-    val hitVec = allWritebacks.map(checkWbHit(_, idx))
-    when(hitVec.reduce(_|_)) {
-      t.vxsat := Mux1H(hitVec, allWritebacks.map(_.bits.vxsat)) || t.vxsat
-      t.fflags := Mux1H(hitVec, allWritebacks.map(_.bits.fflags)) | t.fflags
+    val hitVecNoException = wbHasNoException.map(_._2).map(checkWbHit(_, idx, false))
+    val hitVecHasException = wbHasException.map(_._2).map(checkWbHit(_, idx, true))
+    val hitVec = hitVecNoException ++ hitVecHasException
+
+    val vxHasNoExceptionVec = Wire(Vec(wbHasNoException.length, Bool()))
+    val ffHasNoExceptionVec = Wire(Vec(wbHasNoException.length, UInt(5.W)))
+    wbHasNoException.map(_._2).zip(hitVecNoException).zipWithIndex.foreach {
+      case ((wb, hit), i) => {
+        vxHasNoExceptionVec(i) := hit && wb.bits.vxsat
+        ffHasNoExceptionVec(i) := wb.bits.fflags & VecInit(Seq.fill(5)(hit)).asUInt
+      }
     }
-    when(hitVec.reduce(_|_)){
-      assert(t.uop.robIdx === Mux1H(hitVec, allWritebacks.map(_.bits.uop.robIdx)), s"table ${idx} robIdx not matched!")
+
+    val vxHasExceptionVec = Wire(Vec(wbHasException.length, Bool()))
+    val ffHasExceptionVec = Wire(Vec(wbHasException.length, Bool()))
+    wbHasException.map(_._2).zip(hitVecHasException).zipWithIndex.foreach {
+      case ((wb, hit), i) => {
+        vxHasExceptionVec(i) := hit && RegNext(wb.bits.vxsat)
+        ffHasExceptionVec(i) := RegNext(wb.bits.fflags) & VecInit(Seq.fill(5)(hit)).asUInt
+      }
+    }
+
+    val vxVec = vxHasExceptionVec ++ vxHasNoExceptionVec
+    val ffVec = ffHasExceptionVec ++ ffHasNoExceptionVec
+
+    when(hitVec.reduce(_||_)) {
+      t.vxsat := t.vxsat || vxVec.reduce(_||_)
+      t.fflags := t.fflags | ffVec.reduce(_|_)
+    }
+
+    wbHasException.map(_._2).zipWithIndex.foreach {
+      case (wb, i) => {
+        when(checkWbHit(wb, idx, true)) {
+          assert(t.uop.robIdx === RegNext(wb.bits.uop.robIdx), s"table ${idx} robIdx not matched!")
+        }
+      }
+    }
+
+    wbHasNoException.map(_._2).zipWithIndex.foreach {
+      case (wb, i) => {
+        when(checkWbHit(wb, idx, false)) {
+          assert(t.uop.robIdx === wb.bits.uop.robIdx, s"table ${idx} robIdx not matched!")
+        }
+      }
     }
   }
 }
