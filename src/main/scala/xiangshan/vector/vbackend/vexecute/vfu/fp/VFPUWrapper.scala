@@ -634,3 +634,12 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   red_in_ready := fpu(0).io.in.ready
   red_out_valid := fpu(0).io.out.valid && output_red
 }
+
+import xiangshan._
+
+object Main extends App {
+  println("Generating hardware")
+  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
+  emitVerilog(new VFPUWrapper()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
+    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
+}
