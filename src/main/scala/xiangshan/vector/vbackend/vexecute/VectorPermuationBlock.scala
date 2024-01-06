@@ -54,7 +54,7 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     io.rfReadPort.srf.addr := vprs.module.io.issue.bits.prs
     private val idata = RegEnable(io.rfReadPort.srf.idata, vprs.module.io.issue.bits.rsRen)
     private val fdata = RegEnable(io.rfReadPort.srf.fdata, vprs.module.io.issue.bits.rsRen)
-    private val rsData = Mux(RegNext(vprs.module.io.issue.bits.prsType === SrcType.fp), fdata, idata)
+    private val rsData = Mux(RegEnable(vprs.module.io.issue.bits.prsType === SrcType.fp, vprs.module.io.issue.bits.rsRen), fdata, idata)
 
     private val fuReady = !permutation.io.out.perm_busy
     private val issueDataReg = Reg(new VprsIssueBundle)
@@ -66,14 +66,6 @@ class VectorPermutationBlock(implicit p: Parameters) extends LazyModule{
     }
     when(vprs.module.io.issue.fire){
       issueDataReg := vprs.module.io.issue.bits
-      val actual_pvs2 = WireInit(vprs.module.io.issue.bits.pvs2)
-      when(vprs.module.io.issue.bits.uop.vctrl.isWidden && vprs.module.io.issue.bits.uop.uopNum > 1.U) {
-        actual_pvs2(0) := vprs.module.io.issue.bits.pvs2(0)
-        actual_pvs2(1) := vprs.module.io.issue.bits.pvs2(2)
-        actual_pvs2(2) := vprs.module.io.issue.bits.pvs2(4)
-        actual_pvs2(3) := vprs.module.io.issue.bits.pvs2(6)
-      }
-      issueDataReg.pvs2 := actual_pvs2
       issueScalarDataReg := rsData
     }
     vprs.module.io.issue.ready := allowPipe
