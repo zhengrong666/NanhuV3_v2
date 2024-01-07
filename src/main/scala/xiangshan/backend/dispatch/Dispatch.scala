@@ -72,7 +72,7 @@ class Dispatch(implicit p: Parameters) extends XSModule with HasPerfEvents with 
   private val updateVstartHold = io.enqRob.req.map(r => r.valid && io.enqRob.canAccept && CheckVstart(r.bits)).reduce(_ || _)
   when(updateVstartHold) {
     vstartHold := true.B
-  }.elsewhen(io.vstart === 0.U) {
+  }.elsewhen(io.vstart === 0.U || io.redirect.valid) {
     vstartHold := false.B
   }
 
