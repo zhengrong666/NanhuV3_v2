@@ -102,7 +102,7 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
   private val ilsEmul = (lmulShift << vctrl.eew(1)(1, 0)) >> vcsr.vsew(1, 0)
   private val vg16vs1Emul = (lmulShift << EewVal.hword) >> vcsr.vsew(1, 0)
   private val isVMVnr = vctrl.funct6 === "b1001111".U && vctrl.funct3 === "b011".U
-  private val iiConds = WireInit(VecInit(Seq.fill(12)(false.B)))
+  private val iiConds = WireInit(VecInit(Seq.fill(13)(false.B)))
   dontTouch(iiConds)
 
   private val emuls = Seq.fill(3)(Wire(UInt(3.W)))
@@ -257,6 +257,11 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     iiConds(9) := Seq.tabulate(2)(i => IllegalOverlapSrc(i)).reduce(_ || _)
     iiConds(10) := Seq.tabulate(3)(i => VGroupIllegal(i)).reduce(_ || _)
     iiConds(11) := isVgei16 && !vg16vs1Emul(6, 0).orR
+    iiConds(12) := (vctrl.eewType(1) === EewType.sewd2 || vctrl.eewType(1) === EewType.sewd4 || vctrl.eewType(1) === EewType.sewd8) && MuxCase(false.B, Seq(
+      (vctrl.eewType(1) === EewType.sewd2) -> (vcsr.vsew === 0.U),
+      (vctrl.eewType(1) === EewType.sewd4) -> (vcsr.vsew <= 1.U),
+      (vctrl.eewType(1) === EewType.sewd8) -> (vcsr.vsew =/= 3.U)
+    ))
 
     entryNext.state := WqState.s_waiting
     entryNext.uop.cf.exceptionVec(illegalInstr) := iiConds.asUInt.orR
