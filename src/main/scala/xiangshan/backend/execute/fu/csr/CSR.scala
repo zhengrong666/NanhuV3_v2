@@ -815,7 +815,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val wen = valid && func =/= CSROpType.jmp && (addr=/=Satp.U || satpLegalMode) && !isVset && !ignoreWrite
   val dcsrPermitted = dcsrPermissionCheck(addr, false.B, debugMode)
   val triggerPermitted = triggerPermissionCheck(addr, true.B, debugMode) // todo dmode
-  val modePermitted = csrAccessPermissionCheck(addr, false.B, priviledgeMode) && dcsrPermitted && triggerPermitted
+  val modePermitted = csrAccessPermissionCheck(addr, wen, priviledgeMode) && dcsrPermitted && triggerPermitted
   val perfcntPermitted = perfcntPermissionCheck(addr, priviledgeMode, mcounteren, scounteren)
   val vcsrPermitted = vcsrAccessPermissionCheck(addr, wen, mstatusStruct.vs)
   val fcsrPermitted = fcsrAccessPermissionCheck(addr, wen, mstatusStruct.fs)
