@@ -641,9 +641,7 @@ class Permutation(implicit p: Parameters) extends VFuModule {
     vlRemain := Mux(vslideup && (rs1_imm > vl), Mux(rs1_imm > VLEN.U, VLEN.U, rs1_imm), vl)
   }.elsewhen(reg_vcompress && rdata_update_vs_idx) {
     vlRemain := Mux(vlRemain >= (1.U << vsew_shift), vlRemain - (1.U << vsew_shift), 0.U)
-  }.elsewhen(!reg_vrgather16_sew8 && !reg_vcompress && rdata_wb_vld) {
-    vlRemain := Mux(vlRemain >= (1.U << vsew_shift), vlRemain - (1.U << vsew_shift), 0.U)
-  }.elsewhen(reg_vrgather16_sew8 && rdata_wb_vld && wb_idx(0)) {
+  }.elsewhen(!reg_vcompress && rdata_wb_vld) {
     vlRemain := Mux(vlRemain >= (1.U << vsew_shift), vlRemain - (1.U << vsew_shift), 0.U)
   }
 
@@ -736,13 +734,3 @@ class Permutation(implicit p: Parameters) extends VFuModule {
   io.out.wb_data := perm_vd
   io.out.perm_busy := perm_busy | flush
 }
-
-import xiangshan._
-
-object Main extends App {
-  println("Generating hardware")
-  val p = Parameters.empty.alterPartial({ case XSCoreParamsKey => XSCoreParameters() })
-  emitVerilog(new Permutation()(p.alterPartial({ case VFuParamsKey => VFuParameters() })), Array("--target-dir", "generated",
-    "--emission-options=disableMemRandomization,disableRegisterRandomization"))
-}
-
