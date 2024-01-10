@@ -1081,7 +1081,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   // Use: DelayN(2).io_out_bits_isInterrupt -> CSR.csrio_exception_bits_isInterrupt -> mcause
   val intrNOReg = DelayN(intrNO, 4)
   val hasIntr = csrio.exception.valid && csrio.exception.bits.isInterrupt
-  val ivmEnable = tlbBundle.priv.imode < ModeM && satp.asTypeOf(new SatpStruct).mode === 8.U
+  val ivmEnable = tlbBundle.priv.imode < ModeM
   val iexceptionPC = Mux(ivmEnable, SignExt(csrio.exception.bits.uop.cf.pc, XLEN), csrio.exception.bits.uop.cf.pc)
   val dvmEnable = tlbBundle.priv.dmode < ModeM && satp.asTypeOf(new SatpStruct).mode === 8.U
   val dexceptionPC = Mux(dvmEnable, SignExt(csrio.exception.bits.uop.cf.pc, XLEN), csrio.exception.bits.uop.cf.pc)
