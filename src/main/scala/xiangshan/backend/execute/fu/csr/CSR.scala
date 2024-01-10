@@ -564,6 +564,11 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     Cat(vcsrOld.reserved, wdata.asTypeOf(vcsrOld).vxrm, wdata.asTypeOf(vcsrOld).vxsat)
   }
 
+  def vstart_wfn(wdata: UInt): UInt = {
+    csrw_dirty_vec_state := true.B
+    wdata
+  }
+
   val vlenb   = RegInit(UInt(XLEN.W), (VLEN/8).U(XLEN.W)) //is read-only
   val vstart  = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
   //val vxrm    = RegInit(UInt(XLEN.W), 0.U(XLEN.W))
@@ -575,7 +580,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
 
   val vcsrMapping = Map(
     MaskedRegMap(Vlenb,   vlenb, MaskedRegMap.UnwritableMask, MaskedRegMap.Unwritable),
-    MaskedRegMap(Vstart,  vstart),
+    MaskedRegMap(Vstart,  vstart, wfn = vstart_wfn),
     MaskedRegMap(Vxrm,    vcsr, wfn = vxrm_wfn, rfn = vxrm_rfn),
     MaskedRegMap(Vxsat,   vcsr, wfn = vxsat_wfn(update = false), rfn = vxsat_rfn),
     MaskedRegMap(Vcsr,    vcsr, wfn = vcsr_wfn),
