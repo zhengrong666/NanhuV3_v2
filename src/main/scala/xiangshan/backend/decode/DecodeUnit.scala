@@ -534,7 +534,7 @@ object VectorArithDecode extends DecodeConstants {
     VFMAX_VV ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     
     VFMERGE_VFM -> List(SrcType.fp, SrcType.vec,  SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
-    VFMV_V_F    -> List(SrcType.fp, SrcType.vec,  SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
+    VFMV_V_F    -> List(SrcType.fp, SrcType.DC,  SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     
     VFMIN_VF ->List(SrcType.fp,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
     VFMIN_VV ->List(SrcType.vec,  SrcType.vec, SrcType.DC, FuType.vfp, FuOpType.X, N, N, Y, N, N, N, N, N, VstartType.write, SelImm.IMM_VA),
