@@ -81,8 +81,8 @@ class VTypeRenameTable(size:Int)(implicit p: Parameters) extends XSModule{
     val en = hitSeq.reduce(_|_)
     when(en) {
       entry := data
-    }.elsewhen(io.vlUpdate.valid){
-      entry.info.vl := entry.info.vl - io.vlUpdate.bits
+    }.elsewhen(io.vlUpdate.valid && io.vlUpdate.bits =/= 0.U){
+      entry.info.vl := io.vlUpdate.bits
     }
   }
 

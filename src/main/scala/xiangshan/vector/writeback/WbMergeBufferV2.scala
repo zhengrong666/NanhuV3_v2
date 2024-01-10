@@ -106,11 +106,12 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
     }
   })
 
+  private val deqTableEntry = table(cmtPtrVec.head.value)
   private val deqException = exceptionGen.io.current.valid && exceptionGen.io.current.bits.vmbIdx === cmtPtrVec.head
   private val flushSendCounter = RegInit(0.U(2.W))
   private val ff = exceptionGen.io.current.bits.ff
   private val uopIdx = exceptionGen.io.current.bits.uopIdx
-  private val sendFlush = deqException && ff && uopIdx =/= 0.U
+  private val sendFlush = deqException && ff && uopIdx =/= 0.U && wbCnts(cmtPtrVec.head.value) === deqTableEntry.uop.uopNum
   //when fault-only-first instruction has exception, block deq
   private val blockDeq = sendFlush || flushSendCounter.orR
   when(sendFlush){
