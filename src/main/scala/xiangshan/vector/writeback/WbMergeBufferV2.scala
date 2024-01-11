@@ -253,5 +253,9 @@ class WbMergeBufferV2Impl(outer: WbMergeBufferV2) extends LazyModuleImp(outer) w
         }
       }
     }
+
+    when(valids(idx)) {
+      assert(wbCnts(idx) <= t.uop.uopNum, s"Too many writebacks in vmb entry $idx!")
+    }
   }
 }
