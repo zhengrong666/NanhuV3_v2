@@ -564,7 +564,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
     Cat(vcsrOld.reserved, wdata.asTypeOf(vcsrOld).vxrm, wdata.asTypeOf(vcsrOld).vxsat)
   }
 
-  def vstart_wfn(wdata: UInt): UInt = {
+    def vstart_wfn(wdata: UInt): UInt = {
     csrw_dirty_vec_state := true.B
     wdata
   }
@@ -1056,6 +1056,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val disableInterrupt = debugMode || (dcsrData.step && !dcsrData.stepie)
   intrVecEnable.zip(ideleg.asBools).map{case(x,y) => x := priviledgedEnableDetect(y) && !disableInterrupt}
   val intrVec = Cat(debugIntr && !debugMode, (mie(11,0) & mip.asUInt & intrVecEnable.asUInt))
+  val mintrVec = intrVec & (~mideleg(12, 0))
+  val mintrNO = IntPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(mintrVec(i), i.U, sum))
   val intrBitSet = intrVec.orR
   csrio.interrupt := intrBitSet
   // Page 45 in RISC-V Privileged Specification
@@ -1069,7 +1071,8 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   mipWire.e.s := csrio.externalInterrupt.seip
 
   // interrupts
-  val intrNO = IntPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(intrVec(i), i.U, sum))
+  val allIntrNO = IntPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(intrVec(i), i.U, sum))
+  val intrNO = Mux(mintrVec.orR, mintrNO, allIntrNO)
   // Def: intrVec -> intrBitSet -> csrio.interrupt
   // T1: CSR.csrio.interrupt -> JumpCSRExeUnit -> FUBlock -> ExuBlock -> CtrlBlock
   //     -> ROB.io_csr_intrBitSet -> ROB.intrBitSetReg
@@ -1181,7 +1184,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val delegS = deleg(causeNO(3,0)) && (priviledgeMode < ModeM)
   val clearTval = !updateTval || hasIntr
 
-  private val xtvec = Mux(delegS, stvec, mtvec)
+  private val xtvec = Mux(delegS && !mintrVec.orR, stvec, mtvec)
   private val xtvecBase = xtvec(VAddrBits - 1, 2)
   // When MODE=Vectored, all synchronous exceptions into M/S mode
   // cause the pc to be set to the address in the BASE field, whereas
@@ -1238,7 +1241,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
       debugIntrEnable := false.B
     }.elsewhen (debugMode) {
       //do nothing
-    }.elsewhen (delegS) {
+    }.elsewhen (delegS && !mintrVec.orR) {
       scause := causeNO
       sepc := Mux(hasInstrPageFault || hasInstrAccessFault, iexceptionPC, dexceptionPC)
       mstatusNew.spp := priviledgeMode
