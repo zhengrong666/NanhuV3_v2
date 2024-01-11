@@ -471,7 +471,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   println("  Enable soft prefetch after reset: " + EnableSoftPrefetchAfterReset)
   println("  Enable cache error after reset: " + EnableCacheErrorAfterReset)
 
-  val srnctl = RegInit(UInt(XLEN.W), "hf".U)
+  val srnctl = RegInit(UInt(XLEN.W), "hb".U)
   csrio.customCtrl.fusion_enable := srnctl(0)
   csrio.customCtrl.svinval_enable := srnctl(1)
   csrio.customCtrl.wfi_enable := srnctl(2)
