@@ -234,7 +234,7 @@ class VRegfileTop(extraVectorRfReadPort: Int)(implicit p:Parameters) extends Laz
 
     if(vrf.io.debug.isDefined) vrf.io.debug.get.zipWithIndex.foreach { case (rp, i) => rp.addr := io.debug_vec_rat(i) }
 
-    if (env.EnableDifftest) {
+    if (env.AlwaysBasicDiff || env.EnableDifftest) {
       val difftestArchVec = DifftestModule(new DiffArchVecRegState)
       difftestArchVec.coreid := io.hartId
       vrf.io.debug.get.zipWithIndex.foreach {
