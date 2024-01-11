@@ -376,7 +376,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val scause = RegInit(UInt(XLEN.W), 0.U)
   val stval = Reg(UInt(XLEN.W))
   val sscratch = RegInit(UInt(XLEN.W), 0.U)
-  val scounteren = RegInit(UInt(XLEN.W), 0.U)
+  val scounteren = RegInit(UInt(32.W), 0.U)
 
   // sbpctl
   // Bits 0-7: {LOOP, RAS, SC, TAGE, BIM, BTB, uBTB}
