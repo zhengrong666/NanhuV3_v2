@@ -82,7 +82,7 @@ class VSetFu(implicit p: Parameters) extends XSModule with HasXSParameter {
   private val type1 = opType === CSROpType.vsetivli
   private val type2 = opType === CSROpType.vsetvli && io.in.bits.uop.ctrl.imm(19, 11).andR
   private val type3 = (opType === CSROpType.vsetvl || opType === CSROpType.vsetvli) && imm(19).asBool && !(imm(18, 11).andR)
-  private val type4 = (opType === CSROpType.vsetvl || opType === CSROpType.vsetvli) && !imm(19).asBool
+  private val type4 = !(type1 || type2 || type3)
 
   private val avl = Wire(UInt(XLEN.W))
 
