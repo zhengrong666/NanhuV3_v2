@@ -1186,7 +1186,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val delegS = deleg(causeNO(3,0)) && (priviledgeMode < ModeM)
   val clearTval = !updateTval || hasIntr
 
-  private val xtvec = Mux(delegS && !mintrVec.orR, stvec, mtvec)
+  private val xtvec = Mux(delegS, stvec, mtvec)
   private val xtvecBase = xtvec(VAddrBits - 1, 2)
   // When MODE=Vectored, all synchronous exceptions into M/S mode
   // cause the pc to be set to the address in the BASE field, whereas
@@ -1243,7 +1243,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
       debugIntrEnable := false.B
     }.elsewhen (debugMode) {
       //do nothing
-    }.elsewhen (delegS && !mintrVec.orR) {
+    }.elsewhen (delegS) {
       scause := causeNO
       sepc := Mux(hasInstrPageFault || hasInstrAccessFault, iexceptionPC, dexceptionPC)
       mstatusNew.spp := priviledgeMode
