@@ -13,7 +13,7 @@ class LSQExceptionInfo (implicit p: Parameters)  extends DCacheBundle{
   val eVec = ExceptionVec()
   val robIdx = new RobPtr
   val vaddr = UInt(VAddrBits.W)
-  val segIdx = UInt(log2Ceil(VLEN + 1).W)
+  val uopIdx = UInt(log2Ceil(VLEN + 1).W)
 }
 
 class ExceptionSelector(inNum:Int)(implicit p: Parameters) extends XSModule {
@@ -25,7 +25,7 @@ class ExceptionSelector(inNum:Int)(implicit p: Parameters) extends XSModule {
   private def GetOldest(in0: Valid[LSQExceptionInfo], in1: Valid[LSQExceptionInfo]):Valid[LSQExceptionInfo] = {
     val res = Wire(Valid(new LSQExceptionInfo))
     res.valid := in0.valid | in1.valid
-    val in0IsOlder = in0.bits.robIdx < in1.bits.robIdx || in0.bits.robIdx === in1.bits.robIdx && in0.bits.segIdx < in1.bits.segIdx
+    val in0IsOlder = in0.bits.robIdx < in1.bits.robIdx || in0.bits.robIdx === in1.bits.robIdx && in0.bits.uopIdx < in1.bits.uopIdx
 
     val sel = Cat(in1.valid, in0.valid)
     when(sel === 1.U) {

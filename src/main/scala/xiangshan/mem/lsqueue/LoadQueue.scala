@@ -521,7 +521,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     // Int load writeback will finish (if not blocked) in one cycle
     val defaultEVec = Wire(ExceptionVec())
     defaultEVec.foreach(_ := false.B)
-    val excptCond = exceptionInfo.valid && seluop.robIdx === exceptionInfo.bits.robIdx && seluop.segIdx === exceptionInfo.bits.segIdx
+    val excptCond = exceptionInfo.valid && seluop.robIdx === exceptionInfo.bits.robIdx && seluop.uopIdx === exceptionInfo.bits.uopIdx
     io.ldout(i) := DontCare
     io.ldout(i).bits.uop := seluop
     io.ldout(i).bits.uop.cf.exceptionVec := Mux(excptCond, exceptionInfo.bits.eVec, defaultEVec)
@@ -979,7 +979,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     d.bits.robIdx := RegEnable(io.loadIn(i).bits.uop.robIdx, validCond)
     d.bits.vaddr := RegEnable(io.loadIn(i).bits.vaddr, validCond)
     d.bits.eVec := RegEnable(io.loadIn(i).bits.uop.cf.exceptionVec, validCond)
-    d.bits.segIdx := RegEnable(io.loadIn(i).bits.uop.segIdx, validCond)
+    d.bits.uopIdx := RegEnable(io.loadIn(i).bits.uop.uopIdx, validCond)
     d.valid := RegNext(validCond & !ffIgnoreCond, false.B)
   })
   val mmioEvec = Wire(ExceptionVec())
@@ -989,11 +989,11 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   exceptionGen.io.mmioUpdate.bits.eVec := mmioEvec
   exceptionGen.io.mmioUpdate.bits.robIdx := io.robHead
   exceptionGen.io.mmioUpdate.bits.vaddr := dataModule.io.uncache.rdata.paddr
-  exceptionGen.io.mmioUpdate.bits.segIdx := uop(deqPtr).segIdx
+  exceptionGen.io.mmioUpdate.bits.uopIdx := uop(deqPtr).uopIdx
 
   private val ffCleanConds = io.ldout.map(lo => {
     val wbCond = lo.fire && exceptionInfo.valid
-    val excptHitCond = lo.bits.uop.segIdx === exceptionInfo.bits.segIdx && lo.bits.uop.robIdx === exceptionInfo.bits.robIdx
+    val excptHitCond = lo.bits.uop.uopIdx === exceptionInfo.bits.uopIdx && lo.bits.uop.robIdx === exceptionInfo.bits.robIdx
     val ffIgnoreCond = lo.bits.uop.vctrl.ff && lo.bits.uop.segIdx =/= 0.U
     wbCond && excptHitCond && ffIgnoreCond
   })
