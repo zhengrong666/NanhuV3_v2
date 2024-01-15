@@ -825,7 +825,7 @@ class CSR(implicit p: Parameters) extends FUWithRedirect
   val perfcntPermitted = perfcntPermissionCheck(addr, priviledgeMode, mcounteren, scounteren)
   val vcsrPermitted = vcsrAccessPermissionCheck(addr, wen, mstatusStruct.vs)
   val fcsrPermitted = fcsrAccessPermissionCheck(addr, wen, mstatusStruct.fs)
-  val permitted = Mux(addrInPerfCnt, perfcntPermitted, modePermitted) && accessPermitted && vcsrPermitted && fcsrPermitted
+  val permitted = Mux(addrInPerfCnt && addr =/= Mip.U, perfcntPermitted, modePermitted) && accessPermitted && vcsrPermitted && fcsrPermitted
   vtypeNoException := vcsrPermitted
 
   MaskedRegMap.generate(mapping, addr, rdata, wen && permitted, wdata)
