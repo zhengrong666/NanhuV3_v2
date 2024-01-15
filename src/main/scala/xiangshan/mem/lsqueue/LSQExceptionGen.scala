@@ -14,6 +14,8 @@ class LSQExceptionInfo (implicit p: Parameters)  extends DCacheBundle{
   val robIdx = new RobPtr
   val vaddr = UInt(VAddrBits.W)
   val uopIdx = UInt(log2Ceil(VLEN + 1).W)
+
+  def Deactivate(ri: RobPtr, ui: UInt):Bool = robIdx === ri && ui >= uopIdx
 }
 
 class ExceptionSelector(inNum:Int)(implicit p: Parameters) extends XSModule {

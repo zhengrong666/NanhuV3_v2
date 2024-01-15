@@ -311,7 +311,8 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     when (io.storeIn(i).valid) {
       val addr_valid = !io.storeIn(i).bits.miss
       addrvalid(stWbIndex) := addr_valid //!io.storeIn(i).bits.mmio
-      active(stWbIndex) := io.storeIn(i).bits.uop.loadStoreEnable
+      active(stWbIndex) := io.storeIn(i).bits.uop.loadStoreEnable &&
+        !(exceptionInfo.valid && exceptionInfo.bits.Deactivate(io.storeIn(i).bits.uop.robIdx, io.storeIn(i).bits.uop.uopIdx))
       v_pAddrModule.io.waddr(i) := stWbIndex
       v_pAddrModule.io.wdata_p (i) := io.storeIn(i).bits.paddr
       v_pAddrModule.io.wdata_v (i) := io.storeIn(i).bits.vaddr
@@ -577,6 +578,9 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   private val readyToDeq = Reg(Vec(StoreQueueSize, Bool()))
   for (i <- 0 until StoreQueueSize) {
     readyToDeq(i) := readyToLeave(i) & writebacked_sta(i) & writebacked_std(i) & allocated(i)
+    when(exceptionInfo.valid && allocated(i) && exceptionInfo.bits.Deactivate(uop(i).robIdx, uop(i).uopIdx)) {
+      active(i) := false.B
+    }
   }
   private val cmtVec = Seq.tabulate(CommitWidth)({idx =>
     val ptr = cmtPtrExt(idx)
@@ -616,7 +620,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   val mmioStall = mmio(rdataPtrExt(0).value)
   for (i <- 0 until StorePipelineWidth) {
     val ptr = rdataPtrExt(i).value
-    val exceptionKill = uop(ptr).robIdx === exceptionInfo.bits.robIdx && uop(ptr).uopIdx >= exceptionInfo.bits.uopIdx && exceptionInfo.valid
     dataBuffer.io.enq(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
     // Note that store data/addr should both be valid after store's commit
     assert(!dataBuffer.io.enq(i).valid || allvalid(ptr))
@@ -627,7 +630,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     dataBuffer.io.enq(i).bits.mask  := dataModule.io.rdata(i).mask
     dataBuffer.io.enq(i).bits.wline := v_pAddrModule.io.rlineflag_v_p(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
-    dataBuffer.io.enq(i).bits.active := active(ptr) && !exceptionKill
+    dataBuffer.io.enq(i).bits.active := active(ptr)
   }
 
 
