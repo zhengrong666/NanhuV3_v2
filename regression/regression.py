@@ -24,8 +24,8 @@ def main():
 	print(test_list)
 	sim_num = cfg['config']['sim_num']
 	multi_task.multi_task_run(sim_num, cfg, test_list)
-	record.sim_result_statistic(cfg, test_list)
-	
+	record.res_analysis(cfg, test_list)
+	record.only_fault_link(cfg, test_list)
 
 
 if __name__ == '__main__':
