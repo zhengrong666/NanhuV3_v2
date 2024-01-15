@@ -580,8 +580,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     */
   private val readyToDeq = Reg(Vec(StoreQueueSize, Bool()))
   for (i <- 0 until StoreQueueSize) {
-    readyToDeq(i) := readyToLeave(i) & writebacked_sta(i) & writebacked_std(i) & allocated(i) &
-      !(uop(i).robIdx === exceptionInfo.bits.robIdx && uop(i).segIdx === exceptionInfo.bits.segIdx && exceptionInfo.valid)
+    readyToDeq(i) := readyToLeave(i) & writebacked_sta(i) & writebacked_std(i) & allocated(i)
   }
   private val cmtVec = Seq.tabulate(CommitWidth)({idx =>
     val ptr = cmtPtrExt(idx)
@@ -621,6 +620,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   val mmioStall = mmio(rdataPtrExt(0).value)
   for (i <- 0 until StorePipelineWidth) {
     val ptr = rdataPtrExt(i).value
+    val exceptionKill = uop(ptr).robIdx === exceptionInfo.bits.robIdx && uop(ptr).segIdx >= exceptionInfo.bits.segIdx && exceptionInfo.valid
     dataBuffer.io.enq(i).valid := allocated(ptr) && committed(ptr) && !mmioStall
     // Note that store data/addr should both be valid after store's commit
     assert(!dataBuffer.io.enq(i).valid || allvalid(ptr))
@@ -631,7 +631,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     dataBuffer.io.enq(i).bits.mask  := dataModule.io.rdata(i).mask
     dataBuffer.io.enq(i).bits.wline := v_pAddrModule.io.rlineflag_v_p(i)
     dataBuffer.io.enq(i).bits.sqPtr := rdataPtrExt(i)
-    dataBuffer.io.enq(i).bits.active := active(ptr)
+    dataBuffer.io.enq(i).bits.active := active(ptr) && !exceptionKill
   }
 
 
