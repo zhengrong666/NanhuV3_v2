@@ -270,8 +270,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     d.bits.robIdx := RegEnable(io.storeIn(i).bits.uop.robIdx, validCond)
     d.bits.vaddr := RegEnable(io.storeIn(i).bits.vaddr, validCond)
     d.bits.segIdx := RegEnable(io.storeIn(i).bits.uop.segIdx, validCond)
-    d.bits.sqIdx := RegEnable(io.storeIn(i).bits.uop.sqIdx, validCond)
-    d.bits.lqIdx := DontCare
     d.bits.eVec := io.storeInRe(i).uop.cf.exceptionVec
     d.valid := RegNext(validCond & !io.storeIn(i).bits.miss, false.B)// miss will trigger replay, dont record excpt.
   })
@@ -283,8 +281,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   exceptionGen.io.mmioUpdate.bits.robIdx := io.rob
   exceptionGen.io.mmioUpdate.bits.vaddr := io.uncache.req.bits.addr
   exceptionGen.io.mmioUpdate.bits.segIdx := uop(deqPtr).segIdx
-  exceptionGen.io.mmioUpdate.bits.sqIdx := deqPtrExt(0)
-  exceptionGen.io.mmioUpdate.bits.lqIdx := DontCare
 
   exceptionGen.io.clean := false.B
 

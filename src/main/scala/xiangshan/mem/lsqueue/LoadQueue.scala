@@ -980,8 +980,6 @@ class LoadQueue(implicit p: Parameters) extends XSModule
     d.bits.vaddr := RegEnable(io.loadIn(i).bits.vaddr, validCond)
     d.bits.eVec := RegEnable(io.loadIn(i).bits.uop.cf.exceptionVec, validCond)
     d.bits.segIdx := RegEnable(io.loadIn(i).bits.uop.segIdx, validCond)
-    d.bits.lqIdx := RegEnable(io.loadIn(i).bits.uop.lqIdx, validCond)
-    d.bits.sqIdx := DontCare
     d.valid := RegNext(validCond & !ffIgnoreCond, false.B)
   })
   val mmioEvec = Wire(ExceptionVec())
@@ -992,8 +990,6 @@ class LoadQueue(implicit p: Parameters) extends XSModule
   exceptionGen.io.mmioUpdate.bits.robIdx := io.robHead
   exceptionGen.io.mmioUpdate.bits.vaddr := dataModule.io.uncache.rdata.paddr
   exceptionGen.io.mmioUpdate.bits.segIdx := uop(deqPtr).segIdx
-  exceptionGen.io.mmioUpdate.bits.lqIdx := deqPtrExt
-  exceptionGen.io.mmioUpdate.bits.sqIdx := DontCare
 
   private val ffCleanConds = io.ldout.map(lo => {
     val wbCond = lo.fire && exceptionInfo.valid
