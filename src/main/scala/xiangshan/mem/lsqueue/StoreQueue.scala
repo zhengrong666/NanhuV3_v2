@@ -489,7 +489,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
   switch(mmio_state) {
     is(s_idle) {
       when(RegNext(readyToLeave(deqPtr) && deqMmio && allocated(deqPtr) && allvalid(deqPtr))) {
-        mmio_state := s_req_mmio
+        mmio_state := Mux(active(deqPtr), s_req_mmio, s_wb_mmio)
       }
     }
     is(s_req_mmio) {
