@@ -531,7 +531,7 @@ class RobImp(outer: Rob)(implicit p: Parameters) extends LazyModuleImp(outer)
     }
   }
 
-  when(io.exception.valid && io.exception.bits.uop.ctrl.isVector) {
+  when(io.exception.valid && io.exception.bits.uop.ctrl.isVector && !io.exception.bits.isInterrupt) {
     vstart.valid := !selectFrontend(exceptionGen.io.state.bits.exceptionVec).reduce(_ | _)
     vstart.bits := exceptionGen.io.state.bits.vstart
   }.elsewhen(vstartSet0.asUInt.orR) {
