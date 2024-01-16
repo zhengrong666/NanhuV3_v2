@@ -299,6 +299,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     io.error.report_to_beu := false.B
     io.error.valid := false.B
   }
+  private val vmEnable = io.tlbCsr.priv.dmode <= ModeS && io.tlbCsr.satp.mode.orR
 
   private val loadUnits = Seq.fill(exuParameters.LduCnt)(Module(new LoadUnit))
   private val storeUnits = Seq.fill(exuParameters.StuCnt)(Module(new StoreUnit))
@@ -570,6 +571,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     // ld-ld violation check
     loadUnits(i).io.lsq.loadViolationQuery <> lsq.io.loadViolationQuery(i)
     loadUnits(i).io.csrCtrl       <> csrCtrl
+    loadUnits(i).io.vmEnable := RegNext(vmEnable, false.B)
     // dtlb
     loadUnits(i).io.tlb <> dtlb_reqs.take(exuParameters.LduCnt)(i)
     dtlb_reqs.take(exuParameters.LduCnt)(i).req.valid := loadUnits(i).io.tlb.req.valid && !loadUnits(i).io.tlb.req.bits.robIdx.needFlush(Pipe(redirectIn))
@@ -672,6 +674,7 @@ class MemBlockImp(outer: MemBlock) extends BasicExuBlockImp(outer)
     stu.io.rsIdx        :=  staIssues(i).rsIdx
     // NOTE: just for dtlb's perf cnt
     stu.io.isFirstIssue := staIssues(i).rsFeedback.isFirstIssue
+    stu.io.vmEnable := RegNext(vmEnable, false.B)
     stu.io.stin         <> staIssues(i).issue
     stu.io.lsq          <> lsq.io.storeIn(i)
     stu.io.lsq_replenish <> lsq.io.storeInRe(i)
