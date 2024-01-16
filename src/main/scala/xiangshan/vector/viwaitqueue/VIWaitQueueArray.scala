@@ -127,28 +127,56 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     }
   }
 
-  private val _emuls = Seq.fill(3)(Wire(UInt(3.W)))
-  _emuls.zip(emuls).foreach({case(a, b) =>
-    a := MuxCase(0.U, Seq(
-      (b === 1.U, 1.U),
-      (b === 2.U, 3.U),
-      (b === 3.U, 7.U),
-      (b === 4.U, 5.U) //Illegal
-    ))
+  private val _emuls = Seq.fill(3)(Wire(UInt(4.W)))
+  _emuls.zip(emuls).zipWithIndex.foreach({case((a, b), i) =>
+    if(i != 2) {
+      a := MuxCase(0.U, Seq(
+        (b === 1.U, 1.U),
+        (b === 2.U, 3.U),
+        (b === 3.U, 7.U),
+        (b === 4.U, 9.U) //Illegal
+      ))
+    } else {
+      when(vctrl.isLs){
+        a := MuxCase(vctrl.nf - 1.U, Seq(
+          (b === 1.U, (vctrl.nf * 2.U) - 1.U),
+          (b === 2.U, (vctrl.nf * 4.U) - 1.U),
+          (b === 3.U, (vctrl.nf * 8.U) - 1.U),
+          (b === 4.U, 9.U) //Illegal
+        ))
+      }.otherwise {
+        a := MuxCase(0.U, Seq(
+          (b === 1.U, 1.U),
+          (b === 2.U, 3.U),
+          (b === 3.U, 7.U),
+          (b === 4.U, 9.U) //Illegal
+        ))
+      }
+    }
   })
-
+  private val destCheckEmul = MuxCase(0.U, Seq(
+    (emuls(2) === 1.U, 1.U),
+    (emuls(2) === 2.U, 3.U),
+    (emuls(2) === 3.U, 7.U),
+    (emuls(2) === 4.U, 9.U) //Illegal
+  ))
   private def VGroupIllegal(idx:Int):Bool = {
     require(idx <= 2)
-    val vg = if(idx == 2) ctrl.ldest else ctrl.lsrc(idx)
-    (vg & _emuls(idx)).orR || _emuls(idx) === 5.U
+    val vgiCond = if(idx == 2) {
+      (ctrl.ldest & destCheckEmul).orR || (ctrl.ldest +& _emuls(idx) > 31.U)
+    } else {
+      (ctrl.lsrc(idx) & _emuls(idx)).orR || (ctrl.lsrc(idx) +& _emuls(idx) > 31.U)
+    }
+    dontTouch(vgiCond)
+    vgiCond || _emuls(idx) === 9.U
   }
 
   private def IllegalOverlapSrc(idx:Int):Bool = {
     require(idx < 2)
     val dst = ctrl.ldest
     val src = ctrl.lsrc(idx)
-    val dstEnd = dst + _emuls(2)
-    val srcEnd = src + _emuls(idx)
+    val dstEnd = dst +& _emuls(2)
+    val srcEnd = src +& _emuls(idx)
     val overlapLow = Mux(src < dst, dst, src)
     val overlapHigh = Mux(dstEnd < srcEnd, dstEnd, srcEnd)
     val passCond0 = vctrlNext.eewType(2) === EewType.scalar
