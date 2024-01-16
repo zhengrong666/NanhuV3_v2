@@ -156,6 +156,11 @@ class VIWakeQueueEntryUpdateNetwork(implicit p: Parameters) extends XSModule wit
     val passCond2 = (vctrlNext.eew(2).asSInt < vctrlNext.eew(idx).asSInt) && (overlapLow === src)
     val passCond3 = (vctrlNext.eew(2).asSInt > vctrlNext.eew(idx).asSInt) && (overlapHigh === dstEnd)
     val passCond4 = !(ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec)
+    dontTouch(passCond0)
+    dontTouch(passCond1)
+    dontTouch(passCond2)
+    dontTouch(passCond3)
+    dontTouch(passCond4)
     val pass = passCond0 || passCond1 || passCond2 || passCond3 || passCond4
     val checkAnyway = vctrl.notOverlay && ctrl.vdWen && ctrl.srcType(idx) === SrcType.vec
     val isOverlap = overlapLow <= overlapHigh
