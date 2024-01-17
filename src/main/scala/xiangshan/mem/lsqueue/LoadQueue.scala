@@ -826,7 +826,7 @@ class LoadQueue(implicit p: Parameters) extends XSModule
 
   // Load-Load Memory violation query
   val deqRightMask = UIntToMask.rightmask(deqPtr, LoadQueueSize)
-  (0 until LoadPipelineWidth).map(i => {
+  (0 until LoadPipelineWidth).foreach(i => {
     val ldldViolationReqValid = io.loadViolationQuery(i).req.valid
     dataModule.io.release_violation(i).paddr := io.loadViolationQuery(i).req.bits.paddr
     io.loadViolationQuery(i).req.ready := true.B
@@ -849,10 +849,16 @@ class LoadQueue(implicit p: Parameters) extends XSModule
       // addr match result is slow to generate, we RegNext() it
     })))
 //    val ldld_violation_mask = RegNext(ldld_violation_mask_gen_1).asUInt & RegNext(ldld_violation_mask_gen_2).asUInt
-    val ldld_violation_mask = RegEnable(ldld_violation_mask_gen_1,ldldViolationReqValid).asUInt & RegEnable(ldld_violation_mask_gen_2,ldldViolationReqValid).asUInt
-    dontTouch(ldld_violation_mask)
-    ldld_violation_mask.suggestName("ldldViolationMask_" + i)
-    io.loadViolationQuery(i).resp.bits.have_violation := ldld_violation_mask.orR
+    val llvMaskReg1 = RegEnable(ldld_violation_mask_gen_1, ldldViolationReqValid)
+    val llvMaskReg2 = RegEnable(ldld_violation_mask_gen_2, ldldViolationReqValid)
+    val llvMask = llvMaskReg1.asUInt & llvMaskReg2.asUInt
+    dontTouch(llvMask)
+    dontTouch(llvMaskReg1)
+    dontTouch(llvMaskReg2)
+    dontTouch(ldld_violation_mask_gen_1)
+    dontTouch(ldld_violation_mask_gen_2)
+    llvMask.suggestName("ldldViolationMask_" + i)
+    io.loadViolationQuery(i).resp.bits.have_violation := llvMask.orR
   })
 
   // "released" flag update
