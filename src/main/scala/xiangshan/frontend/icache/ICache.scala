@@ -630,8 +630,8 @@ class ICacheImp(outer: ICache) extends LazyModuleImp(outer) with HasICacheParame
   }
 
   val perfEvents = Seq(
-    ("icache_miss_cnt  ", false.B),
-    ("icache_miss_penalty", BoolStopWatch(start = false.B, stop = false.B || false.B, startHighPriority = true)),
+    ("icache_miss_cnt  ", bus.a.fire),
+    ("icache_miss_penalty", BoolStopWatch(start = bus.a.fire, stop = bus.d.fire, startHighPriority = true)),
   )
   generatePerfEvent()
 
