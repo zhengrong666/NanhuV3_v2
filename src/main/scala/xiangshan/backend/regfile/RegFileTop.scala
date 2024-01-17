@@ -50,19 +50,17 @@ class AddrGen(implicit p:Parameters) extends XSModule{
   })
   private val isStride = io.uop.ctrl.srcType(1) === SrcType.reg
   private val sew = io.uop.vctrl.eew(1)
-  private val elmOff = (io.uop.elmIdx << io.uop.vctrl.eew(2)(1, 0)).asUInt
-  private val elmBase = io.base + elmOff
 
   private val rawOffset = VrfHelper.extractElement(io.uop.segIdx, io.offset, sew, VLEN, XLEN)
   private val offsetTarget = MuxCase(0.U(XLEN.W), Seq(
-    (sew === 0.U, elmBase + ZeroExt(rawOffset(7, 0), XLEN)),
-    (sew === 1.U, elmBase + ZeroExt(rawOffset(15, 0), XLEN)),
-    (sew === 2.U, elmBase + ZeroExt(rawOffset(31, 0), XLEN)),
-    (sew === 3.U, elmBase + rawOffset),
+    (sew === 0.U, io.base + ZeroExt(rawOffset(7, 0), XLEN)),
+    (sew === 1.U, io.base + ZeroExt(rawOffset(15, 0), XLEN)),
+    (sew === 2.U, io.base + ZeroExt(rawOffset(31, 0), XLEN)),
+    (sew === 3.U, io.base + rawOffset),
   ))
 
   private val strideOffset = (io.stride.asSInt * io.uop.segIdx)(XLEN - 1, 0)
-  private val strideTarget = elmBase + strideOffset
+  private val strideTarget = io.base + strideOffset
 
   io.target := Mux(isStride, strideTarget, offsetTarget)
 }
@@ -230,7 +228,8 @@ class RegFileTop(extraScalarRfReadPort: Int)(implicit p:Parameters) extends Lazy
               exuInBundle.src(0) := intRf.io.read(intRfReadIdx).data
               exuInBundle.uop.ctrl.imm := (ZeroExt(uopIdx,12) << sew)(11, 0)
             }.otherwise{
-              val baseAddrReg = RegEnable(intRf.io.read(intRfReadIdx).data, bi.issue.valid && bi.hold)
+              val elmOff = (bi.issue.bits.uop.elmIdx << bi.issue.bits.uop.vctrl.eew(2)(1, 0)).asUInt
+              val baseAddrReg = RegEnable(intRf.io.read(intRfReadIdx).data + elmOff, bi.issue.valid && bi.hold)
               val strideReg = RegEnable(intRf.io.read(intRfReadIdx + 1).data, bi.issue.valid && bi.hold)
               val offsetReg = RegEnable(io.vectorReads(vecReadPortIdx).data, bi.issue.valid && bi.hold)
               val uopReg = RegEnable(bi.issue.bits.uop, bi.issue.valid && bi.hold)
