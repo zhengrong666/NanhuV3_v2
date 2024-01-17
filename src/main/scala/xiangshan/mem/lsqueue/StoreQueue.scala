@@ -220,6 +220,7 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
     val index = io.enq.req(i).bits.sqIdx.value
     when (canEnqueue(i) && !enqCancel(i)) {
       uop(index).robIdx := io.enq.req(i).bits.robIdx
+      uop(index).uopIdx := io.enq.req(i).bits.uopIdx
       allocated(index) := true.B
       datavalid(index) := false.B
       addrvalid(index) := false.B
@@ -322,7 +323,6 @@ class StoreQueue(implicit p: Parameters) extends XSModule with HasPerfLogging
 
       uop(stWbIndex).ctrl := io.storeIn(i).bits.uop.ctrl
       uop(stWbIndex).mergeIdx := io.storeIn(i).bits.uop.mergeIdx
-      uop(stWbIndex).uopIdx := io.storeIn(i).bits.uop.uopIdx
       uop(stWbIndex).segIdx := io.storeIn(i).bits.uop.segIdx
       uop(stWbIndex).uopNum := io.storeIn(i).bits.uop.uopNum
       uop(stWbIndex).vctrl := io.storeIn(i).bits.uop.vctrl
