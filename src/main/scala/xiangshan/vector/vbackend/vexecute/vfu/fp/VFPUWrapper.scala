@@ -6,7 +6,7 @@ import chisel3.util.experimental.decode._
 import org.chipsalliance.cde.config.Parameters
 import darecreek.exu.vfu._
 import xiangshan.Redirect
-import fudian.FloatPoint
+import fudian._
 
 class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val io = IO(new Bundle {
@@ -261,7 +261,7 @@ class VFPUWrapper(implicit p: Parameters) extends VFuModule {
   val ele64 = Wire(UInt(64.W))
   ele64 := 0.U
   when(fire) {
-    when(vfredosum_vs || vfredusum_vs || vfwredosum_vs || vfwredusum_vs) {
+    when((vfredosum_vs || vfredusum_vs || vfwredosum_vs || vfwredusum_vs) && (frm =/= RDN)) {
       when(eew.is32) {
         ele64 := Cat(~0.U(33.W), 0.U(31.W))
       }.otherwise {
