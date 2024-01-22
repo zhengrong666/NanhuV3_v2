@@ -45,7 +45,7 @@ class SimWorker:
       self.cmd += '-assert finish_maxfail=30 -assert global_finish_maxfail=10000 '
       self.cmd += '+workload=' + case + ' '
       if(dump):
-        self.cmd += '+dump-wave=fsdb'
+        self.cmd += '+dump-wave=fsdb '
     else:
       self.cmd += ' -i ' + case + ' '
       self.cmd += '+diff=' + ref + ' '
@@ -73,7 +73,7 @@ class SimWorker:
         so, _ = self.process.communicate()
         self.status = TIMEOUT
         break
-    
+
       log = so.decode("utf-8")
       if isIn('commit group', log):
         self.status = FAILED
@@ -95,7 +95,7 @@ if __name__ == "__main__":
   parser.add_argument('-T', '--timeout', default=1800, type=int, help='case time out value in seconds', metavar='')
   parser.add_argument('-R', '--report', default="regression.rpt", type=str, help='report file', metavar='')
   parser.add_argument('-d', '--cwd', default=".", type=str, help='current work dir', metavar='')
-  parser.add_argument('-w', '--wave-enable', default=False, type=bool, help='enable waveform (Not apllied for verilator)', metavar='')
+  parser.add_argument('-w', '--wave-enable', action="store_true", default=False, help='enable waveform (Not apllied for verilator)')
   parser.add_argument('-f', '--failed-list', default="failures.txt", type=str, help='failed cases list file', metavar='')
   parser.add_argument('-j', '--jobs', default=8, type=int, help='parallel jobs', metavar='')
   args = parser.parse_args()
@@ -113,18 +113,16 @@ if __name__ == "__main__":
   we = args.wave_enable
   ff = args.failed_list
   jobs = args.jobs
-  
+
   if not os.path.isfile(cl) or not os.path.isfile(ref):
     raise RuntimeError('Illegal file!')
-  
+
   if not os.path.isdir(sd):
     os.makedirs(sd)
-  else:
-    shutil.rmtree(sd)
 
   if not os.path.isdir(comp):
     raise RuntimeError('Illegal compile directory!')
-  
+
   startTime = time.time()
   caseList = []
   workerQueue = queue.Queue[SimWorker]()
@@ -140,10 +138,10 @@ if __name__ == "__main__":
   with concurrent.futures.ThreadPoolExecutor(jobs) as executor:
     results = concurrent.futures.as_completed([executor.submit(lambda x: x.run(), w) for w in workerList])
     list(tqdm(results, total=len(workerList)))
-    
+
   endTime = time.time()
   timeCostInMin = (endTime - startTime) / 60.0
-  print("All Done, Host Time Cost: " + f'{timeCostInMin:.1f}%' + " minutes\n")
+  print("All Done, Host Time Cost: " + f'{timeCostInMin:.1f}' + " minutes\n")
 
   workerList.sort(key = lambda x : x.status)
   passNum = 0
@@ -182,7 +180,7 @@ if __name__ == "__main__":
   tableStr = tabulate(table, headers="firstrow", tablefmt="grid")
 
   with open(rpt, "w") as r:
-    r.write("Host Time Cost: " + f'{timeCostInMin:.1f}%' + " minutes\n\n")
+    r.write("Host Time Cost: " + f'{timeCostInMin:.1f}' + " minutes\n\n")
     r.write(tableStr)
     r.write("\n\n")
     r.write("======================================================================\n\n")
