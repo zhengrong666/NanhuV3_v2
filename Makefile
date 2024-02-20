@@ -70,9 +70,12 @@ endif
 # emu for the release version
 RELEASE_ARGS = --fpga-platform --enable-difftest $(ARG_PREFIX)
 DEBUG_ARGS   = --enable-difftest $(ARG_PREFIX)
+PLDM_ARGS 	 = --fpga-platform --basic-difftest $(ARG_PREFIX)
 
 ifeq ($(RELEASE),1)
 override SIM_ARGS += $(RELEASE_ARGS)
+else ifeq ($(PLDM),1)
+override SIM_ARGS += $(PLDM_ARGS)
 else
 override SIM_ARGS += $(DEBUG_ARGS)
 endif
@@ -117,6 +120,8 @@ $(SIM_TOP_V): $(SCALA_FILE) $(TEST_FILE)
 		$(SIM_ARGS) --target systemverilog | tee build/make.log
 ifeq ($(VCS), 1)
 	@sed -i $$'s/$$fatal/assert(1\'b0)/g' $@
+else ifeq ($(PLDM),1)
+	@sed -i -e 's/$$fatal/$$finish/g' $@
 else
 	@sed -i -e 's/$$fatal/xs_assert(`__LINE__)/g' $@
 endif
