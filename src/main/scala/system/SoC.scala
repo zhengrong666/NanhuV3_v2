@@ -192,8 +192,8 @@ trait HaveAXI4PeripheralPort { this: BaseSoC =>
     supportsWrite = TransferSizes(1, 8),
     resources = uartDevice.reg
   )
-  val periAddrMask = (1L << PAddrBits) - 1L
-  val peripheralRange = AddressSet(0x00000000L, periAddrMask).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
+
+  val peripheralRange = AddressSet(0x00000000L, 0x7FFFFFFFL).subtract(onChipPeripheralRange).flatMap(x => x.subtract(uartRange))
   val peripheralNode = AXI4SlaveNode(Seq(AXI4SlavePortParameters(
     Seq(AXI4SlaveParameters(
       address = peripheralRange,
@@ -242,8 +242,8 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   periCx.sbSourceNode.foreach { sb2tl =>
     val sbaXbar = LazyModule(new TLXbar(TLArbiter.roundRobin))
     sbaXbar.node :=* TLRationalCrossingSink(SlowToFast) :=* sb2tl
-    l3_xbar :=* TLBuffer() :=* sbaXbar.node
-    peripheralXbar :=* TLBuffer() :=* sbaXbar.node
+    l3_banked_xbar :=* TLBuffer() :=* TLWidthWidget(1) :=* TLBuffer() :=* sbaXbar.node
+    peripheralXbar :=* TLBuffer() :=* TLWidthWidget(1) :=* TLBuffer() :=* sbaXbar.node
   }
 
   l3_in :*= TLEdgeBuffer(_ => true, Some("L3_in_buffer")) :*= l3_banked_xbar
@@ -321,7 +321,7 @@ class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCPara
   val sinkNode = TLRationalCrossingSink(FastToSlow)
   val sbSourceNode = if(debugModule.debug.dmInner.dmInner.sb2tlOpt.isDefined) {
     val res = TLRationalCrossingSource()
-    res :=* TLBuffer() :=* TLWidthWidget(1) :=* debugModule.debug.dmInner.dmInner.sb2tlOpt.get.node
+    res :=* TLBuffer() :=* debugModule.debug.dmInner.dmInner.sb2tlOpt.get.node
     Some(res)
   } else {
     None
