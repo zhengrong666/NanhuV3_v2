@@ -240,7 +240,10 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex)
   periCx.sinkNode :*= periSourceNode :*= TLBuffer() :*= peripheralXbar
   periCx.sbSourceNode.foreach { sb2tl =>
-    l3_xbar :=* TLRationalCrossingSink(SlowToFast) :=* sb2tl
+    val sbaXbar = LazyModule(new TLXbar(TLArbiter.roundRobin))
+    sbaXbar.node :=* TLRationalCrossingSink(SlowToFast) :=* sb2tl
+    l3_xbar :=* TLBuffer() :=* sbaXbar.node
+    peripheralXbar :=* TLBuffer() :=* sbaXbar.node
   }
 
   l3_in :*= TLEdgeBuffer(_ => true, Some("L3_in_buffer")) :*= l3_banked_xbar
