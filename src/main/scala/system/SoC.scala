@@ -355,6 +355,13 @@ class MiscPeriComplex(implicit p: Parameters) extends LazyModule with HasSoCPara
     debugModule.module.io.reset := rst_sync
     debugModule.module.io.debugIO.clock := clock
     debugModule.module.io.debugIO.reset := rst_sync
+    debugModule.module.io.resetCtrl.hartIsInReset.zip(debug_module_io.resetCtrl.hartIsInReset).foreach({case(dst, src) =>
+      val coreResetDelayer = Module(new ResetGen(8))
+      coreResetDelayer.dft := 0.U.asTypeOf(coreResetDelayer.dft)
+      coreResetDelayer.clock := clock
+      coreResetDelayer.reset := src.asAsyncReset
+      dst := coreResetDelayer.o_reset.asBool
+    })
     plic.module.reset := rst_sync
     clint.module.reset := rst_sync
     managerBuffer.module.reset := rst_sync
