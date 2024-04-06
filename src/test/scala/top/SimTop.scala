@@ -54,7 +54,7 @@ class SimTop(implicit p: Parameters) extends Module {
   cnt := Mux(cnt === 0.U, (freq - 1).U, cnt - 1.U)
 
   soc.rtc_clock := tick
-  soc.io.clock := clock.asBool
+  soc.io.clock := clock
   soc.io.reset := (reset.asBool || soc.io.debug_reset).asAsyncReset
   soc.io.extIntrs := simMMIO.io.interrupt.intrVec
   soc.scan_mode := false.B
