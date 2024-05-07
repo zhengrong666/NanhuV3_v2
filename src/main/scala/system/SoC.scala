@@ -54,7 +54,8 @@ case class SoCParameters
   )),
   periHalfFreq:Boolean = true,
   hasMbist:Boolean = false,
-  hasShareBus:Boolean = false
+  hasShareBus:Boolean = false,
+  hasRot:Boolean = true
 ){
   // L3 configurations
   val L3InnerBusWidth = 256
@@ -237,7 +238,7 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   private val l3_mem_pmu = BusPerfMonitor(enable = !debugOpts.FPGAPlatform)
 
   private val periSourceNode = TLRationalCrossingSource()
-  val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex(includeROT=true))
+  val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex(soc.hasRot))
   periCx.sinkNode :*= periSourceNode :*= TLBuffer() :*= peripheralXbar
   periCx.sbSourceNode.foreach { sb2tl =>
     val sbaXbar = LazyModule(new TLXbar(TLArbiter.roundRobin))
