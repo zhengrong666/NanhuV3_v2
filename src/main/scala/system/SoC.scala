@@ -309,6 +309,7 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   val plic = LazyModule(new TLPLIC(PLICParams(baseAddress = 0x3c000000L), 8))
   val clint = LazyModule(new CLINT(CLINTParams(0x38000000L), 8))
   val debugModule = LazyModule(new DebugModule(NumCores))
+  private val periCxXbar = LazyModule(new TLXbar(TLArbiter.lowestIndexFirst))
 
   val sinkNode = TLRationalCrossingSink(FastToSlow)
   val sbSourceNode = if(debugModule.debug.dmInner.dmInner.sb2tlOpt.isDefined) {
@@ -320,9 +321,10 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   }
 
   managerBuffer.node :*= sinkNode
-  plic.node :*= managerBuffer.node
-  clint.node :*= managerBuffer.node
-  debugModule.debug.node :*= managerBuffer.node
+  periCxXbar.node :*= managerBuffer.node
+  plic.node :*= periCxXbar.node
+  clint.node :*= periCxXbar.node
+  debugModule.debug.node :*= periCxXbar.node
 
   plic.intnode := intSourceNode
 
@@ -330,17 +332,17 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   val rot_rstmgr: Option[ROT_rstmgr] = if (includeROT) {
     // ROT
     val rstmgr = LazyModule(new ROT_rstmgr)
-    rstmgr.node :*= managerBuffer.node
-    Some(rstmgr) 
+    rstmgr.node :*= periCxXbar.node
+    Some(rstmgr)
   } else {
     None
   }
   
   val tlrot: Option[TLROT_blackbox] = if (includeROT) {
     val rot = LazyModule(new TLROT_blackbox)
-    rot.node := TLFragmenter(4, 8) := TLWidthWidget(8) :*= managerBuffer.node
-    rot.node_rom :*= managerBuffer.node
-    Some(rot) 
+    rot.node := TLFragmenter(4, 8) := TLWidthWidget(8) :*= periCxXbar.node
+    rot.node_rom :*= periCxXbar.node
+    Some(rot)
   } else {
     None
   }
