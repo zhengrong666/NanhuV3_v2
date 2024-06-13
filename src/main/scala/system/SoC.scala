@@ -290,8 +290,12 @@ class SoCMiscImp(outer:SoCMisc)(implicit p: Parameters) extends LazyModuleImp(ou
   } else {
     outer.periCx.module.clock := clock
   }
-  outer.periCx.module.reset := ResetGen(3, Some(dfx))
-  outer.periCx.module.dfx_reset := dfx
+  private val periCxRstSync = Module(new ResetGen)
+  periCxRstSync.reset := ResetGen(3, Some(dfx))
+  periCxRstSync.clock := outer.periCx.module.clock
+  periCxRstSync.dft := dfx
+  outer.periCx.module.reset := periCxRstSync.o_reset
+  outer.periCx.module.scanMode := dfx.scan_mode
   outer.periCx.module.rtc_clock := rtcClock
   ROMInitEn := outer.periCx.module.ROMInitEn
 }
@@ -352,15 +356,14 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   class Impl extends LazyModuleImp(this) {
     val debug_module_io: DebugModuleIO = IO(new DebugModuleIO(NumCores))
     val ext_intrs: UInt = IO(Input(UInt(NrExtIntr.W)))
-    val dfx_reset = IO(Input(new DFTResetSignals()))
+    val scanMode = IO(Input(Bool()))
     val rtc_clock = IO(Input(Bool()))
     val ROMInitEn = IO(Output(Bool()))
-    private val rst_sync = ResetGen(2, Some(dfx_reset))
     debugModule.module.io <> debug_module_io
     debugModule.module.io.clock := clock.asBool
-    debugModule.module.io.reset := rst_sync
+    debugModule.module.io.reset := reset
     debugModule.module.io.debugIO.clock := clock
-    debugModule.module.io.debugIO.reset := rst_sync
+    debugModule.module.io.debugIO.reset := reset
     debugModule.module.io.resetCtrl.hartIsInReset.zip(debug_module_io.resetCtrl.hartIsInReset).foreach({case(dst, src) =>
       val coreResetDelayer = Module(new ResetGen(8))
       coreResetDelayer.dft := 0.U.asTypeOf(coreResetDelayer.dft)
@@ -368,9 +371,6 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
       coreResetDelayer.reset := src.asAsyncReset
       dst := coreResetDelayer.o_reset.asBool
     })
-    plic.module.reset := rst_sync
-    clint.module.reset := rst_sync
-    managerBuffer.module.reset := rst_sync
 
     tlrot.foreach { rot =>
       rot.module.io_rot.clock := clock
@@ -378,17 +378,17 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
 
     rot_rstmgr.foreach { rstmgr =>
       val rst_ctrl = Wire(Bool())
-      when(dfx_reset.scan_mode) {
-        rst_ctrl := rst_sync.asBool
+      when(scanMode) {
+        rst_ctrl := reset.asBool
       }.otherwise {
-        rst_ctrl := rst_sync.asBool | rstmgr.module.io.ctrl
+        rst_ctrl := reset.asBool | rstmgr.module.io.ctrl
       }
 
       tlrot.get.module.io_rot.key0 := rstmgr.module.io.key
       tlrot.get.module.io_rot.key_valid := rstmgr.module.io.key_valid
       tlrot.get.module.io_rot.reset := rst_ctrl
       ROMInitEn := tlrot.get.module.io_rot.ROMInitEn
-      tlrot.get.module.io_rot.scan_mode := dfx_reset.scan_mode
+      tlrot.get.module.io_rot.scan_mode := scanMode
     }
 
     if (tlrot.isEmpty) {
@@ -396,7 +396,7 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
     }
 
     // sync external interrupts
-    withReset(rst_sync) {
+    withReset(reset) {
       if (includeROT) {
         require(intSourceNode.out.head._1.length == ext_intrs.getWidth + tlrot_intr)
       } else {
