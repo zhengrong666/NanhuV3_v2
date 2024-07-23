@@ -1,4 +1,18 @@
 #!/usr/bin/tclsh
+#--------------------------------------------------------------------------- 
+#             Copyright 2024 Beijing Institute of Open Source Chip
+#--------------------------------------------------------------------------- 
+# Author      : hezhiheng
+# Email       : hezhiheng@bosc.ac.cn
+# Date        : 2024-07-22
+# Version     : v1.4
+# Language    : TCL
+# Latest   Version Description v1.4 : Modify selectOH and writeMask relationship cause of sharedbus structural adjustment
+# Previous Version Description v1.3 : Support Not Fully Mapping Warning Message 
+# Previous Version Description v1.2 : Support BankAddr 
+# Previous Version Description v1.1 : Support DataJoint 
+# Previous Version Description v1.0 : sharedBusLvlibGen.tcl Buildup
+#--------------------------------------------------------------------------- 
 namespace import ::tcl::mathfunc::*
 
 proc bit {x} {
@@ -82,7 +96,7 @@ while { [gets $file_source line] >= 0 } {
         set rambits [bit $depth]
         set rambits [expr $rambits + $bankaddr_width]
         set depth   [expr $depth * (2 ** $bankaddr_width)]
-        set mask_bits [expr $width / $mask]
+        set mask_bits [expr $width / $mask / $selectOH]
         set width [expr $width / $selectOH]
         puts $file_sink_log "MemoryTemplate(mbist_$logical_mem) \{"
         puts $file_sink_log "  Algorithm : SMarchChkbvcd;"
@@ -100,25 +114,13 @@ while { [gets $file_source line] >= 0 } {
                     puts $file_sink_log "  Port([lindex $line 0]\[[expr $width - 1]:0\]) \{"
                 } elseif {[regexp {.*addr.*} [lindex $line 0]]} {
                     puts $file_sink_log "  Port([lindex $line 0]\[[expr $rambits - 1]:0\]) \{"
-                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $mask_bits != 1} {
-                    if {$selectOH >=  $mask_bits} {
-                       set data_joint 1
-                       if {[regexp {([0-9]*)x([0-9]*)} $physical_mem]} {
-                         regexp {([0-9]*)x([0-9]*)} $physical_mem sum cell_depth cell_width
-                         if {$cell_width < $width} {
-                           set data_joint [expr int(ceil(double($width)/$cell_width))]
-                         }
-                       }
-                       if {$data_joint > 1} {
-                         puts $file_sink_log "  Port([lindex $line 0]\[[expr $data_joint - 1]:0\]) \{"
-                       } else {
-                         puts $file_sink_log "  Port([lindex $line 0]) \{"
-                       }
+                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $bitwrite == "true"} {
+                    if {$mask_bits > 1} {
+                      puts $file_sink_log "  Port([lindex $line 0]\[[expr $mask_bits - 1]:0\]) \{"
                     } else {
-                       set mask_bits [expr $mask_bits / $selectOH]
-                       puts $file_sink_log "  Port([lindex $line 0]\[[expr $mask_bits - 1]:0\]) \{"
+                      puts $file_sink_log "  Port([lindex $line 0]) \{"
                     }
-                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $mask_bits == 1} {
+                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $bitwrite != "true"} {
                     continue
                 } else {
                     puts $file_sink_log "  Port([lindex $line 0]) \{"
@@ -136,25 +138,13 @@ while { [gets $file_source line] >= 0 } {
                     puts $file_sink_log "  Port([lindex $line 0]\[[expr $width - 1]:0\]) \{"                
                 } elseif {[regexp {.*addr.*} [lindex $line 0]]} {
                     puts $file_sink_log "  Port([lindex $line 0]\[[expr $rambits - 1]:0\]) \{"                
-                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $mask_bits != 1} {
-                    if {$selectOH >=  $mask_bits} {
-                       set data_joint 1
-                       if {[regexp {([0-9]*)x([0-9]*)} $physical_mem]} {
-                         regexp {([0-9]*)x([0-9]*)} $physical_mem sum cell_depth cell_width
-                         if {$cell_width < $width} {
-                           set data_joint [expr int(ceil(double($width)/$cell_width))]
-                         }
-                       }
-                       if {$data_joint > 1} {
-                         puts $file_sink_log "  Port([lindex $line 0]\[[expr $data_joint - 1]:0\]) \{"
-                       } else {
-                         puts $file_sink_log "  Port([lindex $line 0]) \{"
-                       }
+                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $bitwrite == "true"} {
+                    if {$mask_bits > 1} {
+                      puts $file_sink_log "  Port([lindex $line 0]\[[expr $mask_bits - 1]:0\]) \{"
                     } else {
-                       set mask_bits [expr $mask_bits / $selectOH]
-                       puts $file_sink_log "  Port([lindex $line 0]\[[expr $mask_bits - 1]:0\]) \{"                
+                      puts $file_sink_log "  Port([lindex $line 0]) \{"
                     }
-                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $mask_bits == 1} {
+                } elseif {[regexp {.*mask.*} [lindex $line 0]] && $bitwrite != "true"} {
                     continue
                 } else {
                     puts $file_sink_log "  Port([lindex $line 0]) \{"                
@@ -179,8 +169,8 @@ while { [gets $file_source line] >= 0 } {
         puts $file_sink_log "      CountRange \[0:[expr [expr $depth / 4] - 1]\];"
         puts $file_sink_log "    \}"
         puts $file_sink_log "  \}"
-        if {[regexp {([0-9]*)x([0-9]*)} $physical_mem]} {
-           regexp {([0-9]*)x([0-9]*)} $physical_mem sum cell_depth cell_width
+        if {[regexp {([0-9]*)[xX]([0-9]*)} $physical_mem]} {
+           regexp {([0-9]*)[xX]([0-9]*)} $physical_mem sum cell_depth cell_width
            set cell_rambits [bit $cell_depth] 
            set cell_sum [expr $cell_depth * $cell_width]
            set sum [expr $width * $depth]
@@ -229,7 +219,7 @@ while { [gets $file_source line] >= 0 } {
                        set inst_col [concat $inst_col ",u_sram_$index"]
                        incr temp
                     }
-                    puts $file_sink_log "    code($decodebits'h$temp_code) : $inst_col;"
+                    puts $file_sink_log "    code($decodebits'b$temp_code) : $inst_col;"
                     incr num_temp
                  }
                  puts $file_sink_log "  \}"
@@ -413,7 +403,7 @@ while {$count < $num_line} {
     regexp {([0-9]*)p([0-9]*)x([0-9]*)m([0-9]*)(.*)} $logical_mem sum port_num depth width mask multicycle
     set rambits [bit $depth]
     set rambits [expr $rambits + $bankaddr_width]
-    set mask_bits [expr $width / $mask]
+    set mask_bits [expr $width / $mask / $selectOH]
     set width [expr $width / $selectOH]
     if {[regexp {multicycle} $multicycle mtc]} {
        set mtc_flag true
@@ -431,22 +421,10 @@ while {$count < $num_line} {
        puts $file_sink_clu "        LogicalMemoryAddress\[[expr $rambits - 1]:0\]          : InterfaceAddress\[[expr $rambits - 1]:0\];"
     }
     if {$bitwrite == "true"} {
-       if {$selectOH >=  $mask_bits} {
-          set data_joint 1
-          if {[regexp {([0-9]*)x([0-9]*)} $physical_mem]} {
-            regexp {([0-9]*)x([0-9]*)} $physical_mem sum cell_depth cell_width
-            if {$cell_width < $width} {
-              set data_joint [expr int(ceil(double($width)/$cell_width))]
-            }
-          }
-          if {$data_joint > 1} {
-            puts $file_sink_clu "        LogicalMemoryGroupWriteEnable\[[expr $data_joint - 1]:0\]  : InterfaceGroupWriteEnable\[[expr $data_joint - 1]:0\];"
-          } else {
-            puts $file_sink_clu "        LogicalMemoryGroupWriteEnable\[0\]  : InterfaceGroupWriteEnable\[0\];"
-          }
+       if {$mask_bits > 1} {
+         puts $file_sink_clu "        LogicalMemoryGroupWriteEnable\[[expr $mask_bits - 1]:0\]  : InterfaceGroupWriteEnable\[[expr $mask_bits - 1]:0\];"
        } else {
-          set mask_bits [expr $mask_bits / $selectOH]
-          puts $file_sink_clu "        LogicalMemoryGroupWriteEnable\[[expr $mask_bits - 1]:0\]  : InterfaceGroupWriteEnable\[[expr $mask_bits - 1]:0\];"
+         puts $file_sink_clu "        LogicalMemoryGroupWriteEnable\[0\]  : InterfaceGroupWriteEnable\[0\];"
        }
     }
     puts $file_sink_clu "      }"
