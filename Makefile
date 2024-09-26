@@ -25,7 +25,7 @@ SIM_TOP_V = $(BUILD_DIR)/$(SIM_TOP).sv
 SCALA_FILE = $(shell find ./src/main/scala -name '*.scala')
 TEST_FILE = $(shell find ./src/test/scala -name '*.scala')
 MEM_GEN = ./scripts/vlsi_mem_gen
-ROT_VMEM_DIR = $(CURDIR)/src/main/resources/TLROT/test.vmem
+ROT_VMEM_DIR = $(CURDIR)/src/main/resources/TLROT/bootrom39.vmem
 
 SIMTOP  = top.SimTop
 IMAGE  ?= temp
@@ -166,7 +166,7 @@ idea:
 
 # verilator simulation
 emu: sim-verilog
-	$(MAKE) -C ./difftest emu SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) WITH_DRAMSIM3=$(WITH_DRAMSIM3) EMU_THREADS=16
+	$(MAKE) -C ./difftest emu SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) WITH_DRAMSIM3=$(WITH_DRAMSIM3) EMU_THREADS=16 EMU_TRACE=1
 
 emu_rtl: sim-verilog
 	$(MAKE) -C ./difftest emu SIM_TOP=SimTop DESIGN_DIR=$(NOOP_HOME) NUM_CORES=$(NUM_CORES) WITH_DRAMSIM3=$(WITH_DRAMSIM3) SIMDIR=1 EMU_TRACE=1 EMU_THREADS=16 REF=Spike

@@ -20,7 +20,7 @@ import org.chipsalliance.cde.config.{Field, Parameters}
 import chisel3._
 import chisel3.util._
 import device.{DebugModule, DebugModuleIO, TLPMA, TLPMAIO}
-import device_rot.{ROT_rstmgr, TLROT_blackbox}
+import device_rot.{TLROT_blackbox, RoTparam}
 import freechips.rocketchip.devices.tilelink.{CLINT, CLINTParams, DevNullParams, PLICParams, TLError, TLPLIC}
 import freechips.rocketchip.diplomacy.{AddressSet, IdRange, InModuleBody, LazyModule, LazyModuleImp, MemoryDevice, RegionType, SimpleDevice, TransferSizes}
 import freechips.rocketchip.interrupts.{IntSourceNode, IntSourcePortSimple}
@@ -53,7 +53,7 @@ case class SoCParameters
   )),
   periHalfFreq:Boolean = true,
   hasMbist:Boolean = false,
-  hasRot:Boolean = true
+  hasRoT:Boolean = true
 ){
   // L3 configurations
   val L3InnerBusWidth = 256
@@ -76,6 +76,11 @@ trait HasSoCParameter {
   val L3InnerBusWidth = soc.L3InnerBusWidth
   val L3BlockSize = soc.L3BlockSize
   val L3NBanks = soc.L3NBanks
+
+  // RoT config
+  val RoTIntrNum: Int = RoTparam.RoTIntrNum
+  val RoTBusWith: Int = RoTparam.RoTBusWith
+  val hasRoT = soc.hasRoT
 
   // on chip network configurations
   val L3OuterBusWidth = soc.L3OuterBusWidth
@@ -236,7 +241,7 @@ class SoCMisc()(implicit p: Parameters) extends BaseSoC
   private val l3_mem_pmu = BusPerfMonitor(enable = !debugOpts.FPGAPlatform)
 
   private val periSourceNode = TLRationalCrossingSource()
-  val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex(soc.hasRot))
+  val periCx: MiscPeriComplex = LazyModule(new MiscPeriComplex(soc.hasRoT))
   periCx.sinkNode :*= periSourceNode :*= TLBuffer() :*= peripheralXbar
   periCx.sbSourceNode.foreach { sb2tl =>
     val sbaXbar = LazyModule(new TLXbar(TLArbiter.roundRobin))
@@ -302,7 +307,7 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   
   val tlrot_intr: Int = if (includeROT) {
     // ROT
-    17
+    RoTIntrNum
   } else {
     0
   }
@@ -331,19 +336,19 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
   plic.intnode := intSourceNode
 
 
-  val rot_rstmgr: Option[ROT_rstmgr] = if (includeROT) {
-    // ROT
-    val rstmgr = LazyModule(new ROT_rstmgr)
-    rstmgr.node :*= periCxXbar.node
-    Some(rstmgr)
-  } else {
-    None
-  }
+  // val rot_rstmgr: Option[ROT_rstmgr] = if (includeROT) {
+  //   // ROT
+  //   val rstmgr = LazyModule(new ROT_rstmgr)
+  //   rstmgr.node :*= periCxXbar.node
+  //   Some(rstmgr)
+  // } else {
+  //   None
+  // }
   
   val tlrot: Option[TLROT_blackbox] = if (includeROT) {
     val rot = LazyModule(new TLROT_blackbox)
     rot.node := TLFragmenter(4, 8) := TLWidthWidget(8) :*= periCxXbar.node
-    rot.node_rom :*= periCxXbar.node
+    // rot.node_rom :*= periCxXbar.node
     Some(rot)
   } else {
     None
@@ -372,22 +377,23 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
 
     tlrot.foreach { rot =>
       rot.module.io_rot.clock := clock
+      rot.module.io_rot.reset := reset.asBool
+      ROMInitEn := rot.module.io_rot.ROMInitEn
+      rot.module.io_rot.scan_mode := scanMode
     }
 
-    rot_rstmgr.foreach { rstmgr =>
-      val rst_ctrl = Wire(Bool())
-      when(scanMode) {
-        rst_ctrl := reset.asBool
-      }.otherwise {
-        rst_ctrl := reset.asBool | rstmgr.module.io.ctrl
-      }
+    // rot_rstmgr.foreach { rstmgr =>
+    //   val rst_ctrl = Wire(Bool())
+    //   when(scanMode) {
+    //     rst_ctrl := reset.asBool
+    //   }.otherwise {
+    //     rst_ctrl := reset.asBool | rstmgr.module.io.ctrl
+    //   }
 
-      tlrot.get.module.io_rot.key0 := rstmgr.module.io.key
-      tlrot.get.module.io_rot.key_valid := rstmgr.module.io.key_valid
-      tlrot.get.module.io_rot.reset := rst_ctrl
-      ROMInitEn := tlrot.get.module.io_rot.ROMInitEn
-      tlrot.get.module.io_rot.scan_mode := scanMode
-    }
+    //   tlrot.get.module.io_rot.reset := reset.asBool
+    //   ROMInitEn := tlrot.get.module.io_rot.ROMInitEn
+    //   tlrot.get.module.io_rot.scan_mode := scanMode
+    // }
 
     if (tlrot.isEmpty) {
       ROMInitEn := true.B
@@ -408,7 +414,7 @@ class MiscPeriComplex(includeROT: Boolean=true)(implicit p: Parameters) extends 
 
       if (includeROT) {
         tlrot.foreach { rot =>
-          for ((plic_in, interrupt) <- intSourceNode.out.head._1.drop(ext_intrs.getWidth).zip(rot.module.io_rot.intr)) {
+          for ((plic_in, interrupt) <- intSourceNode.out.head._1.drop(ext_intrs.getWidth).zip(rot.module.io_rot.intr.asBools)) {
             plic_in := interrupt
           }
         }
